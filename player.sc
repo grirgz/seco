@@ -1,3 +1,8 @@
+(
+
+// ==========================================
+// HELP FUNCTIONS
+// ==========================================
 
 ~pedynscalar = { arg data, key, repeat = 100;
 	Prout({
@@ -24,9 +29,6 @@
 	})
 };
 
-// ==========================================
-// PLAYER FACTORY
-// ==========================================
 
 ~make_event_key_reader = { arg argName, self;
 	switch(argName, 
@@ -105,6 +107,10 @@
 	});
 };
 
+// ==========================================
+// PARAM FACTORY
+// ==========================================
+
 ~make_literal_param = { arg name, val;
 	(
 		name: name,
@@ -116,6 +122,11 @@
 		},
 		vpattern: val
 	);
+};
+
+~make_dur_param = { arg name, default_value;
+
+
 };
 
 ~make_stepline_param = { arg name, default_value;
@@ -194,10 +205,10 @@
 };
 
 ~make_control_param = { arg name, kind, default_value, spec;
-	var ret;
+	var param;
 	var bar_length = 4;
 
-	ret = (
+	param = (
 		name: name,
 		classtype: \control,
 		current_kind: kind,
@@ -207,45 +218,86 @@
 		bar_length: bar_length,
 		default_val: default_value,
 
-		seq: { arg superself;
-			(
-				//FIXME: handle others "out of range" exceptions
-				set_norm_val: { arg self, idx, norm_val;
-					superself.seq_val.wrapPut(idx, superself.spec.map(norm_val));
-					superself.changed(\val, idx % superself.seq_val.size);
-				},
-				get_norm_val: { arg self, idx;
-					superself.spec.unmap(superself.seq_val[idx]);
-				},
-				set_val: { arg self, idx, val;
-					superself.seq_val[idx] = val;
-					superself.changed(\val, idx);
-				},
-				change: { arg self, fun;
-					superself.seq_val = fun.(superself.seq_val);
-					superself.changed(\cells);
-				}
-			);
-		},
-		seq_val: if(default_value.isArray, { default_value.asList }, { (default_value ! bar_length).asList }),
+		seq: (
+			val: if(default_value.isArray, { default_value.asList }, { (default_value ! bar_length).asList }),
+			selected_cell: 0,
 
-		scalar: { arg superself;
-			(
-				set_norm_val: { arg self, norm_val;
-					superself.scalar_val = superself.spec.map(norm_val);
-					superself.changed(\val, 0);
-				},
-				set_val: { arg self, idx, val;
-					superself.scalar_val = val;
-					superself.changed(\val, 0);
-				},
-				get_norm_val: { arg self;
-					superself.spec.unmap(superself.scalar_val);
-				}
+			//FIXME: handle others "out of range" exceptions
+			set_norm_val: { arg self, norm_val, idx=nil;
+				idx = idx ?? self.selected_cell;
+				self.val.wrapPut(idx, param.spec.map(norm_val));
+				param.changed(\val, idx % self.val.size);
+			},
+			get_norm_val: { arg self, idx=nil;
+				idx = idx ?? self.selected_cell;
+				param.spec.unmap(self.val[idx]);
+			},
+			set_val: { arg self, val, idx=nil;
+				idx = idx ?? self.selected_cell;
+				self.val[idx] = val;
+				param.changed(\val, idx);
+			},
+			get_val: { arg self, idx=nil;
+				idx = idx ?? self.selected_cell;
+				self.val[idx];
+			},
 
-			);
-		},
-		scalar_val: if(default_value.isArray, { default_value[0] }, { default_value }),
+			add_cells: { arg self, cells;
+				self.val.addAll(cells);
+				self.changed(\cells);
+			},
+
+			remove_cells: { arg self, num;
+				self.val = self.val[.. (self.val.size - num - 1) ];
+				self.changed(\cells);
+			},
+
+			get_cells: { arg self; self.val },
+
+			select_cell: { arg self, idx;
+				var oldsel = self.selected_cell;
+				self.selected_cell = idx;
+				self.changed(\selected_cell, oldsel); // view clear old selection and call get_selected_cell to get new selection
+			},
+
+			get_selected_cell: { arg self;
+				self.selected_cell;
+			},
+
+			change: { arg self, fun;
+				self.val = fun.(self.val);
+				param.changed(\cells);
+			}
+		),
+
+		scalar: (
+			selected_cell: 0, // always 0
+			val: if(default_value.isArray, { default_value[0] }, { default_value }),
+
+			set_val: { arg self, val, idx=nil;
+				self.val = val;
+				param.changed(\val, 0);
+			},
+			get_val: { arg self; self.val },
+
+			set_norm_val: { arg self, norm_val;
+				self.val = param.spec.map(norm_val);
+				param.changed(\val, 0);
+			},
+			get_norm_val: { arg self;
+				param.spec.unmap(self.val);
+			},
+
+			get_cells: { arg self; [self.val] },
+
+			select_cell: { arg self, idx; },
+			get_selected_cell: { arg self; 0 },
+			add_cells: {},
+			remove_cells: {}
+		),
+
+		// preset subobject here
+		//		need a corresponding spec
 
 		select_param: { arg self;
 			self.selected = 1;
@@ -256,77 +308,49 @@
 			self.changed(\selected);
 		},
 
+		// ============== polymorph API
+
 		select_cell: { arg self, idx;
-			var oldsel;
-			[idx, self.get_cells].debug("make_control_param.select_cell idx, selg.get_cells");
-			if( idx < self.get_cells.size, {
-				oldsel = self.selected_cell;
-				self.selected_cell = idx;
-				self.changed(\selected_cell, oldsel);
-			})
+			self[self.current_kind].get_selected_cell(idx);
 		},
 
 		get_selected_cell: { arg self;
-			if(self.current_kind == \seq, {
-				self.selected_cell;
-			}, {
-				0
-			});
+			self[self.current_kind].get_selected_cell
 		},
 
 		set_norm_val: { arg self, val;
-			if(self.current_kind == \seq, {
-				self.seq.set_norm_val( self.selected_cell, val);
-			}, {
-				self.scalar.set_norm_val(val);
-			});
+			self[self.current_kind].set_norm_val(val)
 		},
 
 		set_val: { arg self, val;
-			if(self.current_kind == \seq, {
-				self.seq.set_val( self.selected_cell, val);
-			}, {
-				self.scalar.set_val(val);
-			});
+			self[self.current_kind].set_val(val)
 		},
 
 		get_norm_val: { arg self;
-			if(self.current_kind == \seq, {
-				self.seq.get_norm_val( self.selected_cell);
-			}, {
-				self.scalar.get_norm_val;
-			});
+			self[self.current_kind].get_norm_val
 		},
 
 		get_val: { arg self;
-			if(self.current_kind == \seq, {
-				self.seq_val[self.selected_cell];
-			}, {
-				self.scalar_val;
-			});
+			self[self.current_kind].get_val
 		},
 
 		add_cells: { arg self, cells;
-			self.seq_val.addAll(cells);
-			self.changed(\cells);
+			self[self.current_kind].add_cells(cells)
 		},
 
 		remove_cells: { arg self, num;
-			self.seq_val = self.seq_val[.. (self.seq_val.size - num - 1) ];
-			self.changed(\cells);
-		},
-
-		change_kind: { arg self, kind;
-			self.current_kind = kind;
-			self.changed(\kind);
+			self[self.current_kind].remove_cells(num)
 		},
 
 		get_cells: { arg self;
-			if(self.current_kind == \seq, {
-				self.seq_val;
-			}, {
-				[self.scalar_val]
-			});
+			self[self.current_kind].get_cells
+		},
+
+		// ===================
+		
+		change_kind: { arg self, kind;
+			self.current_kind = kind;
+			self.changed(\kind);
 		},
 
 		refresh: { arg self;
@@ -342,24 +366,43 @@
 				repeat.do {
 					switch( self.current_kind,
 						\scalar, {
-							self.scalar_val.yield;
+							self.scalar.val.yield;
 						},
 						\seq, {
 							idx = 0;
-							val = self.seq_val[idx];
+							val = self.seq.val[idx];
 							while( { val.notNil } , { 
 								val.yield;
 								idx = idx + 1;
-								val = self.seq_val[idx];
+								val = self.seq.val[idx];
 							});
+						},
+						\preset, {
+							self.preset.val[self.preset.selected_cell].yield
 						}
 					);
 				}
 			})
 		}
 	);
-	ret;
+	// init
+	param.preset = param.seq.deepCopy;
+	param.preset.
+
+	// \dur special case
+	if(name == \dur, {
+		param.change_kind(\preset);
+		param.preset.val = List[ 4, 2, 1, 0.5, 0.25, 0.125, 0.0625 ];
+		param.select_cell(4);
+	});
+
+	// return object
+	param;
 };
+
+// ==========================================
+// PLAYER FACTORY
+// ==========================================
 
 ~make_player_from_synthdef = { arg defname, data=nil;
 	var player;
@@ -528,3 +571,6 @@ Spec.add(\sustain, \legato);
 	);
 
 };
+
+
+)

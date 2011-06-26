@@ -63,3 +63,5 @@ s.meter
 ~a.wrapPut(44, 47)
 
 45 % ~a.size
+
+List[4,7,6].isList
