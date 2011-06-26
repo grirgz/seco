@@ -265,7 +265,7 @@ Synth(\elpsawpulse)
 
 (
 
-"/home/ggz/code/sc/seco/seco23.sc".loadDocument;
+"/home/ggz/code/sc/seco/seco.sc".loadDocument;
 
 ~synthlib = [
 	"piou",

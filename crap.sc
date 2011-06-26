@@ -45,3 +45,21 @@ s.meter
 );
 ~a.play
 )
+
+
+(
+~a = (
+	a: "plopplpopo",
+	bla: { arg self; self.a.postln }
+);
+~a.bla = { arg x; x.postln; "hhh".postln };
+~a.bla
+
+
+)
+
+
+~a = [4,7];
+~a.wrapPut(44, 47)
+
+45 % ~a.size

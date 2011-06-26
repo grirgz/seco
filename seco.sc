@@ -2,7 +2,7 @@
 var make_widget_list_view, make_header_button;
 
 "/home/ggz/code/sc/seco/keycode.sc".loadDocument;
-"/home/ggz/code/sc/seco/editplayer1.sc".loadDocument;
+"/home/ggz/code/sc/seco/editplayer.sc".loadDocument;
 
 ~toggle_value = { arg value;
 	if( value.isNil, { value = 0 });

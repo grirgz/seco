@@ -170,7 +170,7 @@
 			txt_midi_val.background = if(self.blocked == \not, { Color.green }, { Color.red });
 		},
 		recording: { arg self;
-			txt_midi_label.background = if(self.recording, { Color.red }, { Color.green(alpha:1) });
+			txt_midi_label.background = if(self.recording, { Color.red }, { Color.clear });
 		},
 		midi_key: { arg self, msg, key;
 			param_messages.val(param, msg); //TODO
