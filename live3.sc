@@ -1,4 +1,6 @@
 s.boot;
+s.gui
+s.quit
 
 
 (
@@ -18,6 +20,23 @@ s.boot;
 	SynthDef("punch_sin", punch.value(SinOsc.ar(_))).store;
 	SynthDef("punch_pulse", punch.value(LFPulse.ar(_))).store;
 	SynthDef("punch_blip", punch.value(Blip.ar(_,9))).store;
+
+
+
+SynthDef(\sinadsr, {
+    arg out=0, amp=1, gate=1, freq=440;
+    var ou;
+    var env, envctl;
+
+    env = Env.adsr(0.02, 0.2, 0.25, 0.1, 1, -4);
+    //env = Env.newClear(6);
+
+    envctl = Control.names([\adsr]).kr( env.asArray );
+    ou = SinOsc.ar( freq);
+    ou = ou * EnvGen.kr(envctl, gate, doneAction:2);
+    Out.ar(out, ou * amp)
+}).add;
+
 SynthDef("piou", {
 	arg out=0, amp=1, sustain=0.4; //TODO: is an array ok ?
 	var ou;
@@ -268,6 +287,7 @@ Synth(\elpsawpulse)
 "/home/ggz/code/sc/seco/seco.sc".loadDocument;
 
 ~synthlib = [
+	\sinadsr,
 	"piou",
 	"fm2",
 	"shh",
@@ -321,4 +341,4 @@ Archive.write("niark")
 	value: 4,
 	action: { arg self, 
 );
-~
+

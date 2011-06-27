@@ -267,3 +267,60 @@ b.setEnv(Env.adsr(0.02, 0.2, 0.25, 1, 1, 0));
 (
 b.setEditable(0,false);
 )
+
+(
+~adsr_event_to_env = { arg adsr;
+	Env.performWithEnvir(\adsr, adsr)
+};
+
+~make_env_view = { arg parent, default_val;
+	var env, view;
+
+	env = EnvelopeView(parent, Rect(0, 0, 230, 80))
+        .drawLines_(true)
+        .selectionColor_(Color.red)
+        .drawRects_(true)
+        .resize_(5)
+        .step_(0.05)
+        .thumbSize_(5);
+
+	view = (
+		env: env,
+		set_env: { arg self, env_val;
+			env.setEnv( ~adsr_event_to_env.(env_val) )
+		}
+	);
+
+	view.set_env(default_val);
+	view;
+
+};
+
+~adsr = (
+	attackTime:0.1,
+	decayTime:0.2,
+	sustainLevel:0.3,
+	releaseTime:0.4,
+	curve:0
+);
+
+)
+
+~win = Window.new;
+~make_env_view.(~win, ~adsr);
+~win.front
+
+
+Env.adsr(0.02, 0.2, 0.25, 1, 1, 0).asArray
+Env.adsr(0.02, 0.2, 0.25, 1, 1, 0).plot
+Env.new( Env.adsr(0.02, 0.2, 0.25, 1, 1, 0).asArray ).plot
+Env.adsr(0.02, 0.2, 0.25, 1, 1, 0).asArray.asEnv
+Env.adsr(0.02, 0.2, 0.25, 1, 1, 0).array
+Env.
+Env( Env.adsr(0.02, 0.2, 0.25, 1, 1, 0).asArray ).plot
+
+
+~a = { arg a, b; [a,b].postln; };
+~e = (a:4, d:7);
+~a.valueWithEnvir(~e)
+Env.performWithEnvir(\adsr, (attackTime:7))

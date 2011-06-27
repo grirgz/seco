@@ -129,6 +129,87 @@
 
 };
 
+~default_adsr = (
+	attackTime:0.1,
+	decayTime:0.2,
+	sustainLevel:0.3,
+	releaseTime:0.4,
+	curve:0
+);
+~adsr_point_order = [ \attackTime, \decayTime, \sustainLevel, \releaseTime, \curve ];
+
+~env_time = ControlSpec(0.000001, 5, 'linear', 0, 0.2, "s");
+~spec_adsr = (
+	attackTime:~env_time,
+	decayTime:~env_time,
+	sustainLevel:~env_time, //FIXME: not time
+	releaseTime:~env_time,
+	curve:ControlSpec(-9, 9, 'linear', 1, 0, "")
+);
+
+
+~adsr_event_to_env = { arg adsr;
+	Env.performWithEnvir(\adsr, adsr)
+};
+
+
+~make_adsr_param = { arg name, default_value;
+	var param;
+
+	param = (
+		val: ~default_adsr.deepCopy,
+		name: name,
+		spec: ~spec_adsr,
+		selected: 0,
+
+		select_param: { arg self;
+			self.selected = 1;
+			self.changed(\selected);
+		},
+		deselect_param: { arg self;
+			self.selected = 0;
+			self.changed(\selected);
+		},
+
+		get_val: { arg self; self.val },
+
+		get_param: { arg self, key;
+			(
+				name: key,
+				spec: param.spec[key],
+				get_norm_val: { arg kself;
+					param.spec[key].unmap( param.val[key] );
+				},
+				set_norm_val: { arg kself, val;
+					param.val[key] = param.spec[key].map( val );
+					param.changed(\val);
+				},
+				get_val: { arg kself;
+					param.val[key];
+				},
+				set_val: { arg kself, val;
+					param.val[key] = val;
+					param.changed(\val);
+				}
+			)
+		},
+
+		refresh: { arg self;
+			self.changed(\val);
+		},
+
+		vpattern: { arg self;
+
+			Pfunc({
+				[ ~adsr_event_to_env.(self.val).asArray ]
+			})
+		}
+
+	);
+	param;
+
+};
+
 ~make_stepline_param = { arg name, default_value;
 	var ret;
 	ret = (
@@ -430,12 +511,26 @@
 							control.name.debug("making player data name");
 							control.defaultValue.debug("making player data");
 							control.defaultValue.isArray.debug("making player data");
-							dict[control.name.asSymbol] = ~make_control_param.(
-								control.name.asSymbol,
-								\scalar,
-								control.defaultValue,
-								~get_spec.(control.name.asSymbol, defname)
-							)
+							switch(control.name.asSymbol,
+								\adsr, {
+									dict[control.name.asSymbol] = ~make_adsr_param.(
+										control.name.asSymbol,
+										control.defaultValue
+									)
+								},
+								'?', { 
+									// skip
+								},
+								//default
+								{ 
+									dict[control.name.asSymbol] = ~make_control_param.(
+										control.name.asSymbol,
+										\scalar,
+										control.defaultValue,
+										~get_spec.(control.name.asSymbol, defname)
+									)
+								}
+							);
 						});
 					}, {
 						dict = data.deepCopy;

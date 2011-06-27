@@ -51,8 +51,129 @@
 
 
 ~pretty_print_freq = { arg freq;
+	// learn midi frequencies, lazy you!
+	freq;
+};
+
+~make_env_view = { arg parent, default_val;
+	var env, view;
+
+	env = EnvelopeView(parent, Rect(0, 0, 230, 80))
+        .drawLines_(true)
+        .selectionColor_(Color.red)
+        .drawRects_(true)
+        .resize_(5)
+        .step_(0.05)
+        .thumbSize_(5);
+
+	view = (
+		env_view: env,
+		set_env: { arg self, env_val;
+			env.setEnv( ~adsr_event_to_env.(env_val) )
+		}
+	);
+
+	view.set_env(default_val);
+	view;
+
+};
 
 
+~make_env_control_view = { arg parent, player, param;
+
+	var row_layout,
+		bt_name,
+		bloc,
+		row_midi,
+		row_val,
+		txt_midi = Dictionary.new,
+		txt_val = Dictionary.new,
+		row_env,
+		env_cell,
+		width = 1200;
+	var param_messages, midi_messages, sc_midi, sc_param;
+	var midi = param.midi;
+
+
+
+	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+10),60));
+	row_layout.background = Color.rand;
+
+
+	bt_name = ~make_name_button.(row_layout, param.name);
+
+	bloc = GUI.vLayoutView.new(row_layout, Rect(0,0,300,60));
+	row_midi = GUI.hLayoutView.new(bloc, Rect(0,0,300,30));
+	row_val = GUI.hLayoutView.new(bloc, Rect(0,0,300,30));
+
+
+	~adsr_point_order.do { arg k;
+		k.debug("creating adsr node");
+		txt_midi[k] = GUI.staticText.new(row_midi, Rect(0,0,50,30));
+		txt_val[k] = GUI.staticText.new(row_val, Rect(0,0,50,30));
+	};
+
+	row_env = GUI.hLayoutView.new(row_layout, Rect(0,0,200,60));
+
+	env_cell = ~make_env_view.(row_env, ~default_adsr);
+
+
+
+	param_messages = Dictionary.newFrom((
+		selected: { arg self;
+			bt_name.value = self.selected;
+		},
+
+		val: { arg self, msg, cellidx;
+			var newval;
+			newval = self.get_val;
+			newval.debug("newval==============");
+			self.val.debug("val==============");
+			self.debug("self==============");
+			newval.keysValuesDo { arg k, v;
+				txt_val[k].string = v;
+			};
+			env_cell.set_env(newval);
+		},
+
+		cells: { arg self; 
+		},
+
+		kind: { arg self;
+		}
+	));
+
+	midi_messages = Dictionary.newFrom((
+		midi_val: { arg self;
+			txt_midi[self.name].string = self.mapped_val;
+		},
+		blocked: { arg self;
+			txt_midi[self.name].background = if(self.blocked == \not, { Color.green }, { Color.red });
+		}
+	));
+	
+	sc_param = SimpleController(param);
+	~init_controller.(sc_param, param_messages);
+	param.refresh.();
+
+	midi.debug("&&&&&&&&&&&&&&&&&&&&&&midi");
+	midi.col.do { arg midi_point;
+		if(midi.notNil, {
+			sc_midi = SimpleController(midi_point);
+			~init_controller.(sc_midi, midi_messages);
+			midi_point.refresh.();
+		}, {
+			"midi is nil".debug;
+		});
+	};
+
+	// remove func
+
+	row_layout.onClose = {
+		param.name.debug("=========== view closed");
+		sc_param.remove;
+		if(midi.notNil, { sc_midi.remove });
+	};
 };
 
 ~make_control_view = { arg parent, player, param, midi;
@@ -218,8 +339,10 @@
 
 	param_order.do { arg param_name, i;
 		var param = player.get_arg(param_name);
-		if([\instrument, \type, \out].includes(param_name), {
-			// skip
+		if([\adsr].includes(param_name), {
+			midi = ~midi_interface.assign_adsr(param);
+			param.midi = midi;
+			~make_env_control_view.(row_layout, player, param);
 		}, {
 			case
 				{ [\stepline].includes(param_name) } {
@@ -250,10 +373,24 @@
 
 	],
 
+	assign_adsr: { arg self, param;
+		var col = Dictionary.new;
+		var mc = ();
+		~adsr_point_order.do { arg key, i;
+			col[key] = ~make_midi_control.([\slider, i+4], self.cc_val, param.get_param(key))
+		};
+		mc.col = col;
+		mc.kind = \adsr;
+		mc.destroy = { arg self; self.col.do(_.destroy) };
+		self.registry.add( mc );
+		mc;
+	},
+
 	assign_first: { arg self, kind, param;
 		var mc;
 		mc = ~make_midi_control.([kind, self.next_free[kind]], self.cc_val, param);
 		self.registry.add( mc );
+		// FIXME: set max free val (adsr hold the last sliders)
 		self.next_free[kind] = self.next_free[kind] + 1;
 		mc;
 	},
@@ -284,6 +421,7 @@
 		ccid: nil,
 		midi_val: get_midi_val.(),
 		label: \void,
+		name: param.name,
 		recording: false,
 		mapped_val: { arg self;
 			param.spec.map(get_midi_val.())
@@ -462,7 +600,7 @@
 	"============making editplayer".debug;
 	ep = (
 		model: (
-				param_order: List[\amp, \stepline, \freq, \dur, \legato],
+				param_order: List[\amp, \dur, \legato, \adsr, \stepline, \freq],
 				param_reject: [\out, \instrument, \type, \gate, \agate],
 				max_cells: 8,
 				selected_param: 0
@@ -541,6 +679,7 @@
 
 		init: { arg editplayer, player, parent, kb_handler;
 			var param_order = editplayer.model.param_order.dump, selected;
+			var stepline_index;
 			"========== init editplayer ============".debug;
 
 			// param order
@@ -560,10 +699,14 @@
 
 			~make_editplayer_view.(parent, player, param_order);
 
+			// get stepline index
+
+			stepline_index = param_order.indexOf(\stepline);
+
 			// select param
 
 			selected = param_order.do.detectIndex { arg i; player.get_arg(i).selected == 1 };
-			editplayer.controller.select_param(selected ?? 1);
+			editplayer.controller.select_param(selected ?? stepline_index);
 
 			// midi keys
 
@@ -574,7 +717,8 @@
 			~kbnumline.do { arg kc, i; kb_handler[[0, kc]] = { 
 				editplayer.controller.select_cell((player.get_bank*editplayer.model.max_cells)+i) 
 			} };
-			~kbnumline.do { arg kc, i; kb_handler[[~modifiers.alt, kc]] = { editplayer.controller.select_param(i) } };
+			~kbnumline.do { arg kc, i; kb_handler[[~modifiers.alt, kc]] = { editplayer.controller.select_param(i+stepline_index) } };
+			~kbnumline.do { arg kc, i; kb_handler[[~modifiers.ctrl, kc]] = { editplayer.controller.select_param(i) } };
 			kb_handler[[~modifiers.alt, ~kbaalphanum["a"]]] = { editplayer.controller.change_kind(\seq) };
 			kb_handler[[~modifiers.alt, ~kbaalphanum["s"]]] = { editplayer.controller.change_kind(\scalar) };
 
