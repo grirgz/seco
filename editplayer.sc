@@ -102,6 +102,7 @@
 
 		selected_cell: { arg self, msg, oldsel;
 			
+			oldsel.debug("selected cell");
 			if(oldsel.notNil && inrange.(oldsel), {
 				btl_cells.children[ oldsel % max_cells ].value = 0;
 			});
@@ -112,7 +113,8 @@
 
 		val: { arg self, msg, cellidx;
 			var newval;
-			self.get_cells[cellidx].debug("val handler: cellidx");
+			cellidx.debug("val handler: cellidx");
+			self.get_cells[cellidx].debug("val handler: cellidx value");
 			newval = self.get_cells[cellidx];
 			~change_button_label.(btl_cells.children[ cellidx % max_cells ], newval);
 			//self.debug("val changed");
@@ -216,7 +218,7 @@
 
 	param_order.do { arg param_name, i;
 		var param = player.get_arg(param_name);
-		if([\instrument, \type, \out, \agate].includes(param_name), {
+		if([\instrument, \type, \out].includes(param_name), {
 			// skip
 		}, {
 			case
@@ -399,7 +401,7 @@
 };
 
 ~make_midi_kb_control = { arg player, editplayer;
-	var nonr, noffr, param, destroy, rec;
+	var nonr, noffr, param, destroy, rec, localknob;
 	
 	// init
 	NoteOnResponder.removeAll; // TODO: must save others responders ?
@@ -422,7 +424,7 @@
 					param.midi.changed(\recording);
 					stepline.tick = { arg obj, idx;
 						param.midi.get_midi_val.debug("set TICK");
-						param.seq.set_norm_val(idx, param.midi.get_midi_val);
+						param.seq.set_norm_val(param.midi.get_midi_val, idx);
 					};
 				});
 			});
@@ -433,9 +435,23 @@
 		nil // any value
 	);
 
+	localknob = CCResponder({ |src,chan,num,value|
+			//[src,chan,num,value].debug("==============CCResponder");
+			var param = editplayer.controller.get_selected_param;
+			if(param.midi.notNil, {
+				param.midi.set_value(value/127);
+			});
+		},
+		nil, // any source
+		nil, // any channel
+		~cakewalk.knob[8], // last knob
+		nil // any value
+	);
+
 	destroy = { 
 		nonr.remove;
 		rec.remove;
+		localknob.remove;
 	};
 	destroy;
 
@@ -447,6 +463,7 @@
 	ep = (
 		model: (
 				param_order: List[\amp, \stepline, \freq, \dur, \legato],
+				param_reject: [\out, \instrument, \type, \gate, \agate],
 				max_cells: 8,
 				selected_param: 0
 
@@ -532,7 +549,7 @@
 			player.get_args.do { arg key; if(param_order.includes(key).not, { param_order.add(key) }) };
 			param_order.deepCopy.do { arg key; if(player.get_args.includes(key).not, { param_order.remove(key) }) };
 			param_order.debug("init done param_order");
-			param_order = param_order.reject({ arg x; [\out, \instrument, \type, \gate].includes(x) });
+			param_order = param_order.reject({ arg x; editplayer.model.param_reject.includes(x) });
 			param_order.dump.debug("init done2 param_order");
 			editplayer.model.param_order.debug("init abs param_order");
 			editplayer.model.param_order = param_order;

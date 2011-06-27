@@ -244,20 +244,21 @@
 
 			add_cells: { arg self, cells;
 				self.val.addAll(cells);
-				self.changed(\cells);
+				param.changed(\cells);
 			},
 
 			remove_cells: { arg self, num;
 				self.val = self.val[.. (self.val.size - num - 1) ];
-				self.changed(\cells);
+				param.changed(\cells);
 			},
 
 			get_cells: { arg self; self.val },
 
 			select_cell: { arg self, idx;
 				var oldsel = self.selected_cell;
+				oldsel.debug("this is oldsel from seq");
 				self.selected_cell = idx;
-				self.changed(\selected_cell, oldsel); // view clear old selection and call get_selected_cell to get new selection
+				param.changed(\selected_cell, oldsel); // view clear old selection and call get_selected_cell to get new selection
 			},
 
 			get_selected_cell: { arg self;
@@ -311,7 +312,8 @@
 		// ============== polymorph API
 
 		select_cell: { arg self, idx;
-			self[self.current_kind].get_selected_cell(idx);
+			idx.debug("called select_cell!!!");
+			self[self.current_kind].select_cell(idx);
 		},
 
 		get_selected_cell: { arg self;
@@ -387,7 +389,6 @@
 	);
 	// init
 	param.preset = param.seq.deepCopy;
-	param.preset.
 
 	// \dur special case
 	if(name == \dur, {
