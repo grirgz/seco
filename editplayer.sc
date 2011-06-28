@@ -399,6 +399,7 @@
 	clear_assigned: { arg self, kind;
 		self.next_free[kind] = 0;
 		self.registry.copy.do { arg mc;
+			// FIXME: what is this kind member ?
 			if(mc.kind == kind, {
 				mc.destroy;
 				self.registry.remove(mc);
@@ -508,7 +509,19 @@
 				self.changed(\label);
 				self.ccresp = CCResponder({ |src,chan,num,value|
 						//[src,chan,num,value].debug("==============CCResponder");
-						self.set_value(value/127);
+						param.classtype.debug("ccresp current_kind");
+						param.selected.debug("ccresp selected");
+						cc_val.debug("ccresp cc_val");
+						if(param.classtype == \adsr, {
+							if(param.selected == 1, {
+								self.set_value(value/127);
+							}, {
+								// FIXME: don't update gui
+								cc_val[ccid] = value/127;	
+							});
+						}, {
+							self.set_value(value/127);
+						});
 					},
 					nil, // any source
 					nil, // any channel
@@ -532,7 +545,8 @@
 
 	sc_param = SimpleController(param);
 	sc_param.put(\kind, { arg obj; midi.block.() });
-	sc_param.put(\selected_cell, { arg obj; midi.block.() });
+	sc_param.put(\selected_cell, { arg obj; "BLOK1".debug; midi.block.() });
+	sc_param.put(\selected, { arg obj; "BLOK2".debug; midi.block.() });
 
 
 	midi;

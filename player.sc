@@ -194,6 +194,8 @@
 			(
 				name: key,
 				spec: param.spec[key],
+				classtype: { arg kself; self.classtype },
+				selected: { arg kself; self.selected },
 				get_norm_val: { arg kself;
 					param.spec[key].unmap( param.val[key] );
 				},
