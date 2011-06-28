@@ -223,7 +223,8 @@
 
 		selected_cell: { arg self, msg, oldsel;
 			
-			oldsel.debug("selected cell");
+			oldsel.debug("selected cell oldsel");
+			player.name.debug("selected_cell player.name");
 			if(oldsel.notNil && inrange.(oldsel), {
 				btl_cells.children[ oldsel % max_cells ].value = 0;
 			});

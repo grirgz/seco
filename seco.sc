@@ -179,7 +179,7 @@
 	archive_livenodepool: { arg self, projpath;
 		var dict = Dictionary.new;
 		self.model.livenodepool.keysValuesDo { arg key, val;
-			(key -> [val.defname, val.data]).writeArchive(projpath++"/livenode_"++key);
+			(key -> [val.defname, val.save_data]).writeArchive(projpath++"/livenode_"++key);
 		};
 	},
 
@@ -193,7 +193,8 @@
 			name = file.fileName;
 			if(name[..8] == "livenode_", {
 				asso = Object.readArchive(fullname);
-				pool[asso.key] = ~make_player_from_synthdef.(asso.value[0], asso.value[1]);
+				pool[asso.key] = ~make_player_from_synthdef.(asso.value[0]);
+				pool[asso.key].load_data( asso.value[1] );
 			});
 		};
 		pool;
@@ -259,6 +260,7 @@
 		livenodename.debug("livenodename");
 		self.model.livenodepool.debug("livenodepool");
 		self.model.livenodepool[newlivenodename] = self.model.livenodepool[livenodename].clone;
+		self.model.livenodepool[newlivenodename].name = newlivenodename;
 		newlivenodename;
 	},
 
@@ -274,9 +276,10 @@
 
 	copy_selection: { arg self;
 		var sel = self.state.selected;
+		sel.debug("copy_selection sel");
 		switch( sel.panel,
 			\parlive, {
-				self.state.clipboard.node = self.model.get_parlive(self.shift_address(sel));
+				self.state.clipboard.node = self.model.get_parlive(sel);
 				self.state.clipboard.kind = sel.kind;
 			},
 			\patlib, {
@@ -327,6 +330,7 @@
 				livenode_name.debug("new livenode name");
 				self.model.livenodepool.debug("livenodepool");
 				self.model.livenodepool[livenode_name].data.debug("select_libnode liveplayer.data");
+				self.model.livenodepool[livenode_name].name = livenode_name;
 
 				self.model.set_parlive(target_sel, livenode_name);
 
@@ -388,7 +392,7 @@
 								var name;
 								var sel = self.state.selected;
 								var address = self.state.selected.deepCopy;
-								address.coor.y = address.coor.y-1;
+								//address.coor.y = address.coor.y-1;
 								name = self.duplicate_livenode(self.state.clipboard.node);
 								name.debug("new node name");
 

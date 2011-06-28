@@ -138,7 +138,7 @@
 );
 ~adsr_point_order = [ \attackTime, \decayTime, \sustainLevel, \releaseTime, \curve ];
 
-~env_time = ControlSpec(0.000001, 5, 'linear', 0, 0.2, "s");
+~env_time = ControlSpec(0.000001, 5, 'exp', 0, 0.2, "s");
 ~spec_adsr = (
 	attackTime:~env_time,
 	decayTime:~env_time,
@@ -159,8 +159,25 @@
 	param = (
 		val: ~default_adsr.deepCopy,
 		name: name,
+		classtype: \adsr,
 		spec: ~spec_adsr,
 		selected: 0,
+
+		save_data: { arg self;
+			var data = ();
+			[\name, \classtype, \selected, \spec, \val].do {
+				arg key;
+				data[key] = self[key];
+			};
+			data;
+		},
+
+		load_data: { arg self, data;
+			[\name, \classtype, \selected, \spec, \val].do {
+				arg key;
+				self[key] = data[key];
+			};
+		},
 
 		select_param: { arg self;
 			self.selected = 1;
@@ -218,6 +235,34 @@
 		selected_cell: 0,
 		selected: 0,
 		default_val: default_value.asList,
+
+		save_data: { arg self;
+			var data = ();
+			[\name, \classtype, \selected, \selected_cell, \default_val].do {
+				arg key;
+				data[key] = self[key];
+			};
+			[\seq].do { arg kind;
+				data[kind] = ();
+				[\val].do { arg key;
+					data[kind][key] = self[kind][key];
+				}
+			};
+			data;
+		},
+
+		load_data: { arg self, data;
+			[\name, \classtype, \selected, \selected_cell, \default_val].do {
+				arg key;
+				self[key] = data[key];
+			};
+			[\seq].do { arg kind;
+				[\val].do { arg key;
+					 self[kind][key] = data[kind][key];
+				}
+			};
+		},
+
 		seq: (
 			val: default_value.asList,
 			change: { arg self, fun;
@@ -250,7 +295,7 @@
 		},
 
 		set_val: { arg self, val;
-			self.seq_val[ self.get_selected_cell.() ] = if(val > 1, { 1 },{ 0 });
+			self.seq.val[ self.get_selected_cell.() ] = if(val > 1, { 1 },{ 0 });
 		},
 
 		tick: { arg idx; "TICK!".postln; },
@@ -298,6 +343,33 @@
 		selected_cell: 0,
 		bar_length: bar_length,
 		default_val: default_value,
+
+		save_data: { arg self;
+			var data = ();
+			[\name, \classtype, \current_kind, \spec, \selected, \selected_cell, \default_val].do {
+				arg key;
+				data[key] = self[key];
+			};
+			[\seq, \scalar, \preset].do { arg kind;
+				data[kind] = ();
+				[\val, \selected_cell].do { arg key;
+					data[kind][key] = self[kind][key];
+				}
+			};
+			data;
+		},
+
+		load_data: { arg self, data;
+			[\name, \classtype, \current_kind, \spec, \selected, \selected_cell, \default_val].do {
+				arg key;
+				self[key] = data[key];
+			};
+			[\seq, \scalar, \preset].do { arg kind;
+				[\val, \selected_cell].do { arg key;
+					 self[kind][key] = data[kind][key];
+				}
+			};
+		},
 
 		seq: (
 			val: if(default_value.isArray, { default_value.asList }, { (default_value ! bar_length).asList }),
@@ -563,7 +635,10 @@
 		},
 
 		clone: { arg self;
-			~make_player_from_synthdef.(defname, self.data);
+			var pl;
+			pl = ~make_player_from_synthdef.(defname);
+			pl.load_data( self.save_data.deepCopy );
+			pl;
 		},
 		map_arg: { arg self, argName, val;
 			argName.debug("mapping hidden!!!");
@@ -586,8 +661,35 @@
 			self.bank;
 		},
 
+		save_data: { arg self;
+			var argdat;
+			var data = ();
+			data.args = ();
+			self.get_args.do { arg key;
+				argdat = self.get_arg(key);	
+				if([\control, \stepline, \adsr].includes(argdat.classtype), {
+					data.args[key] = argdat.save_data
+				})
+			};
+			data.name = defname;
+			data.bank = self.bank;
+			data;
+		},
+
+		load_data: { arg self, data;
+			var argdat;
+			self.get_args.do { arg key;
+				argdat = self.get_arg(key);	
+				if([\control, \stepline, \adsr].includes(argdat.classtype), {
+					argdat.load_data( data.args[key] )
+				})
+			};
+			self.bank = data.bank;
+		},
+
 		get_arg: ~player_get_arg,
 		set_arg: ~player_set_arg
+
 	);
 	player.init;
 	player;

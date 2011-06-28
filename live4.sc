@@ -345,7 +345,6 @@ SynthDef("snTrig1", { arg levSn=1, t_trig=0, sustain=0.125, panPos=0, amp=1,
 
 )
 
-
 (
 
 "/home/ggz/code/sc/seco/seco.sc".loadDocument;
@@ -389,8 +388,8 @@ SynthDef("snTrig1", { arg levSn=1, t_trig=0, sustain=0.125, panPos=0, amp=1,
 ~seq.make_gui;
 )
 (
-~seq.save_project("proj2");
-~seq.load_project("proj2");
+~seq.save_project("proj3");
+~seq.load_project("proj3");
 
 
 )
