@@ -1,0 +1,34 @@
+Important
+=====================
+
+- add a record midi notes mode
+
+Others
+=====================
+
+- enable copy of groupnodes
+- midi buttons can go back and forward in seq in editplayer
+- add livenode and groupnode effects
+- add a general mixer board
+- add a quick save/load player (to slots for example)
+- add a way to modify quant, fadetime
+- add a method to load in libnode all loaded synthdefs
+- enable saving livenode to libnode
+- add a quicksave/quickload shortcut
+- rework shortcuts to access to more features
+
+Can wait
+=====================
+
+- find use case for midi 
+	- A1-A8
+	- B1-B4
+	- bender and
+	- modulation wheel
+	- value knob
+- enable modifiying a whole seq line with knobs
+- rework the editplayer interface to separate params (like amp and legato)
+- fix make_libnode_from_patfun (broken)
+- add make_libnode_from_instr
+- add an abstraction layer between midi hardware and seco
+- refactor libnode and livenode panels to use MVC paradigm
