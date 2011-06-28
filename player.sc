@@ -508,29 +508,29 @@
 					dict = Dictionary.new;
 					if( data.isNil, {
 						desc.controls.do({ arg control;
+							var name = control.name.asSymbol;
 							control.name.debug("making player data name");
 							control.defaultValue.debug("making player data");
 							control.defaultValue.isArray.debug("making player data");
-							switch(control.name.asSymbol,
-								\adsr, {
-									dict[control.name.asSymbol] = ~make_adsr_param.(
-										control.name.asSymbol,
+							case
+								{ (name == \adsr) || name.asString.containsStringAt(0, "adsr_") } {
+									dict[name] = ~make_adsr_param.(
+										name,
 										control.defaultValue
 									)
-								},
-								'?', { 
+								}
+								{ name == '?' } { 
 									// skip
-								},
+								}
 								//default
-								{ 
-									dict[control.name.asSymbol] = ~make_control_param.(
-										control.name.asSymbol,
+								{ true } { 
+									dict[name] = ~make_control_param.(
+										name,
 										\scalar,
 										control.defaultValue,
-										~get_spec.(control.name.asSymbol, defname)
+										~get_spec.(name, defname)
 									)
-								}
-							);
+								};
 						});
 					}, {
 						dict = data.deepCopy;

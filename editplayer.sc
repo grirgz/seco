@@ -339,7 +339,7 @@
 
 	param_order.do { arg param_name, i;
 		var param = player.get_arg(param_name);
-		if([\adsr].includes(param_name), {
+		if([\adsr].includes(param_name) || param_name.asString.containsStringAt(0,"adsr_"), {
 			midi = ~midi_interface.assign_adsr(param);
 			param.midi = midi;
 			~make_env_control_view.(row_layout, player, param);
@@ -601,7 +601,7 @@
 	ep = (
 		model: (
 				param_order: List[\amp, \dur, \legato, \adsr, \stepline, \freq],
-				param_reject: [\out, \instrument, \type, \gate, \agate],
+				param_reject: [\out, \instrument, \type, \gate, \agate, \sustain, \t_trig],
 				max_cells: 8,
 				selected_param: 0
 

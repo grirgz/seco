@@ -21,25 +21,6 @@ s.quit
 	SynthDef("punch_pulse", punch.value(LFPulse.ar(_))).store;
 	SynthDef("punch_blip", punch.value(Blip.ar(_,9))).store;
 
-~synthDef_adsr = { arg name, func;
-	SynthDef(name, { arg out=0, amp=0.1, gate=1, sustain=0.5;
-		var env, envctl, ou;
-
-		env = Env.adsr(0.02, 0.2, 0.25, 0.1, 1, -4);
-		envctl = Control.names([\adsr]).kr( env.asArray );
-		ou = SynthDef.wrap(func, prependArgs:[gate, sustain]) * EnvGen.kr(envctl, gate, doneAction:2);
-		Out.ar(out, ou * amp);
-	}).add;
-};
-
-~synthDef_adsr.(\piouadsr, { arg gate, sustain, start_freq=500, end_freq=50, modf=9, modc=1;
-	var ou;
-	ou = SinOsc.ar(
-		XLine.kr(start_freq, end_freq, sustain)*SinOsc.kr(modf)+modc,
-		XLine.kr(000, 10, sustain)
-	); 
-	ou;
-});
 
 SynthDef(\sinadsr, {
     arg out=0, amp=1, gate=1, freq=440;
@@ -295,16 +276,83 @@ SynthDef("sine", { arg out=0, amp=0.1, agate=1, freq=200, nfreq=10,
 )
 Synth(\elpsawpulse)
 
+
 (
+
+~mkadsr = { arg name, gate, doneAction=0;
+	var env, envctl;
+	env = Env.adsr(0.02, 0.2, 0.25, 0.1, 1, -4);
+	envctl = Control.names([name]).kr( env.asArray );
+	EnvGen.kr(envctl, gate, doneAction:doneAction);
+};
+
+~synthDef_adsr = { arg name, func;
+	SynthDef(name, { arg out=0, amp=0.1, gate=1, sustain=0.5;
+		var env, envctl, ou;
+
+		env = Env.adsr(0.02, 0.2, 0.25, 0.1, 1, -4);
+		envctl = Control.names([\adsr]).kr( env.asArray );
+		ou = SynthDef.wrap(func, prependArgs:[gate, sustain]) * EnvGen.kr(envctl, gate, doneAction:2);
+		Out.ar(out, ou * amp);
+	}).add;
+};
+
+~synthDef_adsr.(\piouadsr, { arg gate, sustain, start_freq=500, end_freq=50, modf=9, modc=1;
+	var ou;
+	ou = SinOsc.ar(
+		XLine.kr(start_freq, end_freq, sustain)*SinOsc.kr(modf)+modc,
+		XLine.kr(000, 10, sustain)
+	); 
+	ou;
+});
+
+~synthDef_adsr.(\fm1, { arg gate, sustain, freq, modf, modw;
+	var ou;
+	SinOsc.ar( SinOsc.kr(modf) * modw + freq );
+});
+
+SynthDef("kickTrig1", { arg levK=1, t_trig=0, sustain=0.125, f1=36.7, f2=73.4, amp=1, out=0;
+	var kEnv, ou;
+	var kickEnv;
+	kickEnv = Env.linen(0.001, 1.9, 0.099, 1);
+	kEnv=EnvGen.ar(kickEnv,1, doneAction:2, timeScale: sustain, levelScale: levK);
+	ou =Pan2.ar(Decay2.kr(t_trig, 0.005, 0.45, 
+	FSinOsc.ar(f1, 0.4)+FSinOsc.ar(f2, 0.2)),0);
+ 
+	Out.ar(out, ou * kEnv * amp);
+}).store;
+
+SynthDef("snTrig1", { arg levSn=1, t_trig=0, sustain=0.125, panPos=0, amp=1,
+	out=0;
+	var snEnv, ou;
+	var snareEnv;
+	snareEnv = Env.linen(0.001, 1.9, 0.099, 1);
+	snEnv=EnvGen.ar(snareEnv,1, doneAction:2, timeScale: sustain, levelScale: levSn);
+	ou =Pan2.ar(Decay2.kr(t_trig, 0.005, 0.25, FSinOsc.ar(38.midicps, 0.3)+ 		BrownNoise.ar(0.4)),panPos);
+ 
+	Out.ar(out, ou*snEnv * amp);
+}).store;
+
+
+~synthDef_adsr.(\fmrlpf1, { arg gate, sustain, freq, modf, modw, ffreq, rq;
+	var ou, env_osc, env_fil;
+	env_osc = ~mkadsr.(\adsr_osc, gate);
+	env_fil = ~mkadsr.(\adsr_fil, gate);
+	ou = SinOsc.ar( (SinOsc.kr(modf) * modw * env_osc) + freq);
+	ou = RLPF.ar( ou, ffreq * env_fil, rq );
+});
 
 
 )
+
 
 (
 
 "/home/ggz/code/sc/seco/seco.sc".loadDocument;
 
 ~synthlib = [
+	\fmrlpf1,
+	\fm1,
 	\sinadsr,
 	\piouadsr,
 	"piou",

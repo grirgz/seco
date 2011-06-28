@@ -324,3 +324,141 @@ Env( Env.adsr(0.02, 0.2, 0.25, 1, 1, 0).asArray ).plot
 ~e = (a:4, d:7);
 ~a.valueWithEnvir(~e)
 Env.performWithEnvir(\adsr, (attackTime:7))
+
+
+~a = (plop: { arg self; self.postln; "tro".postln });
+~b = Dictionary[ \plop -> { arg self; self.postln; "dess".postln } ]
+~b[\plop].value
+~b[\plop]
+~a[\plop].value(~a)
+
+~c = ~b.as(Event)
+~c.plop
+
+
+
+(
+SynthDef(\ploo, { arg out, sustain=1, gate=1;
+	var ou;
+	ou = SinOsc.ar(XLine.kr(10,500, sustain*2, doneAction:2));
+	//ou = SinOsc.ar(300);
+
+	
+	Out.ar(out, ou * EnvGen.kr(Env.cutoff(0.1), gate, doneAction:2));
+
+}).add;
+)
+
+
+(
+Pbind(
+	\instrument, \ploo,
+	\legato, 0.1,
+	\dur, 1.1
+).play
+
+)freq
+
+
+
+(
+var winenv;
+// a custom envelope 
+winenv = Env([0, 1, 0], [0.5, 0.5], [8, -8]);
+z = Buffer.sendCollection(s, winenv.discretize, 1);
+
+SynthDef(\sin_grain_test, {arg gate = 1, amp = 1, envbuf;
+        var pan, env, freqdev;
+        // use mouse x to control panning
+        pan = MouseX.kr(-1, 1);
+        // use WhiteNoise and mouse y to control deviation from center pitch
+        freqdev = WhiteNoise.kr(MouseY.kr(0, 400));
+        env = EnvGen.kr(
+                Env([0, 1, 0], [1, 1], \sin, 1),
+                gate,
+                levelScale: amp,
+                doneAction: 2);
+        Out.ar(0,
+                GrainSin.ar(2, Dust.kr(10), 0.1, 440 + freqdev, pan, envbuf) * env)
+        }).send(s);
+
+)
+s.scope
+// use built-in env
+x = Synth(\sin_grain_test, [\envbuf, -1])
+
+// switch to the custom env
+x.set(\envbuf, z)
+x.set(\envbuf, -1);
+
+x.set(\gate, 0);
+
+(
+Ndef(\plop, { 
+	var ou;
+	ou = GrainSin.ar(2, Dust.kr(1), 0.01, WhiteNoise.kr(1)+SinOsc.kr(10+SinOsc.kr(1)*5)*240 , 0, -1) ;
+	ou = ou + GrainSin.ar(2, Dust.kr(1), 0.1, SinOsc.kr(100+SinOsc.kr(1)*5)*440 , 0, -1) ;
+	10.do { arg i; ou = ou + GrainSin.ar(2, Dust.kr(i), 0.1, SinOsc.kr(100+SinOsc.kr(1)*5)*440 , 0, -1) } ;
+	ou = LPF.ar(ou, SinOsc.kr(2)*100+400);
+})
+)
+
+(
+Ndef(\plop, { 
+	var ou, tri, tri2;
+	ou = SinOsc.ar( 200*[0.98, 0.85, 1.14, 4.54, 3.42] );
+	tri = Dust.kr(5);
+	tri2 = Dust.kr(SinOsc.kr(1)*5+15);
+	ou = SinOsc.ar(200*WhiteNoise.kr(0.1)+TRand.kr(50,400, tri2)) * EnvGen.kr( Env([600, 700, 100, 200]/1000, [0.4, 0.2, 0.5], 'lin'), gate:tri ) * 2;
+	ou = Pan2.ar(ou, SinOsc.kr(TRand.kr(0.1,10,tri)));
+})
+)
+
+
+s.sendMsg("/b_allocRead", 0, "sounds/a11wlk01.wav");
+
+(
+Ndef(\plop, {
+	var ou , tri;
+	tri = Impulse.kr(8);
+	ou = BufRd.ar(1, 0, SinOsc.ar(0.1) * BufFrames.ir(0));
+	ou = Latch.ar(ou, tri);
+})
+
+)
+
+(
+Ndef(\plop, {
+	var ou , tri, la;
+	tri = Impulse.kr(8);
+	la = Latch.ar(WhiteNoise.kr(1), tri) * 2;
+	ou = SinOsc.ar(200+la);
+})
+
+)
+Ndef(\plop).play
+
+Server.internal.boot;
+(
+// used to lag pitch
+{
+        SinOsc.ar(              // sine wave
+                Ramp.kr(                        // lag the modulator
+                        LFPulse.kr(4, 0, 0.5, 50, 400), // frequency modulator
+                        Line.kr(0, 1, 15)                               // modulate lag time
+                ), 
+                0,      // phase
+                0.3     // sine amplitude
+        ) 
+}.scope;
+)
+
+// Compare
+(
+var pulse;
+{
+        pulse = LFPulse.kr(8.772);
+        Out.kr(0,[Ramp.kr(pulse, 0.025), Lag.kr(pulse, 0.025), pulse]);
+}.scope;
+)
+LADPSA.listPlugins;
