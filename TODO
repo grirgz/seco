@@ -1,15 +1,19 @@
 Important
 =====================
 
+- fix adsr midi edit
 - add a record midi notes mode
+- enable copy/link of groupnodes
+- add a general mixer board
+- add livenode and groupnode effects
 
 Others
 =====================
 
-- enable copy of groupnodes
+- save projects in own parent dir
+- save working files within project dir
+- can save in existing project
 - midi buttons can go back and forward in seq in editplayer
-- add livenode and groupnode effects
-- add a general mixer board
 - add a quick save/load player (to slots for example)
 - add a way to modify quant, fadetime
 - add a method to load in libnode all loaded synthdefs
