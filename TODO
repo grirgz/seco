@@ -20,6 +20,7 @@ Others
 - enable saving livenode to libnode
 - add a quicksave/quickload shortcut
 - rework shortcuts to access to more features
+- undo values changes in editplayer
 
 Can wait
 =====================
@@ -36,3 +37,31 @@ Can wait
 - add make_libnode_from_instr
 - add an abstraction layer between midi hardware and seco
 - refactor libnode and livenode panels to use MVC paradigm
+
+internal TODO and FIXME
+=====================
+
+editplayer.sc:	var max_cells = 8; // FIXME: already defined in editplayer
+editplayer.sc:	CCResponder.removeAll; // FIXME: must not remove other useful CC
+editplayer.sc:		// FIXME: set max free val (adsr hold the last sliders)
+player.sc:	sustainLevel:~env_time, //FIXME: not time
+player.sc:			//FIXME: handle others "out of range" exceptions
+seco.sc:					// FIXME: when some other shortcults are set to kbnumpad
+editplayer.sc:			param_messages.val(param, msg); //TODO
+editplayer.sc:	NoteOnResponder.removeAll; // TODO: must save others responders ?
+keycode.sc:	//TODO: only for Ctrl (262144) modifier, do others
+live1.sc:// TODO: j'ai changé les fonctions de gui pour decaler mais j'ai oublié que fallais decaler uniquement pour \parlive...
+live2.sc:	arg out=0, amp=1, sustain=0.4; //TODO: is an array ok ?
+live3.sc:	arg out=0, amp=1, sustain=0.4; //TODO: is an array ok ?
+live4.sc:	arg out=0, amp=1, sustain=0.4; //TODO: is an array ok ?
+player.sc:			//TODO: handle t_trig arguments
+player.sc:			// TODO: how to get synthdef spec
+seco.sc:		// TODO: implement offset
+seco.sc:			// TODO: use whole ccid
+seco.sc:			// TODO: use whole ccid
+seco.sc:			kind: \node // TODO:
+seco.sc:		// TODO: handle name collision
+seco.sc:		// TODO: make it real
+seco.sc:				// TODO: modify name when pasting from patlib to parlive
+seco.sc:								// TODO: implement trashcan
+seco.sc:								// TODO: implement trashcan
