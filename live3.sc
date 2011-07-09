@@ -7,7 +7,7 @@ s.quit
 	var punch =	{
 		arg osc, n=10;
 		{
-			arg out=0, amp=1, agate=1, freq=500, sustain=0.2, lpf=120, rq=0.9;
+			arg out=0, amp=0.1, agate=1, freq=500, sustain=0.2, lpf=120, rq=0.9;
 			var ou, li;
 			li = XLine.kr(freq, 1, sustain);
 			ou = Mix.fill(n, { |i| osc.value(li + (i * 0.1)) });
@@ -42,7 +42,7 @@ s.quit
 });
 
 SynthDef(\sinadsr, {
-    arg out=0, amp=1, gate=1, freq=440;
+    arg out=0, amp=0.1, gate=1, freq=440;
     var ou;
     var env, envctl;
 
@@ -56,7 +56,7 @@ SynthDef(\sinadsr, {
 }).add;
 
 SynthDef("piou", {
-	arg out=0, amp=1, sustain=0.4; //TODO: is an array ok ?
+	arg out=0, amp=0.1, sustain=0.4; //TODO: is an array ok ?
 	var ou;
 	ou = SinOsc.ar(
 		XLine.kr(500, 50, sustain)*SinOsc.kr(9)+1,
@@ -66,23 +66,23 @@ SynthDef("piou", {
 }).store;
  
 SynthDef("fm2", {
-	arg out=0, amp=1, sustain=0.5, freq=500, modf=200, modbpf=900;
+	arg out=0, amp=0.1, sustain=0.5, freq=500, modf=200, modbpf=900;
 	var ou;
 	ou = SinOsc.ar( SinOsc.kr(modf)+1*freq)
 	* EnvGen.kr(Env.linen(0.1,0.5,0.1), timeScale:sustain, doneAction:2);
-	ou = BPF.ar(ou, SinOsc.kr(SinOsc.kr(1)+1*900)+1*freq);
+	ou = BPF.ar(ou, SinOsc.kr(SinOsc.kr(1)+1*modbpf)+1*freq);
 	Out.ar(out, ou * amp)
 }).store;
  
 SynthDef("shh", {
-	arg out=0, amp=1, sustain=0.5, freq=440, modf=9, noise=0.5;
+	arg out=0, amp=0.1, sustain=0.5, freq=440, modf=9, noise=0.5;
 	var ou;
 	ou = WhiteNoise.ar(noise);
 	ou = LPF.ar(ou, SinOsc.kr(modf)+1*freq)
 	* EnvGen.kr(Env.perc(0.001,sustain), doneAction:2);
 	Out.ar(out, ou * amp)
 }).store;
-SynthDef("kickTrig1", { arg levK=1, t_trig=0, sustain=0.125, f1=36.7, f2=73.4, amp=1, out=0;
+SynthDef("kickTrig1", { arg levK=1, t_trig=0, sustain=0.125, f1=36.7, f2=73.4, amp=0.1, out=0;
 	var kEnv, ou;
 	var kickEnv;
 	kickEnv = Env.linen(0.001, 1.9, 0.099, 1);
@@ -92,7 +92,7 @@ SynthDef("kickTrig1", { arg levK=1, t_trig=0, sustain=0.125, f1=36.7, f2=73.4, a
  
 	Out.ar(out, ou * kEnv * amp);
 }).store;
-SynthDef("snTrig1", { arg levSn=1, t_trig=0, sustain=0.125, panPos=0, amp=1,
+SynthDef("snTrig1", { arg levSn=1, t_trig=0, sustain=0.125, panPos=0, amp=0.1,
 	out=0;
 	var snEnv, ou;
 	var snareEnv;
@@ -105,7 +105,7 @@ SynthDef("snTrig1", { arg levSn=1, t_trig=0, sustain=0.125, panPos=0, amp=1,
 
 
 SynthDef("klankgeo", {
-	arg out=0, amp=1, sustain=3.0, freq=140, at=1.5, rt=1.5, rq=0.5;
+	arg out=0, amp=0.1, sustain=3.0, freq=140, at=1.5, rt=1.5, rq=0.5;
 	var ou;
 	ou = Klank.ar(`[Array.geom(10,freq,2), nil, [1, 1, 1, 1]], PinkNoise.ar(0.007));
 	ou = ou * EnvGen.kr(Env.linen(at,1,rt), timeScale:sustain, doneAction:2);
@@ -113,7 +113,7 @@ SynthDef("klankgeo", {
 	Out.ar(out, ou*amp);
 }).store;
 SynthDef("kick", {
-	arg out=0, amp=1, sustain=0.125, t_trig=1, shift= -550; 
+	arg out=0, amp=0.1, sustain=0.125, t_trig=1, shift= -550; 
 	var ou, env;
 	ou = SinOsc.ar(600) + SinOsc.ar(500) + BrownNoise.ar(0.51);
 	ou = FreqShift.ar(ou, shift);
@@ -137,7 +137,7 @@ SynthDef("bass_Ex", {
 }).store;
 
 SynthDef("mixpass", {
-	arg out=0, amp=1, sustain=3.0, freq=140, at=1.5, rt=1.5, pow=8, maxdelay=0.2,
+	arg out=0, amp=0.1, sustain=3.0, freq=140, at=1.5, rt=1.5, pow=8, maxdelay=0.2,
 	delay=0.2, decay=5;
 	var ou;
 	ou = Mix.fill(10, {
@@ -151,7 +151,7 @@ SynthDef("mixpass", {
 	Out.ar(out, ou);
 }).store;
 
-SynthDef("hihat", { arg out=0, amp=1, sustain=0.5, freq=440, noise=0.5,
+SynthDef("hihat", { arg out=0, amp=0.1, sustain=0.5, freq=440, noise=0.5,
 	at=0.001, rq=1.9;
 	var ou;
 	ou = WhiteNoise.ar(noise);
@@ -209,11 +209,11 @@ SynthDef("bulum", { arg out=0, amp=0.1, agate=1, freq=200, nfreq=10,
 }).store;
  
 SynthDef("sine", { arg out=0, amp=0.1, agate=1, freq=200, nfreq=10, 
-	at=1, sustain=1, rt=0.1, range=100;
+	at=1, sustain=1, rt=0.1, rangex=100;
 	var env, env2, ou;
-	env = EnvGen.kr(Env.linen(rt,1,rt,nfreq), timeScale:sustain);
-	env2 = EnvGen.kr(Env.linen(rt,1,rt), timeScale:sustain, doneAction:2);
-	ou = SinOsc.ar(SinOsc.kr(env)+1*range+freq)*env2;
+	env = EnvGen.kr(Env.linen(at,1,rt,nfreq), timeScale:sustain);
+	env2 = EnvGen.kr(Env.linen(at,1,rt), timeScale:sustain, doneAction:2);
+	ou = SinOsc.ar(SinOsc.kr(env)+1*rangex+freq)*env2;
 	Out.ar(out, ou * amp * agate);
 }).store;
 	SynthDef(\psiou, {
@@ -226,7 +226,7 @@ SynthDef("sine", { arg out=0, amp=0.1, agate=1, freq=200, nfreq=10,
 	}).store;
  
 	SynthDef("lpsaw", {
-		arg out=0, freq=440, sustain=1, amp=1, at=0.1, rt=0.1;
+		arg out=0, freq=440, sustain=1, amp=0.1, at=0.1, rt=0.1;
 		var ou;
 		ou = LFSaw.ar(freq);
 		ou = LPF.ar(ou, freq);
@@ -234,7 +234,7 @@ SynthDef("sine", { arg out=0, amp=0.1, agate=1, freq=200, nfreq=10,
 		Out.ar(out, ou * amp);
 	}).store;
 	SynthDef("lpsawlfo", {
-		arg out=0, freq=440, sustain=1, amp=1, at=0.1, rt=0.1, lfo=4,
+		arg out=0, freq=440, sustain=1, amp=0.1, at=0.1, rt=0.1, lfo=4,
 		bw=20;
 		var ou;
 		ou = LFSaw.ar(SinOsc.kr(lfo)+1*bw+freq);
@@ -243,7 +243,7 @@ SynthDef("sine", { arg out=0, amp=0.1, agate=1, freq=200, nfreq=10,
 		Out.ar(out, ou * amp);
 	}).store;
 	SynthDef("lppulse", {
-		arg out=0, freq=440, sustain=1, amp=1, at=0.1, rt=0.1;
+		arg out=0, freq=440, sustain=1, amp=0.1, at=0.1, rt=0.1;
 		var ou;
 		ou = LFPulse.ar(freq);
 		ou = LPF.ar(ou, freq);
@@ -251,7 +251,7 @@ SynthDef("sine", { arg out=0, amp=0.1, agate=1, freq=200, nfreq=10,
 		Out.ar(out, ou * amp);
 	}).store;
 	SynthDef("lpsawpulse", {
-		arg out=0, freq=440, sustain=1, amp=1, at=0.1, rt=0.1;
+		arg out=0, freq=440, sustain=1, amp=0.1, at=0.1, rt=0.1;
 		var ou;
 		ou = Mix.ar([LFPulse.ar(freq), LFSaw.ar(freq)]);
 		ou = LPF.ar(ou, freq);
@@ -259,7 +259,7 @@ SynthDef("sine", { arg out=0, amp=0.1, agate=1, freq=200, nfreq=10,
 		Out.ar(out, ou * amp);
 	}).store;
 	SynthDef("lpsawpulsenoise", {
-		arg out=0, freq=440, sustain=1, amp=1, at=0.1, rt=0.1;
+		arg out=0, freq=440, sustain=1, amp=0.1, at=0.1, rt=0.1;
 		var ou;
 		//ou = PinkNoise.ar(5.51);
 		ou = BrownNoise.ar(1.01);
@@ -270,7 +270,7 @@ SynthDef("sine", { arg out=0, amp=0.1, agate=1, freq=200, nfreq=10,
 		Out.ar(out, ou * amp*29);
 	}).store;
 	SynthDef("lpsawpulsenoise", {
-		arg out=0, freq=440, sustain=1, amp=1, at=0.1, rt=0.1;
+		arg out=0, freq=440, sustain=1, amp=0.1, at=0.1, rt=0.1;
 		var ou;
 		//ou = PinkNoise.ar(5.51);
 		ou = BrownNoise.ar(1.01);
@@ -281,7 +281,7 @@ SynthDef("sine", { arg out=0, amp=0.1, agate=1, freq=200, nfreq=10,
 		Out.ar(out, ou * amp*29);
 	}).store;
 	SynthDef("elpsawpulse", {
-		arg out=0, freq=440, sustain=1, amp=1, at=0.1, rt=0.1;
+		arg out=0, freq=440, sustain=1, amp=0.1, at=0.1, rt=0.1;
 		var ou, env, env2;
 		ou = Mix.ar([LFPulse.ar(freq), LFSaw.ar(freq)]);
 		env = Env.linen(at,1,rt);
@@ -297,6 +297,44 @@ Synth(\elpsawpulse)
 
 (
 
+SynthDef(\play_from_to, { arg out, bufnum, from=0.0, to=1.0, sustain=1.0;
+        var env;
+        env = EnvGen.ar(Env.linen(0.01, sustain, 0.01), 1, doneAction:2);
+        Out.ar(out,
+                BufRd.ar(1, bufnum,
+                        Line.ar(from, to, sustain) * BufFrames.kr(bufnum)
+                ) * env
+        )
+
+
+}).add;
+
+
+SynthDef(\pgrain,
+        { arg out = 0, freq=800, sustain=0.001, amp=0.5, pan = 0;
+                var window;
+                window = Env.sine(sustain, amp * AmpCompA.kr(freq));
+                Out.ar(out,
+                        Pan2.ar(
+                                SinOsc.ar(freq),
+                                pan
+                        ) * EnvGen.ar(window, doneAction:2)
+                )
+        }
+).add;
+
+SynthDef(\noiseGrain,
+        { arg out = 0, freq=800, sustain=0.001, amp=0.5, pan = 0;
+                var window;
+                window = Env.perc(0.002, sustain, amp * AmpCompA.kr(freq));
+                Out.ar(out,
+                        Pan2.ar(
+                                Ringz.ar(PinkNoise.ar(0.1), freq, 2.6),
+                                pan
+                        ) * EnvGen.ar(window, doneAction:2)
+                )
+        }
+).add;
 
 )
 
@@ -360,4 +398,5 @@ Archive.write("niark")
 	value: 4,
 	action: { arg self, 
 );
+
 

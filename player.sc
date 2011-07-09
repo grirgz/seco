@@ -5,15 +5,15 @@
 // ==========================================
 
 ~pedynscalar = { arg data, key, repeat = 100;
-	Prout({
+	Prout({ arg ev;
 		repeat.do {
-			currentEnvironment[data][key].yield;
+			ev = currentEnvironment[data][key].yield;
 		};
 	});
 };
 
 ~pdynarray = { arg fun, repeat=100000;
-	Prout({
+	Prout({ arg ev;
 		var idx;
 		var val = 0;
 		repeat.do {
@@ -21,7 +21,7 @@
 			val = fun.(idx);
 			//[val, idx].debug("pdynarray val idx");
 			while( { val.notNil } , { 
-				val.yield;
+				ev = val.yield;
 				idx = idx + 1;
 				val = fun.(idx);
 			});
@@ -41,20 +41,20 @@
 		//default:
 		{
 			//self.data[argName] = PatternProxy.new;
-			Prout({
+			Prout({ arg ev;
 				var repeat = 100000;
 				var argdata = self.get_arg(argName);
 				var idx, val=0;
 				repeat.do {
 					switch( argdata.current_kind,
 						\scalar, {
-							argdata.scalar.val.yield;
+							ev = argdata.scalar.val.yield;
 						},
 						\seq, {
 							idx = 0;
 							val = argdata.seq.val[idx];
 							while( { val.notNil } , { 
-								val.yield;
+								ev = val.yield;
 								idx = idx + 1;
 								val = argdata.seq.val[idx];
 							});
@@ -111,23 +111,6 @@
 // PARAM FACTORY
 // ==========================================
 
-~make_literal_param = { arg name, val;
-	(
-		name: name,
-		classtype: \literal,
-		get_val: val,
-
-		refresh: { arg self;
-			self.changed(\selected);
-		},
-		vpattern: val
-	);
-};
-
-~make_dur_param = { arg name, default_value;
-
-
-};
 
 ~default_adsr = (
 	attackTime:0.1,
@@ -217,6 +200,12 @@
 			self.changed(\val);
 		},
 
+		vpiano: { arg self;
+			{
+				~adsr_event_to_env.(self.val).asArray
+			}
+		},
+
 		vpattern: { arg self;
 
 			Pfunc({
@@ -227,6 +216,212 @@
 	);
 	param;
 
+};
+
+~make_literal_param = { arg name, val;
+	(
+		name: name,
+		classtype: \literal,
+		get_val: val,
+
+		refresh: { arg self;
+			self.changed(\selected);
+		},
+		vpiano: val,
+		vpattern: val
+	);
+};
+
+~make_dur_param = { arg name, default_value;
+
+
+};
+
+~default_noteline = [ // FIXME: crash when no notes
+	(
+		midinote: 64,
+		sustain: 0.1,
+		dur: 0.5
+	),
+	(
+		midinote: 66,
+		sustain: 0.1,
+		dur: 0.5
+	),
+];
+~default_noteline2 = [
+	(
+		midinote: 64,
+		sustain: 0.1,
+		dur: 0.5
+	),
+	(
+		midinote: 65,
+		sustain: 0.1,
+		dur: 0.4
+	),
+	(
+		midinote: 66,
+		sustain: 0.1,
+		dur: 0.9
+	),
+	(
+		midinote: 67,
+		sustain: 0.1,
+		dur: 0.1
+	),
+	(
+		midinote: 68,
+		sustain: 0.1,
+		dur: 1.5
+	),
+	(
+		midinote: 69,
+		sustain: 0.1,
+		dur: 0.6
+	)
+];
+
+~make_noteline_param = { arg name, default_value=[];
+	var ret;
+	ret = (
+		name: name,
+		classtype: \noteline,
+		selected_cell: 0,
+		selected: 0,
+		default_val: default_value.asList,
+		notes: ~default_noteline.deepCopy,
+		start_offset: 0,
+		end_offset: 0,
+
+		save_data: { arg self;
+			var data = ();
+			[\name, \classtype, \selected, \selected_cell, \default_val, \notes, \start_offset, \end_offset].do {
+				arg key;
+				data[key] = self[key];
+			};
+			[\seq].do { arg kind;
+				data[kind] = ();
+				[\val].do { arg key;
+					data[kind][key] = self[kind][key];
+				}
+			};
+			data;
+		},
+
+		load_data: { arg self, data;
+			[\name, \classtype, \selected, \selected_cell, \default_val, \notes, \start_offset, \end_offset].do {
+				arg key;
+				self[key] = data[key];
+			};
+			[\seq].do { arg kind;
+				[\val].do { arg key;
+					 self[kind][key] = data[kind][key];
+				}
+			};
+		},
+
+		seq: (
+			val: default_value.asList,
+			change: { arg self, fun;
+				self.val = fun.(self.val);
+			}
+		),
+		get_cells: { arg self;
+			self.seq.val;
+		},
+		get_selected_cell: { arg self;
+			self.selected_cell;
+		},
+		select_param: { arg self;
+			self.selected = 1;
+			self.changed(\selected);
+		},
+		deselect_param: { arg self;
+			self.selected = 0;
+			self.changed(\selected);
+		},
+
+		add_cells: { arg self, cells;
+			self.seq.val.addAll(cells);
+			self.changed(\cells);
+		},
+
+		remove_cells: { arg self, num;
+			self.seq.val = self.seq.val[.. (self.seq.val.size - num - 1) ];
+			self.changed(\cells);
+		},
+
+		set_val: { arg self, val;
+			self.seq.val[ self.get_selected_cell.() ] = if(val > 1, { 1 },{ 0 });
+		},
+
+		set_start_offset: { arg self, offset;
+			self.start_offset = offset;
+			self.changed(\notes);
+		},
+
+		get_start_offset: { arg self;
+			self.start_offset;
+		},
+
+		set_end_offset: { arg self, offset;
+			self.end_offset = offset;
+			self.changed(\notes);
+		},
+
+		get_end_offset: { arg self;
+			self.end_offset;
+		},
+
+		get_notes: { arg self;
+			var no;
+			no = self.notes.deepCopy;
+			no[0].dur+self.start_offset;
+			no.last.dur+self.end_offset;
+			no;
+		},
+
+		get_note: { arg self, idx;
+			var no;
+			case 
+				{ idx == 0 } { 
+					no = self.notes[0].deepCopy;
+					no.dur = no.dur+self.start_offset;
+				} 
+				{ idx == (self.notes.size-1) } {
+					no = self.notes.last.deepCopy;
+					no.dur = no.dur+self.end_offset;
+				}
+				{ true } {
+					self.notes[idx];
+				}
+		},
+
+		tick: { arg idx; 
+			//"TICK!".postln;
+		},
+
+		toggle_cell: { arg self, idx;
+			var oldsel;
+			[idx, self.get_cells].debug("make_control_param.select_cell idx, selg.get_cells");
+			if( idx < self.get_cells.size, {
+				//oldsel = self.selected_cell;
+				self.selected_cell = idx;
+				//self.changed(\selected_cell, oldsel);
+				self.seq.val[ idx ] = ~toggle_value.(self.seq.val[ idx ]);
+				self.changed(\val, self.selected_cell);
+			})
+		},
+		refresh: { arg self;
+			self.changed(\notes);
+		},
+		vpattern: { arg self; 
+			"YE SOUI PREMIER!!!!".debug;
+			~pdynarray.( { arg idx; self.tick; self.get_note(idx) } );
+		};
+	);
+	ret;
 };
 
 ~make_stepline_param = { arg name, default_value;
@@ -300,7 +495,9 @@
 			self.seq.val[ self.get_selected_cell.() ] = if(val > 1, { 1 },{ 0 });
 		},
 
-		tick: { arg idx; "TICK!".postln; },
+		tick: { arg idx;
+		//"TICK!".postln;
+		},
 
 		toggle_cell: { arg self, idx;
 			var oldsel;
@@ -316,7 +513,13 @@
 		refresh: { arg self;
 			self.changed(\cells);
 		},
-		vpattern: { arg self; ~pdynarray.( { arg idx; self.tick(idx); self.seq.val[idx] } ) };
+		vpattern: { arg self; 
+			~pdynarray.( { arg idx; 
+				self.tick(idx); 
+				if(self.seq.val[idx] == 1, { [idx, TempoClock.beats, TempoClock.beatInBar].debug("----------TICK step"); });
+				self.seq.val[idx];
+			} )
+		};
 	);
 	ret;
 };
@@ -332,6 +535,33 @@
 	ret;
 };
 
+~make_volume_param = { arg name;
+	var param = (
+		classtype: \volume,
+
+		save_data: { arg self;
+			var data = Dictionary.new;
+			data[\volume] = s.volume.volume;
+		},
+
+		load_data: { arg self, data;
+			s.volume.volume = data[\volume];
+		},
+
+		get_norm_val: { arg self;
+			self.spec.unmap(s.volume.volume)
+		},
+		set_norm_val: { arg self, val;
+			s.volume.volume = self.spec.map(val);
+		},
+		spec: \db.asSpec,
+		selected: 1
+
+	);
+	param;
+
+};
+
 ~make_control_param = { arg name, kind, default_value, spec;
 	var param;
 	var bar_length = 4;
@@ -345,10 +575,12 @@
 		selected_cell: 0,
 		bar_length: bar_length,
 		default_val: default_value,
+		noteline: false,
+		archive_data: [\name, \classtype, \current_kind, \spec, \selected, \selected_cell, \default_val, \noteline],
 
 		save_data: { arg self;
 			var data = ();
-			[\name, \classtype, \current_kind, \spec, \selected, \selected_cell, \default_val].do {
+			self.archive_data.do {
 				arg key;
 				data[key] = self[key];
 			};
@@ -362,7 +594,7 @@
 		},
 
 		load_data: { arg self, data;
-			[\name, \classtype, \current_kind, \spec, \selected, \selected_cell, \default_val].do {
+			self.archive_data.do {
 				arg key;
 				self[key] = data[key];
 			};
@@ -507,6 +739,7 @@
 		
 		change_kind: { arg self, kind;
 			self.current_kind = kind;
+			[name, kind].debug("CHANGED KIND!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 			self.changed(\kind);
 		},
 
@@ -516,26 +749,86 @@
 			self.changed(\cells);
 		},
 
+		vpiano: { arg self;
+			{
+				switch(self.current_kind,
+					\preset, { self.preset.val[self.preset.selected_cell] },
+					//default
+					{ self.scalar.val }
+				);
+			}
+		},
+
 		vpattern: { arg self; 
-			Prout({
+			var segf, scalf, pref;
+			switch(self.name,
+				\dur, {
+					segf = { arg ev;
+						ev[\noteline].dur * ev[\stretchdur];
+					};
+					scalf = pref = segf;
+				},
+				\freq, {
+					segf = { arg ev;
+						ev[\noteline].midinote.midicps;	
+					};
+					scalf = pref = segf;
+				},
+				\sustain, {
+					segf = { arg ev;
+						ev[\noteline].sustain;	
+					};
+					scalf = pref = segf;
+				},
+				// else
+				{
+					segf = { arg ev;
+						//[ev[\elapsed], ev[\segdur], ev.dump].debug("in segggggggggggggggggg");
+						self.seq.val.blendAt((ev[\elapsed]/ev[\segdur]) % (self.seq.val.size -1));
+					};
+					scalf = { arg ev; self.scalar.val };
+					pref = { arg ev; self.preset.val[self.preset.selected_cell] };
+				}
+			);
+			Prout({ arg ev;
 				var repeat = 1000000;
 				var idx, val=0;
 				repeat.do {
+					//[name, ev].debug("################################## prout!!!!");
+					//ev.dump;
 					switch( self.current_kind,
 						\scalar, {
-							self.scalar.val.yield;
+							//ev.debug("=========== in scalar ev");
+							if(self.noteline, {
+								ev = scalf.value(ev).yield;
+							}, {
+								ev = self.scalar.val.yield;
+							});
+							//ev.debug("=========== in scalar ev END");
 						},
 						\seq, {
-							idx = 0;
-							val = self.seq.val[idx];
-							while( { val.notNil } , { 
-								val.yield;
-								idx = idx + 1;
+							if(self.noteline, {
+								//ev.debug("=========== in noteline ev");
+								//segf.debug("=========== in noteline segf");
+								//segf.value(ev).debug("=========== in noteline");
+								ev = segf.value(ev).yield;
+							}, {
+								idx = 0;
 								val = self.seq.val[idx];
+								while( { val.notNil } , { 
+									ev = val.yield;
+									idx = idx + 1;
+									val = self.seq.val[idx];
+								});
 							});
+							//ev.debug("=========== in seq ev END");
 						},
 						\preset, {
-							self.preset.val[self.preset.selected_cell].yield
+							if(self.noteline, {
+								ev = pref.value(ev).yield;
+							}, {
+								ev = self.preset.val[self.preset.selected_cell].yield
+							});
 						}
 					);
 				}
@@ -544,12 +837,17 @@
 	);
 	// init
 	param.preset = param.seq.deepCopy;
+	param.seg = param.seq;
 
 	// \dur special case
-	if(name == \dur, {
+	if([\dur,\segdur, \stretchdur].includes(name), {
 		param.change_kind(\preset);
 		param.preset.val = List[ 4, 2, 1, 0.5, 0.25, 0.125, 0.0625 ];
-		param.select_cell(4);
+		if(name == \stretchdur, {
+			param.select_cell(2);
+		}, {
+			param.select_cell(4);
+		});
 	});
 
 	// return object
@@ -612,8 +910,13 @@
 					dict;
 			}.value;
 
+			self.data[\noteline] = self.data[\noteline] ?? ~make_noteline_param.(\noteline);
+
 			self.data[\dur] = self.data[\dur] ?? ~make_control_param.(\dur, \scalar, 0.5, ~get_spec.(\dur, defname));
+			self.data[\segdur] = self.data[\segdur] ?? ~make_control_param.(\segdur, \scalar, 0.5, ~get_spec.(\dur, defname));
+			self.data[\stretchdur] = self.data[\stretchdur] ?? ~make_control_param.(\stretchdur, \scalar, 1, ~get_spec.(\dur, defname));
 			self.data[\legato] = self.data[\legato] ?? ~make_control_param.(\legato, \scalar, 0.5, ~get_spec.(\legato, defname));
+			self.data[\sustain] = self.data[\sustain] ?? ~make_control_param.(\sustain, \scalar, 0.5, ~get_spec.(\sustain, defname));
 
 			self.data[\stepline] = self.data[\stepline] ?? ~make_stepline_param.(\stepline, 1 ! 8 );
 			self.data[\instrument] = self.data[\instrument] ?? ~make_literal_param.(\instrument, defname);
@@ -624,16 +927,44 @@
 			self.node.source = {
 				var dict = Dictionary.new;
 				var list = List[];
-				self.data.keys.do { arg argName;
-					dict[argName] = self.data[argName].vpattern;
+				var prio;
+				prio = [\instrument, \stretchdur, \noteline, \stepline, \type, \dur, \segdur, \legato, \sustain];
+
+				list.add(\elapsed); list.add(Ptime.new);
+				prio.do { arg key;
+					list.add(key); list.add( self.data[key].vpattern );
 				};
-				dict.debug("maked pbind dict");
-				dict.pairsDo({ arg key, val; list.add(key); list.add(val)});
+				self.data.keys.difference(prio).do { arg key;
+					list.add(key); list.add( self.data[key].vpattern );
+				};
 				list.debug("maked pbind list");
 				//[\type, \stepline, \instrument].do { arg x; list.add(x); list.add(dict[x]) };
 				//list.debug("maked pbind list");
 				Pbind(*list).dump;
 			}.value;
+		},
+
+		get_piano: { arg self;
+			var exclu, list = List[];
+			exclu = [\instrument, \noteline, \amp, \freq, \stepline, \type, \dur, \segdur, \legato, \sustain];
+			self.data.keys.difference(exclu).do { arg key;
+				list.add(key); list.add( self.data[key].vpiano ) 
+			};
+			{ arg freq, veloc; 
+				Synth(self.data[\instrument].vpiano, (
+					[\freq, freq, \amp, self.data[\amp].vpiano.value * veloc ] ++
+						list.collect(_.value)).debug("arg listHHHHHHHHHHHHHHHHHHHHHHHHHHH")) 
+			}
+
+		},
+
+		set_noteline: { arg self, set;
+			self.data.keysValuesDo { arg key, val;
+				if(val.classtype == \control, {
+					[val.name, set].debug("setting noteline");
+					val.noteline = set
+				})
+			};
 		},
 
 		clone: { arg self;
@@ -669,7 +1000,7 @@
 			data.args = ();
 			self.get_args.do { arg key;
 				argdat = self.get_arg(key);	
-				if([\control, \stepline, \adsr].includes(argdat.classtype), {
+				if([\control, \stepline, \adsr, \noteline].includes(argdat.classtype), {
 					data.args[key] = argdat.save_data
 				})
 			};

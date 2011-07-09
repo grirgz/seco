@@ -12,6 +12,7 @@
 "/home/ggz/code/sc/seco/keycode.sc".loadDocument;
 "/home/ggz/code/sc/seco/player.sc".loadDocument;
 "/home/ggz/code/sc/seco/editplayer.sc".loadDocument;
+"/home/ggz/code/sc/seco/mixer.sc".loadDocument;
 
 
 ~matrix3_from_list = { arg list, collectfun = { arg x; x };
@@ -59,6 +60,8 @@
 				[ \p_snare1, \p_kick1]
 			]
 		],
+
+		track_clipboard: nil, //( \start_offset, \end_offset, \notes )
 
 		// parlive: ... // parlive matrix
 
@@ -152,6 +155,9 @@
 				step: 3,
 				bank: 0
 			),
+			mixer: (
+				bank: 0
+			),
 			parlive: (
 				bank: 0
 			)
@@ -209,6 +215,7 @@
 		proj.patpool = self.model.patpool;
 		proj.parlive = self.model.parlive;
 		proj.state = self.state;
+		proj.volume = s.volume.volume;
 
 		self.archive_livenodepool(name);
 		
@@ -225,6 +232,7 @@
 			self.model.livenodepool = self.unarchive_livenodepool(name).debug("livenodepool==================");
 			self.state = proj.state.debug("state====================================");
 			self.model.parlive = proj.parlive.debug("parlive=================================");
+			s.volume.volume = proj.volume;
 			//self.model = pro[0];
 			//self.state = pro[1];
 		}, {
@@ -506,8 +514,14 @@
 		self.kb_handler[ [~modifiers.fx, ~kbfx[4]] ] = { self.handlers( [\play_selected] ) };
 		self.kb_handler[ [~modifiers.fx, ~kbfx[5]] ] = { self.handlers( [\stop_selected] ) };
 
+		self.kb_handler[ [~modifiers.fx, ~kbfx[7]] ] = { 
+			// stop all players
+			self.model.livenodepool.keysValuesDo { arg key, val; val.node.stop };
+		};
+
 		self.kb_handler[ [~modifiers.fx, ~kbfx[8]] ] = { self.handlers( [\change_panel, \parlive] ) };
 		self.kb_handler[ [~modifiers.fx, ~kbfx[9]] ] = { self.handlers( [\change_panel, \patlib] ) };
+		self.kb_handler[ [~modifiers.fx, ~kbfx[10]] ] = { self.handlers( [\change_panel, \mixer] ) };
 		self.kb_handler[ [~modifiers.fx, ~kbfx[11]] ] = { self.handlers( [\change_panel, \editplayer] ) };
 
 		// quant
@@ -578,7 +592,24 @@
 
 	},
 	
-	make_editplayer_handlers: { arg self;
+	make_editplayer_handlers: { arg self, ep;
+		var player = ep.player;
+		self.kb_handler[ [~modifiers.fx, ~kbfx[0]] ] = { 
+			var track = ();
+			track.notes = player.get_arg(\noteline).notes;
+			track.start_offset = player.get_arg(\noteline).start_offset;
+			track.end_offset = player.get_arg(\noteline).end_offset;
+			self.model.track_clipboard = track.deepCopy;
+		};
+		self.kb_handler[ [~modifiers.fx, ~kbfx[3]] ] = { 
+			var track = self.model.track_clipboard.deepCopy;
+			if( track.notNil, {
+				player.get_arg(\noteline).notes = track.notes;
+				player.get_arg(\noteline).start_offset = track.start_offset;
+				player.get_arg(\noteline).end_offset = track.end_offset;
+				player.get_arg(\noteline).changed(\notes);
+			});
+		};
 
 
 	},
@@ -791,6 +822,7 @@
 		switch(self.state.current.panel,
 			\parlive, { self.show_parlive_panel },
 			\patlib, { self.show_patlib_panel },
+			\mixer, { self.show_mixer_panel },
 			\editplayer, { self.show_editplayer_panel }
 		);
 
@@ -814,14 +846,22 @@
 
 	show_editplayer_panel: { arg self;
 		var sel;
+		var ep;
 		sel = self.get_selected_player.();
 		if( sel.notNil, {
 			self.clear_current_panel.value;
 			self.state.current.panel = \editplayer;
-			~make_editplayer.(sel, self.window, self.kb_handler);
-			self.make_editplayer_handlers;
+			ep = ~make_editplayer.(sel, self.window, self.kb_handler);
+			self.make_editplayer_handlers(ep);
 			self.window.view.focus(true);
 		});
+	},
+
+	show_mixer_panel: { arg self;
+		self.clear_current_panel.value;
+		self.state.current.panel = \mixer;
+		~make_mixer.(self, self.window, self.kb_handler);
+		self.window.view.focus(true);
 	},
 
 	make_window: { arg self;
