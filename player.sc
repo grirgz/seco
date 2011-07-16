@@ -95,16 +95,20 @@
 };
 
 ~get_spec = { arg argName, defname=nil, default_spec=\widefreq;
-	var spec;
-	if( argName.asSpec.notNil, {
-		argName.asSpec;
-	}, {
-		spec = default_spec.asSpec;
-		try { 
-			spec = SynthDescLib.global.synthDescs[defname].metadata.specs[argName].asSpec;
-		};
-		spec;
+	var spec = nil;
+	try { 
+		spec = if( SynthDescLib.global.synthDescs[defname].metadata.specs[argName].notNil, {
+			SynthDescLib.global.synthDescs[defname].metadata.specs[argName].asSpec;
+		})
+	};
+	if(spec.isNil, {
+		if( argName.asSpec.notNil, {
+			spec = argName.asSpec;
+		}, {
+			spec = default_spec.asSpec;
+		});
 	});
+	spec;
 };
 
 // ==========================================
@@ -1013,7 +1017,7 @@
 			var argdat;
 			self.get_args.do { arg key;
 				argdat = self.get_arg(key);	
-				if([\control, \stepline, \adsr].includes(argdat.classtype), {
+				if([\control, \noteline, \stepline, \adsr].includes(argdat.classtype), {
 					argdat.load_data( data.args[key] )
 				})
 			};

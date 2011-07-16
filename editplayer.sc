@@ -169,7 +169,7 @@
 			self.notes.do { arg no, idx;
 				if(no.midinote.isSymbol.not, {
 					[idx, no].debug("note");
-					paraspace.createNode(sum/numsep * width, no.midinote.linlin(minnote-1,maxnote+1,0,height));
+					paraspace.createNode(sum/numsep * width, no.midinote.linlin(minnote-1,maxnote+1,height,0));
 				});
 				sum = sum + no.dur;
 			};
@@ -486,10 +486,10 @@
 			}
 			{ true } {
 				case
-					{ [\stepline, \noteline].includes(param_name) } {
+					{ [\stepline, \noteline, \dur, \segdur, \stretchdur].includes(param_name) } {
 						midi = nil;
 					}
-					{ [\legato, \amp, \dur].includes(param_name)} {
+					{ [\legato, \amp].includes(param_name)} {
 						midi = ~midi_interface.assign_first(\slider, param);
 					}
 					{ true } {
@@ -873,7 +873,7 @@
 		player: player,
 		model: (
 				param_order: List[\amp, \dur, \segdur, \stretchdur, \legato, \adsr,  \stepline, \noteline, \freq],
-				param_reject: [\out, \instrument, \type, \gate, \agate, \sustain, \t_trig],
+				param_reject: [\out, \instrument, \type, \gate, \agate, \t_trig],
 				max_cells: 8,
 				selected_param: 0
 

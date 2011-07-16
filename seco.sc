@@ -9,6 +9,7 @@
 	button.value = ((button.value+1) % 2);
 };
 
+"/home/ggz/code/sc/seco/synth.sc".loadDocument;
 "/home/ggz/code/sc/seco/keycode.sc".loadDocument;
 "/home/ggz/code/sc/seco/player.sc".loadDocument;
 "/home/ggz/code/sc/seco/editplayer.sc".loadDocument;
@@ -41,13 +42,13 @@
 };
 
 
-
-
 // ==========================================
 // SEQUENCER FACTORY
 // ==========================================
 
 ~mk_sequencer = {(
+
+
 	model: (
 		boardsize: 10 @ 4,
 		stepboardsize: 8 @ 4,
@@ -874,12 +875,32 @@
 
 	},
 
+	init_synthdesclib: { arg self;
+		SynthDescLib.global.read("synthdefs/*");
+	},
+
 	make_gui: { arg self;
 		self.window = self.make_window.value;
+		self.init_synthdesclib;
 		self.make_kb_handlers;
 		self.show_parlive_panel;
 
-	}
+	},
+
+	test_player: { arg self, playername;
+		var player, ep;
+		self.init_synthdesclib;
+		player = ~make_player_from_synthdef.(playername);
+		self.window = self.make_window.value;
+
+		self.make_kb_handlers;
+		self.kb_handler[ [~modifiers.fx, ~kbfx[4]] ] = { player.node.play };
+		self.kb_handler[ [~modifiers.fx, ~kbfx[5]] ] = { player.node.stop };
+
+		ep = ~make_editplayer.(player, self.window, self.kb_handler);
+		self.make_editplayer_handlers(ep);
+		self.window.view.focus(true);
+	};
 
 
 )};

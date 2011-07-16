@@ -339,7 +339,7 @@ SynthDef(\noiseGrain,
 )
 
 (
-
+s.waitForBoot({
 "/home/ggz/code/sc/seco/seco.sc".loadDocument;
 
 ~synthlib = [
@@ -377,6 +377,8 @@ SynthDef(\noiseGrain,
 ~seq = ~mk_sequencer.value;
 ~seq.load_patlib( ~synthlib );
 ~seq.make_gui;
+
+});
 )
 (
 ~seq.save_project("proj2");
@@ -388,6 +390,7 @@ SynthDef(\noiseGrain,
 Platform.userAppSupportDir
 Platform.userAppSupportDir
 Archive.archiveDir
+s.boot
 Archive.archiveDir
 "plop".writeArchive("plop");
 Archive.global[\bla] = "plop";
@@ -399,4 +402,4 @@ Archive.write("niark")
 	action: { arg self, 
 );
 
-
+SynthDescLib.global.browse;

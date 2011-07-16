@@ -1356,3 +1356,597 @@ s.volume.volume
 
 
 23.49.roundUp(0.25)
+
+
+(
+
+w = Window.new.front;
+
+a = StaticText(w, Rect(10, 10, 200, 60));
+a.background = Color.red;
+a.string = "Rolof's\r\n Rolex";
+StaticText.gui
+)
+
+
+(
+
+w = Window.new("Text View Example",Rect(100,Window.screenBounds.height-400, 520,300)).front;
+
+t = TextView(w.asView,Rect(10,10, 500,200))
+
+.focus(true);
+
+)
+
+
+// Using the Window you just created, try these in succession, and test how the text view responds
+
+t.mouseUpAction_{|it, x, y, modifiers, buttonNumber, clickCount, pos| [pos].postln};
+
+t.hasVerticalScroller_(true);
+
+t.hasHorizontalScroller_(true);
+
+t.autohidesScrollers_(true);
+
+
+t.open("Help/GUI/Main-GUI/Button.html"); // load an html file
+
+
+// selective editing and formatting
+
+t.setStringColor (Color.red, 5, 220);
+
+t.setFont (Font("Courier",12), 5, 120);
+
+t.setString ("\nA replacement String\n", 12, 120);
+
+
+// compare with these methods, which change everything
+
+t.font_(Font("Courier",14));
+
+t.stringColor_(Color.blue);
+
+
+
+
+
+(
+a = {
+       var ampfade = SinOsc.kr(0.5).range(0, 0.1),
+               modfreq = EnvGen.kr(Env([166, 166, 110], [6, 6], \sin));
+       [
+               SinOsc.ar(SinOsc.ar(modfreq) * 300 + 166),
+               SinOsc.ar(166)
+       ] * [ampfade, 0.1 - ampfade]
+}.play;
+)
+
+
+s.freqscope
+
+s.boot
+
+(
+c = TouchResponder({ |src,chan,bla,value|
+                ["AT",src,chan,bla,value].postln;
+        },
+		nil,
+		nil,
+		nil);
+        //c.learn; // wait for the first touch message
+)
+
+TouchResponder.removeAll
+s.boot
+
+(
+        c = CCResponder({ |src,chan,num,value|
+                ["CC",src,chan,num,value].postln;
+                },
+                nil, // any source
+                nil, // any channel
+                nil, // any CC number
+                nil // any value
+        )
+)
+
+)
+
+
+Ndef(\def, \default);
+Ndef(\def).makeGui
+n = NdefGui.new(options: NdefGui.big);
+n.object_(Ndef(\def));
+
+
+
+
+{Formants.ar(150, Vowel(\a))}.play // is equal to
+
+{Formants.ar(150, Vowel(\a), unfold: true).sum }.play
+
+{Formants.ar(150, Vowel(\a), unfold: true)}.play // on headphones you'll ony hear formant1 in chan1 and formant2 in chan2 the rest is in chan 3..5
+
+{Formants.ar([100, 200], Vowel(\u), unfold: false)}.play // you hear 100 Hz U on chan1 and 200 Hz on chan2
+
+ 
+
+{Formants.ar(100, [Vowel(\a), Vowel(\e)], unfold: true)}.play // \a on chan1 and \e on chan2 
+
+{Formants.ar([150, 200], [Vowel(\a, \bass), Vowel(\i, \counterTenor)], unfold: true)}.play // \a 150 Hz chan1  \i 200 Hz chan2
+
+using freqMods, ampMods, widthMods:
+
+{Formants.ar(70, Vowel(\e), freqMods: SinOsc.kr(1,0,0.1,1) )}.play; 
+
+{Formants.ar(70, Vowel(\e), freqMods: [SinOsc.kr(1,0,0.2,1), SinOsc.kr(1.1,0,0.2,1), SinOsc.kr(1.2,0,0.2,1), SinOsc.kr(1.3,0,0.2,1), SinOsc.kr(1.4,0,0.2,1) ] )}.play; 
+
+{Formants.ar(70, Vowel(\e), ampMods: SinOsc.kr(1,0,0.5,1) )}.play; 
+
+{Formants.ar(70, Vowel(\e), ampMods: [SinOsc.kr(1,0,0.5,1), SinOsc.kr(1.1,0,0.5,1), SinOsc.kr(1.2,0,0.5,1), SinOsc.kr(1.3,0,0.5,1), SinOsc.kr(1.4,0,0.5,1) ] )}.play; 
+
+{Formants.ar(70, Vowel(\e), widthMods: SinOsc.kr(1,0,0.99,1) )}.play; 
+
+{Formants.ar(70, Vowel(\e), widthMods: [SinOsc.kr(1,0,0.99,1), SinOsc.kr(1.1,0,0.99,1), SinOsc.kr(1.2,0,0.99,1), SinOsc.kr(1.3,0,0.99,1), SinOsc.kr(1.4,0,0.99,1) ] )}.play; 
+
+all together now:
+
+{Formants.ar(70, Vowel(\e), freqMods: SinOsc.kr(1,0,0.1,1),  ampMods: SinOsc.kr(1.1,0,0.5,1),  widthMods: SinOsc.kr(1.2,0,0.999,1) )}.play; 
+
+(
+
+{Formants.ar(70, Vowel(\u), 
+
+freqMods: [SinOsc.kr(1,0,0.2,1), SinOsc.kr(1.1,0,0.2,1), SinOsc.kr(1.2,0,0.2,1), SinOsc.kr(1.3,0,0.2,1), SinOsc.kr(1.4,0,0.2,1) ],  
+
+ampMods: [SinOsc.kr(1,0,0.5,1), SinOsc.kr(1.1,0,0.5,1), SinOsc.kr(1.2,0,0.5,1), SinOsc.kr(1.3,0,0.5,1), SinOsc.kr(1.4,0,0.5,1) ],  
+
+widthMods: [SinOsc.kr(1,0,0.99,1), SinOsc.kr(1.1,0,0.99,1), SinOsc.kr(1.2,0,0.99,1), SinOsc.kr(1.3,0,0.99,1), SinOsc.kr(1.4,0,0.99,1) ])
+
+}.play; 
+
+)
+
+(
+
+{Formants.ar(SinOsc.ar(5, 0, 10, 80), Vowel(\i), 
+
+freqMods: [SinOsc.kr(1,0,0.2,1), SinOsc.kr(1.1,0,0.2,1), SinOsc.kr(1.2,0,0.2,1), SinOsc.kr(1.3,0,0.2,1), SinOsc.kr(1.4,0,0.2,1) ],  
+
+ampMods: [SinOsc.kr(1,0,0.5,1), SinOsc.kr(1.1,0,0.5,1), SinOsc.kr(1.2,0,0.5,1), SinOsc.kr(1.3,0,0.5,1), SinOsc.kr(1.4,0,0.5,1) ],  
+
+widthMods: [SinOsc.kr(1,0,0.99,1), SinOsc.kr(1.1,0,0.99,1), SinOsc.kr(1.2,0,0.99,1), SinOsc.kr(1.3,0,0.99,1), SinOsc.kr(1.4,0,0.99,1) ])
+
+}.play; 
+
+)
+
+
+
+use unfolding for independently spatialized formants of one vowel (use Mouse)
+
+{ [Formants.ar(100, Vowel(\o), unfold: true),  {|i| SinOsc.ar(MouseY.kr(0.2,1), ((i*MouseX.kr(0,pi*0.5))) )}!5 ].flop.collect({|args| Pan2.ar( args[0], args[1] ) }).sum }.play
+
+
+and more complex with the modulation from above (use Mouse)
+
+(
+
+{ [Formants.ar(60, Vowel(\o).brightenRel(MouseY.kr(0,2), 1), 
+
+freqMods: [SinOsc.kr(1,0,0.2,1), SinOsc.kr(1.1,0,0.2,1), SinOsc.kr(1.2,0,0.2,1), SinOsc.kr(1.3,0,0.2,1), SinOsc.kr(1.4,0,0.2,1) ],  
+
+ampMods: [SinOsc.kr(1,0,0.5,1), SinOsc.kr(1.1,0,0.5,1), SinOsc.kr(1.2,0,0.5,1), SinOsc.kr(1.3,0,0.5,1), SinOsc.kr(1.4,0,0.5,1) ],  
+
+widthMods: [SinOsc.kr(1,0,0.99,1), SinOsc.kr(1.1,0,0.99,1), SinOsc.kr(1.2,0,0.99,1), SinOsc.kr(1.3,0,0.99,1), SinOsc.kr(1.4,0,0.99,1) ]),  
+
+{|i| SinOsc.ar((i+1)/MouseX.kr(0.2,1), ((i*pi)/10) )}!5 ]
+
+.flop.collect({|args| Pan2.ar( args[0], args[1] ) }).sum }.play
+
+)
+
+
+
+BPFStack.ar(in,  vowel,  freqMods, ampMods, widthMods, unfold )
+
+Formants is a Stack of the BPF filters it needs an in to chew on and either an arrays of  #freqs,  #dBs and #widths or a Vowel.
+
+in - exciting Signal. Default value is nil.
+
+BPFStack.ar(Impulse.ar(1), Vowel(\a)) 
+
+~freq = 100;
+
+{BPFStack.ar(Decay.ar(Saw.ar(~freq, 0.1), ~freq.reciprocal), Vowel(\a)) * EnvGen.kr(Env.perc, 2.0, doneAction: 2)}.play
+
+{BPFStack.ar(Decay.ar(Saw.ar(~freq, 0.1), ~freq.reciprocal), Vowel(\e)) * EnvGen.kr(Env.perc, 2.0, doneAction: 2)}.play
+
+{BPFStack.ar(Decay.ar(Saw.ar(~freq, 0.1), ~freq.reciprocal), Vowel(\i)) * EnvGen.kr(Env.perc, 2.0, doneAction: 2)}.play
+
+{BPFStack.ar(Decay.ar(Saw.ar(~freq, 0.1), ~freq.reciprocal), Vowel(\o)) * EnvGen.kr(Env.perc, 2.0, doneAction: 2)}.play
+
+{BPFStack.ar(Decay.ar(Saw.ar(~freq, 0.1), ~freq.reciprocal), Vowel(\u)) * EnvGen.kr(Env.perc, 2.0, doneAction: 2)}.play
+
+{BPFStack.ar(ClipNoise.ar(0.3), Vowel(\a))  * EnvGen.kr(Env.perc, 2.0, doneAction: 2)}.play
+
+{BPFStack.ar(ClipNoise.ar(0.3), Vowel(\e))  * EnvGen.kr(Env.perc, 2.0, doneAction: 2)}.play
+
+{BPFStack.ar(ClipNoise.ar(0.3), Vowel(\i))  * EnvGen.kr(Env.perc, 2.0, doneAction: 2)}.play
+
+{BPFStack.ar(ClipNoise.ar(0.3), Vowel(\o))  * EnvGen.kr(Env.perc, 2.0, doneAction: 2)}.play
+
+{BPFStack.ar(ClipNoise.ar(0.3), Vowel(\u))  * EnvGen.kr(Env.perc, 2.0, doneAction: 2)}.play
+
+
+
+and more complex with the modulation from above (use Mouse)
+
+(
+
+{ [BPFStack.ar(ClipNoise.ar(0.1), Vowel(\i).brightenExp(MouseY.kr(0,2), 1), 
+
+freqMods: [SinOsc.kr(1,0,0.2,1), SinOsc.kr(1.1,0,0.2,1), SinOsc.kr(1.2,0,0.2,1), SinOsc.kr(1.3,0,0.2,1), SinOsc.kr(1.4,0,0.2,1) ],  
+
+ampMods: [SinOsc.kr(1,0,0.5,1), SinOsc.kr(1.1,0,0.5,1), SinOsc.kr(1.2,0,0.5,1), SinOsc.kr(1.3,0,0.5,1), SinOsc.kr(1.4,0,0.5,1) ],  
+
+widthMods: [SinOsc.kr(1,0,0.99,1), SinOsc.kr(1.1,0,0.99,1), SinOsc.kr(1.2,0,0.99,1), SinOsc.kr(1.3,0,0.99,1), SinOsc.kr(1.4,0,0.99,1) ]),  
+
+{|i| SinOsc.ar((i+1)/MouseX.kr(0.2,1), ((i*pi)/10) )}!5 ]
+
+.flop.collect({|args| Pan2.ar( args[0], args[1] ) }).sum }.play
+
+)
+
+
+
+
+Examples
+
+
+the following example show how Vowels can be used within a SynthDef:
+
+
+(
+
+SynthDef(\vowblend,{|freq = 100, b1 = 0.5, b2 = 0.5, b3 = 0.5, b4 = 0.5 bright = 0, pan = 0|
+
+var va = Vowel(\a, \bass),
+
+    ve = Vowel(\e, \tenor),
+
+    vi = Vowel(\i, \counterTenor),
+
+    vo = Vowel(\o, \alto),
+
+    vu = Vowel(\u, \soprano),
+
+    sig;
+
+   
+
+    sig =  Formants.ar(
+
+    freq, 
+
+    va
+
+    .blend(ve, b1)
+
+.blend(vi, b2)
+
+.blend(vo, b3)
+
+.blend(vu, b4)
+
+.brightenExp(bright, 1) 
+
+) 
+
+* EnvGen.kr(Env.perc, 3.0, doneAction: 2);  
+
+
+Out.ar(0,  Pan2.ar(sig, pan, 0.1));
+
+}).add
+
+)
+
+
+
+(
+
+Task({  32.do({ arg i; 
+
+Synth(\vowblend, [
+
+\pan, i.linlin(0,32, -1, 1 ),
+
+\freq, i.linlin(0,32, 30, 66 ).midicps,
+
+\b1, 2.rand,
+
+\b2, 2.rand, 
+
+\b3, 2.rand,
+
+\b4, 2.rand, 
+
+\bright,  1.5.rand
+
+]); 
+
+0.25.wait
+
+
+});}).play
+
+)
+
+
+
+using addControls to create buses 
+
+
+(
+
+x = SynthDef(\test, {
+
+Out.ar(0, 
+
+Formants.ar(420, Vowel(\a).addControls(3)) * 0.01
+
+)
+
+}).play
+
+)
+
+
+x.inspect
+
+
+x.setn(*Vowel(\i).asKeyValuePairs(3));
+
+
+
+the following example show how Vowels can be used within JITLib style:
+
+
+
+NdefMixer(s);
+
+
+Ndef(\vowel, {Formants.ar(200, Vowel(\a, \soprano))  * 0.01 }).play
+
+
+(
+
+Ndef(\vowel, {
+
+Formants.ar(200, 
+
+Vowel(\o, \soprano)
+
+.blend(Vowel(\i, \tenor), SinOsc.kr(10).range(0,1))) * 0.01
+
+}).play
+
+)
+
+
+
+(
+
+Ndef(\vowel, {
+
+Formants.ar(LFNoise0.kr(10).exprange(100, 400), 
+
+Vowel(\o, \soprano)
+
+.brightenExp(SinOsc.kr(2).range(0,1), 1),
+
+unfold: true
+
+).mean * 0.01
+
+}).play
+
+)
+
+
+
+Ndef(\vowel, {
+
+Formants.ar(200, Vowel(\a, \soprano).addControls(4)) * 0.01
+
+}).play
+
+
+Ndef(\vowel).setn(*Vowel(\e, \bass).asKeyValuePairs(4).flatten)
+
+Ndef(\vowel).setn(*Vowel(\u).asKeyValuePairs(4).flatten)
+
+
+
+Ndef(\vowel, {
+
+Formants.ar(200, Vowel(\a, \soprano), unfold: true).scramble.keep(2) * 0.1
+
+}).play
+
+
+Ndef(\vowel).free(2)
+
+
+Ndef(\vowel).fadeTime = 4;
+
+
+(
+
+Ndef(\vowel, {
+
+Formants.ar([1, 2, 4] * 240 * {LFNoise1.kr(5, 0.003, 1)}!3, Vowel(\a, [\bass, \tenor, \soprano]), 
+
+freqMods: LFNoise1.ar(4*[0.1, 0.2, 0.3, 0.4, 0.5].scramble, 0.1, ampMods: [1, 1, 1, 0]
+
+)).sum * 0.1
+
+}).play
+
+)
+
+
+
+
+// FUN:
+
+
+
+( // CPU demanding 
+
+~freqs = {|i| 50 * 1.5.pow(i) }!9;
+
+~numChan = 2;
+
+r = Routine{
+
+var sustain = 8, transition = 3, overlap = 4;
+
+var period = 1.5 * 2.sqrt;
+
+var harms, amps;
+
+0.5.wait;
+
+inf.do{
+
+harms = {|i| (i+1) * ~freqs.choose }!60;
+
+amps  = Vowel([\a,\e,\i,\o,\u].choose,[\bass,\tenor,\counterTenor,\alto,\soprano].choose).ampAt(harms);
+
+{ PanAz.ar(~numChan, DynKlank.ar( `[~freqs,amps,amps],
+
+Decay.ar(Impulse.ar( exp(1)/5.0 ), SinOsc.kr( pi/9.0, 1.0.rand ).range(0.05,0.7) )   ) *
+
+EnvGen.kr(Env.new([-40,-20, -30,-40].dbamp, [2/5.0, 1/5.0,2/5.0],'exponential'), 1.0, timeScale: 35, levelScale: 0.1, doneAction: 2) ,SinOsc.kr(0.5, 1.0.rand) )}.play;
+
+period.wait;
+
+}
+
+};
+
+r.play;
+
+)
+
+r.stop; //stop spawning new synths
+
+
+
+(
+
+Ndef(\vowel).fadeTime = 5;
+
+Ndef(\vowel, {
+
+var freqs, dBs, widths, out;
+
+var baseFreq = LFNoise0.kr([5, 10] * 0.1).round(0.1).exprange(50, 200) * [2, 1.01];
+
+#freqs, dBs, widths =  (Vowel(\i, \soprano).blend(Vowel(\o, \bass), LFNoise1.kr(0.1265))).blend(Vowel(\e, \bass), LFNoise1.kr(10)).asArray;
+
+//freqs = freqs * SinOsc.ar([0.1, 0.2, 0.3, 0.4].scramble, Rand(), 0.1, 1);
+
+freqs = freqs * LFNoise1.ar([0.1, 0.2, 0.3, 0.4].scramble, 0.1, 1);
+
+out = [freqs, widths, dBs.dbamp].flop.collect{ |args| 
+
+Formant.ar(baseFreq, *args); 
+
+}.flop;
+
+
+out = out.collect{|vocal|
+
+Splay.ar(vocal)
+
+}.sum.postln;
+
+
+out
+
+* LFPulse.ar([9, 9.01], 0, 0.4).range(0, 1).lag(0.01, 0.5) 
+
+* LFPulse.ar(0.1, [0, 0.35], [0.9, 0.8]).lag(0.01)
+
+
+ * 0.1
+
+
+}).play
+
+)
+
+
+
+
+
+
+(
+
+Ndef(\vowel).fadeTime = 5;
+
+Ndef(\vowel, {
+
+	var freqs, dBs, widths, out;
+	var baseFreq = LFNoise0.kr([5, 10] * 0.1).round(0.1).exprange(50, 200) * [2, 1.01];
+	baseFreq = 100;
+	baseFreq = LFNoise0.kr([5, 10] * 0.1).round(0.1).exprange(50, 200) * [2, 1.01];
+
+	#freqs, dBs, widths =  (Vowel(\i, \soprano).blend(Vowel(\o, \bass), 1)).blend(Vowel(\e, \bass), 1).asArray;
+
+	//freqs = freqs * SinOsc.ar([0.1, 0.2, 0.3, 0.4].scramble, Rand(), 0.1, 1);
+
+	//freqs = freqs * LFNoise1.ar([0.1, 0.2, 0.3, 0.4].scramble, 0.1, 1);
+
+	out = [freqs, widths, dBs.dbamp].flop.collect{ |args| 
+		Formant.ar(baseFreq, *args); 
+	}.flop;
+
+	//out = out.collect{|vocal|
+	//		Splay.ar(vocal)
+	//}.sum.postln;
+
+	out.sum
+	//* LFPulse.ar([9, 9.01], 0, 0.4).range(0, 1).lag(0.01, 0.5) 
+	//* LFPulse.ar(0.1, [0, 0.35], [0.9, 0.8]).lag(0.01)
+	* 0.1
+
+
+}).play
+
+)
+
+{ LFNoise0.ar(5000).exprange(50,200)*0.001}.scope
+s.scope
+s.freqscope
+
+
+
+
+{ Formants.ar(150,  Vowel(\a, \bass).blend(Vowel(\u, \bass), [MouseX.kr(0,1), MouseY.kr(0,1), SinOsc.kr(0.5, 0, 0.5, 0.5)] ) ) * 0.1  }.play
+
+{ Formants.ar(150,  Vowel(\e, \bass).blend(Vowel(\i, \bass), MouseX.kr(0,1), MouseY.kr(0,1), SinOsc.kr(0.5, 0, 0.5, 0.5) ) ) * 0.1  }.play
+
+{ Formants.ar(150,  Vowel(\i, \bass).blend(Vowel(\o, \bass), MouseX.kr(0,1), MouseY.kr(0,1), SinOsc.kr(0.5, 0, 0.5, 0.5) ) ) * 0.1  }.play
+
+
+
+
+Ndef(\bla).free(2)
+Ndef(\
