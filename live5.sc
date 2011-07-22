@@ -108,10 +108,10 @@ SynthDef("hihat", { arg out=0, amp=0.1, sustain=0.5, freq=440, noise=0.5,
 
  
 SynthDef("boom1", { 
-	arg out=0, t_trig=1, att=0.005, rel=1.25, noise=1, f_base=70, 
+	arg out=0, t_trig=1, attack=0.005, release=1.25, noise=1, f_base=70, 
 		mod=4, range=300, carrier=400, amp=0.1;
  
-	d = Decay2.kr(t_trig, att, rel, BrownNoise.ar(noise) 
+	d = Decay2.kr(t_trig, attack, release, BrownNoise.ar(noise) 
 		+ SinOsc.ar(f_base)
 		+ SinOsc.ar(SinOsc.kr(mod,1.0)*range+carrier)
 	);
@@ -120,8 +120,99 @@ SynthDef("boom1", {
  
 }).store;
 
+SynthDef("perc1", { 
+	arg out=0, attack=0.005, release=1.25, lpf=50, bpf=100, bprq=0.1,
+		ratio=4, range=300, carrier=400, amp=0.1;
+	var mid, ou, env;
+
+	mid = SinOsc.ar(SinOsc.ar(carrier*ratio)*range+carrier);
+	mid = BPF.ar(mid, bpf, bprq);
+ 
+ 	ou = Klang.ar( `[[50,86,93,136,182],nil,nil] );
+	ou = LPF.ar(ou, lpf);
+	ou = mid + ou;
+
+	env = EnvGen.kr(Env.perc(attack, release), doneAction:2);
+	ou = ou * env * amp;
+
+	Out.ar(out,ou)
+ 
+}).store;
+
+SynthDef("snare1", { 
+	arg out=0, attack=0.005, release=1.25, relratio=0.5, amp=0.1;
+	var mid, ou, ou2, env1, env2;
+
+	ou = LFTri.ar(111);
+	ou = FreqShift.ar(ou, [175, 224]).sum;
+	env1 = EnvGen.ar(Env.perc(attack, release), doneAction:2);
+
+	env2 = EnvGen.ar(Env.perc(attack, release*relratio));
+	ou2 = SinOsc.ar([330,180]).sum*env2;
+
+	ou = ou + ou2;
+	ou = ou * env1 * amp;
+
+
+	Out.ar(out,ou.dup)
+ 
+}).store;
+
+
+
+SynthDef("KSpluck", { arg freq = 200, delayDecay = 1.0, attack=0.0001, release=0.001, amp=0.1, out=0;
+	var burstEnv, att = attack, dec = release;
+	var signalOut, delayTime;
+	delayTime = [freq, freq * 2].reciprocal;
+	burstEnv = EnvGen.kr(Env.perc(att, dec));
+	signalOut = PinkNoise.ar(burstEnv);
+	signalOut = CombL.ar(signalOut, delayTime, delayTime, delayDecay, add: signalOut);
+	DetectSilence.ar(signalOut, doneAction:2);
+	Out.ar(out, signalOut*amp)
+}).store;
+
+SynthDef("KSpluck3", { arg freq = 200, delayDecay = 1.0, attack=0.1, release=0.1, amp=0.1, out=0;
+	var burstEnv, att = attack, dec = release;
+	var signalOut, delayTime;
+	delayTime = [freq, freq * 2].reciprocal;
+	burstEnv = EnvGen.kr(Env.perc(att, dec));
+	signalOut = PinkNoise.ar(10);
+	signalOut = CombL.ar(signalOut, delayTime, delayTime, delayDecay, add: signalOut);
+	signalOut = signalOut * burstEnv;
+	signalOut = signalOut * amp * 0.1;
+	DetectSilence.ar(signalOut, doneAction:2);
+	Out.ar([0,1], signalOut)
+}).store;
+
+SynthDef("KSpluck2", { arg freq = 200, noise=10, bpratio=0.9, rq=0.1, delayDecay = 1.0, attack=0.1, release=0.1, amp=0.1, out=0;
+	var burstEnv, att = attack, dec = release;
+	var signalOut, delayTime;
+	delayTime = [freq, freq * 2].reciprocal;
+	burstEnv = EnvGen.kr(Env.perc(att, dec));
+	signalOut = WhiteNoise.ar(noise);
+	signalOut = BPF.ar(signalOut, freq*bpratio, rq);
+	signalOut = CombL.ar(signalOut, delayTime, delayTime, [delayDecay, delayDecay*1.0.rand], add: signalOut);
+	signalOut = signalOut * burstEnv;
+	signalOut = signalOut * amp * 0.01;
+	DetectSilence.ar(signalOut, doneAction:2);
+	Out.ar(out, signalOut.dup)
+}).store;
+
+
 )
 
+(
+s.waitForBoot({
+
+"/home/ggz/code/sc/seco/seco.sc".loadDocument;
+~seq = ~mk_sequencer.value;
+~seq.test_player(\KSpluck2);
+
+});
+
+)
+
+~seq.current_test_player.as_event
 (
 s.waitForBoot({
 "/home/ggz/code/sc/seco/seco.sc".loadDocument;
@@ -132,6 +223,9 @@ s.waitForBoot({
 	\kickTrig1,
 	\snTrig1,
 	\boom1,
+	\KSpluck,
+	\KSpluck2,
+	\KSpluck3,
 	\hihat
 ].collect({ arg i; i -> i });
 
@@ -149,46 +243,3 @@ s.waitForBoot({
 
 )
 
-(
-s.waitForBoot({
-
-"/home/ggz/code/sc/seco/seco.sc".loadDocument;
-~seq = ~mk_sequencer.value;
-~seq.test_player(\vowel);
-
-});
-
-)
-
-(
-s.waitForBoot({
-
-"/home/ggz/code/sc/seco/seco.sc".loadDocument;
-~seq = ~mk_sequencer.value;
-~seq.test_player(\vowel);
-
-});
-
-)
-~get_spec.(\freq, \formant);
-
-\freq.asSpec
-SynthDescLib.global.synthDescs[\formant].metadata.specs[\freq].asSpec;
-\bandw.asSpec
-SynthDescLib.global.browse
-
-
-Vowel.compose([\a,\e,\i], [\bass,\soprano,\alto],        [0.2, 0.3, 0.5]);
-Vowel.basicNew([ 389.83846251101, 1617.8569810972, 2631.8782502853, 3379.2850666363, 4400.9932038544 ], [ 0.0, -17.4, -21.3, -31.8, -50.8 ], [ 55.0, 94.0, 118.0, 144.0, 186.0 ])
-{Formants.ar(200, Vowel(\e, \bass)) * 0.1 }.play
-(
-
-{ var v = Vowel.compose([\a, \e, \i], [\soprano, \bass, \tenor, \counterTenor, \alto], ({10.rand}!5).normalizeSum);
-
-Formants.ar(50 + 300.rand, v) * 0.1 
-
-}.play
-
-)
-
-TempoClock.default.tempo = 0.5

@@ -891,6 +891,7 @@
 		var player, ep;
 		self.init_synthdesclib;
 		player = ~make_player_from_synthdef.(playername);
+		self.current_test_player = player;
 		self.window = self.make_window.value;
 
 		self.make_kb_handlers;

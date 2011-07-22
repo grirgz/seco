@@ -1949,4 +1949,15 @@ s.freqscope
 
 
 Ndef(\bla).free(2)
-Ndef(\
+
+(
+{
+var freq, ratioNum, ratioDenum; //declare two variables
+ratioNum = 3; //assign numerator
+ratioDenum = 2; //assign denominator
+freq = MouseX.kr(1,440, warp: 1); //freq is mouse control
+LFSaw.ar(
+[freq, freq*(ratioNum/ratioDenum)], 0,
+0.3)*0.01
+}.scope(2)
+)

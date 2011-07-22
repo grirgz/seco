@@ -7,9 +7,9 @@
                 roundUp(beats - baseBarBeat - (phase % quant), quant) + baseBarBeat + phase
 };
 
-~make_name_button = { arg parent, label, xsize=50;
+~make_name_button = { arg parent, label, xsize=50, ysize=50;
 	var bt;
-	bt = GUI.button.new(parent, Rect(50,50,xsize,50));
+	bt = GUI.button.new(parent, Rect(50,50,xsize,ysize));
 	bt.states = [
 		[ label, Color.black, Color.white],
 		[ label, Color.white, Color.black ],
@@ -37,9 +37,9 @@
 	];
 };
 
-~make_val_button = { arg parent, label;
+~make_val_button = { arg parent, label, height=50;
 	var bt;
-	bt = GUI.button.new(parent, Rect(0,0,60,50));
+	bt = GUI.button.new(parent, Rect(0,0,60,height));
 	bt.states = ~make_states.(label);
 	bt.value = 0;
 	bt;
@@ -108,12 +108,12 @@
 
 
 
-	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+200),60));
-	row_layout.background = Color.rand;
+	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+200),height));
+	row_layout.background = ~editplayer_color_scheme.background;
 
 
-	bt_name = ~make_name_button.(row_layout, param.name);
-	txt_rec = GUI.staticText.new(row_layout, Rect(0,0,100,60));
+	bt_name = ~make_name_button.(row_layout, param.name, ysize:height);
+	txt_rec = GUI.staticText.new(row_layout, Rect(0,0,100,height));
 	txt_rec.string = "Stop";
 
 
@@ -181,7 +181,7 @@
 		recording: { arg self;
 			if( self.recording, {
 				txt_rec.string = "Rec";
-				txt_rec.background = Color.red;
+				txt_rec.background = ~editplayer_color_scheme.led;
 			}, {
 				txt_rec.string = "Stop";
 				txt_rec.background = Color.clear;
@@ -229,7 +229,7 @@
 
 
 	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+10),60));
-	row_layout.background = Color.rand;
+	row_layout.background = ~editplayer_color_scheme.background;
 
 
 	bt_name = ~make_name_button.(row_layout, param.name);
@@ -280,7 +280,7 @@
 			txt_midi[self.name].string = self.mapped_val;
 		},
 		blocked: { arg self;
-			txt_midi[self.name].background = if(self.blocked == \not, { Color.green }, { Color.red });
+			txt_midi[self.name].background = if(self.blocked == \not, { Color.clear }, { ~editplayer_color_scheme.led });
 		}
 	));
 	
@@ -318,25 +318,25 @@
 		bt_name,
 		slider,
 		new_cell,
-		width = 1200;
+		width = 1200,
+		height = 30;
 	var txt_midi_label, txt_midi_val;
 	var sc_param, sc_midi;
 	var max_cells = 8; // FIXME: already defined in editplayer
 	var inrange;
 
-	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+10),60));
-	row_layout.background = Color.rand;
+	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+10),height));
+	row_layout.background = ~editplayer_color_scheme.control;
 
-	bt_name = ~make_name_button.(row_layout, param_name ?? param.name, btnamesize);
+	bt_name = ~make_name_button.(row_layout, param_name ?? param.name, btnamesize, height);
 
-	bloc = GUI.vLayoutView.new(row_layout, Rect(0,0,150,60));
-	midibloc = GUI.hLayoutView.new(bloc, Rect(0,0,150,30));
-	txt_midi_label = GUI.staticText.new(midibloc, Rect(0,0,75,30));
-	txt_midi_val = GUI.staticText.new(midibloc, Rect(0,0,75,30));
+	midibloc = GUI.hLayoutView.new(row_layout, Rect(0,0,250,height));
+	txt_midi_label = GUI.staticText.new(midibloc, Rect(0,0,75,height));
+	txt_midi_val = GUI.staticText.new(midibloc, Rect(0,0,75,height));
 
-	slider = GUI.slider.new(bloc, Rect(0,0,100,30));
+	slider = GUI.knob.new(midibloc, Rect(0,0,30,height));
 
-	btl_cells = GUI.hLayoutView.new(row_layout, Rect(0,0,width,30));
+	btl_cells = GUI.hLayoutView.new(row_layout, Rect(0,0,width,height));
 
 	inrange = { arg sel=nil;
 		var start;
@@ -396,7 +396,7 @@
 			range.debug("cells");
 			cells[ start..((start+max_cells)-1) ].debug("cells");
 			cells[ start..((start+max_cells)-1) ].do { arg cell, i;
-				~make_val_button.(btl_cells, cell);
+				~make_val_button.(btl_cells, cell, height:height);
 				if(self.classtype== \stepline, {
 					btl_cells.children[i].value = cell
 				});
@@ -423,10 +423,10 @@
 			txt_midi_val.string = self.mapped_val;
 		},
 		blocked: { arg self;
-			txt_midi_val.background = if(self.blocked == \not, { Color.green }, { Color.red });
+			txt_midi_val.background = if(self.blocked == \not, { Color.green }, { ~editplayer_color_scheme.led });
 		},
 		recording: { arg self;
-			txt_midi_label.background = if(self.recording, { Color.red }, { Color.clear });
+			txt_midi_label.background = if(self.recording, { ~editplayer_color_scheme.led }, { Color.clear });
 		},
 		midi_key: { arg self, msg, key;
 			param_messages.val(param, msg); //TODO
@@ -457,13 +457,19 @@
 	};
 };
 
+~editplayer_color_scheme = (
+	background: Color.newHex("94A1BA"),
+	control: Color.newHex("6F88BA"),
+	led: Color.newHex("A788BA")
+);
+
 ~make_editplayer_view = { arg parent, player, param_order;
 	var midi;
 	var width = 1200;
 	var row_layout;
 
 	row_layout = GUI.vLayoutView.new(parent, Rect(0,0,(width+10),800));
-	row_layout.background = Color.blue;
+	row_layout.background = ~editplayer_color_scheme.background;
 
 	~midi_interface.clear_assigned(\slider);
 	~midi_interface.clear_assigned(\knob);
@@ -489,7 +495,7 @@
 					{ [\stepline, \noteline, \dur, \segdur, \stretchdur].includes(param_name) } {
 						midi = nil;
 					}
-					{ [\legato, \amp].includes(param_name)} {
+					{ [\legato, \amp, \attack, \release, \sustain].includes(param_name)} {
 						midi = ~midi_interface.assign_first(\slider, param);
 					}
 					{ true } {
@@ -872,7 +878,7 @@
 	ep = (
 		player: player,
 		model: (
-				param_order: List[\amp, \dur, \segdur, \stretchdur, \legato, \adsr,  \stepline, \noteline, \freq],
+				param_order: List[\amp, \dur, \segdur, \stretchdur, \legato, \attack, \sustain, \release, \adsr,  \stepline, \noteline, \freq],
 				param_reject: [\out, \instrument, \type, \gate, \agate, \t_trig],
 				max_cells: 8,
 				selected_param: 0

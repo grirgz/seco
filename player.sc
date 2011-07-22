@@ -1024,6 +1024,14 @@
 			self.bank = data.bank;
 		},
 
+		as_event: { arg self;
+			var ev = ();
+			self.data.keysValuesDo { arg key, val;
+				ev[key] = val.get_val;
+			};
+			ev;
+		},
+
 		get_arg: ~player_get_arg,
 		set_arg: ~player_set_arg
 
