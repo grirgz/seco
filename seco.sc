@@ -9,11 +9,13 @@
 	button.value = ((button.value+1) % 2);
 };
 
-"/home/ggz/code/sc/seco/synth.sc".loadDocument;
-"/home/ggz/code/sc/seco/keycode.sc".loadDocument;
-"/home/ggz/code/sc/seco/player.sc".loadDocument;
-"/home/ggz/code/sc/seco/editplayer.sc".loadDocument;
-"/home/ggz/code/sc/seco/mixer.sc".loadDocument;
+
+~compare_point = { arg a, b;
+	case
+		{ a.x == b.x } { a.y < b.y }
+		{ a.x < b.x }
+};
+
 
 
 ~matrix3_from_list = { arg list, collectfun = { arg x; x };
@@ -40,6 +42,35 @@
 	banklist;
 
 };
+
+~init_controller = { arg controller, messages;
+	messages.keysValuesDo { arg key, val; controller.put(key, val) };
+};
+
+~editplayer_color_scheme = (
+	background: Color.newHex("94A1BA"),
+	control: Color.newHex("6F88BA"),
+	led: Color.newHex("A788BA")
+);
+
+
+// ==========================================
+// INCLUDES
+// ==========================================
+
+[
+	"synth",
+	"keycode", 
+	"player",
+	"samplelib",
+	"editplayer",
+	"mixer",
+	"seqpanel"
+].do { arg file;
+	("Loading " ++ file ++".sc...").inform;
+	("/home/ggz/code/sc/seco/"++file++".sc").loadDocument;
+};
+"Done loading.".inform;
 
 
 // ==========================================
@@ -112,6 +143,7 @@
 		},
 
 		del_parlive: { arg self, address;
+			//TODO: free the player and ressources
 			self.set_parlive(address, 0);
 		},
 
@@ -159,6 +191,11 @@
 			mixer: (
 				bank: 0
 			),
+			seqpanel: (
+				bank: 0,
+				selected_player: nil,
+				selected_player_idx: 0
+			),
 			parlive: (
 				bank: 0
 			)
@@ -179,6 +216,11 @@
 		});
 		self.model.patlib = patlib;
 		self.model.patpool = patpool;
+	},
+
+	load_samplelib: { arg self, samplelist;
+		self.model.samplelist = samplelist;
+
 	},
 
 	//////////////////////////////////////////////////////////
@@ -433,6 +475,15 @@
 			},
 			\change_panel, {
 				var newpan = input[1];
+
+				// FIXME: dirty hack to handle player selection between panels
+				if( self.state.current.panel == \seqpanel 
+						&& (newpan == \editplayer), {
+				}, {
+					// if nil, use parlive panel selection
+					self.state.panel.seqpanel.selected_player = nil;
+				});
+
 				if( (newpan == \patlib)
 					&& (self.state.selected.kind == \nodegroup), {
 					"cannot load libnode to groupnode".debug("FORBIDEN");
@@ -512,9 +563,6 @@
 		self.kb_handler[ [~modifiers.fx, ~kbfx[1]] ] = { self.handlers( [\cut] ) };
 		self.kb_handler[ [~modifiers.fx, ~kbfx[3]] ] = { self.handlers( [\paste] ) };
 
-		self.kb_handler[ [~modifiers.fx, ~kbfx[4]] ] = { self.handlers( [\play_selected] ) };
-		self.kb_handler[ [~modifiers.fx, ~kbfx[5]] ] = { self.handlers( [\stop_selected] ) };
-
 		self.kb_handler[ [~modifiers.fx, ~kbfx[7]] ] = { 
 			// stop all players
 			self.model.livenodepool.keysValuesDo { arg key, val; val.node.stop };
@@ -522,11 +570,11 @@
 
 		self.kb_handler[ [~modifiers.fx, ~kbfx[8]] ] = { self.handlers( [\change_panel, \parlive] ) };
 		self.kb_handler[ [~modifiers.fx, ~kbfx[9]] ] = { self.handlers( [\change_panel, \patlib] ) };
-		self.kb_handler[ [~modifiers.fx, ~kbfx[10]] ] = { self.handlers( [\change_panel, \mixer] ) };
+		self.kb_handler[ [~modifiers.ctrlfx, ~kbfx[10]] ] = { self.handlers( [\change_panel, \mixer] ) };
+		self.kb_handler[ [~modifiers.fx, ~kbfx[10]] ] = { self.handlers( [\change_panel, \seqpanel] ) };
 		self.kb_handler[ [~modifiers.fx, ~kbfx[11]] ] = { self.handlers( [\change_panel, \editplayer] ) };
 
 		// quant
-
 		self.kb_handler[ [~modifiers.ctrl, ~kbcalphanum["q"]] ] = { 
 			
 			~kbnumpad.do { arg keycode, idx;
@@ -558,6 +606,9 @@
 
 
 	make_parlive_handlers: { arg self;
+
+		self.kb_handler[ [~modifiers.fx, ~kbfx[4]] ] = { self.handlers( [\play_selected] ) };
+		self.kb_handler[ [~modifiers.fx, ~kbfx[5]] ] = { self.handlers( [\stop_selected] ) };
 
 		~kbpad8x4.do { arg line, iy;
 			line.do { arg key, ix;
@@ -752,12 +803,13 @@
 		var ps_col_layout, curbank, data_address;
 		var parent = self.window;
 		curbank = self.state.current.bank;
+		parent.view.background = ~editplayer_color_scheme.background;
 
 		8.do { arg rx;
 			var label;
 
 			ps_col_layout = GUI.vLayoutView.new(parent, Rect(0,0,(self.width+10)/9,60*8));
-			ps_col_layout.background = Color.rand;
+			ps_col_layout.background = ~editplayer_color_scheme.control;
 
 			label = self.model.get_pargroup((bank: curbank, coor: rx @ (-1)))[\name];
 
@@ -794,9 +846,10 @@
 		curbank = self.state.current.bank;
 		"BEGIN".debug("make_patlib_view");
 
+		parent.view.background = ~editplayer_color_scheme.background;
 		self.model.patlib[curbank].do { arg col, rx;
 			ps_col_layout = GUI.vLayoutView.new(parent, Rect(0,0,(self.width+10)/9,60*6));
-			ps_col_layout.background = Color.rand;
+			ps_col_layout.background = ~editplayer_color_scheme.control;
 
 			col.do { arg cell, ry;
 				var label;
@@ -824,6 +877,7 @@
 			\parlive, { self.show_parlive_panel },
 			\patlib, { self.show_patlib_panel },
 			\mixer, { self.show_mixer_panel },
+			\seqpanel, { self.show_seqpanel_panel },
 			\editplayer, { self.show_editplayer_panel }
 		);
 
@@ -848,11 +902,15 @@
 	show_editplayer_panel: { arg self;
 		var sel;
 		var ep;
-		sel = self.get_selected_player.();
+		if(self.state.panel.seqpanel.selected_player.notNil, {
+			sel = self.state.panel.seqpanel.selected_player;
+		}, {
+			sel = self.get_selected_player.();
+		});
 		if( sel.notNil, {
 			self.clear_current_panel.value;
 			self.state.current.panel = \editplayer;
-			ep = ~make_editplayer.(sel, self.window, self.kb_handler);
+			ep = ~make_editplayer.(self, sel, self.window, self.kb_handler);
 			self.make_editplayer_handlers(ep);
 			self.window.view.focus(true);
 		});
@@ -861,7 +919,16 @@
 	show_mixer_panel: { arg self;
 		self.clear_current_panel.value;
 		self.state.current.panel = \mixer;
+		"blaaa".debug;
 		~make_mixer.(self, self.window, self.kb_handler);
+		"finblaaa".debug;
+		self.window.view.focus(true);
+	},
+
+	show_seqpanel_panel: { arg self;
+		self.clear_current_panel.value;
+		self.state.current.panel = \seqpanel;
+		~make_seq.(self, self.window, self.kb_handler);
 		self.window.view.focus(true);
 	},
 
@@ -898,7 +965,7 @@
 		self.kb_handler[ [~modifiers.fx, ~kbfx[4]] ] = { player.node.play };
 		self.kb_handler[ [~modifiers.fx, ~kbfx[5]] ] = { player.node.stop };
 
-		ep = ~make_editplayer.(player, self.window, self.kb_handler);
+		ep = ~make_editplayer.(self, player, self.window, self.kb_handler);
 		self.make_editplayer_handlers(ep);
 		self.window.view.focus(true);
 	};

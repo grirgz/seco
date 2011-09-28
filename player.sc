@@ -241,6 +241,75 @@
 
 };
 
+
+~make_buf_param = { arg name, default_value, player_name;
+
+	var param;
+
+	param = (
+		val: nil,
+		name: name,
+		classtype: \buf,
+		spec: nil,
+		selected: 0,
+		buffer: nil,
+
+		save_data: { arg self;
+			var data = ();
+			[\name, \classtype, \selected, \spec, \val].do {
+				arg key;
+				data[key] = self[key];
+			};
+			data;
+		},
+
+		load_data: { arg self, data;
+			[\name, \classtype, \selected, \spec, \val].do {
+				arg key;
+				self[key] = data[key];
+			};
+		},
+
+		select_param: { arg self;
+			self.selected = 1;
+			self.changed(\selected);
+		},
+		deselect_param: { arg self;
+			self.selected = 0;
+			self.changed(\selected);
+		},
+
+		get_val: { arg self; self.val },
+
+		new_buffer: { arg self, path;
+			self.buffer = BufferPool.get_sample(player_name, path);
+		},
+
+		set_val: { arg self, val;
+			if(val != self.val, {
+				self.new_buffer(val);
+				self.val = val;
+				self.changed(\val);
+			});
+		},
+
+
+		refresh: { arg self;
+			self.changed(\val);
+		},
+
+		vpattern: { arg self;
+			
+			self.buffer.bufnum.debug("BUFNUM");	
+			self.buffer.bufnum;	
+		}
+
+	);
+	param.set_val(default_value);
+	param;
+
+};
+
 ~default_noteline = [ // FIXME: crash when no notes
 	(
 		midinote: 64,
@@ -516,6 +585,7 @@
 		},
 		refresh: { arg self;
 			self.changed(\cells);
+			self.changed(\selected);
 		},
 		vpattern: { arg self; 
 			~pdynarray.( { arg idx; 
@@ -557,6 +627,12 @@
 		},
 		set_norm_val: { arg self, val;
 			s.volume.volume = self.spec.map(val);
+		},
+		get_cells: { arg self;
+			[s.volume.volume]
+		},
+		refresh: { arg self;
+			self.changed(\cells);
 		},
 		spec: \db.asSpec,
 		selected: 1
@@ -873,7 +949,10 @@
 	player = (
 		bank: 0,
 		defname: defname,
+		uname: defname ++ UniqueID.next,
+		noteline: false,
 		node: EventPatternProxy.new,
+		to_destruct: List.new,
 
 		init: { arg self;
 
@@ -897,6 +976,11 @@
 								}
 								{ name == '?' } { 
 									// skip
+									// FIXME: what is it for ?
+								}
+								{ (name == \bufnum) || name.asString.containsStringAt(0, "bufnum_") } {
+									dict[name] = ~make_buf_param.(name, "sounds/default.wav", self.uname);
+									self.to_destruct.add(dict[name]);
 								}
 								//default
 								{ true } { 
@@ -952,7 +1036,8 @@
 			var exclu, list = List[];
 			exclu = [\instrument, \noteline, \amp, \freq, \stepline, \type, \dur, \segdur, \legato, \sustain];
 			self.data.keys.difference(exclu).do { arg key;
-				list.add(key); list.add( self.data[key].vpiano ) 
+				var val = self.data[key].vpiano ?? self.data[key].vpattern;
+				list.add(key); list.add( val ) 
 			};
 			{ arg freq, veloc; 
 				Synth(self.data[\instrument].vpiano, (
@@ -962,6 +1047,12 @@
 
 		},
 
+		destructor: { arg self;
+			self.to_destruct.do { arg i;
+				i.destructor;
+			}
+		},
+
 		set_noteline: { arg self, set;
 			self.data.keysValuesDo { arg key, val;
 				if(val.classtype == \control, {
@@ -969,6 +1060,7 @@
 					val.noteline = set
 				})
 			};
+			self.noteline = set;
 		},
 
 		clone: { arg self;

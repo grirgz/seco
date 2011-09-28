@@ -1961,3 +1961,1174 @@ LFSaw.ar(
 0.3)*0.01
 }.scope(2)
 )
+
+
+
+(
+// this version has no lag so delay time jumps around with clicks
+{
+       var input, delayTime, outDelay;
+       // input from sound card
+       input = SoundIn.ar(0);
+       // delay time jumps every 2 seconds
+       delayTime = Demand.kr(Impulse.kr(1/2), 0, Dseq([0.4, 0.6, 0.9, 0.3, 0.7], inf));
+       // CombC - delay with feedback
+       CombC.ar(input, 2, delayTime, 6) + input;
+}.play;
+)
+
+(
+// this version has a lag so delaytime smoothly changes with no clicks
+{
+       var input, delayTime, laggedDelayTime, outDelay;
+       // input from sound card
+       input = SoundIn.ar(0);
+       // delay time jumps every 4 seconds
+//       delayTime = Demand.kr(Impulse.kr(1/4), 0, Dseq([0.4, 0.6, 0.9, 0.3, 0.7], inf));
+       delayTime = MouseX.kr(0.01, 1);
+       // lagged delay time - takes 3 seconds to reach new value
+       laggedDelayTime = Lag.kr(delayTime, MouseY.kr(0.001,3));
+       // CombC - delay with feedback
+       CombC.ar(input, 2, laggedDelayTime, 6) + input;
+}.play;
+)
+
+
+
+
+(
+{
+       var     x = LFPulse.ar(100);
+       [x, Lag.ar(x, 0.008)]
+}.plot(duration: 0.05);
+)
+
+
+
+(
+SynthDef(\BigKick, {
+| 
+out = 0, pitch = 60, pan = 0, 
+amp = 1, click = 1, gate = 1,
+decay = 1, pDecaySpeed = 0.5, pDecayDepth = 20,
+attack = 0.0005
+|
+
+//Local Vars
+var osc, oscPitchEnv, oscAmpEnv, oscPitchDecay;
+var noise, noiseampEnv;
+var output;
+//Osc
+oscPitchDecay = (attack + decay) * pDecaySpeed;
+oscPitchEnv = EnvGen.kr(Env.perc(0, oscPitchDecay, pDecayDepth, 0));
+oscAmpEnv = EnvGen.kr(Env.perc(attack, decay, amp, -4), doneAction:2);
+osc = SinOsc.ar((pitch + oscPitchEnv), mul: oscAmpEnv);
+//Noise
+noiseampEnv = EnvGen.kr(Env.perc(0.0005, 0.03, (amp * click) * 0.3, -4));
+noise = WhiteNoise.ar(mul: noiseampEnv);
+
+//Out
+output = Pan2.ar(osc + noise, pan);
+Out.ar(out, output);
+}).add;
+
+)
+
+
+(
+Pdef(\kick, Pbind(
+	\instrument, \BigKick,
+	\decay, 0.5,
+	\pitch, 60,
+	\pDecaySpeed, 2.1,
+	\pDecayDepth, 10,
+	\click, 1,
+	\dur, 1
+)).play
+)
+
+
+play{LFPar.ar(LFNoise1.kr(300) > 0 * 20 + 070, 0, 2).tanh}
+
+
+
+
+
+(
+var win, view;
+var run = true;
+q = ();
+
+q.branches = List[];
+
+q.minWanderStep = 1.0184;
+q.maxWanderStep = 0.1702;
+q.minGrowthRate = 10.6214;
+q.maxGrowthRate = 11.8251;
+q.minShrinkRate = 0.99656;
+q.maxShrinkRate = 0.91265;
+q.branchProbability = 0.05;
+q.minDivergence = 1.3268;
+q.maxDivergence = 1.3885;
+q.maxConcurrent = 500;
+q.numBranches = 6;
+q.minRadius = 0.15;
+q.maxRadius = 70;
+
+q.makeBranch = {
+	arg env, x, y, theta, radius, scale = 1.0, generation = 1;
+
+	(
+		x: x, 
+		y: y,
+		ox:x, 
+		oy: y,
+		x1: nil, x2: nil,
+		y1: nil, y2: nil,
+		scale: 1.0,
+		theta: theta,
+		oTheta:theta,
+		radius:radius,
+		generation:1,
+		growing:true,
+		age:0,
+		wanderStep: rrand(q.minWanderStep, q.maxWanderStep),
+		growthRate: rrand(q.minGrowthRate, q.maxGrowthRate),
+		shrinkRate: rrand(q.minShrinkRate, q.maxShrinkRate),
+		fRender: {
+			arg that, context;
+			var scale, radius;
+			if(that.growing,
+				{
+					scale = that.scale;
+					radius = that.radius * scale;
+
+					// Draw outline
+					Pen.line(that.ox@that.oy,that.x@that.y);
+					
+					// not in qt...
+					if((GUI.scheme == "CocoaGUI") and: (radius > 5.0), {
+					 	Pen.setShadow(1@1, scale, Color.new(0,0,0,0.05));
+					});
+					
+					Pen.width = radius + scale;
+					Pen.strokeColor = Color.black;
+					Pen.capStyle = 1; //round
+					Pen.stroke();
+					
+					// Draw fill
+					Pen.line(that.ox@that.oy, that.x@that.y);
+
+					Pen.width = radius;
+					Pen.strokeColor = Color.white;
+					Pen.capStyle = 1; //round
+					Pen.stroke();
+				});
+		},
+		fUpdate: {
+			arg that;
+			var theta, scale, radius, branch, offset;
+			if(that.growing,
+				{
+					that.ox = that.x;
+					that.oy = that.y;
+					that.oTheta = that.theta;
+
+					that.theta = that.theta + rrand(that.wanderStep * -1,
+						that.wanderStep);
+					
+					that.x = that.x + (cos(that.theta) 
+						* that.growthRate * that.scale);
+					that.y = that.y + (sin(that.theta) 
+						* that.growthRate * that.scale);
+
+					that.scale = that.scale * that.shrinkRate;
+
+					if(
+						(q.branches.size < q.maxConcurrent)
+						and:
+						(1.0.rand < q.branchProbability),
+						{
+							offset = rrand(q.minDivergence,
+								q.maxDivergence);
+							theta = that.theta 
+							+ (offset * [1,-1].choose);
+							
+							scale = that.scale * 0.95;
+							radius = that.radius * scale;
+
+							branch = q.makeBranch(
+								that.x, that.y, theta, radius, scale);
+
+							branch.generation = that.generation + 1;
+							q.branches.add(branch);
+						});
+
+					if((that.radius * that.scale) <= q.minRadius, {
+						that.growing = false;
+					});
+
+					that.age = (that.age + 1);							
+				})
+		}
+	)
+};
+
+q.makeRecursion = {
+	arg env;
+
+	(
+		//started: false,
+		fSpawn: {
+			arg env, x,  y;
+			var theta, radius;
+			q.branches = List[];
+			q.numBranches.do{
+				arg i;
+				theta = (i / q.numBranches) * 2pi;
+				radius = q.maxRadius;
+				q.branches.add(q.makeBranch(x, y, theta - (pi/2), radius));
+			}
+		},
+		fUpdate: {
+			arg env;
+			var index;
+			var numBranches = q.branches.size;
+			q.branches.do{
+				arg branch, i;
+				branch.fUpdate;
+				branch.fRender;
+			};
+			//strip dead branches
+			
+			numBranches.do{
+				|i|
+				index = numBranches - (i + 1);
+				if(q.branches[index].growing.not,
+					{
+						q.branches.removeAt(index);
+					})
+			}
+		}
+	)	
+};
+
+r = q.makeRecursion;
+r.fSpawn(350,350);
+win = Window(
+	"grow! (click to restart)", Rect(10, 10, 700, 700)
+);
+win.onClose = { run = false; };
+view = UserView(win, 700@700).drawFunc_({ r.fUpdate }).clearOnRefresh_(false).mouseDownAction_({ |v,x,y| view.clearDrawing; r.fSpawn(x,y) });
+win.front;
+{ while { run } { win.refresh; 0.05.wait } }.fork(AppClock)
+)
+
+
+
+
+
+
+
+(
+var screen = Window.screenBounds,
+	height = (screen.height * 0.8).asInteger,
+	width = (screen.width * 0.8).asInteger,
+	win = Window(\aliasing, Rect.aboutPoint(screen.center, width / 2, height / 2 + 20)),
+	sinPts = 400, sampPts = 20,
+	freq = 1, fsl,
+	sinColor = Color.red, sampColor = Color.black;
+
+win.drawHook = {
+	var pt;
+	pt = Point(0, height/2);
+	Pen.color_(sampColor)
+		.moveTo(pt);
+	(1..sampPts).do { |x|
+		Pen.moveTo(pt);
+		pt = Point(x * (width / sampPts), sin(x * freq / sampPts * 2pi).linlin(-1, 1, height, 0));
+		Pen.lineTo(pt).stroke
+			.fillRect(Rect.aboutPoint(pt, 3, 3));		
+	};
+
+	Pen.color_(sinColor)
+		.moveTo(Point(0, height/2));
+	(1..sinPts).do { |x|
+		Pen.lineTo(Point(
+			x * (width / sinPts),
+			sin(x * freq / sinPts * 2pi).linlin(-1, 1, height, 0)
+		));
+	};
+	Pen.stroke;
+};
+
+fsl = EZSlider(win, Rect(5, height+10, width-10, 20), "freq:", [1, 20], { |view| freq = view.value; win.refresh }, 1, initAction: true);
+
+win.front;
+)
+
+
+play{a=Impulse;tanh(a.kr(8).lag*Crackle.ar(LFSaw.kr(3).abs.lag*1.8)+GVerb.ar([a.kr(2)+a.kr(4,0.5)].lag*Blip.ar(4.9,7,0.4)!2,1,1)*5)}
+
+
+
+(
+//LET'S PAINT!
+//select all and compile
+
+var point, red, green, blue, win, view, colorTask;
+var redChange, greenChange, blueChange;
+
+//rate of change of each color component
+//mess around with these values for fun
+//zero results in no color change
+redChange = 0.01;
+greenChange = 0.015;
+blueChange = 0.02;
+
+//default starting RGB values
+//these values can be changed as well
+//maintain range of 0≤x≤1
+red=0; green=0.33; blue=0.67;
+
+//window creation
+win = Window("FANCY ARTWORK", resizable:true, border:false);
+win.fullScreen;
+win.onClose = {
+	if( 
+		colorTask.isPlaying,
+		{colorTask.stop},
+		{}
+	);
+};
+
+//userview creation
+view = UserView(win, Window.screenBounds);
+view.clearOnRefresh = false;
+view.background = Color.white;
+
+//any click sets point as current mouse location
+//left-click does nothing special
+//right-click clears palette
+view.mouseDownAction = {
+	|v, x, y, mod, butNum, clkCnt|
+	point = [x,y];
+	if(butNum == 1,
+		{
+			view.drawFunc_({nil});
+			view.clearDrawing;
+			view.refresh},{}
+	);
+};
+
+//mouse drag redefines userview drawFunc
+//Pen draws line from old point to current point
+//then sets old point equal to current point
+view.mouseMoveAction = {
+	|v, x, y, mod|
+	view.drawFunc = {
+		Pen.strokeColor = Color.new(
+			red.fold(0,1),
+			green.fold(0,1),
+			blue.fold(0,1)
+		);
+		Pen.width = 3;
+		Pen.line(point.asPoint,x@y);
+		point = [x,y];
+		Pen.stroke;
+		};
+	win.refresh;
+};
+
+//RGB values wrap through range 0≤x<2
+//and are folded into 0≤x≤1 via mouseMove function
+//thus RGB values oscillate linearly, out of phase with
+//one another, back and forth from 0 to 1
+colorTask = Task({
+	{
+		red = (red + redChange)%2;
+		green = (green + greenChange)%2;
+		blue = (blue + blueChange)%2;
+		0.05.wait; //arbitrary wait time
+	}.loop;
+});
+
+//comment out for no color change
+colorTask.start;
+
+win.front;
+)
+
+
+
+// a drum part
+play{b=SinOsc.kr(1);a=Line.kr(0.1,2*pi,37);FreeVerb.ar(SinOsc.ar(b*340!2*Impulse.kr(b*680),LFPulse.kr(2,0,pi/2),LFPulse.kr(3,0,1/pi*a)))}
+
+//sticky morning clock
+play{c=LFPulse.kr(0.5);b=SinOsc.kr(0.0034);a=Line.kr(0.1,2pi,37);FreeVerb.ar(Blip.ar(a*340!2*Impulse.kr(b*34/pi),c*TIRand.kr(0,113,c),c))}
+
+// another drum part
+play{a=Impulse;b=SinOsc;a.kr(6).lag*Crackle.ar(LFSaw.kr(5).abs.lag2)+a.ar(7).lag*b.ar(222*b.kr(29))+([a.kr(2,0,4)+a.kr(1)].lag*b.ar(70!2))}
+
+/// i like to play these two on series
+play{a=Impulse;a.kr(8).lag2*Crackle.ar(LFSaw.kr(5).abs.lag2)+GVerb.ar([a.kr(2,0,4).lag+a.kr(1,pi/5).lag]*Blip.ar(5,2,0.2)!2,6,0.4)}
+///
+play{a=Impulse;a.kr(8).lag2*Crackle.ar(LFSaw.kr(7).abs.lag3)+GVerb.ar([a.kr(2,0,4).lag+a.kr(1,pi/1.2).lag]*SinOsc.ar(20)!2,6,0.4,0.4)}
+
+
+fork{loop{play{f=_*3.pow(17.rand/13);e=EnvGen.ar(Env.perc,1,0.3,0,1,2);PMOsc.ar(f.([438,442]),f.(880),f.(e))*e};[1/6,1/3].choose.wait}}
+
+
+(
+Ndef(\z, {
+
+	// get fed back signal and add a little noise to get things going
+	var sig = Ndef(\z).ar + WhiteNoise.ar(0.001!2);
+	var a, k, delfreq, minfreqs, freqs, dry;
+		
+	// delay due to distance from amp - I chose 0.05s, or 20Hz
+	delfreq = 20;
+	sig = DelayN.ar(sig,1/10-ControlDur.ir,1/delfreq-ControlDur.ir);
+
+	// guitar string frequencies - for some reason I had to pitch them down
+	// a few octaves to get a good sound.
+	// open strings
+	//// freqs = (64+[0,5,10,15,19,24]).midicps/8;
+	// e minor
+	freqs = (64+[0,7,12,15,19,24]).midicps/4;
+	
+	// whammy bar modulates freqs:
+	minfreqs = freqs*0.5;
+	freqs = freqs*MouseButton.kr(1,0.75,4);
+	
+	// 6 comb filters emulate the strings' resonances
+	sig = CombN.ar(sig!6,1/minfreqs,1/freqs,8).mean;
+
+	// a little filtering... mouse Y controls amp
+	sig = LPF.ar(sig,8000);
+	sig = HPF.ar(sig*MouseY.kr(0,5),80);
+
+	// and some not too harsh distortion - mouse X controls damping
+	sig = RLPFD.ar(sig,MouseX.kr(200,10000,1)*[1,1.1],0.1,0.5);
+	sig = sig + sig.mean;
+
+	// and finally a spot of reverb
+	dry = sig;
+	10.do {
+		d = 0.2.rand;
+		sig = AllpassN.ar(sig,d,d,5);
+	};
+	(dry + sig)*0.125;
+
+}).play;
+)
+
+
+(
+// Pulse doesn't respond well to being frequency modulated - loads of weird low freq noise
+{ Pulse.ar(SinOsc.ar(XLine.kr(1,8000,20)).range(1,2000))*0.2 !2}.play
+)
+
+(
+// LFPulse doesn't sound like an analogue synth due to loads of aliasing
+{ LFPulse.ar(SinOsc.ar(XLine.kr(1,8000,20)).range(1,2000))-0.5*0.4 !2}.play
+)
+
+(
+// But you can also produce a good approximation of a pulse wave by clipping a 
+// high-amplitude sine wave.  Clipper8 (from sc3-plugins) allows you to do this 
+// in a band-limited way.  This sounds much more like a frequency modulated analogue
+// oscillator.
+{ Clipper8.ar(SinOsc.ar(SinOsc.ar(XLine.kr(1,8000,20)).range(0,2000), 0, 10), -0.2, 0.2) !2}.play
+// note: there are two SinOscs - the inner one is the modulator and the outer one is
+// clipped to make the pulse wave
+)
+
+(
+// with PWM too
+{ Clipper8.ar(SinOsc.ar(SinOsc.ar(XLine.kr(1,8000,20)).range(50,1000), 0, 10)+LFTri.ar(8,mul:9.9), -0.2, 0.2) !2}.play
+)
+
+
+// up
+(
+play{
+	x = BPF.ar(
+		PinkNoise.ar(0.2!2),
+		100,
+		0.2
+	)*Line.kr(1,0,1);
+	Fb({
+		|fb|
+		FreqShift.ar(fb+x, 5);
+	})
+}
+)
+
+
+// down
+(
+play{
+	x = BPF.ar(
+		PinkNoise.ar(0.2!2),
+		8000,
+		0.2
+	)*Line.kr(1,0,1);
+	Fb({
+		|fb|
+		FreqShift.ar(fb+x, -4);
+	})
+}
+)
+
+
+// this is the new version!
+(
+s = Server.default;
+s.boot;
+)
+(
+SynthDef(\bglass, {
+	
+	|t_trig = 1.0, audioOutBus = 0|
+	
+	var major_hit_times, major_hit_deltas, major_hit_levels, major_hit_impulse_levels, major_hit_impulses;
+	var major_hit_amp, major_hit_envGen, major_hit_out;
+	var klank_freq_array, klank_out;
+	var noise, noise_out;
+	var additional_tinkles;
+	var initial_impact_pitch_envGen, initial_impact_amp_envGen, initial_impact;
+	var comb_out, output;
+	
+	var last_time;
+		
+	major_hit_times = [0.02, 0.1, 0.21, 0.28, 0.32, 0.48, 0.6, 0.69];
+	major_hit_deltas = [];
+	last_time = 0.0;
+	major_hit_times.size.do { |i|
+		major_hit_deltas = major_hit_deltas ++ 
+			[
+			SampleDur.ir, 
+			((major_hit_times[i] - last_time) * TRand.kr(0.4, 1.6, t_trig)) - SampleDur.ir
+			];
+		
+		last_time = major_hit_times[i];
+	};
+	major_hit_levels = [1.0, 0.3, 0.7, 0.4, 0.65, 0.87, 0.27, 0.4];
+	major_hit_levels.size.do { |i|
+		
+		major_hit_levels[i] = major_hit_levels[i] * TRand.kr(0.7, 1.0, t_trig);
+		
+	};
+	major_hit_impulse_levels = [major_hit_levels, 0 ! major_hit_times.size].lace(major_hit_times.size * 2);
+	major_hit_impulses = Duty.ar(
+		Dseq(major_hit_deltas, 1), K2A.ar(t_trig), Dseq(major_hit_impulse_levels, 1)
+		);	
+	major_hit_amp = Gate.ar(major_hit_impulses, major_hit_impulses);
+	major_hit_envGen = EnvGen.ar(Env.perc(0.0, 0.03, 1, -9), major_hit_impulses) * major_hit_amp;
+	major_hit_out = major_hit_envGen * WhiteNoise.ar * 0.6;
+	major_hit_out = major_hit_out + major_hit_impulses;
+	
+	klank_freq_array = [1383, 2831, 3252, 3446, 4547, 4600, 4832, 5863, 6813, 8683, 11196];
+	klank_freq_array.size.do { |i|
+	
+		klank_freq_array[i] = klank_freq_array[i] * TRand.kr(0.8, 1.2,  Impulse.kr(20));
+	};
+	klank_out = DynKlank.ar(`[klank_freq_array, nil, 0.2], major_hit_out * 0.05);
+	klank_out = DelayC.ar(klank_out, 0.2, 0.009);
+
+	noise = BrownNoise.ar + (WhiteNoise.ar * 0.3) + (PinkNoise.ar * 0.6);
+	noise = noise * 0.1;
+	noise = noise + Dust.ar(70, 1);
+	noise_out = noise * LagUD.ar(major_hit_impulses, 0.0, 0.842);
+	
+	additional_tinkles = 
+	DynKlank.ar(`[ Array.series(8, 1200, 179), nil, 0.7], Dust.ar(14), TRand.kr(2.9, 3.1, Impulse.kr(28)) )
+	+
+	DynKlank.ar(`[ Array.series(8, 1200, 179), nil, 0.13], Dust.ar(11, 0.7), TRand.kr(1.4, 2.2, Impulse.kr(15)) );
+	
+	additional_tinkles = additional_tinkles * 
+		EnvGen.ar(Env.linen(0.15, 0.3, 0.3, 1.0, -2), t_trig, timeScale: TRand.kr(0.9, 1.12, t_trig));
+	
+	initial_impact_pitch_envGen = EnvGen.ar(Env.perc(0.001, 0.03, 1.0, -7), t_trig);
+	initial_impact_amp_envGen = EnvGen.ar(Env.perc(0.0, 0.04, 1.0, -9), t_trig);
+	initial_impact = SinOsc.ar(initial_impact_pitch_envGen.exprange(20, 4000) * TRand.kr(0.96, 1.03, t_trig)) * 0.5;
+	initial_impact = initial_impact + LFNoise1.ar(6800, 1.0) * initial_impact_amp_envGen;
+	initial_impact = HPF.ar(initial_impact, 100);
+	initial_impact = initial_impact + CombC.ar(initial_impact, 0.2, 0.04, 0.2, 0.12);
+	output = (klank_out * 0.5) + (major_hit_out * 0.45);
+	output = (output * 0.86) + DelayC.ar(output, 0.2, 0.01);
+	output = output + (noise_out * 0.32) + (additional_tinkles * 0.044) + (initial_impact * 0.2);
+	
+	comb_out = CombC.ar(output, 0.1, [0.028, 0.031], 0.52, 0.23);
+	comb_out = LPF.ar(comb_out, 3000);
+	comb_out = HPF.ar(comb_out, 110);
+	output = output + comb_out;
+	Out.ar(audioOutBus, output);
+	
+}).send(s);
+
+)
+x = Synth(\bglass, [\audioOutBus, 0], s);
+x.set(\t_trig, 1.0);
+
+
+
+///////////////////////////////////////////////////////////////////////////
+
+
+// and now the previous attempt
+(
+s = Server.default;
+s.boot;
+)
+
+(
+
+
+
+SynthDef(\bglass, {
+	
+	|t_trig = 1.0, audioOutBus = 0|
+	
+	var major_hit_times, major_hit_deltas, major_hit_levels, major_hit_impulse_levels, major_hit_impulses;
+	var major_hit_amp, major_hit_envGen, major_hit_out;
+	var klank_freq_array, klank_out;
+	var noise, noise_out;
+	var additional_tinkles;
+	var initial_impact_pitch_envGen, initial_impact_amp_envGen, initial_impact;
+	var output;
+	
+	var last_time;
+		
+	major_hit_times = [0.02, 0.1, 0.21, 0.28, 0.32, 0.48, 0.6, 0.69];
+	major_hit_deltas = [];
+	last_time = 0.0;
+	major_hit_times.size.do { |i|
+		major_hit_deltas = major_hit_deltas ++ 
+			[
+			SampleDur.ir, 
+			(major_hit_times[i] - last_time) - SampleDur.ir
+			];
+		
+		last_time = major_hit_times[i];
+	};
+	
+	major_hit_levels = [1.0, 0.3, 0.7, 0.4, 0.65, 0.87, 0.27, 0.4];
+	major_hit_impulse_levels = [major_hit_levels, 0 ! major_hit_times.size].lace(major_hit_times.size * 2);
+	
+	major_hit_impulses = Duty.ar(
+		Dseq(major_hit_deltas, 1), K2A.ar(t_trig), Dseq(major_hit_impulse_levels, 1)
+		);	
+
+	major_hit_amp = Gate.ar(major_hit_impulses, major_hit_impulses);
+		
+	major_hit_envGen = EnvGen.ar(Env.perc(0.0, 0.03, 1, -9), major_hit_impulses) * major_hit_amp;
+	major_hit_out = major_hit_envGen * WhiteNoise.ar * 0.6;
+	
+	major_hit_out = major_hit_out + major_hit_impulses;
+	
+	klank_freq_array = [1383, 2831, 3252, 3446, 4547, 4600, 4832, 5863, 6813, 8683, 11196];
+	klank_freq_array.size.do { |i|
+	
+		klank_freq_array[i] = klank_freq_array[i] * TRand.kr(0.9, 1.1,  Impulse.kr(20));
+	};
+	klank_out = DynKlank.ar(`[klank_freq_array, nil, 0.2], major_hit_out * 0.05);
+	klank_out = DelayC.ar(klank_out, 0.2, 0.009);
+
+	noise = BrownNoise.ar + (WhiteNoise.ar * 0.3) + (PinkNoise.ar * 0.6);
+	noise = noise * 0.1;
+	noise = noise + Dust.ar(70, 1);
+	noise_out = noise * LagUD.ar(major_hit_impulses, 0.0, 0.842);
+	
+	additional_tinkles = DynKlank.ar(`[ Array.series(8, 1200, 179), nil, 0.7], Dust.ar(18), TRand.kr(2.9, 3.1, Impulse.kr(20)) );
+	
+	additional_tinkles = additional_tinkles * EnvGen.ar(Env.linen(0.15, 0.3, 0.3, 1.0, -2), t_trig);
+	
+	initial_impact_pitch_envGen = EnvGen.ar(Env.perc(0.001, 0.03, 1.0, -7), t_trig);
+	initial_impact_amp_envGen = EnvGen.ar(Env.perc(0.0, 0.04, 1.0, -9), t_trig);
+	initial_impact = SinOsc.ar(initial_impact_pitch_envGen.exprange(20, 4000)) * 0.5;
+	initial_impact = initial_impact + LFNoise1.ar(6800, 1.0) * initial_impact_amp_envGen;
+	initial_impact = HPF.ar(initial_impact, 100);
+	initial_impact = initial_impact + CombC.ar(initial_impact, 0.2, 0.04, 0.2, 0.12);
+	output = (klank_out * 0.5) + (major_hit_out * 0.45) + (noise_out * 0.12) + (additional_tinkles * 0.044) + (initial_impact * 0.2);
+	
+	output = output ! 2;
+	Out.ar(audioOutBus, output);
+	
+}).send(s);
+
+
+)
+
+
+x = Synth(\bglass, [\audioOutBus, 0], s);
+x.set(\t_trig, 1.0);
+
+
+
+b = Buffer.alloc(s, 512, 1);
+b.sine1(1.0, true, false, true);
+
+(
+Ndef(\feedbacker, {|resetRate = 100, freq = 100, lowFreq = 100, rq = 0.1|
+var src = OscN.ar(b, freq);
+BufWr.ar(src, b, Phasor.ar(Impulse.ar(resetRate), BufRateScale.kr(b) * 1, 0, BufFrames.kr(b)));
+src
+})
+)
+
+(
+Ndef(\feedbacker, {|resetRate = 100, freq = 100, lowFreq = 100, rq = 0.1|
+var src = OscN.ar(b, freq);
+BufWr.ar(src, b, Phasor.ar(Impulse.ar(resetRate), BufRateScale.kr(b) * 1, 0, BufFrames.kr(b)));
+src = RLPF.ar(src, lowFreq, rq);
+src
+})
+)
+
+
+Ndef(\feedbacker).pause
+Ndef(\feedbacker).resume
+
+(
+Ndef(\feedbacker, {|resetRate = 100, freq = 100|
+var src = OscN.ar(b, freq);
+BufWr.ar(src, b, min(BufFrames.kr(b), Phasor.ar(Impulse.ar(resetRate), BufRateScale.kr(b) * 0.25, 0, 4* BufFrames.kr(b))));
+src
+}).play
+
+
+)
+
+
+
+
+
+NdefMixer(s)
+
+
+
+/* Markov Chain Experiment II
+   Jacob Joaquin
+
+   Get a visual representation of the Markov Chain here:
+   http://codehop.com/supercollider-markov-chain/
+*/
+
+(
+// Synthesizer
+SynthDef(\my_synth, {|dur = 1.0, amp = 1.0, freq = 440|
+	var env = EnvGen.ar(Env.new([1, 0.1, 0], [0.06, dur - 0.06]), doneAction: 2);
+	Out.ar([0, 1], SinOsc.ar([freq * 0.995, freq * 1.005], 0, env * amp))
+}).add;		
+
+// Create task
+t = Task({
+	// Set attributes of each node
+	// [freq, dur, [[next_state, weighted_random],…]]
+	var node_list = [
+		[60, 1, [[1, 2]]],
+		[62, 0.5, [[0, 1], [2, 1]]],
+		[63, 1, [[0, 1], [3, 1]]],
+		[65, 0.5, [[0, 1], [3, 4], [4, 1]]],
+		[67, 1, [[5, 1]]],
+		[70, 1.5, [[4, 1], [6, 2]]],
+		[69, 1, [[4, 1], [7, 2]]],
+		[72, 0.5, [[4, 1], [7, 4], [0, 2]]]
+	];
+
+	var node_index = 0;
+	var bps = 133.0 / 60.0;  // Beats per second
+	
+	inf.do({
+		var weight = 0;
+		var random;
+		var accumulator;
+		var node = node_list[node_index];		
+		var freq = node[0].midicps;
+		var dur = node[1] / bps;
+		var paths = node[2];
+		
+		// Get total statistical weight of connected nodes
+		(0 .. paths.size - 1).do {|i| weight = weight + paths[i][1]};
+		
+		// Generate random value for choosing next node
+		random = weight.rand;
+
+		// Choose next node based on statistical weights
+		accumulator = paths[0][1];
+				
+		node_index = block {|break|
+			paths.size.do {|i|
+				if ((random < accumulator), {
+					break.value(paths[i][0])
+				}, {
+					accumulator = accumulator + paths[i + 1][1]					
+				})
+			}
+		};
+		
+		// Play
+		Synth(\my_synth, [\dur, dur, \amp, -3.dbamp, \freq, freq]);					
+		dur.wait;
+	})
+});
+
+t.start;
+)
+
+
+
+
+(
+s = Server.default;
+s.boot;
+)
+
+(
+x = SynthDef("more_fun_snare", {
+	
+	arg audioOutBus = 0;
+	
+	var env_amp, env_pitch;
+	var envGen_amp;
+	var noise, pulse_cluster, envGen_hihat, out_hihat;
+	var sine_noise;
+	var flick, envGen_flickPitch, envGen_flickAmp;
+	var trig_flick, gapTime_flick;
+	var lastFlick, envGen_lastFlickPitch, envGen_lastFlickAmp, lastFlickDelayTime;
+	
+	var output;
+	
+	env_amp = Env([1.0, 1.0, 0.0], [0.0, 0.8]);
+	envGen_amp = EnvGen.ar(env_amp, doneAction: 2);
+	
+	noise = BPF.ar(WhiteNoise.ar, 214, 0.1, 0.5);
+	noise = noise + BPF.ar(WhiteNoise.ar, 1157, 0.1, 0.5);
+	noise = noise + RHPF.ar(WhiteNoise.ar, 3000, 0.1, 0.2) * 0.2;
+	
+	pulse_cluster = Mix.fill(6, {
+		LFPulse.ar(ExpRand(250, 360), Rand(0, 0.99), Rand(0.3, 0.7));
+	});
+	pulse_cluster = RHPF.ar(pulse_cluster, 8000, 0.1, 0.2);
+	pulse_cluster = LPF.ar(pulse_cluster, 8000);
+	
+	envGen_hihat = EnvGen.ar(Env.perc(0.001, 0.85, 0.5, -7));
+	
+	sine_noise = SinOsc.ar(1131 + BrownNoise.ar.range(-90, 90)) * 0.025;
+	
+	out_hihat = (pulse_cluster + noise + sine_noise) * envGen_hihat * 0.7;
+	
+	gapTime_flick = 0.019 * TRand.kr(0.999, 1.001, 1.0);
+	trig_flick = Impulse.ar(gapTime_flick.reciprocal) * EnvGen.ar(Env([1, 1, 0], [gapTime_flick * 2, 0]));
+	
+	envGen_flickPitch = EnvGen.ar(Env.perc(0.003, 0.024, 1.0, -4.2), 1.0, levelScale: 5300, levelBias: 50);
+	envGen_flickAmp = EnvGen.ar(Env.perc(0.0, 0.04, 1.0, 5));
+	flick = SinOsc.ar(envGen_flickPitch * Rand(0.999, 1.001), Rand(0, 6.2)) * envGen_flickAmp * 0.15;
+	flick = flick + 
+		HPF.ar(
+			SinOsc.ar(envGen_flickPitch * 4.9 * Rand(0.999, 1.001), Rand(0, 6.2)) * envGen_flickAmp * 0.1,
+			2000
+			);
+	flick = flick + CombC.ar(flick, 0.2, gapTime_flick, 0.1, 0.55);
+	flick = LPF.ar(flick, 3000);
+	flick = HPF.ar(flick, 140);
+	
+	
+	envGen_lastFlickPitch = EnvGen.ar(Env.perc(0.0026, 0.022, 1.0, -7), 1.0, levelScale: 3300, levelBias: 90);
+	envGen_lastFlickAmp = EnvGen.ar(Env.perc(0.0, 0.035, 1.0, 2));
+	lastFlick = SinOsc.ar(envGen_lastFlickPitch * Rand(0.999, 1.001)) * envGen_lastFlickAmp * 0.8;
+	
+	lastFlickDelayTime = 0.054 * TRand.kr(0.99, 1.01, 1.0);
+	
+	lastFlick = CombC.ar(lastFlick, 0.2, lastFlickDelayTime, 0.02) * 0.09;
+	lastFlick = HPF.ar(lastFlick, 200);
+	output = (flick + lastFlick + out_hihat) *  envGen_amp;
+	output = LPF.ar(output, 6000);
+	output = output + BPF.ar(output, 6000, 0.1, 0.6);
+	output = output + (trig_flick * 0.4);
+	Out.ar(audioOutBus, output ! 2);
+	
+}).send(s);
+)
+
+(
+{
+
+100.do {
+	
+	Synth("more_fun_snare", [\audioOutBus, 0], s);
+	(60 / 120 / 0.5).wait;
+	
+};
+
+
+}.fork;
+)
+
+
+(
+{
+var time = 8;
+var freq = (40-12).midicps;
+var a = VarSaw.ar(freq/2, width: XLine.ar(0.5,1,time)).range(0,XLine.ar(1,1/1000,time));
+var tone = SinOsc.ar(freq).fold(-1*a,a);
+Out.ar(0, tone.dup);
+}.play;
+)
+
+
+
+(
+{
+
+z = ( ( SinOsc.ar( ((LFSaw.kr(-0.05,1) +1) *100 + 20 ), LFTri.kr(40,0,1), LFSaw.kr(1.5) ) 
+	* LFTri.kr(rrand(0.005,0.03),3.99.rand,0.2) ) + 
+( LFPulse.ar(60,0,0.5,Pulse.ar(0.5,0.5,0.1)) * LFTri.kr(rrand(0.005,0.03),3.99.rand,0.5) ) +
+( SinOsc.ar(65,0,LFPulse.kr(0.66666,0.5,0.3)*0.3) * LFTri.kr(rrand(0.005,0.03),3.99.rand,1) )+
+( LFPar.ar(120,0,LFPulse.kr(0.5,0.5,0.2)*0.3)  * LFTri.kr(rrand(0.005,0.03),3.99.rand,1) ) +
+( LFCub.ar(185,0,LFPulse.kr(0.5,0.74,0.2)*0.3)  * LFTri.kr(rrand(0.005,0.03),3.99.rand,1) ) +
+( SinOsc.ar(365,0,LFPulse.kr(1.33333333,0,0.1)*0.3) * LFTri.kr(rrand(0.005,0.03),3.99.rand,1) ) +
+( FreeVerb.ar(LFTri.ar(260,0,LFPulse.kr(0.5,0.25,0.01)*0.3),0.5,0.8,0.1) * LFTri.kr(rrand(0.005,0.03),3.99.rand,1) ) +
+( SinOsc.ar(800,0,LFPulse.kr(2,0,0.1)*0.1) * LFTri.kr(rrand(0.005,0.03),3.99.rand,1) ) +
+( LFPar.ar(820,0,LFPulse.kr(1.666666,0,0.1)*0.1) * LFTri.kr(rrand(0.005,0.03),3.99.rand,1) ) +
+( WhiteNoise.ar( LFPulse.kr(2,0.5,0.001,1) )/2 * LFTri.kr(rrand(0.005,0.03),3.99.rand,1) ) +
+( WhiteNoise.ar( LFPulse.kr(1,0.5,0.001,1) )/2 * LFTri.kr(rrand(0.005,0.03),3.99.rand,1) ) +
+( WhiteNoise.ar( LFPulse.kr(1.666666,0.5,0.001,1) )/4 * LFTri.kr(rrand(0.005,0.03),3.99.rand,1) ) +
+( WhiteNoise.ar( LFPulse.kr(1.333333,0.5,0.001,1) )/4 * LFTri.kr(rrand(0.005,0.03),3.99.rand,1) )  );
+
+FreeVerb.ar(
+	((CombC.ar(
+		DelayN.ar(
+			DelayN.ar(z, 0.5, [0.5,0.75], 1, z), 
+		0.5, 0.5, 1, z), 
+	0.1, LFNoise0.kr(1,0.05,0.001).abs, 2, z))+z),
+0.1,1,0.1); 
+
+}.play
+)
+TempoClock.default.tempo=1
+
+
+
+
+(
+{ 
+	Limiter.ar(
+		GVerb.ar(
+			(	
+				BPF.ar(
+					WhiteNoise.ar([0.07,0.07]) + Blip.ar([13,19], 200.rand, mul:0.5),
+					SinOsc.kr(
+						SinOsc.kr([1/108,1/109]).range(1/108, 1/13)
+					).exprange(10, 23000),
+					PMOsc.kr(1/54,1/216, 3).range(0.1, 2)
+				) 
+				* 
+				SinOsc.ar(Array.rand(20, 1/216, 1), mul: Array.rand(20, 0.2, 1)).reshape(10,2)
+			).sum,
+			roomsize:10,
+			damping: PMOsc.kr(1/27, 1/108, 3).range(0.5, 1), 
+			drylevel: SinOsc.kr(1/9).range(0.1, 1)
+		)
+		+
+		GVerb.ar(
+			Pan2.ar(
+				LPF.ar(
+					DynKlank.ar(
+						`[
+							Array.rand(6, 600, 4000).collect({|freq|
+								SinOsc.kr(1/108).range(freq/2,freq)
+							}), 
+							nil, 
+							Array.rand(6, 1/108, 1/27).collect({|freq|
+								SinOsc.kr(freq).range(1/108,1/3)
+							})
+						],
+						Limiter.ar(
+							Dust.ar( SinOsc.kr(1/256).exprange(1/27, 3), TRand.kr(0.15, 0.25, Dust.kr(1/9))) 
+							+ 
+							Impulse.ar( SinOsc.kr(1/108).exprange(1/54, 3), 0, TRand.kr(0.6, 0.8, Dust.kr(1/3)))
+						)
+					),
+					1700,
+					LFPar.kr(1/27).exprange(0.05, 0.2)
+				),
+				SinOsc.kr(1/9).range(-0.2, 0.2)
+			),
+			roomsize: 30,
+			drylevel: 0.5
+		)
+	)
+}.play;
+)
+
+
+
+SynthDef(\test, {arg roomsize, revtime, damping, inputbw, spread = 15, drylevel, earlylevel,
+                taillevel;
+        var a = Resonz.ar(
+                Array.fill(4, {Dust.ar(2)}), 1760 * [1, 2, 4, 8], 0.01).sum * 10;
+//      var a = SoundIn.ar(0);
+//      var a = PlayBuf.ar(1, 0);
+        Out.ar(0, GVerb.ar(
+                a,
+                roomsize, 
+                revtime, 
+                damping, 
+                inputbw, 
+                spread, 
+                drylevel.dbamp,
+                earlylevel.dbamp, 
+                taillevel.dbamp,
+                roomsize, 0.3) + a)}).load(s)
+        
+s.scope(2);
+
+// bathroom
+a = Synth(\test, [\roomsize, 5, \revtime, 0.6, \damping, 0.62, \inputbw, 0.48, \drylevel -6, \earlylevel, -11, \taillevel, -13]);
+a.free;
+
+//living room
+a = Synth(\test, [\roomsize, 16, \revtime, 1.24, \damping, 0.10, \inputbw, 0.95, \drylevel -3, \earlylevel, -15, \taillevel, -17]);
+a.free;
+
+//church
+a = Synth(\test, [\roomsize, 80, \revtime, 4.85, \damping, 0.41, \inputbw, 0.19, \drylevel -3, \earlylevel, -9, \taillevel, -11]);
+a.free;
+
+// cathedral
+a = Synth(\test, [\roomsize, 243, \revtime, 1, \damping, 0.1, \inputbw, 0.34, \drylevel -3, \earlylevel, -11, \taillevel, -9]);
+a.free
+
+// canyon
+a = Synth(\test, [\roomsize, 300, \revtime, 103, \damping, 0.43, \inputbw, 0.51, \drylevel -5, \earlylevel, -26, \taillevel, -20]);
+a.free;
+
+
+
+(
+SynthDef(\singverb, {
+	arg out=0, amp=0.1, roomsize=16, revtime=1.24, damping=0.10, inputbw=0.95, spread = 15, drylevel= -3, earlylevel= -15,
+                taillevel= -17,
+				freq=200, gate=1;
+
+		var ou, env;
+
+		ou = SinOsc.ar(freq);
+		env = EnvGen.kr(~make_adsr.(\adsr),gate,doneAction:2);
+		ou = GVerb.ar(
+                ou,
+                roomsize, 
+                revtime, 
+                damping, 
+                inputbw, 
+                spread, 
+                drylevel.dbamp,
+                earlylevel.dbamp, 
+                taillevel.dbamp,
+                roomsize, 0.3
+			) + ou;
+		ou = ou*env*amp;
+
+
+        Out.ar(out, ou)
+}).add
+)
+
+(
+SynthDef(\sincomb, {
+	arg out=0, amp=0.1,
+		maxdelay=0.2, delay=0.2, decay=1,
+				freq=200, gate=1;
+
+		var ou, env;
+
+		ou = SinOsc.ar(freq);
+		env = EnvGen.kr(~make_adsr.(\adsr),gate,doneAction:2);
+		ou = CombC.ar(ou,maxdelay,delay,decay);
+		ou = ou*env*amp;
+
+
+        Out.ar(out, ou)
+}).add
+)
+
+
+
+play({ PMOsc.ar(Line.kr(600, 900, 5), 600, 3, 0, 0.1) }); // modulate carfreq
+
+play({ PMOsc.ar(300, Line.kr(600, 900, 5), 3, 0, 0.1) }); // modulate modfreq
+
+play({ PMOsc.ar(300, 550, Line.ar(0,20,8), 0, 0.1) }); // modulate index
+
+(
+e = Env.linen(2, 5, 2);
+Routine.run({ 
+        loop({
+                play({
+                        LinPan2.ar(EnvGen.ar(e) *
+                                PMOsc.ar(2000.0.rand,800.0.rand, Line.kr(0.0, 12.0.rand,9),0,0.1), 1.0.rand2)});
+                2.wait;
+        })
+}))
+
+
+
+
+
+(
+SynthDef(\pmosc, {
+	arg out=0, amp=0.1, freq=200, freqmod=10, ffreqcar=200, ffreqmod=100, rq=0.1, gate=1;
+
+		var ou, env, envcar, envmod, envidx, envffreq, envrq;
+
+		envcar = freq;
+		envmod = EnvGen.kr(~make_adsr.(\adsr_mod),gate) * freqmod;
+		envidx = EnvGen.kr(~make_adsr.(\adsr_idx),gate) * 2pi;
+		envffreq = EnvGen.kr(~make_adsr.(\adsr_ffreq),gate) * ffreqmod + ffreqcar;
+		envrq = EnvGen.kr(~make_adsr.(\adsr_rq),gate) * rq;
+		env = EnvGen.kr(~make_adsr.(\adsr),gate,doneAction:2);
+		ou = PMOsc.ar(envcar, envmod, envidx);
+
+		ou = RLPF.ar(ou, envffreq, envrq);
+
+		ou = ou*env*amp;
+
+
+        Out.ar(out, ou)
+}).add
+)
+
+
+
+a = BufferPool.read(\seco,\player1,"sounds/amen-break.wav")
+BufferPool.retain(a,\seco2,\player2);
+BufferPool.itemCount(a)
+BufferPool.release(a,\seco)
+BufferPool.release(a,\seco2)
+
+s.boot
+
+
+
+(
+var filechooser, ff, pp, bb, xx;
+
+filechooser = JSCWindow( "SelectSoundFile", Rect.new( 128, 64, 400, 435 ));
+ ff   = JavaObject( 'javax.swing.JFileChooser' );
+ pp   = JSCPlugView( filechooser, Rect( 0, 0, 400, 400 ), ff );
+ bb   = JSCButton( filechooser , Rect( 320, 401, 80, 30 )).states_([[ "OK" ]]);
+
+ ff.setMultiSelectionEnabled(false);  // user can select several files
+ ff.setControlButtonsAreShown( false );
+ ff.setFileSelectionMode( 0 );  // user can select files only
+ filechooser.front;
+ // filechooser.visible = false;
+ bb.action = {arg b;
+    xx = JavaObject.newFrom(ff, \getSelectedFile);
+    xx.toString.postln;
+    filechooser.visible = false;
+ };
+)

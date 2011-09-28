@@ -36,6 +36,9 @@
 	~make_view_responder.(sl_layout, controller, (
 
 		redraw: {
+			controller.model.debug("rederaw");
+			sl_layout.removeAll;
+			sl_layout.focus(true);
 			controller.model.samplelist.clump(4).clump(8)[controller.model.bank].do { arg col;
 				ps_col_layout = GUI.vLayoutView.new(sl_layout, Rect(0,0,(160),60*6));
 				ps_col_layout.background = ~editplayer_color_scheme.control;
@@ -57,7 +60,8 @@
 	obj = (
 
 		model: (
-			samplelist: "sounds/default.wav"!50,
+			//samplelist: {arg i; "sounds/default" ++ i }!50,
+			samplelist: main.model.samplelist,
 			bank: 0
 		),
 
@@ -76,10 +80,10 @@
 			self.model.samplelist[ (self.model.bank * 32) + (x * 4) + y ];
 		},
 
-		choose: { arg self, action;
+		choose_sample: { arg self, action;
 			~kbpad8x4.do { arg line, iy;
 				line.do { arg key, ix;
-					self.kb_handler[[0, key]] = { action.(self.get_sample_xy(ix, iy) )};
+					self.kb_handler[[0, key]] = { action.(self.get_sample_xy(ix, iy),self.window )};
 				}
 			};
 
@@ -90,9 +94,13 @@
 
 		init: { arg self;
 			var parent;
-			parent = Window.new("Sample Lib",Rect(100,Window.screenBounds.height-400, 1220,300));
+			"zarb".debug("oui");
+			self.window = parent = Window.new("Sample Lib",Rect(100,Window.screenBounds.height-400, 1220,300));
+			
+			self.model.samplelist.debug("samplelist");
 			~samplelib_view.(parent, self);
 
+			
 			parent.view.keyDownAction = { arg view, char, modifiers, u, k; 
 				u.debug("slooooooooooooo u");
 				modifiers.debug("slooooooooooooo modifiers");
@@ -100,6 +108,7 @@
 				self.kb_handler[[modifiers,u]].value
 			};
 			parent.front;
+			"zarb".debug("oui2");
 
 		}
 
@@ -112,28 +121,13 @@
 ~choose_sample = { arg main, action;
 	var sl;
 	sl = ~make_samplelib.(main);
-	sl.choose(action);
+	sl.choose_sample(action);
 };
 
-~choose_sample.(nil, { arg x; x.debug("yeak") });
+//~choose_sample.(nil, { arg x; x.debug("yeak") });
 
 )
 
-(
+			Window.new("Sample Lib",Rect(100,Window.screenBounds.height-400, 1220,300)).front;
 
-w = Window.new("Text View Example",Rect(100,Window.screenBounds.height-400, 520,300)).front;
-
-t = TextView(w.asView,Rect(10,10, 100,200))
-
-.focus(true).editable_(false).background_(w.view.background).string_("plsdkfsdfkljm\nsdlfkjsdflksdfjkmfsklfkmljsmkjfmjkskdjmsfdjkmsdjkm");
-
-)
-(
-
-w = Window.new("Text View Example",Rect(100,Window.screenBounds.height-400, 520,300)).front;
-
-t = StaticText(w.asView,Rect(10,10, 100,200));
-t.string = "plopopop";
-
-
-)
+[1].clump(3).clump(5)

@@ -9,6 +9,7 @@
 	[113, 115, 100, 102, 103, 104, 106, 107 ],
 	[119, 120, 99, 118, 98, 110, 44, 59 ]
 ];
+~kbpad8x4_flat = ~kbpad8x4.flat;
 ~kbcalphanum = {
 	var dict = Dictionary.new;
 	//TODO: only for Ctrl (262144) modifier, do others
@@ -69,6 +70,7 @@
 );
 ~modifiers = (
 	fx: 8388608,
+	ctrlfx: 8650752,
 	ctrl: 262144,
 	shift: 131072,
 	alt: 524288
@@ -86,7 +88,10 @@
 	down: 63233
 );
 ~kbspecial = (
-	delete: 127
+	delete: 127,
+	enter: 13,
+	escape: 27,
+	point: 46
 );
 ~cakewalk = (
 	\knob: [
@@ -116,3 +121,59 @@
 	dico;
 }.value;
 
+~shortcut = (
+	kb_handler: Dictionary.new,
+	midi_handler: Dictionary.new,
+	actions: MultiLevelIdentityDictionary.new,
+	config: MultiLevelIdentityDictionary.new,
+
+	add: { arg self, path, default_shortcut=nil, action;
+		var shortcut;
+		self.actions.put(*path++[action]);
+		self.config.put(*path ++ [ self.config.at(*path) ?? default_shortcut ]);
+	},
+
+	enable: { arg self, path;
+		var action, shortcut, panel = path[0];
+		shortcut = self.config.at(*path);
+		action = self.actions.at(*path);
+		if(shortcut.notNil, {
+			switch(shortcut[0],
+				\kb, {
+					self.kb_handler[panel] = self.kb_handler[panel] ?? Dictionary.new;
+					self.kb_handler[panel][shortcut] = action;
+				},
+				\midi, {
+					self.midi_handler[panel] = self.midi_handler[panel] ?? Dictionary.new;
+					self.midi_handler[panel][shortcut] = action;
+				})
+		})
+
+	},
+
+	enable_mode: { arg self, path;
+		self.config.leafDoFrom(path, { arg path, val;
+			self.enable(path);
+		});
+	},
+
+	add_enable: { arg self, path, default_shortcut=nil, action;
+		self.add(path, default_shortcut, action);
+		self.enable(path);
+	},
+	
+	change: { arg self, path, shortcut;
+		self.config.put(*path++[shortcut]);
+	},
+
+	get_kb_responder: { arg self, name;
+		
+
+	},
+
+	handle_key: { arg self, panel, shortcut;
+		var fun = self.kb_handler[panel][shortcut];
+		if(fun.isNil, { nil }, { fun.value; 1 })
+	};
+
+);

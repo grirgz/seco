@@ -1,5 +1,30 @@
 (
 
+~set_numpad_mode = { arg kb_handler, fun;
+	var buf = "", save = Dictionary.new, restore, special = [\enter, \point, \escape];
+
+	//save
+	~kbnumpad.do { arg kc, i; save[i] = kb_handler[[0, kc]] };
+	special.do { arg i; save[i] = kb_handler[[0, ~kbspecial[i]]] };
+
+	restore = {
+		~kbnumpad.do { arg kc, i; kb_handler[[0, kc]] = save[i] };
+		special.do { arg i; kb_handler[[0, ~kbspecial[i]]] = save[i]; }
+	};
+
+	// enable
+	~kbnumpad.do { arg kc, i; kb_handler[[0, kc]] = { 
+		buf = buf ++ i.asString;
+	} };
+	kb_handler[[0, ~kbspecial.point]] = { buf = buf ++ "." };
+	kb_handler[[0, ~kbspecial.escape]] = { restore.() };
+	kb_handler[[0, ~kbspecial.enter]] = { 
+		restore.();
+		fun.(buf);
+	};
+
+};
+
 ~rel_nextTimeOnGrid = { arg beats, quant = 1, phase = 0;
 				var baseBarBeat = TempoClock.baseBarBeat;
                 if (quant == 0) { beats + phase };
@@ -37,9 +62,9 @@
 	];
 };
 
-~make_val_button = { arg parent, label, height=50;
+~make_val_button = { arg parent, label, width=60, height=50;
 	var bt;
-	bt = GUI.button.new(parent, Rect(0,0,60,height));
+	bt = GUI.button.new(parent, Rect(0,0,width,height));
 	bt.states = ~make_states.(label);
 	bt.value = 0;
 	bt;
@@ -53,15 +78,16 @@
 	//"boutton changed".debug;
 };
 
-~init_controller = { arg controller, messages;
-	messages.keysValuesDo { arg key, val; controller.put(key, val) };
-};
 
 
 ~pretty_print_freq = { arg freq;
 	// learn midi frequencies, lazy you!
 	freq;
 };
+
+/////////////////////////////////////////////////////////////////////////
+/////////		Control views
+/////////////////////////////////////////////////////////////////////////
 
 ~make_env_view = { arg parent, default_val;
 	var env, view;
@@ -86,7 +112,50 @@
 
 };
 
-~make_noteline_view = { arg parent, player, param;
+~make_bufnum_view = { arg parent, display, param;
+
+	var txt_buf, bt_name;
+	var param_messages, sc_param, 
+		width = 1088,
+		height = 60;
+	var row_layout;
+
+	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+30),height));
+	row_layout.background = ~editplayer_color_scheme.background;
+
+
+	bt_name = ~make_name_button.(row_layout, display.name, xsize:display.name_width, ysize:height);
+	txt_buf = GUI.staticText.new(row_layout, Rect(0,0,200,height));
+	txt_buf.string = "nil";
+
+	param_messages = Dictionary.newFrom((
+		selected: { arg self;
+			bt_name.value = display.selected;
+		},
+
+		val: { arg self, msg, cellidx;
+			var newval;
+			txt_buf.string = param.get_val;
+		}
+
+	));
+
+	sc_param = SimpleController(param);
+	~init_controller.(sc_param, param_messages);
+	param.refresh.();
+
+
+	// remove func
+
+	row_layout.onClose = {
+		param.name.debug("=========== view closed");
+		sc_param.remove;
+	};
+
+};
+
+
+~make_noteline_view = { arg parent, display, param;
 
 	var row_layout,
 		bt_name,
@@ -98,7 +167,7 @@
 		txt_rec,
 		row_env,
 		env_cell,
-		width = 1000,
+		width = 1088,
 		height = 60,
 		beats = 8,
 		paraspace;
@@ -108,12 +177,12 @@
 
 
 
-	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+200),height));
+	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+30),height));
 	row_layout.background = ~editplayer_color_scheme.background;
 
 
-	bt_name = ~make_name_button.(row_layout, param.name, ysize:height);
-	txt_rec = GUI.staticText.new(row_layout, Rect(0,0,100,height));
+	bt_name = ~make_name_button.(row_layout, display.name, xsize:display.name_width, ysize:height);
+	txt_rec = GUI.staticText.new(row_layout, Rect(0,0,30,height));
 	txt_rec.string = "Stop";
 
 
@@ -133,6 +202,19 @@
 					Pen.line((i*sepsize)@0, (i*sepsize)@(he+10));
 			};
 			Pen.stroke;
+
+			Pen.beginPath;
+			Pen.color = Color.blue;
+			(numsep/4).do{|i|
+					Pen.line((i*sepsize*4)@0, (i*sepsize*4)@(he+10));
+			};
+			Pen.stroke;
+
+			Pen.color = Color.black;
+			(numsep/8).do{|i|
+					Pen.line((i*sepsize*8+1)@0, (i*sepsize*8+1)@(he+10));
+			};
+			Pen.stroke;
 		}
 	};
 
@@ -140,7 +222,7 @@
 
 	param_messages = Dictionary.newFrom((
 		selected: { arg self;
-			bt_name.value = self.selected;
+			bt_name.value = display.selected;
 		},
 		notes: { arg self;
 
@@ -162,7 +244,7 @@
 
 			[totaldur, minnote, maxnote].debug("stat");
 
-			numsep = totaldur+roundUp(soff+eoff)+1; // one sep per beat + offset + marge
+			numsep = display.noteline_numbeats ?? (totaldur+roundUp(soff+eoff)+1); // one sep per beat + offset + marge
 			
 			paraspace.setBackgrDrawFunc_(ps_bg_drawf.(width, height, totaldur, numsep));
 
@@ -259,9 +341,9 @@
 		val: { arg self, msg, cellidx;
 			var newval;
 			newval = self.get_val;
-			newval.debug("newval==============");
-			self.val.debug("val==============");
-			self.debug("self==============");
+			//newval.debug("newval==============");
+			//self.val.debug("val==============");
+			//self.debug("self==============");
 			newval.keysValuesDo { arg k, v;
 				txt_val[k].string = v;
 			};
@@ -308,7 +390,7 @@
 	};
 };
 
-~make_control_view = { arg parent, player, param, midi, param_name=nil, btnamesize=50;
+~make_control_view = { arg parent, display, param, midi, param_name=nil, btnamesize=50;
 	var param_messages,
 		midi_messages,
 		row_layout,
@@ -322,26 +404,35 @@
 		height = 30;
 	var txt_midi_label, txt_midi_val;
 	var sc_param, sc_midi;
-	var max_cells = 8; // FIXME: already defined in editplayer
+	var max_cells = display.max_cells; // FIXME: already defined in editplayer
 	var inrange;
+
+	"mais quoiiii".debug;
 
 	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+10),height));
 	row_layout.background = ~editplayer_color_scheme.control;
 
-	bt_name = ~make_name_button.(row_layout, param_name ?? param.name, btnamesize, height);
+	bt_name = ~make_name_button.(row_layout, display.name, display.name_width ?? btnamesize, height);
 
-	midibloc = GUI.hLayoutView.new(row_layout, Rect(0,0,250,height));
-	txt_midi_label = GUI.staticText.new(midibloc, Rect(0,0,75,height));
-	txt_midi_val = GUI.staticText.new(midibloc, Rect(0,0,75,height));
+	if(display.show_midibloc, {
+		midibloc = GUI.hLayoutView.new(row_layout, Rect(0,0,150,height));
+		txt_midi_label = GUI.staticText.new(midibloc, Rect(0,0,15,height));
+		txt_midi_val = GUI.staticText.new(midibloc, Rect(0,0,75,height));
 
-	slider = GUI.knob.new(midibloc, Rect(0,0,30,height));
+		slider = GUI.knob.new(midibloc, Rect(0,0,30,height));
+	},{
+		// spacer
+		txt_midi_val = GUI.staticText.new(row_layout, Rect(0,0,30,height));
+	});
 
 	btl_cells = GUI.hLayoutView.new(row_layout, Rect(0,0,width,height));
 
+	"mais quoiiii".debug;
+
 	inrange = { arg sel=nil;
 		var start;
-		start = max_cells * player.get_bank.();
-		sel = sel ?? param.get_selected_cell;
+		start = max_cells * display.get_bank.();
+		sel = sel ?? display.get_selected_cell;
 		start.debug("inrange====");
 		sel.debug("inrange");
 		(sel >= start && (sel < (start+max_cells))).debug("inrange");
@@ -350,18 +441,18 @@
 
 	param_messages = Dictionary.newFrom((
 		selected: { arg self;
-			bt_name.value = self.selected;
+			bt_name.value = display.selected;
 		},
 
 		selected_cell: { arg self, msg, oldsel;
 			
 			oldsel.debug("selected cell oldsel");
-			player.name.debug("selected_cell player.name");
+			display.name.debug("selected_cell display name");
 			if(oldsel.notNil && inrange.(oldsel), {
 				btl_cells.children[ oldsel % max_cells ].value = 0;
 			});
 			if(inrange.(), {
-				btl_cells.children[ self.get_selected_cell % max_cells ].value = 1;
+				btl_cells.children[ display.get_selected_cell % max_cells ].value = 1;
 			});
 		},
 
@@ -375,7 +466,9 @@
 			if(self.classtype == \stepline, { 
 				btl_cells.children[ cellidx % max_cells ].value = newval
 			},{
-				slider.value = self.spec.unmap(newval);
+				if(slider.notNil, {
+					slider.value = self.spec.unmap(newval);
+				});
 			});
 			//btl_cells.children[ cellidx ].states.debug("======heeeeerreeeee");
 			//btl_cells.children[ cellidx ] = newval;
@@ -387,22 +480,22 @@
 			btl_cells.removeAll;
 			"END cells removeAll===================".debug;
 
-			bank = player.get_bank.();
+			bank = display.get_bank.();
 
 			cells = self.get_cells.();
-			cells.debug("cellls============");
+			cells.debug("cellls============from "++display.name);
 			start = max_cells * bank;
 			range = (start..((start+max_cells)-1));
 			range.debug("cells");
 			cells[ start..((start+max_cells)-1) ].debug("cells");
 			cells[ start..((start+max_cells)-1) ].do { arg cell, i;
-				~make_val_button.(btl_cells, cell, height:height);
+				~make_val_button.(btl_cells, cell, width:display.cell_width??60, height:height);
 				if(self.classtype== \stepline, {
 					btl_cells.children[i].value = cell
 				});
 			};
 			if(self.classtype == \control, {
-				sel = self.get_selected_cell;
+				sel = display.get_selected_cell;
 				if( sel >= start && (sel < (start+max_cells)), {
 					btl_cells.children[ sel % max_cells ].value = 1;
 				})
@@ -448,6 +541,8 @@
 		"midi is nil".debug;
 	});
 
+	"mais quoiiii".debug;
+
 	// remove func
 
 	row_layout.onClose = {
@@ -457,57 +552,229 @@
 	};
 };
 
-~editplayer_color_scheme = (
-	background: Color.newHex("94A1BA"),
-	control: Color.newHex("6F88BA"),
-	led: Color.newHex("A788BA")
-);
+~make_simple_control_view = { arg parent, display, param;
+	var width = display.width;
+	var height = display.height;
+	var param_messages, sc_param;
+	var bt_name, row_layout, txtval;
 
-~make_editplayer_view = { arg parent, player, param_order;
-	var midi;
-	var width = 1200;
-	var row_layout;
+	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+10),height));
+	row_layout.background = ~editplayer_color_scheme.control;
 
-	row_layout = GUI.vLayoutView.new(parent, Rect(0,0,(width+10),800));
-	row_layout.background = ~editplayer_color_scheme.background;
+	bt_name = ~make_name_button.(row_layout, display.name, display.name_width, height);
 
-	~midi_interface.clear_assigned(\slider);
-	~midi_interface.clear_assigned(\knob);
+	txtval = StaticText.new(row_layout, Rect(15,0,width, height));
 
-	CCResponder.removeAll; // FIXME: must not remove other useful CC
+	param_messages = Dictionary.newFrom((
+		selected: { arg self;
+			bt_name.value = display.selected;
+		},
 
-	param_order.do { arg param_name, i;
-		var param = player.get_arg(param_name);
-		case
-			{ [\adsr].includes(param_name) || param_name.asString.containsStringAt(0,"adsr_") } {
-				midi = ~midi_interface.assign_adsr(param);
-				param.midi = midi;
-				~make_env_control_view.(row_layout, player, param);
-			}
-			{ param_name == \noteline } {
-				midi = ~piano_recorder.(player);
-				param.midi = midi;
-				~make_noteline_view.(row_layout, player, param);
-				
-			}
-			{ true } {
-				case
-					{ [\stepline, \noteline, \dur, \segdur, \stretchdur].includes(param_name) } {
-						midi = nil;
-					}
-					{ [\legato, \amp, \attack, \release, \sustain].includes(param_name)} {
-						midi = ~midi_interface.assign_first(\slider, param);
-					}
-					{ true } {
-						midi = ~midi_interface.assign_first(\knob, param);
-					};
-				param.midi = midi;
-				~make_control_view.(row_layout, player, param, midi);
-			}
-		
+		cells: { arg self, msg, cellidx;
+			txtval.string = param.get_val;
+		}
+
+	));
+
+	sc_param = SimpleController(param);
+	~init_controller.(sc_param, param_messages);
+	param.refresh.();
+
+	// remove func
+
+	row_layout.onClose = {
+		sc_param.remove;
+	};
+};
+
+
+~make_stepline_view = { arg parent, display, param, midi;
+	var param_messages,
+		midi_messages,
+		row_layout,
+		bloc,
+		midibloc,
+		btl_cells,
+		bt_name,
+		slider,
+		new_cell,
+		width = 1200,
+		height = 30;
+	var txt_midi_label, txt_midi_val;
+	var sc_param, sc_midi;
+	var max_cells = display.max_cells; // FIXME: already defined in editplayer
+	var inrange;
+
+	~make_step_cell = { arg parent, label, width, height;
+		var lb;
+		lb = StaticText.new(parent, width@height);
+		if(label % 8 == 0, {
+			lb.string = (label / 8)+1;
+		}, {
+			lb.string = "";	
+		});
+		lb.align = \center;
+		//lb.stringColor = ~editplayer_color_scheme.control;
+		lb.stringColor = Color.white;
+		lb;
+	};
+	~set_step_state = { arg cell, state;
+		if(state == 1, { 
+			cell.background = Color.black;
+		}, {
+			cell.background = Color.grey;
+		})
+	};
+
+	"mais quoiiii".debug;
+
+	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+10),height));
+	row_layout.background = ~editplayer_color_scheme.control;
+
+	bt_name = ~make_name_button.(row_layout, display.name, display.name_width, height);
+
+	if(display.show_midibloc, {
+		midibloc = GUI.hLayoutView.new(row_layout, Rect(0,0,150,height));
+		txt_midi_label = GUI.staticText.new(midibloc, Rect(0,0,15,height));
+		txt_midi_val = GUI.staticText.new(midibloc, Rect(0,0,75,height));
+
+		slider = GUI.knob.new(midibloc, Rect(0,0,30,height));
+	},{
+		// spacer
+		txt_midi_val = GUI.staticText.new(row_layout, Rect(0,0,30,height));
+	});
+
+	btl_cells = GUI.hLayoutView.new(row_layout, Rect(0,0,width,height));
+
+	"mais quoiiii".debug;
+
+	inrange = { arg sel=nil;
+		var start;
+		start = max_cells * display.get_bank.();
+		sel = sel ?? display.get_selected_cell;
+		start.debug("inrange====");
+		sel.debug("inrange");
+		(sel >= start && (sel < (start+max_cells))).debug("inrange");
+		(sel >= start && (sel < (start+max_cells)))
+	};
+
+	param_messages = Dictionary.newFrom((
+		selected: { arg self;
+			bt_name.value = display.selected;
+		},
+
+		selected_cell: { arg self, msg, oldsel;
+			
+			oldsel.debug("selected cell oldsel");
+			display.name.debug("selected_cell display name");
+			if(oldsel.notNil && inrange.(oldsel), {
+				~set_step_state.(btl_cells.children[ oldsel % max_cells ], 0);
+			});
+			if(inrange.(), {
+				~set_step_state.(btl_cells.children[ display.get_selected_cell % max_cells ], 1);
+			});
+		},
+
+		val: { arg self, msg, cellidx;
+			var newval;
+			cellidx.debug("val handler: cellidx");
+			self.get_cells[cellidx].debug("val handler: cellidx value");
+			newval = self.get_cells[cellidx];
+			~set_step_state.(btl_cells.children[ cellidx % max_cells ], newval);
+			//self.debug("val changed");
+			if(self.classtype == \stepline, { 
+				~set_step_state.(btl_cells.children[ cellidx % max_cells ], newval);
+			},{
+				if(slider.nolNil, {
+					slider.value = self.spec.unmap(newval);
+				});
+			});
+			//btl_cells.children[ cellidx ].states.debug("======heeeeerreeeee");
+			//btl_cells.children[ cellidx ] = newval;
+		},
+
+		cells: { arg self; 
+			var cells, bank, start, range, sel;
+			"cells removeAll===================".debug;
+			btl_cells.removeAll;
+			"END cells removeAll===================".debug;
+
+			bank = display.get_bank.();
+
+			cells = self.get_cells.();
+			cells.debug("cellls============");
+			start = max_cells * bank;
+			range = (start..((start+max_cells)-1));
+			range.debug("cells");
+			cells[ start..((start+max_cells)-1) ].debug("cells");
+			cells[ start..((start+max_cells)-1) ].do { arg cell, i;
+				~make_step_cell.(btl_cells, start+i, width:display.cell_width??60, height:height);
+				if(self.classtype== \stepline, {
+					~set_step_state.(btl_cells.children[i], cell);
+				});
+			};
+			if(self.classtype == \control, {
+				sel = display.get_selected_cell;
+				if( sel >= start && (sel < (start+max_cells)), {
+					~set_step_state.(btl_cells.children[ sel % max_cells ], 1);
+				})
+			})
+		},
+
+		kind: { arg self;
+			self.current_kind.debug("make_control_view changed kind");
+			self.get_cells.debug("make_control_view.kind get_cells");
+			self.changed(\cells);	
+		}
+	));
+	midi_messages = Dictionary.newFrom((
+		label: { arg self;
+			txt_midi_label.string = self.label;
+		},
+		midi_val: { arg self;
+			txt_midi_val.string = self.mapped_val;
+		},
+		blocked: { arg self;
+			txt_midi_val.background = if(self.blocked == \not, { Color.green }, { ~editplayer_color_scheme.led });
+		},
+		recording: { arg self;
+			txt_midi_label.background = if(self.recording, { ~editplayer_color_scheme.led }, { Color.clear });
+		},
+		midi_key: { arg self, msg, key;
+			param_messages.val(param, msg); //TODO
+		}
+			
+
+
+	));
+	
+	sc_param = SimpleController(param);
+	~init_controller.(sc_param, param_messages);
+	param.refresh.();
+
+	if(midi.notNil, {
+		sc_midi = SimpleController(midi);
+		~init_controller.(sc_midi, midi_messages);
+		midi.refresh.();
+	}, {
+		"midi is nil".debug;
+	});
+
+	"mais quoiiii".debug;
+
+	// remove func
+
+	row_layout.onClose = {
+		param.name.debug("=========== view closed");
+		sc_param.remove;
+		if(midi.notNil, { sc_midi.remove });
 	};
 
 };
+
+/////////////////////////////////////////////////////////////////////////
+/////////		MIDI
+/////////////////////////////////////////////////////////////////////////
 
 ~midi_interface = (
 	next_free: (
@@ -665,13 +932,13 @@
 		assign_cc: { arg self, ccid;
 			self.ccid = ccid;
 			 if(ccid.notNil, {
-				self.label = (ccid[0] ++ (ccid[1]+1)).asSymbol;
+				self.label = (ccid[0].asString[0] ++ (ccid[1]+1)).asSymbol;
 				self.changed(\label);
 				self.ccresp = CCResponder({ |src,chan,num,value|
 						//[src,chan,num,value].debug("==============CCResponder");
-						param.classtype.debug("ccresp current_kind");
-						param.selected.debug("ccresp selected");
-						cc_val.debug("ccresp cc_val");
+						//param.classtype.debug("ccresp current_kind");
+						//param.selected.debug("ccresp selected");
+						//cc_val.debug("ccresp cc_val");
 						if(param.classtype == \adsr, {
 							if(param.selected == 1, {
 								self.set_value(value/127);
@@ -797,7 +1064,6 @@
 	prec;
 
 };
-
 ~make_midi_kb_control = { arg player, editplayer;
 	var nonr, noffr, param, destroy, rec, localknob;
 	
@@ -872,24 +1138,175 @@
 
 };
 
-~make_editplayer = { arg player, parent, kb_handler;
+/////////////////////////////////////////////////////////////////////////
+/////////		main
+/////////////////////////////////////////////////////////////////////////
+
+~make_editplayer_view = { arg parent, editplayer, player, param_order;
+	var midi;
+	var width = 1200;
+	var height = 800;
+	var row_layout, col_layout, info_layout;
+	var sc_ep, ep_messages;
+
+	col_layout = GUI.hLayoutView.new(parent, Rect(0,0,width+10,height));
+	info_layout = GUI.vLayoutView.new(col_layout, Rect(0,0,300,height));
+	row_layout = GUI.vLayoutView.new(col_layout, Rect(0,0,width-200,height));
+	row_layout.background = ~editplayer_color_scheme.background;
+
+
+	ep_messages = Dictionary.newFrom((
+		paramlist: { arg self;
+			
+			~midi_interface.clear_assigned(\slider);
+			~midi_interface.clear_assigned(\knob);
+
+			CCResponder.removeAll; // FIXME: must not remove other useful CC
+
+			info_layout.removeAll;
+			row_layout.removeAll;
+
+			editplayer.get_paramlist.debug("BEGIN paramlist update");
+			editplayer.get_paramlist.do { arg param_name, i;
+				var param = player.get_arg(param_name);
+				param_name.debug("creation");
+				case
+					{ [\adsr].includes(param_name) || param_name.asString.containsStringAt(0,"adsr_") } {
+						midi = ~midi_interface.assign_adsr(param);
+						param.midi = midi;
+						~make_env_control_view.(row_layout, player, param);
+					}
+					{ param_name == \noteline } {
+						if(player.noteline, {
+							midi = ~piano_recorder.(player);
+							param.midi = midi;
+							~make_noteline_view.(row_layout, editplayer.make_param_display(param), param);
+						});
+					}
+					{ [\dur].includes(param_name) } {
+						if(player.noteline.not, {
+							midi = nil;
+							param.midi = midi;
+							~make_simple_control_view.(info_layout, editplayer.make_param_display(param), param, midi);
+						})
+					}
+					{ [\bufnum].includes(param_name)|| param_name.asString.containsStringAt(0,"bufnum_") } {
+						midi = nil;
+						param.midi = midi;
+						~make_bufnum_view.(info_layout, editplayer.make_param_display(param), param, midi);
+					}
+					{ [\segdur, \stretchdur].includes(param_name) } {
+						if(player.noteline, {
+							midi = nil;
+							param.midi = midi;
+							~make_simple_control_view.(info_layout, editplayer.make_param_display(param), param, midi);
+						});
+					}
+					{ [\stepline].includes(param_name) } {
+						if(player.noteline.not, {
+							midi = nil;
+							param.midi = midi;
+							~make_control_view.(row_layout, editplayer.make_param_display(param), param, midi);
+						});
+					}
+					{ [\legato, \amp, \attack, \release, \sustain].includes(param_name)} {
+						"argggg".debug;
+						midi = ~midi_interface.assign_first(\slider, param);
+						"argggg".debug;
+						param.midi = midi;
+						"argggg".debug;
+						~make_control_view.(info_layout, editplayer.make_param_display(param), param, midi);
+						"argggg".debug;
+					}
+					{ true } {
+						param.debug("C4ESTQUOILEBNPROGKF");
+						midi = ~midi_interface.assign_first(\knob, param);
+						param.midi = midi;
+						~make_control_view.(row_layout, editplayer.make_param_display(param), param, midi);
+					};
+			};
+
+		}
+	));
+
+	sc_ep = SimpleController(editplayer);
+	~init_controller.(sc_ep, ep_messages);
+
+	editplayer.refresh;
+
+	col_layout.onClose = {
+		sc_ep.remove;
+	};
+
+};
+
+~make_editplayer = { arg main, player, parent, kb_handler;
 	var ep;
 	"============making editplayer".debug;
 	ep = (
 		player: player,
 		model: (
-				param_order: List[\amp, \dur, \segdur, \stretchdur, \legato, \attack, \sustain, \release, \adsr,  \stepline, \noteline, \freq],
+				param_field_group: List[\dur, \segdur, \stretchdur],
+				param_status_group: List[\amp, \dur, \segdur, \stretchdur, \legato, \attack, \sustain, \release],
+				param_order: List[\stepline, \noteline, \adsr, \freq],
 				param_reject: [\out, \instrument, \type, \gate, \agate, \t_trig],
 				max_cells: 8,
 				selected_param: 0
 
 		),
 
+		make_param_display: { arg self, param;
+			(
+				get_bank: { arg self;
+					player.get_bank;
+				},
+				selected: { arg self;
+					param.selected;
+				},
+				max_cells: { arg self;
+					ep.model.max_cells;	
+				},
+				get_selected_cell: {
+					param.get_selected_cell;
+				},
+				name: { arg self;
+					param.name
+				},
+				show_midibloc: true,
+				width: 200,
+				height: 30,
+				name_width: { arg self;
+					50;
+				}
+			);
+		},
+
+		refresh: { arg self;
+			"BEGIN REFRESH".debug;
+			self.changed(\paramlist);
+		},
+
+		get_paramlist: { arg self;
+			var po = self.model.param_order;
+			if(player.noteline, {
+				po.reject({ arg x; [\dur, \stepline].includes(x) });
+			}, {
+				po.reject({ arg x; [\segdur, \stretchdur, \noteline].includes(x) });
+			});
+		},
+
+		get_param_offset: { arg self;
+			if(player.noteline, {
+				self.get_paramlist.indexOf(\noteline);
+			},{
+				self.get_paramlist.indexOf(\stepline);
+			});
+		},
 
 		controller: { arg editplayer; (
 
 			get_param_at: { arg self, idx;
-				player.get_arg( editplayer.model.param_order[idx] )
+				player.get_arg( editplayer.get_paramlist[idx] )
 			},
 
 			get_selected_param: { arg self;
@@ -901,7 +1318,7 @@
 			select_param: { arg self, idx;
 				var param;
 				editplayer.model.param_order.debug("editplayer.select_param param_order");
-				if(idx < (editplayer.model.param_order.size), { 
+				if(idx < (editplayer.get_paramlist.size), { 
 					param = self.get_param_at(idx);
 					self.get_selected_param.deselect_param.();
 					param.select_param.();
@@ -984,36 +1401,41 @@
 
 
 		init: { arg editplayer, player, parent, kb_handler;
-			var param_order = editplayer.model.param_order.dump, selected;
-			var stepline_index;
+			var param_order = editplayer.model.param_status_group ++ editplayer.model.param_order, selected;
 			"========== init editplayer ============".debug;
 
 			// param order
+			param_order = param_order.asList;
 
 			param_order.dump.debug("init param_order");
-			player.get_args.do { arg key; if(param_order.includes(key).not, { param_order.add(key) }) };
+			player.get_args.debug("init get_args");
+
+			player.get_args.do { arg key;
+				key.dump.debug("key");
+				if(param_order.includes(key).not, {
+					param_order.add(key);
+					key.debug("adding key");
+				})
+			};
+			param_order.dump.debug("init param_order2");
 			param_order.deepCopy.do { arg key; if(player.get_args.includes(key).not, { param_order.remove(key) }) };
-			param_order.debug("init done param_order");
+			param_order.dump.debug("init param_order3");
 			param_order = param_order.reject({ arg x; editplayer.model.param_reject.includes(x) });
-			param_order.dump.debug("init done2 param_order");
-			editplayer.model.param_order.debug("init abs param_order");
+			param_order.dump.debug("init param_order4");
+			
 			editplayer.model.param_order = param_order;
-			editplayer.model.param_order.debug("init abs param_order");
-			editplayer.model.param_order = param_order;
-			editplayer.model.param_order.dump.debug("init abs param_order");
+
+			editplayer.model.param_order.debug("fin init param_order");
 
 			//player.set_noteline(true);
 
-			~make_editplayer_view.(parent, player, param_order);
 
-			// get stepline index
 
-			stepline_index = param_order.indexOf(\stepline);
 
 			// select param
 
 			selected = param_order.do.detectIndex { arg i; player.get_arg(i).selected == 1 };
-			editplayer.controller.select_param(selected ?? stepline_index);
+			editplayer.controller.select_param(selected ?? editplayer.get_param_offset);
 
 			// midi keys
 
@@ -1024,17 +1446,43 @@
 			~kbnumline.do { arg kc, i; kb_handler[[0, kc]] = { 
 				editplayer.controller.select_cell((player.get_bank*editplayer.model.max_cells)+i) 
 			} };
-			~kbnumline.do { arg kc, i; kb_handler[[~modifiers.ctrl, kc]] = { editplayer.controller.select_param(i) } };
-			~kbnumline.do { arg kc, i; kb_handler[[~modifiers.alt, kc]] = { editplayer.controller.select_param(i+stepline_index) } };
+
+
+			kb_handler[[0, ~kbspecial.enter]] = { 
+				var sel = editplayer.controller.get_selected_param;
+				sel.name.debug("voici le nom!");
+				case
+					{ editplayer.model.param_field_group.includes(sel.name)} {
+						~set_numpad_mode.(kb_handler, { arg val; 
+							if(val.interpret.isNumber, { sel.set_val(val.interpret); sel.changed(\cells) });
+						});
+
+					}
+					{ sel.name == \bufnum || sel.name.asString.containsStringAt(0,"bufnum_")} {
+						~choose_sample.(main, { arg buf, w; sel.set_val(buf); w.debug("window").close  })
+					};
+			};
+
+			~kbnumline.do { arg kc, i; kb_handler[[~modifiers.ctrl, kc]] = {
+				editplayer.controller.select_param(i);
+			} };
+
+			~kbnumline.do { arg kc, i; kb_handler[[~modifiers.alt, kc]] = { editplayer.controller.select_param(i+editplayer.get_param_offset) } };
 			kb_handler[[~modifiers.alt, ~kbaalphanum["a"]]] = { editplayer.controller.change_kind(\seq) };
 			kb_handler[[~modifiers.alt, ~kbaalphanum["s"]]] = { editplayer.controller.change_kind(\scalar) };
 
 			// noteline
 
-			kb_handler[[~modifiers.alt, ~kbaalphanum["n"]]] = { player.set_noteline(true) };
-			kb_handler[[~modifiers.alt, ~kbaalphanum["b"]]] = { player.set_noteline(false) };
+			kb_handler[[~modifiers.alt, ~kbaalphanum["n"]]] = { 
+				player.set_noteline(true);
+				editplayer.changed(\paramlist);
+			};
+			kb_handler[[~modifiers.alt, ~kbaalphanum["b"]]] = { 
+				player.set_noteline(false);
+				editplayer.changed(\paramlist);
+			};
 			
-			~prec = ~piano_recorder.value(player);
+			//~prec = ~piano_recorder.value(player); // debile
 
 			kb_handler[[~modifiers.alt, ~kbaalphanum["r"]]] = {
 				"STARTRECORD!!".debug; 
@@ -1065,8 +1513,10 @@
 				kb_handler[[0, keycode]] = { player.set_bank(idx) };
 			};
 
-			// copy paste
 
+			// make view
+
+			~make_editplayer_view.(parent, editplayer, player, param_order);
 		}
 	);
 	ep.init(player, parent, kb_handler);
