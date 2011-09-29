@@ -53,6 +53,19 @@
 	led: Color.newHex("A788BA")
 );
 
+~make_view_responder = { arg parent, model, message_responders; 
+	var controller;
+
+	controller = SimpleController(model);
+
+	Dictionary.newFrom(message_responders).keysValuesDo { arg key, val;
+		controller.put(key, val)
+	};
+
+	parent.onClose = parent.onClose.addFunc { controller.remove };
+
+	model.refresh()
+};
 
 // ==========================================
 // INCLUDES
@@ -215,6 +228,7 @@
 			asso.key;
 		});
 		self.model.patlib = patlib;
+		self.model.patlist = patlist.collect { arg asso; asso.key };
 		self.model.patpool = patpool;
 	},
 

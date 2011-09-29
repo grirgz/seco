@@ -3103,11 +3103,12 @@ SynthDef(\pmosc, {
 
 
 
-a = BufferPool.read(\seco,\player1,"sounds/amen-break.wav")
+a = BufferPool.get_sample(\player1,"sounds/amen-break.wav")
+a = BufferPool.get_sample(\player2,"sounds/amen-break.wav")
 BufferPool.retain(a,\seco2,\player2);
 BufferPool.itemCount(a)
-BufferPool.release(a,\seco)
-BufferPool.release(a,\seco2)
+BufferPool.release(a,\player1)
+BufferPool.release(a,\player2)
 
 s.boot
 
@@ -3132,3 +3133,65 @@ filechooser = JSCWindow( "SelectSoundFile", Rect.new( 128, 64, 400, 435 ));
     filechooser.visible = false;
  };
 )
+
+
+
+
+
+
+(
+w = Window.new.front;
+a = StaticText(w, Rect(10, 10, 200, 40));
+a.string = "an instance of String\nand this is another instance";
+)
+
+[1, 1, 1].normalizeSum.postln;
+
+f = { arg x, a, b; (x*a)+((1-x)*b) }
+g = { arg x, y, a, b, c, d; (y*((x*a)+((1-x)*b))) + ((1-y)*( (x*c)+((1-x)*d)))}
+f.(1, 23, 141)
+
+g.(0,0,23,141,12,58)
+g.(0,1,23,141,12,58)
+g.(1,0,23,141,12,58)
+g.(1,1,23,141,12,58)
+g.(0.1,1,23,141,12,58)
+
+
+(
+h = { arg n, controls, data;
+
+	if(n <= 1, {
+		(controls[0] * data[0]) + ((1-controls[0]) * data[1])
+	}, {
+		arg a;
+		a = (((2**n)/2)-1).asInt;
+		(controls[0] * thisFunction.(n-1, controls[1..], data[..a]))
+		+ ((1-controls[0]) * thisFunction.(n-1, controls[1..], data[(a+1)..])) 
+
+	})
+
+}
+)
+
+h.(2, [1,0], [10,25,50,75])
+h.(3, [1,1,1], a)
+
+h.(2, [0,0], [23,141,12,58])
+h.(2, [0,1], [23,141,12,58]) 
+h.(2, [1,0], [23,141,12,58])
+h.(2, [1,1], [23,141,12,58])
+
+a = {arg i; i}!8
+a[2..]
+a[..(1+4)]
+a[..b]
+a[c..]
+a[..4]
+b = (((2**3)/2)-1).asInt
+b = 2**3/2-1
+
+c = (((2**3)/2)).asInt
+
+
+f

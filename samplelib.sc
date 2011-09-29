@@ -1,18 +1,5 @@
 
 (
-~make_view_responder = { arg parent, model, message_responders; 
-	var controller;
-
-	controller = SimpleController(model);
-
-	Dictionary.newFrom(message_responders).keysValuesDo { arg key, val;
-		controller.put(key, val)
-	};
-
-	parent.onClose = parent.onClose.addFunc { controller.remove };
-
-	model.refresh()
-};
 
 ~make_sample_cell = { arg parent, label;
 	var bt;
@@ -127,7 +114,3 @@
 //~choose_sample.(nil, { arg x; x.debug("yeak") });
 
 )
-
-			Window.new("Sample Lib",Rect(100,Window.screenBounds.height-400, 1220,300)).front;
-
-[1].clump(3).clump(5)

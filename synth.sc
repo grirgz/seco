@@ -17,4 +17,26 @@
 		Control.names([argname]).kr( env.asArray );
 };
 
+~crossfade = { arg n, controls, data;
+
+	var a;
+	if(n <= 1, {
+		(controls[0] * data[0]) + ((1-controls[0]) * data[1])
+	}, {
+		a = (((2**n)/2)-1).asInt;
+		(controls[0] * thisFunction.(n-1, controls[1..], data[..a]))
+		+ ((1-controls[0]) * thisFunction.(n-1, controls[1..], data[(a+1)..])) 
+
+	})
+
+};
+
+~acrossfade = { arg controls, data_arrays;
+	data_arrays.flop.collect { arg arr;
+		~crossfade.(controls.size, controls, arr)
+	};
+
+};
+
 )
+
