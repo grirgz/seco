@@ -1,89 +1,5 @@
 (
 
-
-~make_mixer = { arg main, parent, kb_handler;
-	var mixer;
-
-	"iniyuyyy".debug;
-	mixer = (
-		model: (
-			max_cells: 8, // not used
-			param_offset: 0@0
-		),
-
-		make_param_display: { arg self, param, idx;
-			var dis;
-			dis = (
-				get_bank: { arg self;
-					0; // not used;
-				},
-				selected: { arg self;
-					mixer.model.param_offset.x;
-				},
-				max_cells: { arg self;
-					mixer.model.max_cells;	
-				},
-				get_selected_cell: {
-					param.get_selected_cell;
-				},
-				show_midibloc: true,
-				name: { arg self;
-					var pname;
-					pname = mixer.get_paramlist[idx].key;
-					pname;
-				},
-				noteline_numbeats: 32,
-				cell_width: 30,
-				width: 200,
-				height: 30,
-				name_width: { arg self;
-					100;
-				}
-			);
-			if(param == \master, {
-				dis.name = "Master";
-			});
-			dis
-		},
-
-		get_paramlist: { arg self, offset=nil;
-			var list = List.new;
-			offset = offset ?? self.model.param_offset;
-			main.model.parlive.sortedKeysValuesDo( { arg key, val;
-				if( ~compare_point.(key, offset).not, {
-					val.data.do { arg pla;
-						if(pla != 0, {
-							list.add(pla -> main.model.livenodepool[pla].get_arg(\amp));
-						});
-					};
-				})
-			}, ~compare_point);
-			list.debug("get_paramlist list");
-		},
-
-		refresh: { arg self;
-			self.changed(\paramlist);
-		},
-
-		init: { arg self;
-			"ini".debug;
-			~kbnumline.do { arg kc, i; kb_handler[[0, kc]] = { 
-				self.model.param_offset = 0@i;
-				self.changed(\paramlist);
-			}};
-
-			~mixer_view.(parent, mixer);
-			"inifin".debug;
-
-
-		}
-	);
-	mixer.init;
-	mixer;
-
-
-};
-
 ~mixer_view = { arg parent, mixer, paramlist;
 	var midi;
 	var width = 1200;
@@ -125,7 +41,8 @@
 
 			self.get_paramlist.debug("paramlist");
 			self.get_paramlist.do { arg paramasso, i;
-				var player_name = paramasso.key;
+				var hihi2 = \rah;
+				var player_name = paramasso.key.name;
 				var param = paramasso.value;
 				paramasso.debug("paramasso");
 
@@ -134,6 +51,7 @@
 				~make_control_view.(row_layout, mixer.make_param_display(param, i), param, midi);
 
 			};
+			"end paramlist method".debug;
 		}
 	));
 
@@ -148,6 +66,101 @@
 	};
 
 };
+
+~make_mixer = { arg main, parent;
+	var mixer;
+
+	"iniyuyyy".debug;
+	mixer = (
+		model: (
+			max_cells: 8, // not used
+			param_offset: 0@0
+		),
+
+		make_param_display: { arg self, param, idx;
+			var dis;
+			dis = (
+				get_bank: { arg self;
+					0; // not used;
+				},
+				selected: { arg self;
+					mixer.model.param_offset.x;
+				},
+				max_cells: { arg self;
+					mixer.model.max_cells;	
+				},
+				get_selected_cell: {
+					param.get_selected_cell;
+				},
+				show_midibloc: true,
+				name: { arg self;
+					var pname;
+					pname = mixer.get_paramlist[idx].key.name;
+					pname;
+				},
+				noteline_numbeats: 32,
+				cell_width: 30,
+				width: 200,
+				height: 30,
+				name_width: { arg self;
+					100;
+				}
+			);
+			if(param == \master, {
+				dis.name = "Master";
+			});
+			dis
+		},
+
+		get_paramlist: { arg self, offset=nil;
+			var list = List.new;
+			"begin get_paramlist".debug;
+			offset = offset ?? self.model.param_offset;
+			"1begin get_paramlist".debug;
+			//main.model.parlive.debug("get_paramlist main.model.parlive");
+			main.context.get_selected_node_set.do { arg nodegroup, i;
+				if (nodegroup.name != \void_FIXME) { // FIXME: change groupname when it has children
+					nodegroup.children.do { arg node;
+						if(node.name != \void, {
+							//FIXME: check for other types of nodes
+							//node.debug("get_paramlist:node");
+							list.add(node -> node.get_arg(\amp));
+						});
+					};
+				}
+			};
+			//list.debug("get_paramlist list");
+			list;
+		},
+
+		refresh: { arg self;
+			self.changed(\paramlist);
+		},
+
+		init: { arg self;
+			"ini".debug;
+
+			main.commands.array_add_enable([\mixer, \select_offset], [\kb, 0], ~keycode.kbnumline, { arg x; 
+				self.model.param_offset = 0@x;
+				self.changed(\paramlist);
+			});
+			main.commands.add_enable([\mixer, \show_panel, \parlive], [\kb, ~keycode.mod.fx, ~keycode.kbfx[8]], { main.show_panel(\parlive) });
+			main.commands.add_enable([\mixer, \show_panel, \score], [\kb, ~keycode.mod.fx, ~keycode.kbfx[10]], { main.show_panel(\score) });
+			main.commands.add_enable([\mixer, \show_panel, \editplayer], [\kb, ~keycode.mod.fx, ~keycode.kbfx[11]], { main.show_panel(\editplayer) });
+			"ini2".debug;
+
+			~mixer_view.(parent, mixer);
+			"inifin".debug;
+
+
+		}
+	);
+	mixer.init;
+	mixer;
+
+
+};
+
 
 
 )

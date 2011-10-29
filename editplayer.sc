@@ -1,27 +1,19 @@
 (
 
-~set_numpad_mode = { arg kb_handler, fun;
-	var buf = "", save = Dictionary.new, restore, special = [\enter, \point, \escape];
+~set_numpad_mode = { arg commands, fun;
+	var buf = "", restorefun;
 
-	//save
-	~kbnumpad.do { arg kc, i; save[i] = kb_handler[[0, kc]] };
-	special.do { arg i; save[i] = kb_handler[[0, ~kbspecial[i]]] };
+	restorefun = commands.overload_mode([\editplayer, \edit_value_mode]);
 
-	restore = {
-		~kbnumpad.do { arg kc, i; kb_handler[[0, kc]] = save[i] };
-		special.do { arg i; kb_handler[[0, ~kbspecial[i]]] = save[i]; }
-	};
-
-	// enable
-	~kbnumpad.do { arg kc, i; kb_handler[[0, kc]] = { 
+	commands.array_set_action([\editplayer, \edit_value_mode, \insert_number], 10, { arg i;
+		[buf, i, i.asString].debug("ibuf");
 		buf = buf ++ i.asString;
-	} };
-	kb_handler[[0, ~kbspecial.point]] = { buf = buf ++ "." };
-	kb_handler[[0, ~kbspecial.escape]] = { restore.() };
-	kb_handler[[0, ~kbspecial.enter]] = { 
-		restore.();
-		fun.(buf);
-	};
+		[buf, i, i.asString].debug("buf");
+	});
+	commands.set_action([\editplayer, \edit_value_mode, \insert_point], { buf = buf ++ "." });
+	commands.set_action([\editplayer, \edit_value_mode, \cancel], { restorefun.() });
+	commands.set_action([\editplayer, \edit_value_mode, \ok], { restorefun.(); [buf, i, i.asString].debug("ok buf"); fun.(buf) });
+
 
 };
 
@@ -419,7 +411,7 @@
 		txt_midi_label = GUI.staticText.new(midibloc, Rect(0,0,15,height));
 		txt_midi_val = GUI.staticText.new(midibloc, Rect(0,0,75,height));
 
-		slider = GUI.knob.new(midibloc, Rect(0,0,30,height));
+		slider = GUI.slider.new(midibloc, Rect(0,0,30,height));
 	},{
 		// spacer
 		txt_midi_val = GUI.staticText.new(row_layout, Rect(0,0,30,height));
@@ -569,8 +561,13 @@
 		selected: { arg self;
 			bt_name.value = display.selected;
 		},
+		selected_cell: { arg self;
+			param.changed(\cells);
+		},
 
 		cells: { arg self, msg, cellidx;
+
+			param.get_val.debug("simplecontrol val");
 			txtval.string = param.get_val;
 		}
 
@@ -638,7 +635,7 @@
 		txt_midi_label = GUI.staticText.new(midibloc, Rect(0,0,15,height));
 		txt_midi_val = GUI.staticText.new(midibloc, Rect(0,0,75,height));
 
-		slider = GUI.knob.new(midibloc, Rect(0,0,30,height));
+		slider = GUI.slider.new(midibloc, Rect(0,0,30,height));
 	},{
 		// spacer
 		txt_midi_val = GUI.staticText.new(row_layout, Rect(0,0,30,height));
@@ -887,6 +884,8 @@
 			//param.debug("make_midi_control.unblock_do param");
 			cc_value = get_midi_val.();
 			param_value = param.get_norm_val.();
+			param.name.debug("midi unblock param name");
+			param_value.debug("midi unblock param value");
 
 			switch(self.blocked,
 				\not, fun,
@@ -913,6 +912,8 @@
 
 			cc_value = get_midi_val.();
 			param_value = param.get_norm_val.();
+			param.name.debug("midi block param name");
+			param_value.debug("midi block param value");
 
 			case 
 				{ cc_value > param_value } {
@@ -1240,9 +1241,12 @@
 
 };
 
-~make_editplayer = { arg main, player, parent, kb_handler;
-	var ep;
+~make_editplayer = { arg main, parent;
+	var ep, player;
 	"============making editplayer".debug;
+	player = main.panels.parlive.get_selected_cell;
+	player.debug("editplayer:player");
+
 	ep = (
 		player: player,
 		model: (
@@ -1400,7 +1404,8 @@
 		)},
 
 
-		init: { arg editplayer, player, parent, kb_handler;
+
+		init: { arg editplayer, player, parent;
 			var param_order = editplayer.model.param_status_group ++ editplayer.model.param_order, selected;
 			"========== init editplayer ============".debug;
 
@@ -1443,17 +1448,22 @@
 
 			// kb shotcuts
 
-			~kbnumline.do { arg kc, i; kb_handler[[0, kc]] = { 
+			main.commands.matrix_add_enable([\parlive, \select_cell], [\kb, 0], ~keycode.kbpad8x4, { arg x, y; editplayer.set_selection(x,y) });
+			main.commands.array_add_enable([\parlive, \change_bank], [\kb, 0], ~keycode.kbnumpad, { arg x; editplayer.set_bank(x) });
+			main.commands.add_enable([\parlive, \load_libnode], [\kb, ~keycode.mod.fx, ~keycode.kbfx[0]], { editplayer.load_libnode });
+
+			main.commands.array_add_enable([\editplayer, \select_cell], [\kb, 0], ~keycode.kbnumline, { arg i;
 				editplayer.controller.select_cell((player.get_bank*editplayer.model.max_cells)+i) 
-			} };
+			});
 
+			// edit value mode
 
-			kb_handler[[0, ~kbspecial.enter]] = { 
+			main.commands.add_enable([\editplayer, \edit_value], [\kb, 0, ~keycode.kbspecial.enter], { 
 				var sel = editplayer.controller.get_selected_param;
 				sel.name.debug("voici le nom!");
 				case
 					{ editplayer.model.param_field_group.includes(sel.name)} {
-						~set_numpad_mode.(kb_handler, { arg val; 
+						~set_numpad_mode.(main.commands, { arg val; 
 							if(val.interpret.isNumber, { sel.set_val(val.interpret); sel.changed(\cells) });
 						});
 
@@ -1461,35 +1471,50 @@
 					{ sel.name == \bufnum || sel.name.asString.containsStringAt(0,"bufnum_")} {
 						~choose_sample.(main, { arg buf, w; sel.set_val(buf); w.debug("window").close  })
 					};
-			};
+			});
+			main.commands.array_set_shortcut([\editplayer, \edit_value_mode, \insert_number], [\kb, 0], ~keycode.kbnumpad);
+			main.commands.set_shortcut([\editplayer, \edit_value_mode, \insert_point], [\kb, 0, ~keycode.kbspecial.point]);
+			main.commands.set_shortcut([\editplayer, \edit_value_mode, \cancel], [\kb, 0, ~keycode.kbspecial.escape]);
+			main.commands.set_shortcut([\editplayer, \edit_value_mode, \ok], [\kb, 0, ~keycode.kbspecial.enter]);
 
-			~kbnumline.do { arg kc, i; kb_handler[[~modifiers.ctrl, kc]] = {
+			//
+
+			main.commands.array_add_enable([\editplayer, \select_param], [\kb, ~keycode.mod.ctrl], ~keycode.kbnumline, { arg i;
 				editplayer.controller.select_param(i);
-			} };
+			});
 
-			~kbnumline.do { arg kc, i; kb_handler[[~modifiers.alt, kc]] = { editplayer.controller.select_param(i+editplayer.get_param_offset) } };
-			kb_handler[[~modifiers.alt, ~kbaalphanum["a"]]] = { editplayer.controller.change_kind(\seq) };
-			kb_handler[[~modifiers.alt, ~kbaalphanum["s"]]] = { editplayer.controller.change_kind(\scalar) };
+			main.commands.array_add_enable([\editplayer, \select_simple_param], [\kb, ~keycode.mod.alt], ~keycode.kbnumline, { arg i;
+				editplayer.controller.select_param(i+editplayer.get_param_offset)
+			});
+
+			main.commands.add_enable([\editplayer, \set_seq_kind], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["a"]], {
+				editplayer.controller.change_kind(\seq)
+			});
+			main.commands.add_enable([\editplayer, \set_scalar_kind], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["s"]], {
+				editplayer.controller.change_kind(\scalar)
+			});
 
 			// noteline
 
-			kb_handler[[~modifiers.alt, ~kbaalphanum["n"]]] = { 
+			main.commands.add_enable([\editplayer, \set_noteline_mode], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["n"]], {
 				player.set_noteline(true);
 				editplayer.changed(\paramlist);
-			};
-			kb_handler[[~modifiers.alt, ~kbaalphanum["b"]]] = { 
+			});
+
+			main.commands.add_enable([\editplayer, \unset_noteline_mode], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["b"]], {
 				player.set_noteline(false);
 				editplayer.changed(\paramlist);
-			};
+			});
 			
 			//~prec = ~piano_recorder.value(player); // debile
 
-			kb_handler[[~modifiers.alt, ~kbaalphanum["r"]]] = {
+			main.commands.add_enable([\editplayer, \start_recording], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["r"]], {
 				"STARTRECORD!!".debug; 
 				player.get_arg(\noteline).midi.start_recording.();
 				player.get_arg(\noteline).midi.changed(\recording); 
-			};
-			kb_handler[[~modifiers.alt, ~kbaalphanum["t"]]] = { 
+			});
+
+			main.commands.add_enable([\editplayer, \stop_recording], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["t"]], {
 				var sum = 0;
 				var midi = player.get_arg(\noteline).midi;
 				midi.stop_recording.();
@@ -1502,27 +1527,38 @@
 				sum.debug("total sum");
 				player.get_arg(\noteline).notes = midi.track;
 				player.get_arg(\noteline).changed(\notes);
-			};
+			});
 
 			// cells 
 
-			kb_handler[[0, ~numpad.plus]] = { editplayer.controller.add_cell_bar.() };
-			kb_handler[[~modifiers.ctrl, ~numpad.plus]] = { editplayer.controller.remove_cell_bar.() };
+			main.commands.add_enable([\editplayer, \add_cell_bar], [\kb, 0, ~keycode.numpad.plus], {
+				editplayer.controller.add_cell_bar.() 
+			});
+			main.commands.add_enable([\editplayer, \remove_cell_bar], [\kb, ~keycode.mod.ctrl, ~keycode.numpad.plus], {
+				editplayer.controller.remove_cell_bar.() 
+			});
 
-			~kbnumpad.do { arg keycode, idx;
-				kb_handler[[0, keycode]] = { player.set_bank(idx) };
-			};
+			main.commands.array_add_enable([\editplayer, \change_bank], [\kb, 0], ~keycode.kbnumpad, { arg idx; player.set_bank(idx) });
 
+			// playing
+
+			main.commands.add_enable([\editplayer, \play_selected], [\kb, ~keycode.mod.fx, ~keycode.kbfx[4]], { player.node.play });
+			main.commands.add_enable([\editplayer, \stop_selected], [\kb, ~keycode.mod.fx, ~keycode.kbfx[5]], { player.node.stop });
+
+			// change panel
+
+			main.commands.add_enable([\editplayer, \show_panel, \parlive], [\kb, ~keycode.mod.fx, ~keycode.kbfx[8]], { main.show_panel(\parlive) });
+			main.commands.add_enable([\editplayer, \show_panel, \mixer], [\kb, ~keycode.mod.fx, ~keycode.kbfx[9]], { main.show_panel(\mixer) });
+			main.commands.add_enable([\editplayer, \show_panel, \score], [\kb, ~keycode.mod.fx, ~keycode.kbfx[10]], { main.show_panel(\score) });
 
 			// make view
 
 			~make_editplayer_view.(parent, editplayer, player, param_order);
 		}
 	);
-	ep.init(player, parent, kb_handler);
+	ep.init(player, parent);
 	ep;
 
 };
 
 )
-

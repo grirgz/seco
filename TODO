@@ -1,10 +1,10 @@
 Important
 =====================
 
-- fix adsr midi edit
-- add a record midi notes mode
+//- fix adsr midi edit
+//- add a record midi notes mode
 - enable copy/link of groupnodes
-- add a general mixer board
+//- add a general mixer board
 - add livenode and groupnode effects
 
 Others
@@ -32,7 +32,7 @@ Can wait
 	- modulation wheel
 	- value knob
 - enable modifiying a whole seq line with knobs
-- rework the editplayer interface to separate params (like amp and legato)
+//- rework the editplayer interface to separate params (like amp and legato)
 - fix make_libnode_from_patfun (broken)
 - add make_libnode_from_instr
 - add an abstraction layer between midi hardware and seco

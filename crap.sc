@@ -317,16 +317,16 @@ SynthDef(\addbeeps, { arg out=0, gate=1;
 (
 var a;
 a = Pbind(\degree, Prand((0..7),12), \dur, 0.3, \legato, 0.2);
-a = Pfxb(a, \echo, \dtime, 0.2, \decay, 3);
-a = Pfxb(a, \addbeeps);
+a = Pfx(a, \echo, \dtime, 0.2, \decay, 3);
+a = Pfx(a, \addbeeps);
 a.play;
 )
 
 (
 var a;
 a = Pbind(\degree, Prand((0..7),12), \dur, 0.3, \legato, 0.2);
-a = Pfxb(a, \addbeeps);
-a = Pfxb(a, \echo, \dtime, 0.2, \decay, 3);
+a = Pfx(a, \addbeeps);
+a = Pfx(a, \echo, \dtime, 0.2, \decay, 3);
 a.play;
 )
 

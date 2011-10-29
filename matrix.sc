@@ -212,7 +212,7 @@
 	]
 );
 
-~choose_pat = { arg main, action;
+~choose_libnode = { arg main, action;
 	var sl;
 	var callbacks;
 	var oldsel = nil;
@@ -317,11 +317,6 @@
 
 //~choose_pat.(nil, { arg x; x.debug("yeak") });
 //~choose_sample.(nil, { arg x; x.debug("yeak") });
-~save_pat.(nil, { arg x; x.debug("yeak") });
+//~save_pat.(nil, { arg x; x.debug("yeak") });
 
 )
-
-
-a = SparseArray.new
-a[12] = nil
-a

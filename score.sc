@@ -1,6 +1,6 @@
 (
 
-~seq_view = { arg parent, seq, paramlist;
+~score_view = { arg parent, seq, paramlist;
 	var midi;
 	var width = 1200;
 	var row_layout;
@@ -25,11 +25,13 @@
 
 			"hah33333333ahahahjkkj".debug;
 			self.get_paramlist.do { arg paramasso, i;
-				var player_name = paramasso.key;
+				var hihi1 = \bla;
+				var player_name = paramasso.key.name;
 				var param = paramasso.value;
+				paramasso.debug("=======paramasso");
 
 
-				player = seq.get_player_from_name(player_name);
+				player = paramasso.key;
 
 				if(param.name == \noteline, {
 					midi = ~piano_recorder.(player);
@@ -57,7 +59,7 @@
 
 };
 
-~make_seq = { arg main, parent, kb_handler;
+~make_score = { arg main, parent, kb_handler;
 
 	var seq;
 
@@ -66,13 +68,13 @@
 		model: (
 			param_offset: 0@0,
 			max_cells: 32,
-			selected_param: main.state.panel.seqpanel.selected_player_idx;
+			selected_param: 0; //FIXME: load it from main
 		),
 
 		make_param_display: { arg self, param, idx;
 			(
 				get_bank: { arg self;
-					main.state.panel.seqpanel.bank
+					main.context.get_selected_bank
 				},
 				selected: { arg self;
 					if(idx.debug("idx") == seq.model.selected_param.debug("sel"), {1}, {0});
@@ -88,7 +90,7 @@
 					var pname;
 					pname.debug("pname");
 					param.dump.debug("param");
-					pname = seq.get_paramlist[idx].key;
+					pname = seq.get_paramlist[idx].key.name;
 					pname.debug("pname");
 				},
 				noteline_numbeats: 32,
@@ -110,9 +112,7 @@
 		},
 
 		get_selected_player: { arg self;
-			var pname;
-			pname = self.get_paramlist[seq.model.selected_param].key;
-			main.model.livenodepool[pname];
+			self.get_paramlist[seq.model.selected_param].key;
 		},
 
 		get_player_from_name: { arg self, name;
@@ -127,8 +127,8 @@
 				oldparam = self.get_param_at(seq.model.selected_param);
 				param = self.get_param_at(idx);
 				seq.model.selected_param = idx;
-				main.state.panel.seqpanel.selected_player = self.get_selected_player;
-				main.state.panel.seqpanel.selected_player_idx = idx;
+				//main.state.panel.seqpanel.selected_player = self.get_selected_player;
+				//main.state.panel.seqpanel.selected_player_idx = idx;
 				oldparam.changed(\selected);
 				param.changed(\selected);
 			}, {
@@ -212,36 +212,37 @@
 			var list = List.new;
 			var player_instance;
 			offset = offset ?? self.model.param_offset;
-			main.model.parlive.sortedKeysValuesDo( { arg key, val;
-				if( ~compare_point.(key, offset).not, {
-					val.data.do { arg pname;
-						if(pname != 0, {
-							player_instance = main.model.livenodepool[pname];
-							if( player_instance.noteline, {
-								list.add(pname -> player_instance.get_arg(\noteline));
+			main.context.get_selected_node_set.do( { arg nodegroup;
+				if (nodegroup.name != \void_FIXME) { // FIXME: change groupname when it has children
+					nodegroup.children.do { arg node;
+						if(node.name != \void, {
+							//FIXME: check for other types of nodes
+							//node.debug("get_paramlist:node");
+							if( node.noteline == true, {
+								list.add(node -> node.get_arg(\noteline));
 							},{
-								list.add(pname -> player_instance.get_arg(\stepline));
+								list.add(node -> node.get_arg(\stepline));
 							});
 						});
 					};
-				})
-			}, ~compare_point);
-			list.do{ arg i; i.dump.debug("get_paramlist list") };
+				}
+			});
+			//list.do{ arg i; i.dump.debug("get_paramlist list") };
 			list;
 		},
 
 		get_bank: { arg self;
-			main.state.panel.seqpanel.bank
+			main.context.get_selected_bank
 		},
 
 		set_bank: { arg self, bank;
 			var player_instance;
-			main.state.panel.seqpanel.bank = bank;
+			//main.state.panel.seqpanel.bank = bank;
 			self.get_paramlist.do { arg asso;
-				player_instance = main.model.livenodepool[asso.key];
+				player_instance = asso.key;
 				player_instance.set_bank(bank);
 			};
-			main.state.panel.seqpanel.bank = bank;
+			//main.state.panel.seqpanel.bank = bank;
 		},
 
 		refresh: { arg self;
@@ -250,31 +251,30 @@
 
 		init: { arg self;
 		
-			main.state.panel.seqpanel.selected_player = self.get_selected_player;
+			//main.state.panel.seqpanel.selected_player = self.get_selected_player;
 
-			~kbnumpad.do { arg kc, i; kb_handler[[0, kc]] = { 
-				self.model.param_offset = 0@i;
+			main.commands.array_add_enable([\score, \select_offset], [\kb, 0], ~keycode.kbnumpad, { arg x; 
+				self.model.param_offset = 0@x;
 				self.changed(\paramlist);
-			}};
+			});
 
-			~kbpad8x4_flat.do { arg kc, i; kb_handler[[0, kc]] = { 
+			main.commands.array_add_enable([\score, \select_cell], [\kb, 0], ~keycode.kbpad8x4_flat, { arg i; 
 				seq.select_cell((self.get_bank*self.model.max_cells)+i) 
-			} };
+			});
 
-			~kbnumline.do { arg kc, i; kb_handler[[~modifiers.alt, kc]] = { self.select_param(i) } };
+			main.commands.array_add_enable([\score, \select_param], [\kb, ~keycode.mod.alt], ~keycode.kbnumline, { arg i; self.select_param(i) });
 
-
-			kb_handler[[~modifiers.alt, ~kbaalphanum["n"]]] = { 
+			main.commands.add_enable([\score, \set_noteline_mode], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["n"]], {
 				self.get_selected_player.set_noteline(true);
 				self.changed(\paramlist);
-			};
-			kb_handler[[~modifiers.alt, ~kbaalphanum["b"]]] = { 
+			});
+
+			main.commands.add_enable([\score, \unset_noteline_mode], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["b"]], {
 				self.get_selected_player.set_noteline(false);
 				self.changed(\paramlist);
-			};
-			
+			});
 
-			kb_handler[[~modifiers.alt, ~kbaalphanum["r"]]] = {
+			main.commands.add_enable([\score, \start_recording], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["r"]], {
 				var midi;
 				"STARTRECORD!!".debug; 
 				midi = self.get_selected_param.midi;
@@ -282,8 +282,9 @@
 					midi.start_recording.();
 					midi.changed(\recording); 
 				});
-			};
-			kb_handler[[~modifiers.alt, ~kbaalphanum["t"]]] = { 
+			});
+
+			main.commands.add_enable([\score, \stop_recording], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["t"]], {
 				var sum = 0;
 				var sel = self.get_selected_param;
 				var midi = sel.midi;
@@ -299,24 +300,30 @@
 					sel.notes = midi.track;
 					sel.changed(\notes);
 				})
-			};
+			});
 			// playing
 
-			kb_handler[ [~modifiers.fx, ~kbfx[4]] ] = { self.get_selected_player.node.play };
-			kb_handler[ [~modifiers.fx, ~kbfx[5]] ] = { self.get_selected_player.node.stop };
+			main.commands.add_enable([\score, \play_selected], [\kb, ~keycode.mod.fx, ~keycode.kbfx[4]], { self.get_selected_player.node.play });
+			main.commands.add_enable([\score, \stop_selected], [\kb, ~keycode.mod.fx, ~keycode.kbfx[5]], { self.get_selected_player.node.stop });
 
 			// cells 
 
-			kb_handler[[0, ~numpad.plus]] = { seq.add_cell_bar.() };
-			kb_handler[[~modifiers.ctrl, ~numpad.plus]] = { seq.remove_cell_bar.() };
+			main.commands.add_enable([\score, \add_cell_bar], [\kb, 0, ~keycode.numpad.plus], { seq.add_cell_bar.() });
+			main.commands.add_enable([\score, \remove_cell_bar], [\kb, ~keycode.mod.ctrl, ~keycode.numpad.plus], { seq.remove_cell_bar.() });
 
-			~kbnumpad.do { arg keycode, idx;
-				kb_handler[[0, keycode]] = { self.set_bank(idx) };
-			};
+			main.commands.add_enable([\score, \remove_cell_bar], [\kb, ~keycode.mod.ctrl, ~keycode.numpad.plus], { seq.remove_cell_bar.() });
+
+			main.commands.array_add_enable([\score, \change_bank], [\kb, 0], ~keycode.kbnumpad, { arg idx; self.set_bank(idx); });
+
+			// show panel
+
+			main.commands.add_enable([\score, \show_panel, \mixer], [\kb, ~keycode.mod.fx, ~keycode.kbfx[9]], { main.show_panel(\mixer) });
+			main.commands.add_enable([\score, \show_panel, \parlive], [\kb, ~keycode.mod.fx, ~keycode.kbfx[8]], { main.show_panel(\parlive) });
+			main.commands.add_enable([\score, \show_panel, \editplayer], [\kb, ~keycode.mod.fx, ~keycode.kbfx[11]], { main.show_panel(\editplayer) });
 
 			// make view
 
-			~seq_view.(parent, seq);
+			~score_view.(parent, seq);
 		}
 
 	);
@@ -328,3 +335,5 @@
 
 
 )
+
+

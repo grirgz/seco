@@ -1,22 +1,8 @@
-s.boot;
-s.exit
-Quarks.gui
+s.boot
 
-Buffer.freeAll
 (
 s.waitForBoot({
-
-"/home/ggz/code/sc/seco/seco.sc".loadDocument;
-~seq = ~mk_sequencer.value;
-~seq.test_player(\loop);
-
-});
-
-)
-~seq.current_test_player.as_event
-(
-s.waitForBoot({
-"/home/ggz/code/sc/seco/seco.sc".loadDocument;
+"/home/ggz/code/sc/seco/main.sc".loadDocument;
 
 ~synthlib = [
 	\sinadsr,
@@ -42,13 +28,6 @@ s.waitForBoot({
 ~seq.make_gui;
 
 });
-)
-
-(
-~seq.save_project("projperc2");
-~seq.load_project("projperc2");
-
-
 )
 
 (
@@ -250,10 +229,3 @@ SynthDef("KSpluck2", { arg freq = 200, noise=10, bpratio=0.9, rq=0.1, delayDecay
 
 
 )
-(
-~btl_cells = GUI.hLayoutView.new(Window.new, Rect(0,0,100,100));
-~bt = Button.new(~btl_cells)
-~btl_cells.pad
-~btl_cells.jinsets;
-)
-nil.value = 4

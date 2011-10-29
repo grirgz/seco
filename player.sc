@@ -953,6 +953,9 @@
 		noteline: false,
 		node: EventPatternProxy.new,
 		to_destruct: List.new,
+		name: defname,
+		kind: \player,
+		uid: nil,
 
 		init: { arg self;
 
