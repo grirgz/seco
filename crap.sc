@@ -242,13 +242,21 @@ o = Pfx(r, \wah);
 Pseq([p, q, r, o], 2).play;
 )
 
-~a = EventPatternProxy.new
+(
+~a = EventPatternProxy.new;
+~b = EventPatternProxy.new;
 ~p = Pbind(\degree, Pseq([0,1,2,3,4,5],inf), \dur, 0.3, \legato, 0.2);
-~a.source = ~p
+~q = Pbind(\degree, Pseq([0,1,2,3,4,5]-2,inf), \dur, 0.6, \legato, 0.1, \amp, 0.5);
+)
+(
+~a.source = Pfxb(~p, \echo, \pregain, 180, \amp, 0.25);
+~b.source = Pfxb(~q, \addbeeps, \pregain, 180, \amp, 0.25);
 ~a.play;
+~b.play;
+)
+~a.source = ~p
+~b.source = ~q;
 ~a.quant = 0.3 * 6;
-~a.source = Pfx(~p, \echo, \dtime, 0.2, \decay, 3)
-~a.source = Pfx(~p, \distort, \pregain, 180, \amp, 0.25);
 
 s.quit
 
@@ -311,7 +319,7 @@ SynthDef(\addbeeps, { arg out=0, gate=1;
         var env;
         env = Linen.kr(gate, 0.05, 1, 0.1, 2);
         XOut.ar(out, env, (In.ar(out, 2) + (LFPulse.kr(1, 0, 0.3) * SinOsc.ar(1000) * 0.4) ));
-}, [\ir, 0.1, 0.1, 0]).add;
+}, [\ir, 0.1]).add;
 )
 
 (
@@ -328,6 +336,14 @@ a = Pbind(\degree, Prand((0..7),12), \dur, 0.3, \legato, 0.2);
 a = Pfx(a, \addbeeps);
 a = Pfx(a, \echo, \dtime, 0.2, \decay, 3);
 a.play;
+)
+
+(
+a = Pbind(\degree, Prand((0..7),12), \dur, 0.3, \legato, 0.2);
+b = Pbind(\degree, Prand((0..7),12)-6, \dur, 0.3, \legato, 0.2);
+p = Pfxb(a, \addbeeps);
+q = Pfxb(b, \echo, \dtime, 0.2, \decay, 3);
+Ppar([p,q]).play;
 )
 
 
@@ -3195,3 +3211,32 @@ c = (((2**3)/2)).asInt
 
 
 f
+
+
+
+
+
+o = ObjectTable.new
+
+p = (bla:47, rah:[1,5,7])
+o.add(p)
+o
+p.rah[2]=764
+o.getID(p)
+o.at(1058)
+o.do { arg i; i.postln }
+
+
+o = IdentitySet.new
+o.add(p)
+q = p.copy
+o.add(q)
+o
+r = p.deepCopy
+o.add(r)
+
+
+
+a = Pseq([Pbind(\freq, Pseq([300,400]), \dur, 1), b])
+a.play
+b = Ppar([Pbind(\freq, Pseq([600,700]), \dur, 1), a])

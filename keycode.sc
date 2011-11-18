@@ -110,10 +110,10 @@
 ~midi = {
 	var dico = Dictionary.new;
 	~cakewalk.collect { arg v, k;
-		"v:".postln;
-		v.postln;
-		"k:".postln;
-		k.postln;
+		//"v:".postln;
+		//v.postln;
+		//"k:".postln;
+		//k.postln;
 		v.do { arg raw, i;
 			dico[raw] = [k, i];
 		};
@@ -146,7 +146,7 @@
 			"1234567890)=",
 			"azertyuiop^$",
 			"qsdfghjklmù*",
-			"<wxcvbn,;:!"
+			"<xcvbn,;:!"
 		];
 		keycodes.do { arg row, rowidx;	
 			row.do { arg kc, kcidx;
@@ -195,7 +195,11 @@
 		ctrlfx: 8650752,
 		ctrl: 262144,
 		shift: 131072,
+		arrow: 8388608,
+		altshift: 655360,
+		ctrlaltshift: 917504,
 		alt: 524288
+
 	);
 	~kbfx = [
 		// modifiers = 8388608
@@ -232,10 +236,6 @@
 	~midi = {
 		var dico = Dictionary.new;
 		~cakewalk.collect { arg v, k;
-			"v:".postln;
-			v.postln;
-			"k:".postln;
-			k.postln;
 			v.do { arg raw, i;
 				dico[raw] = [k, i];
 			};
@@ -245,11 +245,12 @@
 }).as(Event);
 
 ~shortcut = (
-	kb_handler: Dictionary.new,
+	kb_handler: Dictionary.new,					// panel -> shortcut keycode -> action function
 	midi_handler: Dictionary.new,
-	actions: MultiLevelIdentityDictionary.new,
-	config: MultiLevelIdentityDictionary.new,
-	commands: Dictionary.new,
+	actions: MultiLevelIdentityDictionary.new,  // path -> action function
+	config: MultiLevelIdentityDictionary.new,   // path -> shortcut keycode
+	commands: Dictionary.new,					// panel -> shortcut keycode -> path
+	modes: Dictionary.new,						// path -> restore function
 
 	add_shortcut: { arg self, path, default_shortcut=nil, action;
 		var shortcut;
@@ -258,27 +259,52 @@
 	},
 
 	set_action: { arg self, path, action;
+		var panel = path[0];
 		self.actions.put(*path++[action]);
-		if ( self.commands[self.config.at(*path)] == path ) {
+		if ( self.commands[panel][self.config.at(*path)] == path ) {
 			path.debug("already enabled, so enforce");
 			self.enable(path);
 		};
 	},
 
+	remove_panel: { arg self, panel;
+		self.kb_handler[panel].do { arg sc;
+			self.commands.removeAt(sc);
+		};
+		self.kb_handler.removeAt(panel);
+		self.midi_handler[panel].do { arg sc;
+			self.commands.removeAt(sc);
+		};
+		self.midi_handler.removeAt(panel);
+
+		self.actions.removeAt(panel);
+		self.config.removeAt(panel);
+
+		self.modes.copy.keys.do { arg path;
+			if(path[0] == panel) {
+				self.modes.removeAt(path)
+			}
+		};
+		
+	},
+
 	enable: { arg self, path;
-		var action, shortcut, panel = path.debug("enablepath")[0];
+		var action, shortcut, panel = path[0];
 		//path.debug("enabling path");
 		shortcut = self.config.at(*path);
 		action = self.actions.at(*path);
 		//shortcut.debug("shortcut");
 		//action.debug("action");
 		if(shortcut.notNil, {
-			self.commands[shortcut] = path;
+			if(self.commands[panel].isNil) {
+				self.commands[panel] = Dictionary.new;
+			};
+			self.commands[panel][shortcut] = path;
 			switch(shortcut[0],
 				\kb, {
 					self.kb_handler[panel] = self.kb_handler[panel] ?? Dictionary.new;
 					self.kb_handler[panel][shortcut] = action;
-					[path, shortcut].debug("path enabled");
+					//[path, shortcut].debug("path enabled");
 				},
 				\midi, {
 					self.midi_handler[panel] = self.midi_handler[panel] ?? Dictionary.new;
@@ -294,12 +320,12 @@
 		shortcut = self.config.at(*path);
 
 		if(shortcut.notNil, {
-			self.commands[shortcut] = nil;
+			self.commands[panel][shortcut] = nil;
 			switch(shortcut[0],
 				\kb, {
 					self.kb_handler[panel] = self.kb_handler[panel] ?? Dictionary.new;
 					self.kb_handler[panel][shortcut] = nil;
-					[path, shortcut].debug("path disabled");
+					//[path, shortcut].debug("path disabled");
 				},
 				\midi, {
 					self.midi_handler[panel] = self.midi_handler[panel] ?? Dictionary.new;
@@ -310,17 +336,32 @@
 	},
 
 	enable_mode: { arg self, path;
-		self.config.leafDoFrom(path, { arg path, val;
-			self.enable(path);
-		});
+		var restorefun;
+		if( self.modes[path].notNil ) {
+			path.debug("Mode already enabled");
+		} {
+			restorefun = self.overload_mode(path);
+			self.modes[path] = restorefun;
+		}
 	},
+
+	disable_mode: { arg self, path;
+		if( self.modes[path].notNil ) {
+			self.modes[path].();
+			self.modes[path] = nil;
+		} {
+			path.debug("Mode already disabled");
+		}
+	},
+
 
 	overload_mode: { arg self, path;
 		var restorefun=nil;
+		var panel = path[0];
 		self.commands.debug("overload_mode:commands");
 		self.config.leafDoFrom(path, { arg leafpath, val;
 			var oldpath;
-			oldpath = self.commands[ self.config.at(*leafpath) ];
+			oldpath = self.commands[panel][ self.config.at(*leafpath) ];
 			[oldpath, leafpath, self.config.at(*leafpath)].debug("oldpath, path, scap");
 
 			if( oldpath.isNil, {
@@ -383,9 +424,11 @@
 		var fun;
 		//self.kb_handler.debug("handle_key: kb_handler");
 		panel.debug("current shortcut panel");
-		self.commands[shortcut].debug("shortcut of path called");
+		self.commands[panel][shortcut].debug("shortcut of path called");
 		fun = self.kb_handler[panel][shortcut];
-		if(fun.isNil, { nil }, { fun.value; 1 })
+		
+		//[fun, fun.def, fun.def.sourceCode].debug("function");
+		if(fun.isNil, { "handle_key: nil function".warn; nil }, { fun.value; 1 })
 	};
 
 );

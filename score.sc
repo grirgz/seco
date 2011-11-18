@@ -28,7 +28,8 @@
 				var hihi1 = \bla;
 				var player_name = paramasso.key.name;
 				var param = paramasso.value;
-				paramasso.debug("=======paramasso");
+				paramasso.key.name.debug("=======paramasso");
+				paramasso.value.name.debug("=======paramasso val");
 
 
 				player = paramasso.key;
@@ -68,13 +69,17 @@
 		model: (
 			param_offset: 0@0,
 			max_cells: 32,
+			bank:0,
 			selected_param: 0; //FIXME: load it from main
 		),
 
-		make_param_display: { arg self, param, idx;
+		make_param_display: { arg parentself, param, idx;
 			(
 				get_bank: { arg self;
 					main.context.get_selected_bank
+				},
+				get_player_bank: { arg self;
+					parentself.model.bank;
 				},
 				selected: { arg self;
 					if(idx.debug("idx") == seq.model.selected_param.debug("sel"), {1}, {0});
@@ -82,7 +87,7 @@
 				max_cells: { arg self;
 					seq.model.max_cells;	
 				},
-				get_selected_cell: {
+				get_selected_cell: { arg self;
 					param.get_selected_cell;
 				},
 				show_midibloc: false,
@@ -212,17 +217,20 @@
 			var list = List.new;
 			var player_instance;
 			offset = offset ?? self.model.param_offset;
-			main.context.get_selected_node_set.do( { arg nodegroup;
-				if (nodegroup.name != \void_FIXME) { // FIXME: change groupname when it has children
-					nodegroup.children.do { arg node;
-						if(node.name != \void, {
-							//FIXME: check for other types of nodes
+			main.context.get_selected_node_set[offset.y..].do( { arg nodegroup;
+				if (nodegroup.name != \void_FIXME) { // FIXME: required ?
+					nodegroup.children.do { arg nodename;
+						var node;
+						if(nodename != \voidplayer, {
 							//node.debug("get_paramlist:node");
-							if( node.noteline == true, {
-								list.add(node -> node.get_arg(\noteline));
-							},{
-								list.add(node -> node.get_arg(\stepline));
-							});
+							node = main.get_node(nodename);
+							if(node.kind == \player) {
+								if( node.noteline == true, {
+									list.add(node -> node.get_arg(\noteline));
+								},{
+									list.add(node -> node.get_arg(\stepline));
+								});
+							}
 						});
 					};
 				}
@@ -231,11 +239,28 @@
 			list;
 		},
 
+		update_title: { arg self;
+			main.set_window_title("score: bank:"++  self.get_bank ++"; player bank:"++ self.get_player_bank ++ "; offset:" ++ self.model.param_offset.y);
+		},
+
 		get_bank: { arg self;
 			main.context.get_selected_bank
 		},
 
+		get_player_bank: { arg self;
+			self.model.bank;
+		},
+		
+		set_player_bank: { arg self, bank;
+			self.model.bank = bank;
+			self.get_paramlist.do { arg asso;
+				asso.value.changed(\cells);
+			};
+			self.update_title;
+		},
+
 		set_bank: { arg self, bank;
+			//FIXME: this function is obsolete
 			var player_instance;
 			//main.state.panel.seqpanel.bank = bank;
 			self.get_paramlist.do { arg asso;
@@ -246,6 +271,7 @@
 		},
 
 		refresh: { arg self;
+			self.update_title;
 			self.changed(\paramlist);
 		},
 
@@ -253,13 +279,14 @@
 		
 			//main.state.panel.seqpanel.selected_player = self.get_selected_player;
 
-			main.commands.array_add_enable([\score, \select_offset], [\kb, 0], ~keycode.kbnumpad, { arg x; 
+			main.commands.array_add_enable([\score, \select_offset], [\kb, ~keycode.mod.ctrl], ~keycode.kbnumpad, { arg x; 
 				self.model.param_offset = 0@x;
+				self.update_title;
 				self.changed(\paramlist);
 			});
 
 			main.commands.array_add_enable([\score, \select_cell], [\kb, 0], ~keycode.kbpad8x4_flat, { arg i; 
-				seq.select_cell((self.get_bank*self.model.max_cells)+i) 
+				seq.select_cell((self.get_player_bank*self.model.max_cells)+i) 
 			});
 
 			main.commands.array_add_enable([\score, \select_param], [\kb, ~keycode.mod.alt], ~keycode.kbnumline, { arg i; self.select_param(i) });
@@ -313,13 +340,11 @@
 
 			main.commands.add_enable([\score, \remove_cell_bar], [\kb, ~keycode.mod.ctrl, ~keycode.numpad.plus], { seq.remove_cell_bar.() });
 
-			main.commands.array_add_enable([\score, \change_bank], [\kb, 0], ~keycode.kbnumpad, { arg idx; self.set_bank(idx); });
+			main.commands.array_add_enable([\score, \change_bank], [\kb, 0], ~keycode.kbnumpad, { arg idx; self.set_player_bank(idx); });
 
 			// show panel
 
-			main.commands.add_enable([\score, \show_panel, \mixer], [\kb, ~keycode.mod.fx, ~keycode.kbfx[9]], { main.show_panel(\mixer) });
-			main.commands.add_enable([\score, \show_panel, \parlive], [\kb, ~keycode.mod.fx, ~keycode.kbfx[8]], { main.show_panel(\parlive) });
-			main.commands.add_enable([\score, \show_panel, \editplayer], [\kb, ~keycode.mod.fx, ~keycode.kbfx[11]], { main.show_panel(\editplayer) });
+			~make_panel_shortcuts.(main, \score);
 
 			// make view
 

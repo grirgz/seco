@@ -83,7 +83,7 @@
 
 
 
-~make_matrix = { arg main, callbacks;
+~make_matrix = { arg main, callbacks, winname="Matrix";
 
 	var obj;
 
@@ -141,7 +141,7 @@
 				oldsel = self.model.selection;
 				self.model.selection = sel;
 				self.changed(\selection, oldsel);
-				callbacks.selected(self.get_cell_by_address(sel), self.window);
+				callbacks.selected(self.get_cell_by_address(sel), self.window, sel);
 			});
 		},
 
@@ -163,7 +163,29 @@
 				self.kb_handler[[0, keycode]] = { self.set_bank(idx) };
 			};
 
-			self.kb_handler[[0, ~kbspecial.escape]] = { self.window.close; };
+			self.kb_handler[[~keycode.mod.alt, ~keycode.kbaalphanum["r"]]] = { 
+				if( self.model.selection.notNil ) {
+					callbacks.edit_value;
+				}
+			};
+
+			self.kb_handler[[~keycode.mod.fx, ~keycode.kbfx[4]]] = { 
+				var sel = self.model.selection;
+				if( sel.notNil ) {
+					callbacks.play_selection(self.get_cell_by_address(sel), self.window, sel);
+				}
+			};
+			self.kb_handler[[~keycode.mod.fx, ~keycode.kbfx[5]]] = { 
+				var sel = self.model.selection;
+				if( sel.notNil ) {
+					callbacks.stop_selection(self.get_cell_by_address(sel), self.window, sel);
+				}
+			};
+
+			self.kb_handler[[0, ~kbspecial.escape]] = { 
+				callbacks.stop_selection;
+				self.window.close;
+			};
 			self.kb_handler[[~modifiers.fx, ~kbfx[0]]] = { 
 				if(self.model.selection.isNil, {
 					"No selection to load".error;
@@ -183,7 +205,7 @@
 		init: { arg self;
 			var parent;
 			"zarb".debug("oui");
-			self.window = parent = Window.new("Matrix",Rect(100,Window.screenBounds.height-400, 1220,300));
+			self.window = parent = Window.new(winname, Rect(100,Window.screenBounds.height-400, 1220,300));
 			
 			self.model.patlist.debug("patlist");
 
@@ -204,21 +226,14 @@
 
 };
 
-~bla = (
-	loop: [
-		\loop_1,
-		\loop_2,
-		\loop_3
-	]
-);
-
-~choose_libnode = { arg main, action;
+~choose_libnode = { arg main, action, actionpreset;
 	var sl;
 	var callbacks;
 	var oldsel = nil;
+	var playlist = List.new;
 
 	callbacks = (
-		selected: { arg self, sel, win;
+		selected: { arg self, sel, win, address;
 			sel.debug("selected");
 			if(oldsel == sel, {
 				action.(sel);
@@ -227,11 +242,11 @@
 				oldsel = sel;	
 			});
 		},
-		load: { arg self, sel, patwin;
+		load: { arg self, defname, patwin;
 			//sl.set_datalist(main.presetpool[sel])
 			var presets, callbacks, datalist;
 			var oldsel = nil;
-			datalist = ~bla[sel];
+			datalist = main.model.presetlib[defname]; // TODO: load real patlib
 			if(datalist.isNil, {
 				"No preset for this pat".inform;
 			}, {
@@ -239,23 +254,34 @@
 					selected: { arg self, sel, win;
 						sel.debug("selected");
 						if(oldsel == sel, {
-							action.(sel);
+							actionpreset.(sel);
 							win.close;
 							patwin.close;
 						}, {
 							oldsel = sel;	
 						});
+					},
+					play_selection: { arg self, sel, win, ad;
+						var pl;
+						pl = main.get_node(main.model.presetlib[defname][sl.address_to_index(ad)]);
+						playlist.add(pl);
+						pl.node.play;
+					},
+					stop_selection: { arg self, sel, win, ad;
+						playlist.do { arg pl; pl.node.stop };
+						// FIXME: free player resources
+						playlist = List.new;
 					}
 				);
-				presets = ~make_matrix.(main, callbacks);
-				presets.set_datalist( ~bla[sel] );
+				presets = ~make_matrix.(main, callbacks,winname:"choose preset");
+				presets.set_datalist( datalist );
 				presets.choose_cell({ arg sel, win; });
 				presets.show_window;
 			});
 		}
 
 	);
-	sl = ~make_matrix.(main, callbacks);
+	sl = ~make_matrix.(main, callbacks,winname:"choose libnode");
 	sl.choose_cell({ arg sel, win;
 			
 	});
@@ -267,12 +293,16 @@
 	var sl;
 	var callbacks;
 	var oldsel = nil;
+	var samples = Dictionary.new;
 
 	callbacks = (
 		selected: { arg self, sel, win;
+			win.debug("win1");
 			sel.debug("selected");
 			if(sel.notNil && oldsel == sel, {
-				action.(sel);
+				win.debug("win2");
+				action.(samples[sel]);
+				win.debug("win3");
 				win.close;
 			}, {
 				oldsel = sel;	
@@ -280,38 +310,100 @@
 		}
 
 	);
-	sl = ~make_matrix.(main,callbacks);
+	sl = ~make_matrix.(main,callbacks,winname:"choose sample");
 	sl.choose_cell(action);
 	//sl.set_datalist( {arg i;"sounds/bla.wav"++i}!10 );
-	sl.set_datalist( a );
+	main.model.samplelist.do { arg sam;
+		samples[PathName.new(sam).fileName] = sam;
+	};
+	sl.set_datalist(samples.keys.asList);
 	sl.show_window;
 };
 
-~save_pat = { arg main, action;
+~save_pat = { arg main, datalist, node, action;
 	var sl;
 	var sa;
 	var callbacks;
 	var oldsel = nil;
+	var playlist = List.new;
 
 	callbacks = (
-		selected: { arg self, sel, win;
+		selected: { arg self, sel, win, ad;
+			var newname;
 			sel.debug("selected");
+			//newname = "new" ++ UniqueID.next;
 			if(sel.notNil && oldsel == sel, {
-				action.(sel);
-				sl.set_cell(sl.model.selection, "plop47");
+				action.(sel, sl.address_to_index(ad));
+				//sl.set_cell(sl.model.selection, newname);
+				self.stop_selection;
 				win.close;
 			}, {
 				oldsel = sel;	
 			});
+		},
+		play_selection: { arg self, sel, win, ad;
+			var pl;
+			pl = main.get_node(main.model.presetlib[node.defname][sl.address_to_index(ad)]);
+			playlist.add(pl);
+			pl.node.play;
+		},
+		stop_selection: { arg self, sel, win, ad;
+			playlist.do { arg pl; pl.node.stop };
+			// FIXME: free player resources
+			playlist = List.new;
 		}
 
 	);
-	sl = ~make_matrix.(main, callbacks);
+	sl = ~make_matrix.(main, callbacks, winname:"SAVE preset");
+	sl.set_datalist( datalist ?? [] );
 	sl.choose_cell(action);
-	sa = SparseArray.new;
-	sa[10*32] = nil;
+	sl.show_window;
+};
 
-	sl.set_datalist( sa );
+
+~save_player_column = { arg main, winname, player, datalist, action, rename_action;
+	var sl;
+	var sa;
+	var callbacks;
+	var oldsel = nil;
+	var playlist = List.new;
+
+	callbacks = (
+		selected: { arg self, sel, win, ad;
+			sel.debug("selected");
+			if(sel.notNil && oldsel == sel, {
+				action.(sel, sl.address_to_index(ad));
+				self.stop_selection;
+				win.close;
+			}, {
+				oldsel = sel;	
+			});
+		},
+		play_selection: { arg self;
+			var pl, data, offset;
+			offset = sl.address_to_index(sl.model.selection);
+			data = main.model.colpresetlib[player.defname][offset];
+			pl = ~make_player_from_colpreset.(main, data);
+			//playlist.add(pl);
+			Pfin(1, pl.node).play;
+		},
+		stop_selection: { arg self;
+			playlist.debug("playlist");
+			playlist.do { arg pl; pl.node.stop };
+			// FIXME: free player resources
+			playlist = List.new;
+		},
+		edit_value: { arg self;
+			~edit_value.(sl.get_selected_cell.asString, { arg newname; 
+				sl.set_cell(sl.model.selection, newname);
+				rename_action.(sl.address_to_index(sl.model.selection), newname);
+			})
+		}
+
+	);
+	sl = ~make_matrix.(main, callbacks, winname:winname);
+	sl.set_datalist( datalist );
+	sl.choose_cell(action);
 	sl.show_window;
 };
 

@@ -118,12 +118,14 @@
 			offset = offset ?? self.model.param_offset;
 			"1begin get_paramlist".debug;
 			//main.model.parlive.debug("get_paramlist main.model.parlive");
-			main.context.get_selected_node_set.do { arg nodegroup, i;
+			main.context.get_selected_node_set[offset.y..].do { arg nodegroup, i;
 				if (nodegroup.name != \void_FIXME) { // FIXME: change groupname when it has children
-					nodegroup.children.do { arg node;
-						if(node.name != \void, {
+					nodegroup.children.do { arg nodename;
+						var node;
+						if(nodename != \voidplayer, {
 							//FIXME: check for other types of nodes
 							//node.debug("get_paramlist:node");
+							node = main.get_node(nodename);
 							list.add(node -> node.get_arg(\amp));
 						});
 					};
@@ -133,7 +135,17 @@
 			list;
 		},
 
+		get_bank: { arg self;
+			main.context.get_selected_bank
+		},
+
+
+		update_title: { arg self;
+			main.set_window_title("mixer: bank:"++  self.get_bank ++ "; offset:" ++ self.model.param_offset.y);
+		},
+
 		refresh: { arg self;
+			self.update_title;
 			self.changed(\paramlist);
 		},
 
@@ -142,11 +154,12 @@
 
 			main.commands.array_add_enable([\mixer, \select_offset], [\kb, 0], ~keycode.kbnumline, { arg x; 
 				self.model.param_offset = 0@x;
+				self.update_title;
 				self.changed(\paramlist);
 			});
-			main.commands.add_enable([\mixer, \show_panel, \parlive], [\kb, ~keycode.mod.fx, ~keycode.kbfx[8]], { main.show_panel(\parlive) });
-			main.commands.add_enable([\mixer, \show_panel, \score], [\kb, ~keycode.mod.fx, ~keycode.kbfx[10]], { main.show_panel(\score) });
-			main.commands.add_enable([\mixer, \show_panel, \editplayer], [\kb, ~keycode.mod.fx, ~keycode.kbfx[11]], { main.show_panel(\editplayer) });
+
+			~make_panel_shortcuts.(main, \mixer);
+
 			"ini2".debug;
 
 			~mixer_view.(parent, mixer);

@@ -14,6 +14,9 @@ s.waitForBoot({
 	\KSpluck2,
 	\KSpluck3,
 	\hihat,
+	\formant,
+	\formant2,
+	\snare,
 	\loop
 ].collect({ arg i; i -> i });
 
@@ -30,7 +33,136 @@ s.waitForBoot({
 });
 )
 
+~seq.save_project("reggaenul");
+~seq.load_project("projtest8");
+
+
+~seq.debugme.node.source.repeats
+~seq.debugme2.get_val
+~seq.debugme.data[\repeat].get_val
+
+
+q 
+q = Pbind(\dur, 0.1).trace
+q = Pbind(\dur, Pn(0.1,10))
+q = Pbind(\dur, 0.5)
+r = Pbind(\freq, 200, \dur, 0.5)
+q.play
+Pfin(1, a).play
+a = EventPatternProxy.new
+b = EventPatternProxy.new
+c = EventPatternProxy.new
+b.source = q
+c.source = r
+b.play
+c.play
+b.isPlaying
+b.player.isPlaying
+b.isPlaying
+b.stop
+c.play
+Pfin(1, b).play
+b.source = Pfindur(~a, a)
+~a = 4
+
+b.source = Pn((freq:\rest),1)
+b.play
+b.isP
+Psilence(0.1)
+SynthDescLib.global.synthDescs.keys.do (_.postln)
+
+Pseq([Psync(a, 1, 2), Psync(a, 1, 2)]).play
+
+
+a = EventPatternProxy.new
+b = EventPatternProxy.new
+c = EventPatternProxy.new
+n = EventPatternProxy.new
+m = Pbind(\freq, 70, \sustain, 0.01, \dur, 0.5); n.source = m; n.play;
+q = Pbind(\note, Pseq([1,2,3,4,5,6,7,8]), \dur, 0.5)
+r = Pbind(\note, Pseq([1,2,3,4,5,6,7,8]+10), \lag, 0.1, \dur, 0.5)
+a.source = Pn(Ppar([b, c]),inf);
+b.source = q
+c.source = r
+a.play;
+a.source = Pn(Ppar([b, c]),inf); b.source = q; c.source = r; a.play;
+a.source = Ppar([b, c],inf); b.source = q; c.source = r; a.play;
+a.source = Ppar([Pn(b,inf), Pn(c,inf)],inf); b.source = q; c.source = r; a.play;
+b.stop
+b.stop; b.source = nil; 
+b.source = nil; 
+b.source = nil; b.stop;
+b.source = q
+EventPatternProxy.defaultQuant = 4
+
+b.source = q; b.play;
+b.source = Pn(q,inf);
+
+
+
+a = EventPatternProxy.new
+b = EventPatternProxy.new
+c = EventPatternProxy.new
+EventPatternProxy.defaultQuant = 2
+
+q = Pbind(\note, Pseq([1,2,3,4,5,6,7,8],1), \dur, 0.5)
+r = Pbind(\note, Pseq([1,2,3,4,5,6,7,8]+10,1), \lag, 0.1, \dur, 0.5)
+
+a.source = Ppar([b, c],inf); b.source = q; c.source = r; a.play;    // play this, it run in loop
+a.source = Ppar([b ],inf); b.source = q; c.source = r; a.play;    // play this, it run in loop
+a.source = Ppar([c ],inf); b.source = q; c.source = r; a.play;    // play this, it run in loop
+
+b.source = nil;  // before the end of the b pattern, stop it
+b.source = q
+
+b.stop
+b.isPlaying
+b.player.isPlaying
+
+a.quant
+a.playQuant
+b.quantBeat = 8
+
+{ SinOsc.ar }.play
+
+
+
+a = EventPatternProxy.new
+b = EventPatternProxy.new
+c = EventPatternProxy.new
+EventPatternProxy.defaultQuant = 4
+
+q = Pbind(\note, Pseq([1,2,3,4,5,6,7,8],1), \dur, 0.5)
+r = Pbind(\note, Pseq([1,2,3,4]+10,1), \lag, 0.1, \dur, 0.5)
+
+a.source = Ppar([b, c],inf); b.source = q; c.source = r; a.play;    // play this, it run in loop
+
+b.source = nil;  // before the end of the b pattern, stop it
+b.source = q
+
+a.quant
+a.playQuant
+b.quantBeat = 8
+
+
+
 (
+SynthDef(\loop, {| out = 0, amp=0.1, bufnum = 0, gate = 1, pos = 0, speed = 1, freq = 0, endfreq = 0.001, sustain=0.5, wobble = 3, boost = 1|
+
+	var player,env;
+	freq = XLine.ar(freq,endfreq,sustain/4);
+	freq = freq.cpsmidi + (LFNoise2.ar(3).range(-1,1) * (1/12));
+	freq = freq.midicps;
+	env = Env.adsr(0.0001,0.01, 1, sustain/8, 1);
+	amp = EnvGen.kr(env, gate, doneAction:2) * amp;
+	player = PlayBuf.ar(2, bufnum, BufRateScale.kr(bufnum) * speed, Impulse.ar(freq), startPos: (pos*BufFrames.kr(bufnum)) + Rand(0,20), doneAction:2, loop: 1) * boost;
+	player = RLPF.ar(player, SinOsc.ar(wobble/sustain).range(20000,80), XLine.ar(0.2,0.9,sustain)) * boost;
+	Out.ar(out, player);
+
+}, metadata:(specs:(
+	bufnum: (numchan: 2)
+))).store;
+
 SynthDef(\formant, { arg out=0, amp=0.1, gate=1, freq=200, formfreq=300, bw=10;
 
 var ou;
