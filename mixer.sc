@@ -39,12 +39,12 @@
 			~make_control_view.(row_layout, mixer.make_param_display(\master, 0), master, master.midi);
 			"3paramlist begin".debug;
 
-			self.get_paramlist.debug("paramlist");
+			//self.get_paramlist.debug("paramlist");
 			self.get_paramlist.do { arg paramasso, i;
 				var hihi2 = \rah;
 				var player_name = paramasso.key.name;
 				var param = paramasso.value;
-				paramasso.debug("paramasso");
+				//paramasso.debug("paramasso");
 
 				midi = ~midi_interface.assign_first(\slider, param);
 				param.midi = midi;
@@ -126,7 +126,9 @@
 							//FIXME: check for other types of nodes
 							//node.debug("get_paramlist:node");
 							node = main.get_node(nodename);
-							list.add(node -> node.get_arg(\amp));
+							if(node.kind == \player) {
+								list.add(node -> node.get_arg(\amp));
+							}
 						});
 					};
 				}

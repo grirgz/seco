@@ -31,6 +31,13 @@
 	};
 };
 
+~general_sizes = (
+	bank: 10,
+	children_per_groupnode: 16,
+	children_part_per_groupnode: 4, // keyboard can access to only 4 children at the same time
+	groupnode_per_bank: 8
+);
+
 
 ~matrix3_from_list = { arg list, collectfun = { arg x; x };
 	var banklist = List[], collist = List[], celllist = List[];
@@ -215,7 +222,7 @@
 		},
 
 		set_selected_node: { arg self, val;
-			//val.debug("context.set_selected_node");
+			val.debug("context.set_selected_node");
 			self.selected_node = val;
 		},
 
@@ -285,7 +292,7 @@
 			colpresetlib: Dictionary.new,
 
 			patlist: nil,
-			patpool: nil,
+			patpool: Dictionary.new,
 			samplelist: nil,
 
 			livenodepool: Dictionary.new
@@ -580,11 +587,16 @@
 			SynthDescLib.global.read("synthdefs/*");
 		},
 
-		test_player: { arg self, playername;
-			var player, ep;
-			self.init_synthdesclib;
-			player = ~make_player_from_synthdef.(playername);
+		test_player: { arg self, libnodename;
+			var player, ep, name;
+			self.model.patpool[libnodename] = libnodename;
+			name = main.panels.parlive.make_livenode_from_libnode(libnodename);
+			player = main.get_node(name);
 			self.current_test_player = player;
+			self.model.current_panel = \editplayer;
+			self.context.set_selected_node(player);
+
+			self.main_view = ~main_view.(self);
 			//self.window = self.make_window.value;
 
 			//self.make_kb_handlers;
@@ -592,16 +604,16 @@
 			//self.kb_handler[ [~modifiers.fx, ~kbfx[5]] ] = { player.node.stop };
 
 			//ep = ~make_editplayer.(self, player, self.window, self.kb_handler);
-			self.make_editplayer_handlers(ep);
-			self.window.view.focus(true);
+			//self.make_editplayer_handlers(ep);
+			//self.window.view.focus(true);
 		},
 
 		make_gui: { arg self;
-			self.init_synthdesclib;
 			self.main_view = ~main_view.(self);
 		},
 
 		init: { arg self;
+			self.init_synthdesclib;
 			"ijensuisla".debug;
 			self.add_node(~empty_player);
 			"jensuisla".debug;

@@ -12,6 +12,7 @@
 	bt;
 
 };
+
 ~make_header_cell = { arg parent, label;
 	var bt;
 
@@ -25,11 +26,11 @@
 
 };
 
-~set_cell_label = { arg cell, label;
+~set_cell_label = { arg cell, label, header=false;
 	var val;
 	val = cell.value;
 	cell.states = [
-		[ label, Color.black, Color.white],
+		[ label, Color.black, if(header) { ~color_scheme.header_cell } { Color.white }],
 		[ label, Color.white, Color.black],
 	];
 	cell.value = val;
@@ -52,6 +53,44 @@
 };
 
 ~debug = 0;
+
+~set_cell_state = { arg bt, node;
+	var oldval, state;
+	oldval = bt.value;
+	if(node.isNil) {
+		bt.states = [
+			[ "voidplayer", Color.black, Color.white],
+			[ "voidplayer", Color.white, Color.black],
+		];
+	} {
+		state = switch(node.get_playing_state,
+			\play, {
+				"I>";
+			},
+			\stop, {
+				"[]";
+			},
+			\mutestop, {
+				"M]";
+			},
+			\mute, {
+				"M>";
+			}
+		);
+		if( node.kind == \player ) {
+			bt.states = [
+				[ state + node.uname, Color.black, Color.white],
+				[ state + node.uname, Color.white, Color.black],
+			];
+		} {
+			bt.states = [
+				[ state + node.uname, Color.black, ~color_scheme.header_cell],
+				[ state + node.uname, Color.white, Color.black],
+			];
+		};
+	};
+	bt.value = oldval;
+};
 
 ~make_node_view = { arg parent, controller;
 
@@ -202,10 +241,61 @@
 	))
 };
 
+~make_fhmatrix_view = { arg parent, controller;
+
+	var sl_layout, ps_col_layout, curbank, address;
+	var width = 1350;
+
+	sl_layout = GUI.hLayoutView.new(parent, Rect(0,0,width,60*6));
+	sl_layout.background = ~editplayer_color_scheme.background;
+
+	~make_view_responder.(sl_layout, controller, (
+
+		redraw: { arg obj, msg;
+
+			"".debug("rederaw fhmatrix");
+			sl_layout.removeAll;
+
+			controller.get_datalist_by_bank(controller.model.bank).do { arg gnode;
+				//node.uname.debug("hmatrix_view redraw groupnode");
+				var layout;
+				layout = GUI.vLayoutView.new(sl_layout, Rect(0,0,(160),60*6));
+				if(controller.kind == \seqnode) {
+					layout.background = ~color_scheme.control2;
+				} {
+					layout.background = ~color_scheme.control;
+				};
+				~make_header_cell.(layout, gnode.uname);
+				gnode.children.do { arg nodename;
+					~make_cell.(layout, nodename);
+				};
+			};
+			parent.focus(true);
+
+		}, 
+
+		refresh_cell: { arg obj, msg, x, y, node;
+			~set_cell_state.(sl_layout.children[x].children[y+1], node);
+		},
+
+		header_selection: { arg obj, msg, x, selected;
+			sl_layout.children[x].children[0].value = selected;
+		},
+
+		cell_selection: { arg obj, msg, x, y, selected;
+			sl_layout.children[x].children[y+1].value = selected;
+		}
+
+	));
+
+};
+
 
 ~make_grouplive = { arg main, panel;
-
+ 	// changed messages: \header_selection, \cell_selection, \redraw 
 	var obj;
+	var bank_x_size = 8;
+	var bank_y_size = 16;
 
 	obj = (
 
@@ -213,9 +303,13 @@
 			//samplelist: {arg i; "sounds/default" ++ i }!50,
 			//patlist: main.model.patlist,
 			//datalist: (8*9).collect( ~make_empty_parnode),
+			bank_x_size: bank_x_size,
+			bank_y_size: bank_y_size,
 			panel: panel,
 			numbank: 10,
 			datalist: List.fill(8*10, { \void }), // sparsearray ?
+			//datalist: SparseArray.newClear(8*10, ~make_empty_parnode.()), // sparsearray ?
+			notifiers: Dictionary.new,
 
 			selection: (x:0, y:0, bank:0),
 			bank: 0,
@@ -246,7 +340,7 @@
 
 		get_datalist_by_bank: { arg self, bank;
 			if(bank < self.model.numbank) {
-				self.unvoid_list(self.model.datalist[(bank*8) .. (bank+1*8-1)])
+				self.unvoid_list(self.model.datalist.asList[(bank*8) .. (bank+1*8-1)])
 			}
 		},
 
@@ -312,26 +406,73 @@
 		},
 
 		set_cell: { arg self, address, val;
-			var name, cell;
+			var name, cell, node;
+			var node_notifier, header_address;
+
+			node_notifier = { arg address, node;
+				var sc = SimpleController(node);
+				sc.put(\redraw, {
+					self.changed(\refresh_cell, address.x, address.y, node);
+					node.children.do { arg childname, y;
+						var child;
+						if(childname != \voidplayer) {
+							child = main.get_node(childname);
+							[child, childname].debug("node_notifier: redraw");
+							self.changed(\refresh_cell, address.x, y, child);
+						} {
+							self.changed(\refresh_cell, address.x, y, nil);
+						}
+					};
+				});
+				sc.put(\redraw_node, {
+					self.changed(\refresh_cell, address.x, address.y, node);
+				});
+				if(self.model.notifiers[address].notNil) {
+					self.model.notifiers[address].remove;
+				}; 
+				self.model.notifiers[address] = sc;
+			};
+
 			if( self.address_in_range(address) ) {
 				//name = if(val.isNil, { "" }, {val.name});
 				name = val;
 				if(address.y == -1, {
-					self.model.datalist[ self.address_to_index(address)] = main.get_node(val);
-					self.refresh;
+					// happen when copying header (duplicate_groupnode)
+					node = main.get_node(val);
+					self.model.datalist[ self.address_to_index(address)] = node;
+					node_notifier.(address, node);
+					node.changed(\redraw);
+
+
+					//self.refresh;
 				}, {
 					cell = self.model.datalist[ self.address_to_index(address) ];
 					if(cell == \void) {
-						self.model.datalist[self.address_to_index(address)] = self.make_groupplayer(self.address_to_index(address));
+						// setting a cell inside a non-existant groupnode
+						header_address = address.deepCopy;
+						header_address.y = -1;
+						node = self.make_groupplayer(self.address_to_index(address));
+						self.model.datalist[self.address_to_index(address)] = node;
 						self.model.datalist[self.address_to_index(address)].set_children_name(address.y, val);
+
+						node_notifier.(header_address, node);
+						~notNildo.(main.get_node(val), { arg cellnode;
+							node_notifier.(address, cellnode);
+						});
+						node.changed(\redraw);
+
 						//self.model.datalist[self.address_to_index(address)].changed(\cell_label, address.y, name);
 						//self.changed(\redraw_column, address.x)
-						self.refresh;
+						//self.refresh;
 					} {
 						//self.model.datalist[self.address_to_index(address)].children[address.y] = val;
 						//self.model.datalist[self.address_to_index(address)].changed(\cell_label, address.y, name);
 						self.model.datalist[self.address_to_index(address)].set_children_name(address.y, val);
-						self.refresh_selection;
+						~notNildo.(main.get_node(val), { arg cellnode;
+							node_notifier.(address, cellnode);
+							cellnode.changed(\redraw_node);
+						});
+						//self.refresh_selection;
 					}
 				});
 			} {
@@ -395,10 +536,14 @@
 			self.do_selection(self.model.selection, 1);
 		},
 
+		update_title: { arg self;
+			main.set_window_title(self.model.panel ++ ": bank" + self.model.bank ++ "; offset.y:" + self.get_y_offset);
+		},
+
 		refresh: { arg self;
 			var sel = self.model.selection;
 			self.changed(\redraw);
-			main.set_window_title(self.model.panel ++ ": bank" + self.model.bank);
+			self.update_title;
 			sel.debug("refresh sel");
 			if(sel.notNil, {
 				if(sel.bank == self.model.bank, {
@@ -496,9 +641,10 @@
 			newlivenodename;
 		},
 
-		duplicate_groupnode: { arg self, groupnodename, x;
-			var name, pl;
-			name = (self.model.panel.asString[..2]++x).asSymbol;
+		duplicate_groupnode: { arg self, groupnodename, address;
+			var name, pl, num;
+			num = address.bank * self.model.bank_x_size + address.x;
+			name = (self.model.panel.asString[..2]++num).asSymbol;
 			pl = self.get_node(groupnodename).clone;
 			pl.name = name;
 			pl.uname = name;
@@ -548,7 +694,7 @@
 						"Can't paste on header".error;
 					} {
 						// parplayer and seqplayer
-						self.set_selected_cell(self.duplicate_groupnode(main.model.clipboard, address.x));
+						self.set_selected_cell(self.duplicate_groupnode(main.model.clipboard, address));
 					};
 				} {
 					if( node.kind == \player ) {
@@ -596,7 +742,7 @@
 			if(self.model.selection.y == -1, {
 				"Can't delete node in header".error;
 			}, {
-				self.set_cell(self.model.selection, nil)
+				self.set_cell(self.model.selection, \voidplayer)
 			})
 
 		},
@@ -643,18 +789,39 @@
 			main.playmanager.unsolo_node
 		},
 
+		get_y_offset: { arg self;
+			self.model.offset.y;
+		},
+
+		set_y_offset: { arg self, val;
+			self.model.offset.y = val;
+		},
+
 		make_gui: { arg self, parent;
 			//self.debug("======debile");
 			self.init_commands;
-			~hmatrix_view.(parent, self);
+			~make_fhmatrix_view.(parent, self);
 		},
 
 		init_commands: { arg self;
 
 			var panel = self.model.panel;
 
-			main.commands.matrix_add_enable([panel, \select_cell], [\kb, 0], ~keycode.kbpad8x4, { arg x, y; self.set_selection(x,y) });
+			main.commands.matrix_add_enable([panel, \select_cell], [\kb, 0], ~keycode.kbpad8x4, { arg x, y; self.set_selection(x,y+self.get_y_offset) });
 			main.commands.array_add_enable([panel, \select_header], [\kb, ~keycode.mod.alt], ~keycode.kbnumline[..7], { arg x; self.set_selection(x,-1) });
+
+			main.commands.add_enable([panel, \decrease_y_offset], [\kb, ~keycode.mod.arrow, ~keycode.kbarrow.up], {
+				if(self.get_y_offset >= ~general_sizes.children_part_per_groupnode) {
+					self.set_y_offset(self.get_y_offset - ~general_sizes.children_part_per_groupnode );
+					self.update_title;
+				}
+			});
+			main.commands.add_enable([panel, \increase_y_offset], [\kb, ~keycode.mod.arrow, ~keycode.kbarrow.down], {
+				if(self.get_y_offset < (~general_sizes.children_per_groupnode - ~general_sizes.children_part_per_groupnode)) {
+					self.set_y_offset(self.get_y_offset + ~general_sizes.children_part_per_groupnode );
+					self.update_title;
+				}
+			});
 
 			main.commands.array_add_enable([panel, \change_bank], [\kb, 0], ~keycode.kbnumpad, { arg x; self.set_bank(x) });
 

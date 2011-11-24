@@ -959,8 +959,8 @@
 
 			cc_value = get_midi_val.();
 			param_value = param.get_norm_val.();
-			param.name.debug("midi block param name");
-			param_value.debug("midi block param value");
+			//param.name.debug("midi block param name");
+			//param_value.debug("midi block param value");
 
 			case 
 				{ cc_value > param_value } {
@@ -1269,7 +1269,7 @@
 							~make_control_view.(row_layout, editplayer.make_param_display(param), param, midi);
 						});
 					}
-					{ [\legato, \amp, \attack, \release, \sustain].includes(param_name)} {
+					{ [\legato, \amp, \pan, \attack, \release, \sustain].includes(param_name)} {
 						"argggg".debug;
 						midi = ~midi_interface.assign_first(\slider, param);
 						"argggg".debug;

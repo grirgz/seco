@@ -230,6 +230,38 @@ SynthDef(\wah, { arg out=0, gate=1;
 )
 
 (
+
+SynthDef(\echo, { arg out=0, in=0, maxdtime=0.2, release=1, dtime=0.2, decay=2, gate=1;
+        var env, ou;
+        env = Linen.kr(gate, 0.05, 1, decay, 2);
+        in = In.ar(in, 2);
+		ou = CombL.ar(in, maxdtime, dtime, decay, 1, in);
+		//DetectSilence.ar(ou,0.001,0.1,doneAction:2);
+        Out.ar(out, ou);
+}, [\ir, \ir, \ir, 0.1, 0.1, 0]).add;
+
+SynthDef(\addbeeps, { arg out=0, in=0, gate=1;
+        var env, ou;
+        env = Linen.kr(gate, 0.05, 1, 0.1, 2);
+		ou = In.ar(in, 2) + (LFPulse.kr(1, 0, 0.3) * SinOsc.ar(1000) * 0.4);
+        Out.ar(out, ou);
+}, [\ir, 0.1]).add;
+
+SynthDef(\distort, { arg out=0, pregain=40, amp=0.2, gate=1;
+        var env;
+        env = Linen.kr(gate, 0.05, 1, 0.1, 2);
+        XOut.ar(out, env, (In.ar(out, 2) * pregain).distort * amp);
+}, [\ir, 0.1, 0.1, 0]).add;
+
+SynthDef(\wah, { arg out=0, gate=1;
+        var env, in;
+        env = Linen.kr(gate, 0.05, 1, 0.4, 2);
+        in = In.ar(out, 2);
+        XOut.ar(out, env, RLPF.ar(in, LinExp.kr(LFNoise1.kr(0.3), -1, 1, 200, 8000), 0.1).softclip * 0.8);
+}, [\ir, 0]).add;
+)
+
+(
 var p, q, r, o;
 p = Pbind(\degree, Prand((0..7),12), \dur, 0.3, \legato, 0.2);
 
@@ -249,9 +281,15 @@ Pseq([p, q, r, o], 2).play;
 ~q = Pbind(\degree, Pseq([0,1,2,3,4,5]-2,inf), \dur, 0.6, \legato, 0.1, \amp, 0.5);
 )
 (
-~a.source = Pfxb(~p, \echo, \pregain, 180, \amp, 0.25);
-~b.source = Pfxb(~q, \addbeeps, \pregain, 180, \amp, 0.25);
+~a.source = Pfxb(~p, \echo, \amp, 0.25);
 ~a.play;
+~a.source = Pfxb(~p, \echo, \amp, 0.25);
+~a.play;
+)
+(
+~b.source = Pfxb(~q, \addbeeps, \pregain, 180, \amp, 0.25);
+~b.play;
+~b.source = Pfxb(~q, \addbeeps, \pregain, 180, \amp, 0.25);
 ~b.play;
 )
 ~a.source = ~p
@@ -3240,3 +3278,27 @@ o.add(r)
 a = Pseq([Pbind(\freq, Pseq([300,400]), \dur, 1), b])
 a.play
 b = Ppar([Pbind(\freq, Pseq([600,700]), \dur, 1), a])
+
+
+
+
+
+
+
+
+
+// read a soundfile
+s.boot;
+b = Buffer.read(s, "sounds/hydrogen/GMkit/clap_Dry_c.flac");
+
+// now play it
+(
+ x = SynthDef(\help_Buffer, { arg out = 0, bufnum;
+	 Out.ar( out,
+		 PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum))
+	 )
+ }).play(s,[\bufnum, b]);
+)
+x.free; b.free;
+
+

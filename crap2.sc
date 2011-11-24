@@ -20,7 +20,7 @@ a.play
 	var window, sl_layout;
 	window = Window.new("bla", Rect(0,0,1500,400));	
 
-	sl_layout = GUI.hLayoutView.new(window, Rect(0,0,1500,60*6));
+	sl_layout = GUI.hLayoutView.new(window, Rect(0,0,1500,60*16));
 
 	~rah.(sl_layout);
 	window.front;
@@ -35,9 +35,9 @@ a.play
 
 	parent.removeAll;
 	8.do {
-		layout = GUI.vLayoutView.new(parent, Rect(0,0,(160),60*6));
+		layout = GUI.vLayoutView.new(parent, Rect(0,0,(160),60*16));
 
-		4.do {
+		16.do {
 
 				~make_cell.(layout, "blaaa"); // FIXME: should show name instead of uname
 		}
@@ -934,3 +934,679 @@ k = SimpleController(z);
 k.put(\stopped, { "ploiiip".debug });
 )
 s.boot
+
+
+
+
+
+
+
+
+
+
+(
+  SynthDef(\bassD, {|out = 0, hit_dur, amp, pan|
+ 
+    var ringmod, noise, lpf, hpf, lpf_env, hpf_env, noise_env, env, panner, 
+      pitch_env, slew, trig, sh;
+  
+  
+    lpf_env = EnvGen.kr(Env.perc(0.05, 56.56, 12, -4));
+    hpf_env = EnvGen.kr(Env.perc(0.05, 48.54, 12, -6));
+    noise_env = EnvGen.kr(Env.perc(0.0001, 0.032, 1, -8));
+    pitch_env = EnvGen.kr(Env.perc(0.07, hit_dur, 12, -2));
+  
+    env = EnvGen.kr(Env.perc(0.00005, hit_dur, amp, -2), doneAction: 2);
+  
+   trig = Impulse.ar(0.45/hit_dur, 1.0.rand);
+  sh = Dwhite(-6, 6,inf);
+  slew =  Lag.ar(Demand.ar(trig, 0, sh), hit_dur/1.7);
+  
+    ringmod = LFTri.ar(
+        (31 + slew + LFTri.ar((27 + pitch_env).midicps, 4.0.rand, 60)).midicps, 
+        4.0.rand); // 5 octave log range
+    noise = PinkNoise.ar(noise_env);
+
+    lpf = RLPF.ar(ringmod, (56.56 + lpf_env).midicps, 0.5);
+    hpf = RHPF.ar(lpf +  noise, (48.54 + hpf_env).midicps, 0.5);
+  
+    panner = Pan2.ar(hpf, pan, env);
+  
+    Out.ar(out, panner);
+  }).store;
+)
+
+s.boot
+
+(
+
+ Conductor.make({arg cond, freq1, freq2, lpf_f, hpf_f, lpf_d, hpf_d, noise_d, dur, db;
+  freq1.spec_(\freq, 200+660.rand);
+  freq2.spec_(\freq, 200+660.rand);
+  lpf_f.spec_(\freq, 100+200.rand);
+  hpf_f.spec_(\freq, 200+660.rand);
+  lpf_d.sp(1, 0.0001, 1.5, 0, 'linear');
+  hpf_d.sp(1, 0.0001, 1.5, 0, 'linear');
+  dur.sp(1, 0.0001, 2, 0, 'linear');
+  noise_d.sp(0.1, 0.00001, 1, 0, 'linear');
+  db.spec_(\db, 02.ampdb);
+  
+
+  
+  cond.pattern_(
+   Pbind(
+    \instrument, \bassD,
+    \db,   db,
+    \freq1,   freq1,
+    \freq2,  freq2,
+    \lpf_f,   lpf_f,
+    \hpf_f,   hpf_f,
+    \lpf_d,   lpf_d,
+    \hpf_d,   hpf_d,
+    \noise_d,  noise_d, 
+    \dur,  dur    
+   )
+  )
+ }).show;
+)
+
+
+
+
+(
+
+ SynthDef(\bassD, {|out = 0, freq1, freq2, lpf_f, hpf_f, lpf_d, hpf_d, noise_d, dur, amp|
+ 
+  var ringmod, noise, lpf, hpf, lpf_env, hpf_env, noise_env, env, panner, 
+   pitch_env, slew, imp;
+  
+  
+  lpf_env = EnvGen.kr(Env.perc(0.05, lpf_d, 12, -4));
+  hpf_env = EnvGen.kr(Env.perc(0.05, hpf_d, 12, -6));
+  noise_env = EnvGen.kr(Env.perc(0.0001, noise_d, 1, -8));
+  pitch_env = EnvGen.kr(Env.perc(0.07, dur, 12, -2));
+  
+  env = EnvGen.kr(Env.perc(0.00005, dur, amp, -2), doneAction: 2);
+  
+  imp = Dust.ar(0.45/dur, 12) - 6;
+  slew =  Lag.ar(imp, dur/1.7);
+  
+  ringmod = LFTri.ar((freq2.cpsmidi + slew + 
+     LFTri.ar((freq1.cpsmidi + pitch_env).midicps, 4.0.rand, 60)
+    ).midicps, 4.0.rand); // 5 octave log range
+  noise = PinkNoise.ar(noise_env);
+
+  lpf = RLPF.ar(ringmod, (lpf_f.cpsmidi + lpf_env).midicps, 0.5);
+  hpf = RHPF.ar(lpf +  noise, (hpf_f.cpsmidi + hpf_env).midicps, 0.5);
+  
+  panner = Pan2.ar(hpf, 0, env);
+  
+  Out.ar(out, panner);
+ }).store;
+
+ Conductor.make({arg cond, freq1, freq2, lpf_f, hpf_f, lpf_d, hpf_d, noise_d, dur, db;
+  freq1.spec_(\freq, 200+660.rand);
+  freq2.spec_(\freq, 200+660.rand);
+  lpf_f.spec_(\freq, 100+200.rand);
+  hpf_f.spec_(\freq, 200+660.rand);
+  lpf_d.sp(1, 0.0001, 1.5, 0, 'linear');
+  hpf_d.sp(1, 0.0001, 1.5, 0, 'linear');
+  dur.sp(1, 0.0001, 2, 0, 'linear');
+  noise_d.sp(0.1, 0.00001, 1, 0, 'linear');
+  db.spec_(\db, 02.ampdb);
+  
+
+  
+  cond.pattern_(
+   Pbind(
+    \instrument, \bassD,
+    \db,   db,
+    \freq1,   freq1,
+    \freq2,  freq2,
+    \lpf_f,   lpf_f,
+    \hpf_f,   hpf_f,
+    \lpf_d,   lpf_d,
+    \hpf_d,   hpf_d,
+    \noise_d,  noise_d, 
+    \dur,  dur    
+   )
+  )
+ }).show;
+ 
+)
+
+
+
+
+(
+SynthDef(\mybass1, { arg out=0, pan=0, gate=1, preamp=0.1, amp=0.1, freq=20, freq_fc=100;
+	
+	var ou;
+
+	ou = SinOsc.ar(freq);
+	ou = LPF.ar(ou, freq_fc);
+	ou = ou * EnvGen.ar(~make_adsr.(\adsr),gate,doneAction:2);
+	ou = Pan2.ar(ou,pan,preamp);
+	ou = Limiter.ar(ou, amp);
+	Out.ar(out, ou);
+
+}).add;
+)
+(
+Pbind(
+	\instrument, \mybass1,
+	\dur, 1
+).play
+)
+
+s.boot
+
+
+(
+SynthDef(\sin1, { arg out=0, pan=0, gate=1, sustain=0.5, amp=0.1, freq=200;
+	
+	var ou;
+
+	ou = Pulse.ar(freq);
+	ou = ou * EnvGen.ar(Env.linen(0.01,sustain,0.01,1),doneAction:2);
+	ou = Pan2.ar(ou,pan,amp);
+	Out.ar(out, ou);
+
+}).add;
+SynthDef(\sin2, { arg out=0, pan=0, gate=1, sustain=0.5, amp=0.1, freq=200,
+					maxdtime=0.2, dtime=0.2, decay=2;
+	
+	var ou;
+
+	ou = Pulse.ar(freq);
+	ou = ou * EnvGen.ar(Env.linen(0.01,sustain,0.01,1),doneAction:2);
+	ou = Pan2.ar(ou,pan,amp);
+	ou = CombL.ar(ou, maxdtime, dtime, decay, 1, ou);
+	Out.ar(out, ou);
+
+}).add;
+
+SynthDef(\lpf, { arg in=0, out=0, gate=1, freqfm=4, freq_fc=200;
+	
+	var ou;
+
+	ou = In.ar(in,2);
+	ou = LPF.ar(ou, SinOsc.ar(freqfm)*50+freq_fc);
+	Linen.kr(gate,0,1,0,doneAction:2);
+	//DetectSilence.ar(ou,0.001,0.01,doneAction:2);
+	Out.ar(out, ou);
+
+}).add;
+
+SynthDef(\echo, { arg out=0, in=0, maxdtime=0.2, release=1, dtime=0.2, decay=2, gate=1;
+        var env, ou;
+        env = Linen.kr(gate, 0.05, 1, decay, 14);
+        in = In.ar(in, 2);
+		ou = CombL.ar(in, maxdtime, dtime, decay, 1, in);
+		//DetectSilence.ar(ou,0.001,0.1,doneAction:2);
+        Out.ar(out, ou);
+}, [\ir, \ir, \ir, 0.1, 0.1, 0]).add;
+
+
+)
+
+
+(
+~gen = Group.new;
+~effects = Group.new(~gen, \addAfter);
+~bus = Bus.audio(s, 2);
+)
+
+Synth(\lpf, [\in, ~bus],target:~effects);
+Synth(\sin1, [\out, ~bus], target: ~gen);
+Synth(\sin1, [\out, 0], target: ~gen);
+
+~bus
+
+(
+~gen = Group.new;
+~effects = Group.new(~gen, \addAfter);
+~bus = Bus.audio(s, 2);
+~bus2 = Bus.audio(s, 2);
+Ppar([
+	Pbind(
+		\instrument, \sin1,
+		\group, ~gen,
+		\out, ~bus,
+		\dur, 1
+	),
+	Pbind(
+		\instrument, \lpf,
+		\in, ~bus,
+		\group, ~effects,
+		\dur, 1
+	),
+]);
+Ppar([
+	Pbind(
+		\instrument, \sin1,
+		\freq, 150,
+		\sustain, 0.01,
+		\group, ~gen,
+		\out, 0,
+		\out, ~bus2,
+		\dur, 0.5
+	),
+	Pbind(
+		\instrument, \echo,
+		//\freqfm, 2,
+		\dtime, 0.1,
+		\in, ~bus2,
+		\group, ~effects,
+		\dur, 5
+	),
+]).play;
+)
+XOut
+
+s.queryAllNodes; // note the default group (ID 1)
+s.boot
+
+(
+)
+Node
+(
+~sp = { arg pattern, effects, patfx;
+	var ef, bu;
+	Pspawner({ |spawner|
+		bu = Bus.audio(s,2);
+		ef = Synth(effects, [\in, bu, \out, 0], target:1, addAction:\addAfter);
+		spawner.seq(Ppar([
+			Pset(\id, ef.nodeID, patfx),	
+			Pset(\out, bu, pattern),
+		]));
+		ef.release
+	});
+};
+
+
+)
+
+(
+~a = EventPatternProxy.new;
+~a.source =
+	Pbind(
+		\instrument, \sin1,
+		\freq, 250,
+		\sustain, 0.1,
+		\out, 0,
+		\dur, 1.5
+	);
+
+~b = Pbind(
+	\type, \set,
+	\dtime, 0.051,
+	\instrument, \echo
+);
+~x = ~sp.(~a.source, \echo, ~b);
+~x.play;
+)
+
+(
+a = Synth(\sin1, [\sustain,10]);
+Pbind(
+	\type, \set,
+	\id, a.nodeID,
+	\instrument, \sin1,
+	\freq, Pseq([1,2,3,4],inf)*100,
+	\dur, 1
+).play;
+)
+
+
+(
+b = Bus.audio(s,2);
+g = Group.after(1);
+x = ~short_ppar.([
+	Pbind(
+		\type, \note,
+		\instrument, \sin1,
+		\out, b,
+		\sustain, 0.1,
+		\freq, Pseq([1,2,3,4])*100,
+		\dur, 0.5
+	),
+	Pmono(
+		\echo,
+		\in, b,
+		\release, 1,
+		\dtime, Pseq([0.3,0.2,0.1],inf),
+		\decay, 9,
+		\dtime, 0.1,
+		\group, g
+	)
+]).play;
+~sc = SimpleController(x);
+~sc.put(\stopped, {
+	"clear".debug;
+	g.free;
+	b.free
+});
+
+)
+
+
+(
+~short_ppar = { arg list;
+	Pspawner({ |spawner|
+		var str;
+		list.do({ arg pat;
+			str = CleanupStream(pat.asStream, {
+				spawner.suspendAll;
+			});
+			spawner.par(str);
+		})
+	});
+};
+)
+EnvGen
+(
+~pfx = { arg pat, effects;
+	Pspawner({ |spawner|
+		var str, bus, group;
+		bus = Bus.audio(s,2);
+		group = Group.after(1);
+		pat = Pset(\out, bus, pat);
+		effects = Pset(\in, bus, effects);
+		effects = Pset(\group, group, effects);
+		str = CleanupStream(pat.asStream, {
+			spawner.suspendAll;
+			bus.free;
+		});
+		spawner.par(str);
+		spawner.par(effects)
+	});
+};
+~pfx2 = { arg pat, effects;
+	Pspawner({ |spawner|
+		var str, pbus, pgroup, leffect;
+		pbus = Bus.audio(s,2);
+		pat = Pset(\out, pbus, pat);
+		str = CleanupStream(pat.asStream, {
+			spawner.suspendAll;
+			pbus.free;
+		});
+		spawner.par(str);
+		pgroup = 1;
+		effects[..effects.size-2].do { arg ef;
+			ef = Pset(\in, pbus, ef);
+			pbus = Bus.audio(s,2);
+			ef = Pset(\out, pbus, ef);
+			pgroup = Group.after(pgroup);
+			ef = Pset(\group, pgroup, ef);
+			spawner.par(ef)
+		};
+		leffect = effects.last;
+		leffect = Pset(\in, pbus, leffect);
+		pgroup = Group.after(pgroup);
+		leffect = Pset(\group, pgroup, leffect);
+		spawner.par(leffect)
+	});
+};
+~pfx3 = { arg pat, controls, effects;
+	Pspawner({ |spawner|
+		var str, pbus, pgroup, leffect;
+		pbus = Bus.audio(s,2);
+		pat = Pset(\out, pbus, pat);
+		str = CleanupStream(pat.asStream, {
+			spawner.suspendAll;
+			pbus.free;
+		});
+		spawner.par(str);
+		pgroup = 1;
+		effects[..effects.size-2].do { arg ef;
+			ef = Pset(\in, pbus, ef);
+			pbus = Bus.audio(s,2);
+			ef = Pset(\out, pbus, ef);
+			pgroup = Group.after(pgroup);
+			ef = Pset(\group, pgroup, ef);
+			spawner.par(ef)
+		};
+		leffect = effects.last;
+		leffect = Pset(\in, pbus, leffect);
+		pgroup = Group.after(pgroup);
+		leffect = Pset(\group, pgroup, leffect);
+		spawner.par(leffect)
+	});
+};
+)
+
+s.queryAllNodes; // note the default group (ID 1)
+
+(
+x = ~pfx.(
+	Pbind(
+		\type, \note,
+		\instrument, \sin1,
+		//\out, b,
+		//\group, g,
+		\sustain, 0.1,
+		\freq, Pseq([1,2,3,4])*100,
+		\dur, 0.1
+	),
+	Pmono(
+		\echo,
+		\release, 1,
+		\dtime, Pseq([0.3,0.2,0.1],inf),
+		\decay, 5,
+		\dtime, 0.1
+		//\group, g
+	)
+);
+
+x.play;
+)
+Ppar([Pseq([x,Event.silent(5)],inf),y]).play
+
+(
+x = ~pfx2.(
+	Pbind(
+		\type, \note,
+		\instrument, \sin1,
+		//\out, b,
+		//\group, g,
+		\sustain, 0.1,
+		\freq, Pseq([1,2,3,4])*100,
+		\dur, 0.1
+	),
+	[
+	Pmono(
+		\echo,
+		\release, 1,
+		\dtime, Pseq([0.3,0.2,0.1],inf),
+		\decay, 1,
+		\dtime, 0.1
+		//\group, g
+	),
+	Pmono(
+		\echo,
+		\release, 1,
+		\dtime, Pseq([0.3,0.2,0.1],inf),
+		\decay, 10,
+		\dtime, 0.51
+		//\group, g
+	)
+	]
+);
+
+x.play;
+)
+s.queryAllNodes; // note the default group (ID 1)
+s.boot
+~a = EventPatternProxy.new;
+~a.source = x;
+~a.play
+~a.stop
+(
+~a = EventPatternProxy.new;
+~b = EventPatternProxy.new;
+~p = Pbind(\degree, Pseq([0,1,2,3,4,5],inf), \dur, 0.3, \legato, 0.2);
+~q = Pbind(\degree, Pseq([0,1,2,3,4,5]-2,inf), \dur, 0.6, \legato, 0.1, \amp, 0.5);
+~ef1 = Pmono(
+		\echo,
+		\release, 1,
+		\dtime, Pseq([0.3,0.2,0.1],inf),
+		\decay, 5,
+		\dtime, 0.1
+	);
+~ef2 = Pmono(
+		\echo,
+		\release, 1,
+		\dtime, Pseq([0.3,0.2,0.1],inf),
+		\decay, 1,
+		\dtime, 0.2
+	);
+)
+(
+~a.source = ~pfx.(~p, ~ef1);
+~b.source = ~pfx.(~q, ~ef2);
+~a.play;
+~b.play;
+)
+Bu
+Bus.freeAll
+
+
+(
+	y = Pbind(
+		\type, \note,
+		\instrument, \sin1,
+		\out, 0,
+		\sustain, 0.1,
+		\freq, Pseq([1,2,3,4],inf)*100,
+		\dur, 1
+	);
+	y.play
+)
+
+
+
+a = Bus.new(\audio, 16, 2)
+a.free
+a.index
+
+b = Bus.audio(s,2);
+Group
+
+
+(
+SynthDef(\echo, { arg out=0, maxdtime=0.2, dtime=0.2, decay=2, gate=1;
+        var env, in;
+        env = Linen.kr(gate, 0.05, 1, decay, 2);
+        in = In.ar(out, 2);
+        XOut.ar(out, env, CombL.ar(in * env, maxdtime, dtime, decay, 1, in));
+}, [\ir, \ir, 0.1, 0.1, 0]).add;
+
+SynthDef(\distort, { arg out=0, pregain=40, amp=0.2, gate=1;
+        var env;
+        env = Linen.kr(gate, 0.05, 1, 0.1, 2);
+        XOut.ar(out, env, (In.ar(out, 2) * pregain).distort * amp);
+}, [\ir, 0.1, 0.1, 0]).add;
+
+SynthDef(\wah, { arg out=0, gate=1;
+        var env, in;
+        env = Linen.kr(gate, 0.05, 1, 0.4, 2);
+        in = In.ar(out, 2);
+        XOut.ar(out, env, RLPF.ar(in, LinExp.kr(LFNoise1.kr(0.3), -1, 1, 200, 8000), 0.1).softclip * 0.8);
+}, [\ir, 0]).add;
+)
+
+
+
+(
+g = Group.new;
+h = Group.before(g);
+x = ~short_ppar.([
+	Pbind(
+		\type, \note,
+		\instrument, \sin1,
+		//\out, b,
+		\group, g,
+		\sustain, 0.1,
+		\freq, Pseq([1,2,3,4])*100,
+		\dur, 0.1
+	),
+	Pmono(
+		\echo,
+		//\in, b,
+		\release, 1,
+		\dtime, Pseq([0.3,0.2,0.1],inf),
+		\decay, 5,
+		\group, g,
+		\dtime, 0.1
+		//\group, g
+	)
+]);
+
+Ppar([
+	x,
+	Pbind(
+		\type, \note,
+		\instrument, \sin1,
+		//\out, b,
+		\sustain, 0.1,
+		\group, h,
+		\amp, 1,
+		\freq, Pseq([1,2,3,4])*110,
+		\dur, 0.5
+	),
+
+]).play;
+)
+
+(
+g = Group.before(1);
+b = Bus.audio(s,2);
+x = ~short_ppar.([
+	Pbind(
+		\type, \note,
+		\instrument, \sin1,
+		//\out, b,
+		//\group, g,
+		\out, b,
+		\sustain, 0.1,
+		\freq, Pseq([1,2,3,4])*100,
+		\dur, 0.1
+	),
+	Pmono(
+		\echo,
+		\in, b,
+		\release, 1,
+		\dtime, Pseq([0.3,0.2,0.1],inf),
+		\decay, 5,
+		\group, g,
+		\dtime, 0.1
+		//\group, g
+	)
+]);
+
+x.play;
+)
+s.queryAllNodes; // note the default group (ID 1)
+Bus
+
+
+
+
+
+
+h.query.debug("plo");
+h.isPlaying
+Node
+(
+Pbind(
+	\type, \note,
+	\instrument, \sin1,
+	//\out, b,
+	\sustain, 0.1,
+	\group, h,
+	\amp, 0.5,
+	\freq, Pseq([1,2,3,4],inf)*110,
+	\dur, 0.5
+).play
+)

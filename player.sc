@@ -126,7 +126,7 @@
 // ControlSpec(minval = 0, maxval = 1, warp = 'lin', step = 0, default, units)
 Spec.add(\dur, ControlSpec(4/128, 4, \lin, 4/64, 0.25, "s"));
 Spec.add(\legato, ControlSpec(0, 1.2, \lin, 0, 0.707));
-Spec.add(\sustain, \legato);
+Spec.add(\sustain, ControlSpec(0.001, 5, \lin, 0, 0.2));
 Spec.add(\repeat, ControlSpec(0, 100, \lin, 1, 0));
 Spec.add(\pos, ControlSpec(0, 1, \lin, 0.0001, 0));
 Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
@@ -165,10 +165,10 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 
 
 ~default_adsr = (
-	attackTime:0.1,
-	decayTime:0.2,
+	attackTime:0.01,
+	decayTime:0.1,
 	sustainLevel:0.3,
-	releaseTime:0.4,
+	releaseTime:0.1,
 	curve:0
 );
 
@@ -329,14 +329,16 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 				arg key;
 				data[key] = self[key];
 			};
+			data.debug("make_buf_param: save_data: data");
 			data;
 		},
 
 		load_data: { arg self, data;
-			[\name, \classtype, \selected, \spec, \val].do {
+			[\name, \classtype, \selected, \spec].do {
 				arg key;
 				self[key] = data[key];
 			};
+			self.set_val(data[\val]);
 		},
 
 		select_param: { arg self;
@@ -361,6 +363,7 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 				self.val = val;
 				self.changed(\val);
 			});
+			self.val.debug("set_val: val");
 		},
 
 
@@ -1293,6 +1296,7 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 
 
 ~make_player_from_synthdef = { arg main, defname, data=nil;
+	// changed messages: \redraw_node
 	var player;
 	var desc = SynthDescLib.global.synthDescs[defname];
 	if(desc.isNil, {
@@ -1319,6 +1323,7 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 		sourcewrapper: nil,
 		playing_state: \stop,
 		muted: false,
+		archive_data: [\control, \stepline, \adsr, \noteline, \buf],
 
 		init: { arg self;
 
@@ -1541,7 +1546,7 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 			data.args = ();
 			self.get_args.do { arg key;
 				argdat = self.get_arg(key);	
-				if([\control, \stepline, \adsr, \noteline].includes(argdat.classtype), {
+				if(self.archive_data.includes(argdat.classtype), {
 					data.args[key] = argdat.save_data
 				})
 			};
@@ -1557,7 +1562,7 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 			var argdat;
 			self.get_args.do { arg key;
 				argdat = self.get_arg(key);	
-				if([\control, \noteline, \stepline, \adsr].includes(argdat.classtype), {
+				if(self.archive_data.includes(argdat.classtype), {
 					argdat.load_data( data.args[key] )
 				})
 			};
@@ -1746,7 +1751,7 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 
 ~make_empty_groupnode = {(
 	
-	children: SparseArray.newClear(8, \voidplayer),
+	children: SparseArray.newClear(~general_sizes.children_per_groupnode, \voidplayer),
 	kind: \parnode,
 	name: \void,
 	uname: \void,
@@ -1754,7 +1759,7 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 
 	refresh: { arg self;
 		var children;
-		children = SparseArray.newClear(8, ~make_empty_player);
+		children = SparseArray.newClear(~general_sizes.children_per_groupnode, ~make_empty_player);
 		self.changed(\redraw, self, children);
 	}
 
@@ -1773,10 +1778,11 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 };
 
 ~make_groupplayer = { arg main, children=List[];
+	// changed messages: \redraw, \redraw_node
 	var pplayer;
 	pplayer = (
 		//children: SparseArray.newClear(8, ~empty_player),
-		children: SparseArray.newClear(8, \voidplayer),
+		children: SparseArray.newClear(~general_sizes.children_per_groupnode, \voidplayer),
 		kind: \parnode,
 		name: \new,
 		uname: \new,

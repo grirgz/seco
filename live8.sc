@@ -39,7 +39,7 @@ s.waitForBoot({
 
 ~seq = ~mk_sequencer.value;
 ~seq.load_patlib( ~synthlib );
-~seq.load_samplelib_from_path("sounds" );
+~seq.load_samplelib_from_path("sounds/hydrogen/GMkit" );
 ~seq.make_gui;
 
 });
@@ -49,7 +49,7 @@ s.waitForBoot({
 
 "/home/ggz/code/sc/seco/main.sc".loadDocument;
 ~seq = ~mk_sequencer.value;
-~seq.test_player(\zyn1);
+~seq.test_player(\mybass1);
 
 });
 
@@ -70,6 +70,20 @@ myPath.files.collect(_.fullPath).postln;
 
 (
 // reviewed
+SynthDef(\sinadsr, {
+    arg out=0, pan=0, amp=0.1, gate=1, freq=440;
+    var ou;
+    var env, envctl;
+
+    env = Env.adsr(0.02, 0.2, 0.25, 0.1, 1, -4);
+    //env = Env.newClear(6);
+
+    envctl = Control.names([\adsr]).kr( env.asArray );
+    ou = SinOsc.ar( [freq,freq+1]).sum;
+    ou = ou * EnvGen.kr(envctl, gate, doneAction:2);
+	ou = Pan2.ar(ou,pan,amp);
+    Out.ar(out, ou)
+}).store;
 
 SynthDef("perc1", { 
 	arg out=0, gate=1, lpf=50, bpf=100, bprq=0.1,
@@ -177,6 +191,19 @@ SynthDef(\zyn1, { arg out=0, freq=200, amp=0.1, pan=0, gate=1,
 }).add;
 
 SynthDef(\zyn2, { arg out=0, freq=200, amp=0.1, pan=0, gate=1,
+					freq_am, scale_am,
+					freq_fm, scale_fm, scale_freq,
+					freq_fc, scale_fc, rq;
+	var ou, fm, am;
+	am = SinOsc.ar(~make_rgenadsr.(\adsr_am, gate, freq_am, scale_am));
+	fm = SinOsc.ar(~make_rgenadsr.(\adsr_fm, gate, freq_fm, scale_fm)) * ~make_rgenadsr.(\adsr_freq, gate, freq, scale_freq);
+	ou = SinOsc.ar(fm) * EnvGen.ar(~make_adsr.(\adsr),gate,doneAction:2) * am;
+	ou = RLPF.ar(ou,~make_rgenadsr.(\adsr_fc, gate, freq_fc, scale_fc), rq); 
+	ou = Pan2.ar(ou, pan, amp);
+	Out.ar(out, ou);
+}).add;
+
+SynthDef(\zyn3, { arg out=0, freq=200, amp=0.1, pan=0, gate=1,
 					freq_am, scale_am,
 					freq_fm, scale_fm, scale_freq,
 					freq_fc, scale_fc, rq;
@@ -390,19 +417,6 @@ SynthDef(\vowel2, { arg out=0, amp=0.1, gate=1, freq=200, rqfreq=100, rqoffset=1
 	hiclip: \bipolar
 ))).store;
 
-SynthDef(\sinadsr, {
-    arg out=0, amp=0.1, gate=1, freq=440;
-    var ou;
-    var env, envctl;
-
-    env = Env.adsr(0.02, 0.2, 0.25, 0.1, 1, -4);
-    //env = Env.newClear(6);
-
-    envctl = Control.names([\adsr]).kr( env.asArray );
-    ou = SinOsc.ar( freq);
-    ou = ou * EnvGen.kr(envctl, gate, doneAction:2);
-    Out.ar(out, ou * amp)
-}).store;
 
 
  
@@ -447,5 +461,155 @@ SynthDef("KSpluck2", { arg freq = 200, noise=10, bpratio=0.9, rq=0.1, delayDecay
 	Out.ar(out, signalOut.dup)
 }).store;
 
+)
+
+(
+s.waitForBoot({
+
+"/home/ggz/code/sc/seco/main.sc".loadDocument;
+~seq = ~mk_sequencer.value;
+~seq.test_player(\zozo1);
+
+});
 
 )
+
+(
+
+SynthDef(\zozo1, { arg out=0, freq=200, amp=0.1, pan=0, gate=1,
+					freq_am, scale_am,
+					freq_fm, scale_fm, scale_freq,
+					freq_fc=200, scale_fc=0.1, rq=0.5;
+	var ou, fm, am;
+	ou = Pulse.ar([freq,freq+1.23,freq-2.64]).sum;
+	ou = ou * EnvGen.ar(~make_adsr.(\adsr),gate,doneAction:2);
+	ou = RLPF.ar(ou,~make_rgenadsr.(\adsr_fc, gate, freq_fc, scale_fc), rq); 
+	ou = Pan2.ar(ou, pan, amp);
+	Out.ar(out, ou);
+}).add;
+
+SynthDef(\zozo1, { arg out=0, freq=200, amp=0.1, pan=0, gate=1,
+					freq_am, scale_am,
+					freq_fm, scale_fm, scale_freq,
+					freq_fc=200, scale_fc=0.1, rq=0.5;
+	var ou, fm, am;
+	ou = 0;
+
+	ou = ou + Pulse.ar(freq);
+	ou = Pan2.ar(ou, pan-0.3);
+
+	ou = ou + Pulse.ar(freq-1.12);
+	ou = Pan2.ar(ou, pan-0.14);
+
+	ou = ou + Pulse.ar(freq+0.54);
+	ou = Pan2.ar(ou, pan+0.34);
+
+	ou = ou * EnvGen.ar(~make_adsr.(\adsr),gate,doneAction:2);
+	ou = RLPF.ar(ou,~make_rgenadsr.(\adsr_fc, gate, freq_fc, scale_fc), rq); 
+	ou = Pan2.ar(ou, pan, amp);
+	Out.ar(out, ou);
+}).add;
+
+SynthDef(\zozo1, { arg out=0, freq=200, amp=0.1, pan=0, gate=1,
+					freq_am, scale_am,
+					freq_fm, scale_fm, scale_freq,
+					freq_fc=200, scale_fc=0.1, rq=0.5;
+	var ou, fm, am;
+	ou = 0;
+
+	freq = ~make_rgenadsr.(\adsr_freq, gate, freq, scale_freq);
+
+	ou = ou + Saw.ar(freq);
+	ou = Pan2.ar(ou, pan-0.3);
+
+	ou = ou + Saw.ar(freq-1.12);
+	ou = Pan2.ar(ou, pan-0.14);
+
+	ou = ou + Saw.ar(freq+0.54);
+	ou = Pan2.ar(ou, pan+0.34);
+
+	ou = ou * EnvGen.ar(~make_adsr.(\adsr),gate,doneAction:2);
+	ou = RLPF.ar(ou,~make_rgenadsr.(\adsr_fc, gate, freq_fc, scale_fc), rq); 
+	ou = Pan2.ar(ou, pan, amp);
+	Out.ar(out, ou);
+}).add;
+
+SynthDef(\zozo1, { arg out=0, freq=200, amp=0.1, pan=0, gate=1,
+					width, scale_width,	
+					 scale_freq,
+					freq_fc=200, scale_fc=0.1, rq=0.5;
+	var ou, fm, am;
+	ou = 0;
+
+	freq = ~make_rgenadsr.(\adsr_freq, gate, freq, scale_freq);
+	width = ~make_rgenadsr.(\adsr_width, gate, width, scale_width);
+
+	ou = ou + Pulse.ar(freq, width);
+	ou = Pan2.ar(ou, pan-0.3);
+
+	ou = ou + Pulse.ar(freq-1.12, width);
+	ou = Pan2.ar(ou, pan-0.14);
+
+	ou = ou + Pulse.ar(freq+0.54, width);
+	ou = Pan2.ar(ou, pan+0.34);
+
+	ou = ou * EnvGen.ar(~make_adsr.(\adsr),gate,doneAction:2);
+	ou = RLPF.ar(ou,~make_rgenadsr.(\adsr_fc, gate, freq_fc, scale_fc), rq); 
+	ou = Pan2.ar(ou, pan, amp);
+	Out.ar(out, ou);
+}).add;
+
+)
+
+
+~s = Signal.sineFill(512, [1,2,5,8]);
+~s = ~s.tanh
+~s.plot("Signal 1", Rect(50, 50, 850, 450));
+
+(
+{ 
+var ou, freq=110;
+freq = SinOsc.ar(500.5+(SinOsc.ar(100.1)*LFNoise0.ar(0.2,5)))*2+freq;
+ou = SinOsc.ar([freq+5.14,freq*1.2]) * 100000;
+ou = ou + SinOsc.ar([freq-1.45,freq-0.23]) * 100;
+ou = ou.tanh.sum;
+ou = Pulse.ar(freq) + ou;
+ou = ou * EnvGen.ar(Env.linen(0.1,0.5,0.1,1),doneAction:2);
+Pan2.ar(ou, 0);
+}.play
+)
+
+
+(
+SynthDef(\shiftdelay, { |in=8, out=0, fb=0.99, ratio=1.5, dly=0.2|
+var son, loopback, delayed, result;
+son = In.ar(in);
+loopback = LocalIn.ar(1);
+delayed = DelayC.ar(PitchShift.ar(son + loopback * fb, pitchRatio:
+ratio), dly, dly);
+LocalOut.ar(delayed);
+result = son + delayed;
+Out.ar(out, result);
+}).add
+)
+
+(
+SynthDef(\saw,
+{Out.ar(7, 10*EnvGen.ar(Env.new([ 0, 1, 0 ], [ 0.01, 2], 1, 1, nil), Impulse.kr(0.1)) * Saw.ar(110))
+}).add;
+
+// define an echo effect
+SynthDef("filterecho", { arg inBus, out= 0 , delay = 0.2, decay = 1, mix=0.0;
+    var in;
+    in = In.ar(inBus, 2);
+    ReplaceOut.ar(out, sqrt(mix) * CombN.ar(PitchShift.ar(in, 0.02, 1, 1, 0.0001), 0.5, delay, decay, 1, in)) + (sqrt(1-mix)*in);
+}).add;
+
+~source = Group.new;
+~effect1 = Group.after(~source);    
+~effect2 = Group.after(~effect1);
+)
+
+x = Synth(\saw, ~source);
+y = Synth(\shiftdelay, [\in, 7, \mix, 0.8, \decay, 10], ~effect1); //load first the effects
+Synth(\shiftdelay)
