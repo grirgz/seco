@@ -509,6 +509,12 @@
 
 			bank = display.get_bank.();
 
+			if(self.current_kind == \seg) {
+				row_layout.background = ~color_scheme.control2;
+			} {
+				row_layout.background = ~color_scheme.control;
+			};
+
 			cells = self.get_cells.();
 			cells.debug("cellls============from "++display.name);
 			start = max_cells * bank;
@@ -1256,11 +1262,11 @@
 						~make_bufnum_view.(info_layout, editplayer.make_param_display(param), param, midi);
 					}
 					{ [\segdur, \stretchdur].includes(param_name) } {
-						if(player.noteline, {
+						//if(player.noteline, {
 							midi = nil;
 							param.midi = midi;
 							~make_simple_control_view.(info_layout, editplayer.make_param_display(param), param, midi);
-						});
+						//});
 					}
 					{ [\stepline].includes(param_name) } {
 						if(player.noteline.not, {
@@ -1367,7 +1373,7 @@
 				if(player.noteline, {
 					po.reject({ arg x; [\stepline].includes(x) });
 				}, {
-					po.reject({ arg x; [\segdur, \stretchdur, \noteline].includes(x) });
+					po.reject({ arg x; [\noteline].includes(x) });
 				});
 			} {
 				po;
@@ -1521,10 +1527,12 @@
 				};
 				main.model.colpresetlib[player.defname][offset] = player.save_column_preset;
 				main.model.colpresetlib[player.defname][offset].name = name;
+				main.save_presetlib;
 			}, { arg offset, newname;
 				// rename action
 				if(main.model.colpresetlib[player.defname][offset] != \empty) {
 					main.model.colpresetlib[player.defname][offset].name = newname;
+					main.save_presetlib;
 				};
 			});
 		},
@@ -1550,6 +1558,7 @@
 				// rename action
 				if(main.model.colpresetlib[player.defname][offset] != \empty) {
 					main.model.colpresetlib[player.defname][offset].name = newname;
+					main.save_presetlib;
 				};
 			});
 		},
@@ -1649,7 +1658,7 @@
 
 			//
 
-			main.commands.array_add_enable([\editplayer, \select_simple_param], [\kb, ~keycode.mod.ctrl], ~keycode.kbnumline, { arg i;
+			main.commands.array_add_enable([\editplayer, \select_simple_param], [\kb, ~keycode.mod.ctrl], ~keycode.kbcnumline, { arg i;
 				editplayer.controller.select_param(i);
 			});
 
@@ -1662,6 +1671,9 @@
 			});
 			main.commands.add_enable([\editplayer, \set_scalar_kind], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["s"]], {
 				editplayer.controller.change_kind(\scalar)
+			});
+			main.commands.add_enable([\editplayer, \set_seg_kind], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["g"]], {
+				editplayer.controller.change_kind(\seg)
 			});
 
 			// noteline

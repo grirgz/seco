@@ -1,0 +1,46 @@
+ main.sc  ../s/sos.sc  player.sc  + crap6.sc  editplayer.sc  score.sc  mixer.sc  live7.sc                                                                                        X
+Integrator
+MidEQ
+
+
+a = Signal.sineFill(512, [1]);
+a.plot
+
+b = Signal.sineFill(512, [1]);
+b.waveFill({arg x, i; a.wrapAt(x.postln*2) },0,512)
+~signalFill.(b, b, [1,0.5,0.5]).plot
+~signalFill.(b, a, [0,1])
+b = b.atan
+b.plot
+b.atan
+c = Signal.sineFill(512, [1,0.5,0.5]);
+[b,c].do(_.plot)
+b.normalize
+(
+~signalFill = { arg sigthis, sigin, amps;
+    if(sigthis == sigin) {
+        sigin = sigin.copy
+    };
+    sigthis.waveFill({arg x;
+        amps.collect { arg amp, i;
+            sigin.wrapAt(x*(i+1)) * amp
+        }.sum;
+    }, 0, sigthis.size);
+    sigthis.normalize;
+};
+)
+(
+~signalLag = { arg sig;
+var rs = sig[0] ! 4;
+b.do { arg x, i;
+    rs.add(x);
+    rs.
+};
+)
+
+k = Signal[1,2,3,4]
+j = Signal[0,0,0,0]
+~signalFill.(j, k, [0,1])
+k.lowpass(1000.004)
+k.pop(0)
+"/tmp/sclang-pipe" [Périph.] 1L, 9C ajouté(s)                                                                                                                   393,8         Bas

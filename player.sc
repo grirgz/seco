@@ -1214,7 +1214,7 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 				{
 					segf = { arg ev;
 						//[ev[\elapsed], ev[\segdur], ev.dump].debug("in segggggggggggggggggg");
-						self.seq.val.blendAt((ev[\elapsed]/ev[\segdur]) % (self.seq.val.size -1));
+						self.seq.val.blendAt((ev[\elapsed]/ev[\segdur]) % (self.seq.val.size));
 					};
 					scalf = { arg ev; self.scalar.val };
 					pref = { arg ev; self.preset.val[self.preset.selected_cell] };
@@ -1229,12 +1229,24 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 					switch( self.current_kind,
 						\scalar, {
 							//ev.debug("=========== in scalar ev");
-							if(self.noteline, {
-								ev = scalf.value(ev).yield;
-							}, {
-								ev = self.scalar.val.yield;
-							});
+							8.do {		// hack to be in phase when changing kind (should be the size of stepline)
+								if(self.noteline, {
+									ev = scalf.value(ev).yield;
+								}, {
+									ev = self.scalar.val.yield;
+								});
+							}
 							//ev.debug("=========== in scalar ev END");
+						},
+						\seg, {
+							[
+								ev[\elapsed], ev[\segdur], 
+								ev[\elapsed]/ev[\segdur], 
+								(self.seg.val.size),
+								(ev[\elapsed]/ev[\segdur]) % (self.seg.val.size),
+								self.seg.val.blendAt((ev[\elapsed]/ev[\segdur]) % (self.seg.val.size))
+							].debug("seggggggggggggggggg: elapsed, segdur, size, el/dur, el/dur%size, res");
+							ev = (self.seg.val++[self.seg.val[0]]).blendAt((ev[\elapsed]/ev[\segdur]) % (self.seg.val.size)).yield;
 						},
 						\seq, {
 							if(self.noteline, {
@@ -1324,8 +1336,11 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 		playing_state: \stop,
 		muted: false,
 		archive_data: [\control, \stepline, \adsr, \noteline, \buf],
+		effect: nil,
 
 		init: { arg self;
+			
+			self.sourcewrapper = "Pbind(\n\t\\freq, Pkey(\\freq)\n) <> ~pat;\nfalse";
 
 			self.data = {
 					// use args and defaults values from synthdef to build data dict
@@ -1335,9 +1350,9 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 					if( data.isNil, {
 						desc.controls.do({ arg control;
 							var name = control.name.asSymbol;
-							control.name.debug("making player data name");
-							control.defaultValue.debug("making player data");
-							control.defaultValue.isArray.debug("making player data");
+							//control.name.debug("making player data name");
+							//control.defaultValue.debug("making player data");
+							//control.defaultValue.isArray.debug("making player data");
 							case
 								{ (name == \adsr) || name.asString.containsStringAt(0, "adsr_") } {
 									dict[name] = ~make_adsr_param.(
@@ -1407,6 +1422,18 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 				//Pbind(*list).trace;
 				Pbind(*list);
 			}.value;
+		},
+
+		set_effect: { arg self, val;
+			self.effect = val;
+		},
+		
+		get_effect: { arg self;
+			if(self.effect.notNil) {
+				main.get_node(self.effect);
+			} {
+				nil
+			}
 		},
 
 		set_playing_state: { arg self, state;

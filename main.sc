@@ -222,7 +222,7 @@
 		},
 
 		set_selected_node: { arg self, val;
-			val.debug("context.set_selected_node");
+			val.uname.debug("context.set_selected_node");
 			self.selected_node = val;
 		},
 
@@ -289,11 +289,12 @@
 
 			nodelib: nil,
 			presetlib: Dictionary.new,
+			presetlib_path: nil,
 			colpresetlib: Dictionary.new,
 
 			patlist: nil,
 			patpool: Dictionary.new,
-			samplelist: nil,
+			samplelist: List.new,
 
 			livenodepool: Dictionary.new
 		),
@@ -376,7 +377,7 @@
 
 				if(name.containsStringAt(0, "livenode_"), {
 					asso = Object.readArchive(fullname);
-					asso.debug("unarchive_livenodepool livenode");
+					asso.key.debug("unarchive_livenodepool livenode");
 					if(asso.key == \voidplayer) {
 						pool[asso.key] = ~empty_player.()
 					} {
@@ -388,7 +389,7 @@
 				});
 				if(name.containsStringAt(0, "parnode_"), {
 					asso = Object.readArchive(fullname);
-					asso.debug("unarchive_livenodepool parnode");
+					asso.key.debug("unarchive_livenodepool parnode");
 					pool[asso.key] = ~make_parplayer.(self);
 					pool[asso.key].load_data( asso.value.data );
 					pool[asso.key].name = asso.key;
@@ -396,7 +397,7 @@
 				});
 				if(name.containsStringAt(0, "seqnode_"), {
 					asso = Object.readArchive(fullname);
-					asso.debug("unarchive_livenodepool seqnode");
+					asso.key.debug("unarchive_livenodepool seqnode");
 					pool[asso.key] = ~make_seqplayer.(self);
 					pool[asso.key].load_data( asso.value.data );
 					pool[asso.key].name = asso.key;
@@ -452,7 +453,7 @@
 				s.volume.volume = proj.volume;
 
 
-				self.model.livenodepool = self.unarchive_livenodepool(projpath).debug("livenodepool==================");
+				self.model.livenodepool = self.unarchive_livenodepool(projpath);
 				self.model.livenodepool.keys.debug("unarchived livenodepool keys");
 				//TODO: load context
 
@@ -465,6 +466,17 @@
 				("Project `"++name++"' can't be loaded").postln
 			});
 
+		},
+
+		set_presetlib_path: { arg self, name;
+			self.model.presetlib_path = name;
+			self.load_presets(name);
+		},
+
+		save_presetlib: { arg self;
+			if(self.model.presetlib_path.notNil) {
+				self.save_presets(self.model.presetlib_path);
+			}
 		},
 
 		save_presets: { arg self, name;
@@ -481,14 +493,18 @@
 			proj = ();
 			proj.colpresetlib = self.model.colpresetlib;
 			proj.presetlib = self.model.presetlib;
+			//proj.presetlib.keys.debug("save_presets: presetlib");
 
-			fork {
-				name.debug("Saving presets");
-				projpath = "projects/presets/"++name;
-				("mkdir "++projpath).unixCmd;
-				1.wait;
-				self.archive_livenodepool(projpath, pool);
-				proj.writeArchive(projpath++"/core");
+			if(name.size > 1) {
+				fork {
+					name.debug("Saving presets");
+					projpath = "projects/presets/"++name;
+					//("rmdir "++projpath).unixCmd { // too dangerous :-O
+					("mkdir "++projpath).unixCmd {
+						self.archive_livenodepool(projpath, pool);
+						proj.writeArchive(projpath++"/core");
+					}
+				}
 			}
 
 
@@ -504,9 +520,11 @@
 			if(proj.notNil, {
 
 				self.model.colpresetlib = proj.colpresetlib;
+				self.model.colpresetlib.debug("colpresetlib");
 				self.model.presetlib = proj.presetlib;
 
-				pool = self.unarchive_livenodepool(projpath).debug("presetpool==================");
+				pool = self.unarchive_livenodepool(projpath);
+				pool.keys.debug("presetpool.keys==================");
 				pool.keysValuesDo { arg key, val;
 					if( self.model.livenodepool[key].notNil ) {
 						key.debug("Warning, name conflict in loading preset");
@@ -555,15 +573,24 @@
 
 		load_samplelib: { arg self, samplelist;
 			self.model.samplelist = samplelist;
+		},
 
+		append_samplelib: { arg self, samplelist;
+			self.model.samplelist = self.model.samplelist ++ samplelist;
 		},
 
 		load_samplelib_from_path: { arg self, path;
-
 			var dir, entries;
 			dir = PathName.new(path);
-			entries = dir.files.collect(_.fullPath);
+			entries = dir.files.select({arg x; ["aiff","wav","flac"].includesEqual(x.extension) }).collect(_.fullPath);
 			self.load_samplelib(entries);
+		},
+
+		append_samplelib_from_path: { arg self, path;
+			var dir, entries;
+			dir = PathName.new(path);
+			entries = dir.files.select({arg x; ["aiff","wav","flac"].includesEqual(x.extension) }).collect(_.fullPath);
+			self.append_samplelib(entries);
 		},
 
 		show_panel: { arg self, panel;
@@ -633,7 +660,11 @@
 ~make_panel_shortcuts = { arg main, panel, cleanup=false;
 	var cl;
 	if(cleanup) {
-		cl = { main.commands.remove_panel(panel) };
+		cl = { 
+			if(main.model.current_panel != panel) {
+				main.commands.remove_panel(panel) 
+			};
+		};
 	} {
 		cl = nil;
 	};

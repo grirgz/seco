@@ -245,13 +245,38 @@
 
 	var sl_layout, ps_col_layout, curbank, address;
 	var width = 1350;
+	var bgcolor;
 
 	sl_layout = GUI.hLayoutView.new(parent, Rect(0,0,width,60*6));
 	sl_layout.background = ~editplayer_color_scheme.background;
 
+	if(controller.name == \seqlive) {
+		bgcolor = ~color_scheme.control2;
+	} {
+		bgcolor = ~color_scheme.control;
+	};
+
 	~make_view_responder.(sl_layout, controller, (
 
 		redraw: { arg obj, msg;
+
+			"".debug("rederaw fhmatrix");
+			sl_layout.removeAll;
+
+
+			~general_sizes.groupnode_per_bank.do { arg x;
+				var layout;
+				layout = GUI.vLayoutView.new(sl_layout, Rect(0,0,(160),60*6));
+				layout.background = bgcolor.debug("layout background");
+				~make_header_cell.(layout, \void);
+				~general_sizes.children_per_groupnode.do { arg y;
+					~make_cell.(layout, \voidplayer);
+				};
+			};
+			parent.focus(true);
+
+		}, 
+		redraw2: { arg obj, msg;
 
 			"".debug("rederaw fhmatrix");
 			sl_layout.removeAll;
@@ -275,6 +300,7 @@
 		}, 
 
 		refresh_cell: { arg obj, msg, x, y, node;
+			[if(node.notNil) {node.uname}{"empty"}, x, y].debug("refresh_cell");
 			~set_cell_state.(sl_layout.children[x].children[y+1], node);
 		},
 
@@ -315,6 +341,9 @@
 			bank: 0,
 			offset: 0@0
 		),
+		name: panel,
+
+		archive_data: [\selection, \bank, \offset],
 
 		// ==== datalist management
 
@@ -405,33 +434,76 @@
 			}
 		},
 
-		set_cell: { arg self, address, val;
-			var name, cell, node;
-			var node_notifier, header_address;
+		set_node_notifier: { arg self, address, node;
+			var sc = SimpleController(node);
+			[node.uname, address].debug("set_node_notifier");
+			sc.put(\redraw, {
+				self.changed(\refresh_cell, address.x, address.y, node);
+				node.children.do { arg childname, y;
+					var child;
+					if(childname != \voidplayer) {
+						child = main.get_node(childname);
+						[child.uname, childname].debug("node_notifier: redraw");
+						self.changed(\refresh_cell, address.x, y, child);
+					} {
+						self.changed(\refresh_cell, address.x, y, nil);
+					}
+				};
+			});
+			sc.put(\redraw_node, {
+				self.changed(\refresh_cell, address.x, address.y, node);
+			});
+			if(self.model.notifiers[address].notNil) {
+				self.model.notifiers[address].remove;
+			}; 
+			self.model.notifiers[address] = sc;
+		},
 
-			node_notifier = { arg address, node;
-				var sc = SimpleController(node);
-				sc.put(\redraw, {
-					self.changed(\refresh_cell, address.x, address.y, node);
-					node.children.do { arg childname, y;
-						var child;
+		refresh_notifiers: { arg self;
+			var address;
+			"+++start refresh_notifiers".debug;
+			self.get_datalist_by_bank(self.model.bank).do { arg gnode, x;
+				if(gnode.uname != \void) {
+					address = (
+						x: x,
+						y: -1,
+						bank: self.model.bank
+					);
+					self.set_node_notifier(address, gnode);
+					gnode.children.do { arg childname, y;
 						if(childname != \voidplayer) {
-							child = main.get_node(childname);
-							[child, childname].debug("node_notifier: redraw");
-							self.changed(\refresh_cell, address.x, y, child);
-						} {
-							self.changed(\refresh_cell, address.x, y, nil);
+							~notNildo.(main.get_node(childname), { arg child;
+								address = (
+									x: x,
+									y: y,
+									bank: self.model.bank
+								);
+								self.set_node_notifier(address, child);
+							})
 						}
 					};
-				});
-				sc.put(\redraw_node, {
-					self.changed(\refresh_cell, address.x, address.y, node);
-				});
-				if(self.model.notifiers[address].notNil) {
-					self.model.notifiers[address].remove;
-				}; 
-				self.model.notifiers[address] = sc;
+					gnode.changed(\redraw);
+				}
 			};
+			"+++end refresh_notifiers".debug;
+		},
+
+		refresh_bank: { arg self;
+			var address;
+			"+++start refresh_groups".debug;
+			self.get_datalist_by_bank(self.model.bank).do { arg gnode, x;
+				if(gnode.uname != \void) {
+					gnode.changed(\redraw);
+				}
+			};
+			"+++end refresh_groups".debug;
+
+		},
+
+		set_cell: { arg self, address, val;
+			var name, cell, node;
+			var header_address;
+
 
 			if( self.address_in_range(address) ) {
 				//name = if(val.isNil, { "" }, {val.name});
@@ -440,7 +512,7 @@
 					// happen when copying header (duplicate_groupnode)
 					node = main.get_node(val);
 					self.model.datalist[ self.address_to_index(address)] = node;
-					node_notifier.(address, node);
+					self.set_node_notifier(address, node);
 					node.changed(\redraw);
 
 
@@ -455,9 +527,9 @@
 						self.model.datalist[self.address_to_index(address)] = node;
 						self.model.datalist[self.address_to_index(address)].set_children_name(address.y, val);
 
-						node_notifier.(header_address, node);
+						self.set_node_notifier(header_address, node);
 						~notNildo.(main.get_node(val), { arg cellnode;
-							node_notifier.(address, cellnode);
+							self.set_node_notifier(address, cellnode);
 						});
 						node.changed(\redraw);
 
@@ -469,7 +541,7 @@
 						//self.model.datalist[self.address_to_index(address)].changed(\cell_label, address.y, name);
 						self.model.datalist[self.address_to_index(address)].set_children_name(address.y, val);
 						~notNildo.(main.get_node(val), { arg cellnode;
-							node_notifier.(address, cellnode);
+							self.set_node_notifier(address, cellnode);
 							cellnode.changed(\redraw_node);
 						});
 						//self.refresh_selection;
@@ -544,6 +616,7 @@
 			var sel = self.model.selection;
 			self.changed(\redraw);
 			self.update_title;
+			self.refresh_notifiers;
 			sel.debug("refresh sel");
 			if(sel.notNil, {
 				if(sel.bank == self.model.bank, {
@@ -554,8 +627,11 @@
 
 		save_data: { arg self;
 			var data = ();
-			data.model = self.model.copy();
-			data.model.datalist = self.model.datalist.collect { arg d; 
+			data.model = ();
+			self.archive_data.do { arg key;
+				data.model[key] = self.model[key]
+			};
+			data.model[\datalist] = self.model.datalist.collect { arg d; 
 				if( d == \void ) {
 					d;
 				} {
@@ -567,14 +643,19 @@
 
 		load_data: { arg self, data;
 			data.model.debug("load_data model");
-			self.model = data.model;
-			self.model.datalist = self.model.datalist.collect { arg name;
+			self.archive_data.do { arg key;
+				~notNildo.(data.model[key], { arg val;
+					self.model[key] = val;
+				});
+			};
+			self.model.datalist = data.model.datalist.collect { arg name;
 				if(name == \void) {
 					name
 				} {
 					self.get_node(name) 
 				}
 			};
+			self.refresh_notifiers;
 		},
 
 		play_selected: { arg self;
@@ -634,7 +715,7 @@
 			newlivenodename = self.make_newlivenodename_from_livenodename(livenodename);
 			newlivenodename.debug("newlivenodename");
 			livenodename.debug("livenodename");
-			main.model.livenodepool.debug("livenodepool");
+			//main.model.livenodepool.keys.debug("livenodepool");
 			main.model.livenodepool[newlivenodename] = main.model.livenodepool[livenodename].clone;
 			main.model.livenodepool[newlivenodename].name = newlivenodename;
 			main.model.livenodepool[newlivenodename].uname = newlivenodename;
@@ -648,6 +729,7 @@
 			pl = self.get_node(groupnodename).clone;
 			pl.name = name;
 			pl.uname = name;
+			//TODO: clone children
 			main.add_node(pl);
 			pl.uname;
 		},
@@ -722,7 +804,7 @@
 
 					~save_pat.(main, datalist, node, { arg name, offset; 
 						main.model.presetlib[node.defname][offset] = self.duplicate_livenode(node.uname);
-						// FIXME: persistence ?
+						main.save_presetlib;
 					});
 				} {
 					"save_livenode: can't save parnode currently".error;

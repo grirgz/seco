@@ -4,6 +4,10 @@ s.waitForBoot({
 "/home/ggz/code/sc/seco/main.sc".loadDocument;
 
 ~synthlib = [
+	\ring1,
+	\ringbpf1,
+	\piano1,
+	\piano2,
 	\sinadsr,
 	\vowel,
 	\vowel2,
@@ -39,11 +43,19 @@ s.waitForBoot({
 
 ~seq = ~mk_sequencer.value;
 ~seq.load_patlib( ~synthlib );
-~seq.load_samplelib_from_path("sounds/hydrogen/GMkit" );
+~seq.set_presetlib_path("mypresets2");
+~seq.append_samplelib_from_path("sounds/" );
+~seq.append_samplelib_from_path("sounds/hydrogen/GMkit" );
+~seq.append_samplelib_from_path("sounds/hydrogen/HardElectro1" );
 ~seq.make_gui;
 
 });
 )
+
+
+~seq.save_project("reggaenul2");
+~seq.load_project("reggaenul2");
+
 (
 s.waitForBoot({
 
@@ -70,6 +82,101 @@ myPath.files.collect(_.fullPath).postln;
 
 (
 // reviewed
+SynthDef(\ringbpf1, { arg out=0, gate=1, freq=200, mod_freqratio=5, mod_ampratio= 0.5, amp=0.1, modulator_amp=1, pan=0, ffreqdetune=0.1, rq=0.1;
+	var modulator, panner, result, env;
+
+	env = EnvGen.ar(~make_adsr.(\adsr),gate, doneAction:2);
+	modulator = Pulse.ar(mod_freqratio*([1.017,0.989]*freq), add: mod_ampratio*amp, mul: modulator_amp);
+	result = SinOsc.ar([1.01,0.998,1.024]*freq, mul: modulator).sum;
+	result = BPF.ar(result, freq+ffreqdetune, rq);
+	result = result * env;
+	panner = Pan2.ar(result, pan,amp);
+	Out.ar(out, panner);
+}).store;
+SynthDef(\ring1, { arg out=0, gate=1, freq=200, mod_freqratio=5, mod_ampratio= 0.5, amp=0.1, modulator_amp=1, pan=0;
+	var modulator, panner, result, env;
+
+	env = EnvGen.ar(~make_adsr.(\adsr),gate, doneAction:2);
+	modulator = Pulse.ar(mod_freqratio*([1.017,0.989]*freq), add: mod_ampratio*amp, mul: modulator_amp);
+	result = SinOsc.ar([1.01,0.998,1.024]*freq, mul: modulator).sum;
+	result = result * env;
+	panner = Pan2.ar(result, pan,amp);
+	Out.ar(out, panner);
+}).store;
+SynthDef(\ring4, { arg out=0, gate=1, freq=200, mod_freqratio=5, mod_ampratio= 0.5, amp=0.1, modulator_amp=1, pan=0;
+	var modulator, panner, result, env;
+
+	env = EnvGen.ar(~make_adsr.(\adsr),gate, doneAction:2);
+	modulator = SinOsc.ar(mod_freqratio*freq, add: mod_ampratio*amp, mul: modulator_amp);
+	result = SinOsc.ar([1.01,0.998,1.024]*freq, mul: modulator);
+	result = result * env;
+	panner = Pan2.ar(result, pan,amp);
+	Out.ar(out, panner);
+}).store;
+SynthDef(\ring3, { arg out=0, gate=1, freq=200, modulator_freq=5, amp=0.1, modulator_amp=1, pan=0;
+	var modulator, panner, result, env;
+
+	env = EnvGen.ar(~make_adsr.(\adsr),gate, doneAction:2);
+	modulator = SinOsc.ar(modulator_freq*freq, mul: modulator_amp);
+	result = SinOsc.ar(freq, mul: modulator);
+	result = result * env;
+	panner = Pan2.ar(result, pan,amp);
+	Out.ar(out, panner);
+}).store;
+SynthDef(\ring2, { arg out=0, gate=1, freq=200, modulator_freq=5, amp=0.1, modulator_amp=1, pan=0;
+	var modulator, panner, result, env;
+
+	env = EnvGen.ar(~make_adsr.(\adsr),gate, doneAction:2);
+	modulator = SinOsc.ar(modulator_freq, mul: modulator_amp);
+	result = SinOsc.ar(freq, mul: modulator);
+	result = result * env;
+	panner = Pan2.ar(result, pan,amp);
+	Out.ar(out, panner);
+}).store;
+
+SynthDef(\piano2, { arg out=0, amp=0.1, pan=0, freq=200, gate=1;
+	var strike, env, noise, pitch, delayTime, detune;
+	var ou;
+
+	strike = Impulse.ar(0.01);
+	env = Decay2.ar(strike, 0.008, 0.04);
+	pitch = freq.cpsmidi;
+
+	ou = Mix.ar(Array.fill(3, { arg i;
+
+		detune = #[-0.02, 0, 0.05, 0.01].at(i);
+		delayTime = 1 / (pitch + detune).midicps;
+
+		noise = LFNoise2.ar(3000, env);
+		CombL.ar(noise, delayTime, delayTime, 100)
+	}));
+	ou = ou * EnvGen.ar(~make_adsr.(\adsr),gate,doneAction:2);
+	ou = Pan2.ar(ou,pan,amp);
+	Out.ar(out, ou);
+}).store;
+
+SynthDef(\piano1, { arg out=0, amp=0.1, pan=0, freq=200, sustain=1;
+	var strike, env, noise, pitch, delayTime, detune;
+	var ou;
+
+	strike = Impulse.ar(0.01);
+	env = Decay2.ar(strike, 0.008, 0.04);
+	pitch = freq.cpsmidi;
+
+	ou = Mix.ar(Array.fill(3, { arg i;
+
+		detune = #[-0.02, 0, 0.05, 0.01].at(i);
+		delayTime = 1 / (pitch + detune).midicps;
+
+		noise = LFNoise2.ar(3000, env);
+		CombL.ar(noise, delayTime, delayTime, sustain)
+	}));
+	DetectSilence.ar(ou,0.01,0.1,doneAction:2);
+	ou = Pan2.ar(ou,pan,amp);
+	Out.ar(out, ou);
+}).store;
+
+
 SynthDef(\sinadsr, {
     arg out=0, pan=0, amp=0.1, gate=1, freq=440;
     var ou;
@@ -230,8 +337,8 @@ SynthDef(\fmbump, {
        Out.ar(out, ou);
 }).add;
 
-SynthDef(\pmosc, {
-	arg out=0, amp=0.1, freq=200, freqmod=10, ffreqcar=200, ffreqmod=100, rq=0.1, gate=1;
+SynthDef(\pmosc2, {
+	arg out=0, amp=0.1, pan=0, freq=200, freqmod=10, ffreqcar=200, ffreqmod=100, rq=0.1, gate=1;
 
 		var ou, env, envcar, envmod, envidx, envffreq, envrq;
 
@@ -245,11 +352,33 @@ SynthDef(\pmosc, {
 
 		ou = RLPF.ar(ou, envffreq, envrq);
 
-		ou = ou*env*amp;
+		ou = ou*env;
+		ou = Pan2.ar(ou,pan,amp);
 
 
         Out.ar(out, ou)
-}).add;
+}).store;
+SynthDef(\pmosc, {
+	arg out=0, amp=0.1, pan=0, freq=200, freqmod=10, ffreqcar=200, ffreqmod=100, rq=0.1, gate=1;
+
+		var ou, env, envcar, envmod, envidx, envffreq, envrq;
+
+		envcar = freq;
+		envmod = EnvGen.kr(~make_adsr.(\adsr_mod),gate) * freqmod;
+		envidx = EnvGen.kr(~make_adsr.(\adsr_idx),gate) * 2pi;
+		envffreq = EnvGen.kr(~make_adsr.(\adsr_ffreq),gate) * ffreqmod + (freq*ffreqcar);
+		envrq = EnvGen.kr(~make_adsr.(\adsr_rq),gate) * rq;
+		env = EnvGen.kr(~make_adsr.(\adsr),gate,doneAction:2);
+		ou = PMOsc.ar(envcar, envmod, envidx);
+
+		ou = RLPF.ar(ou, envffreq, envrq);
+
+		ou = ou*env;
+		ou = Pan2.ar(ou,pan,amp);
+
+
+        Out.ar(out, ou)
+}).store;
 
 SynthDef(\monosampler, {| out = 0, amp=0.1, pan=0, bufnum = 0, gate = 1, pos = 0, speed = 1, loop=0|
 

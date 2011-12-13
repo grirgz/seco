@@ -183,6 +183,9 @@
 	~kbnumline = [
 		38, 233, 34, 39, 40, 45, 232, 95, 231, 224, 41, 61
 	];
+	~kbcnumline = [ // for control // FIXME: why the fuck 8 changes with control ???
+		38, 233, 34, 39, 40, 45, 232, 31, 231, 224, 41, 61
+	];
 	~kbnumpad = [
 		48, 49, 50, 51, 52, 53, 54, 55, 56, 57,
 	];

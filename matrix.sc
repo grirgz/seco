@@ -205,7 +205,7 @@
 		init: { arg self;
 			var parent;
 			"zarb".debug("oui");
-			self.window = parent = Window.new(winname, Rect(100,Window.screenBounds.height-400, 1220,300));
+			self.window = parent = Window.new(winname, Rect(100,Window.screenBounds.height-400, 1320,300));
 			
 			self.model.patlist.debug("patlist");
 
@@ -299,7 +299,7 @@
 		selected: { arg self, sel, win;
 			win.debug("win1");
 			sel.debug("selected");
-			if(sel.notNil && oldsel == sel, {
+			if(sel.notNil && {oldsel == sel}, {
 				win.debug("win2");
 				action.(samples[sel]);
 				win.debug("win3");
@@ -330,15 +330,19 @@
 	callbacks = (
 		selected: { arg self, sel, win, ad;
 			var newname;
-			sel.debug("selected");
+			//[ad, sel, oldsel, oldsel === ad].debug("selected: ad, sel, oldsel, oldsel == ad");
+			//[sl.address_to_index(ad), if(oldsel.notNil) {sl.address_to_index(oldsel)}].debug("index ad oldsel");
+			//(sl.address_to_index(ad) == if(oldsel.notNil) {sl.address_to_index(oldsel)}).debug("==");
 			//newname = "new" ++ UniqueID.next;
-			if(sel.notNil && oldsel == sel, {
+			var idx;
+			idx = sl.address_to_index(ad);
+			if(idx.notNil && {oldsel == idx}, {
 				action.(sel, sl.address_to_index(ad));
 				//sl.set_cell(sl.model.selection, newname);
 				self.stop_selection;
 				win.close;
 			}, {
-				oldsel = sel;	
+				oldsel = idx;	
 			});
 		},
 		play_selection: { arg self, sel, win, ad;
@@ -370,13 +374,15 @@
 
 	callbacks = (
 		selected: { arg self, sel, win, ad;
+			var idx;
 			sel.debug("selected");
-			if(sel.notNil && oldsel == sel, {
+			idx = sl.address_to_index(ad);
+			if(idx.notNil && {oldsel == idx}, {
 				action.(sel, sl.address_to_index(ad));
 				self.stop_selection;
 				win.close;
 			}, {
-				oldsel = sel;	
+				oldsel = idx;	
 			});
 		},
 		play_selection: { arg self;

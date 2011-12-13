@@ -1610,3 +1610,181 @@ Pbind(
 	\dur, 0.5
 ).play
 )
+
+
+
+a = PathName.new("sounds");
+a.files.do { arg x; ["wav"].includesEqual(x.extension).debug }
+a.files.do { arg x; ("wav" === x.extension).debug }
+
+(
+SynthDef(\sin5, { arg out=0, pan=0, gate=1, width=0.5,sustain=0.5, amp=0.1, freq=200;
+	
+	var ou;
+
+	ou = Pulse.ar(freq,width);
+	ou = ou * EnvGen.ar(Env.linen(0.01,sustain,0.01,1),doneAction:2);
+	ou = Pan2.ar(ou,pan,amp);
+	Out.ar(out, ou);
+
+}).add;
+)
+(
+a = Pbind(
+	\type, \note,
+	\instrument, \sin1,
+	//\out, b,
+	\sustain, 0.1,
+	\sustain, Pseq([0.1,0.3],2),
+	\amp, 0.5,
+	\freq, Pseg(Pseq([1,2,3,4],inf),0.7,0)*110,
+	\dur, 0.5
+);
+Pn(a).play
+)
+
+
+(
+a = Signal.newClear(512);
+a.waveFill({ arg x, i; sin(x).max(0) }, 0, 3pi);
+a.plot;
+)
+
+s.boot
+
+a = [1, 6, 2, -5, 2].plot2;
+a.editMode = true;
+
+
+b = Buffer.alloc(s,1024)
+(1..2).sum
+
+
+x= 1
+(1..2).collect({arg k; sin(x*k)}).sum
+sin(x)+sin(2*x)
+(
+a = Signal.newClear(512);
+a.waveFill({ arg x, i; sin(x)+sin(2*x) }, 0, 2pi);
+a.waveFill({ arg x, i; (1..6).collect({arg k; sin((x*sin(x+k))*k)}).sum }, 0, 3pi);
+a.plot;
+b.loadCollection(a.asWavetable);
+
+SynthDef("help-Osc",{ arg out=0,freq=100,bufnum=0;
+		var ou,fou,ou2;
+		//fou = Osc.kr(bufnum, 0.1, 0, 0.5)*90+100;
+		fou = SinOsc.kr(43.5)*90+freq;
+		ou = Osc.ar(bufnum, [0.1,-1,0]+(freq+(SinOsc.kr(1)*5)), 0, 0.5).sum;
+		//ou = Pulse.ar(200);
+		ou = RLPF.ar(ou, fou.lag(0.1),0.03);
+		//ou = BPF.ar(ou, 200,SinOsc.kr(488)+1.1*0.3);
+		ou2 = BPF.ar(ou, freq*1.5,SinOsc.kr(5,0.1)+1.1*0.7);
+		ou = BPF.ar(ou, freq*0.5,SinOsc.kr(4)+1.1*0.7)+ou2;
+		ou = ou ! 2;
+        Out.ar(out,ou)
+
+}).play(s,[\out, 0, \bufnum, b.bufnum]);
+)
+
+
+
+// embedding in another GUI
+(
+w = Window("plot panel", Rect(20, 30, 520, 250));
+Slider.new(w, Rect(10, 10, 490, 20)).resize_(2).action_ { |v|
+		v.value.debug("val");
+        a.value = (0..(max(v.value,0.1) * 80).asInteger).scramble;
+        w.refresh;
+};
+z = CompositeView(w, Rect(10, 35, 490, 200)).background_(Color.rand(0.7)).resize_(5);
+a = Plotter("plot", parent: z).value_([0, 1, 2, 3, 4].scramble * 100);
+w.front;
+)
+
+(0..(0.51*80).asInteger)
+
+(
+a = Plotter("the plot", Rect(600, 30, 600, 400));
+a.value = (0..100).normalize(0, 8pi).sin;
+)
+
+a.value = { |i| (0..90) % (i + 12) + ( (0..90) % (i + 2 * 1) ) }.dup(3);
+a.value = (0..12).squared;
+a.plotMode = \points; a.refresh;
+a.plotMode = \levels; a.refresh;
+a.plotMode = \plines; a.refresh;
+
+a.domainSpecs = [[0, 115, \lin, 1]]; a.refresh;
+
+a.parent.close; // close window
+a.makeWindow;   // open it again
+
+a.refresh
+a.value = { (0..70).scramble }.dup(3);
+a.plotMode = \linear; a.refresh;
+a.value = { |i| (0..2000).normalize(0, 4pi + i).sin } ! 4; // lots of values, test efficiency
+a.value = { |i| (0..10000).normalize(0, 8pi + i).sin } ! 3; // lots of values, test efficiency
+a.value = { (0..140).scramble } ! 7;
+
+a.value = { |i| (0..90).normalize(0, 8pi + (i*2pi)).sin } ! 2 * [400, 560] + 700;
+a.value = { |i| (_ + 2.0.rand).dup(100).normalize(0, 8pi + i).sin } ! 2 * 400 + 700;
+
+
+// multi channel expansion of single values
+a.value = { |i| (_ + 2.0.rand).dup(100).normalize(0, 8pi + i).sin *.t [1, 2, 3] } ! 2 * 400 + 700;
+a.value = { |i| (0..10) **.t [1, 1.2, 1.3, 1.5] * (3.5 ** i) }.dup(3);
+
+a.parent.bounds = Rect(400, 100, 500, 700);
+a.parent.bounds = Rect(600, 30, 500, 300);
+
+a.superpose = true;
+a.value = { |i| (0..20) * (3.5 ** i) }.dup(5);
+a.superpose = false;
+
+// specs
+
+a.value = (50..90).midicps.scramble;
+a.specs = \freq; a.refresh;
+a.value = (1..60).scramble.neg;
+a.specs = \db; a.refresh;
+
+a.value = { |i| { exprand(1e3, (10 ** (i + 8))) }.dup(90) }.dup(3);
+a.value = { { exprand(1e3, 1e9) }.dup(90) }.dup(3);
+a.specs = [[1e3, 1e10, \exp], [1e3, 1e20, \exp], [1e3, 1e30, \exp]]; a.refresh;
+a.domainSpecs = [[0, 5], [-8, 100], [-1, 1]]; a.refresh;
+
+
+// Array:plot
+(
+a = (4 ** (-5..0)).postln.plot2;
+a.specs = \delay; a.refresh;
+a.domainSpecs = [0, 10, \lin, 0, 0, " Kg"].asSpec; a.refresh;
+);
+
+a.domainSpecs = [0.1, 10, \exponential, 0, 0, " Kg"].asSpec; a.refresh;
+a.domainSpecs = [-10, 10, \lin, 0, 0, " Kg"].asSpec; a.refresh;
+
+
+a = [(0..100) * 9, (200..1300) * 2, (200..1000)/ 5].plot2;
+a.superpose = true;
+
+a = [[0, 1.2, 1.5], [0, 1.3, 1.5, 1.6], [0, 1.5, 1.8, 2, 6]].midiratio.plot2;
+a.plotMode = \levels; a.refresh;
+a.superpose = false;
+
+
+// Function:plot
+a = { SinOsc.ar([700, 357]) * SinOsc.ar([400, 476]) * 0.2 }.plot2;
+a = { SinOsc.ar([700, 357] *0.02) * SinOsc.ar([400, 476]) * 0.3 }.plot2(0.2, minval: -1);
+a = { SinOsc.ar(440) }.plot2(1);
+
+
+// Env:plot
+Env.perc(0.4, 0.6).plot2;
+Env.new({ 1.0.rand2 }! 8, { 1.0.rand } ! 7, \sin).plot2;
+
+// Buffer:plot
+b = Buffer.read(s, "sounds/SinedPink.aiff");
+                // "sounds/SinedPink.aiff" contains SinOsc on left, PinkNoise on right
+b.plot2;
+b.free;
