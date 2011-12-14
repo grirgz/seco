@@ -203,14 +203,16 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 	Env.performWithEnvir(\adsr, adsr).asArray ++ [adsr.levelScale, adsr.levelBias, adsr.timeScale]
 };
 
-~make_adsr_param = { arg name, player, default_value;
-	var param;
+~make_adsr_param = { arg main, player, name, default_value;
+	var param, subparam;
 
 	param = (
 		val: ~default_adsr.deepCopy,
 		name: name,
 		classtype: \adsr,
 		spec: ~spec_adsr,
+		sub_midi: Dictionary.new, // store midi control handler specific to each point of the adsr
+		sub_param: Dictionary.new,
 		selected: 0,
 
 		save_data: { arg self;
@@ -243,33 +245,22 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 		get_val: { arg self; self.val },
 
 		get_param: { arg self, key;
-			(
-				name: key,
-				spec: param.spec[key],
-				classtype: { arg kself; self.classtype },
-				selected: { arg kself;
-					if(player.get_selected_param == name) { 1 } { 0 }
-				},
-				get_norm_val: { arg kself;
-					param.spec[key].unmap( param.val[key] );
-				},
-				set_norm_val: { arg kself, val;
-					param.val[key] = param.spec[key].map( val );
-					param.changed(\val);
-				},
-				get_val: { arg kself;
-					param.val[key];
-				},
-				set_val: { arg kself, val;
-					param.val[key] = val;
-					param.changed(\val);
-				}
-			)
+			self.sub_param[key];
+		},
+
+		set_val: { arg self, val;
+			// should not be used (use get_param(key).set_val)
+			["main", val].debug("make_adsr_param: set_val");
 		},
 
 		refresh: { arg self;
+			self.name.debug("make_adsr_param: refresh");
 			self.changed(\val);
 			self.changed(\selected);
+			self.sub_midi.keysValuesDo { arg key, val;
+				[key, val].debug("make_adsr_param: refresh");
+				val.refresh
+			};
 		},
 
 		vpiano: { arg self;
@@ -287,6 +278,42 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 		}
 
 	);
+
+	~adsr_point_order.do { arg key;
+
+		subparam = (
+			name: key,
+			spec: param.spec[key],
+			midi: { arg self; param.sub_midi[key] },
+			classtype: { arg kself; param.classtype },
+			selected: { arg kself;
+				if(player.get_selected_param == name) { 1 } { 0 }
+			},
+			get_norm_val: { arg kself;
+				param.spec[key].unmap( param.val[key] );
+			},
+			set_norm_val: { arg kself, val;
+				[key, val].debug("make_adsr_param: set_val");
+				param.val[key] = param.spec[key].map( val );
+				kself.changed(\val);
+			},
+			get_val: { arg kself;
+				param.val[key];
+			},
+			set_val: { arg kself, val;
+				[key, val].debug("make_adsr_param: set_val");
+				param.val[key] = val;
+				kself.changed(\val);
+			},
+			refresh: { arg kself;
+				//FIXME: what a point need to refresh ? (midi)
+				key.debug("make_adsr_param: adsr point: refresh");
+				kself.midi.refresh;
+			}
+		);
+		param.sub_param[key] = subparam;
+		param.sub_midi[key] = main.midi_center.get_midi_control_handler(subparam);
+	};
 	param;
 
 };
@@ -319,6 +346,7 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 		val: nil,
 		name: name,
 		classtype: \buf,
+		current_kind: \sample,
 		spec: nil,
 		selected: 0,
 		buffer: nil,
@@ -379,7 +407,19 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 		vpattern: { arg self;
 			
 			self.buffer.bufnum.debug("BUFNUM");	
-			Pfunc({self.buffer.bufnum;});	
+			Prout({ arg ev;
+				var repeat = 1000000;
+				repeat.do {
+					switch(self.current_kind,
+						\samplekit, {
+							ev = ~samplekit_manager.slot_to_bufnum(ev[\sampleline].slotnum, ev[\samplekit]).yield;
+						},
+						\sample, {
+							ev = self.buffer.bufnum.yield;
+						}
+					);
+				};
+			});	
 		}
 
 	);
@@ -393,6 +433,7 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 	sustain: 0.1,
 	dur: 0.01
 );
+
 
 ~default_noteline3 = [ // FIXME: crash when no notes
 	(
@@ -487,6 +528,439 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 		dur: 0.6
 	)
 ];
+
+~default_sampleline = [ // FIXME: crash when no notes
+	(
+		slotnum: \rest,
+		sustain: 0.1,
+		start_silence: 0.5,
+		default_start_silence: 0.5,
+		end_silence: 2.0,
+		default_end_silence: 2.0,
+		start_offset: 0,
+		end_offset: 0,
+		dur: 0.5
+	),
+	(
+		slotnum: 0,
+		sustain: 0.1,
+		dur: 1.5
+	),
+	(
+		slotnum: 0,
+		sustain: 0.1,
+		dur: 2.0
+	),
+];
+
+~make_samplekit_param = { arg name, default_value=\default;
+
+	var param;
+
+	param = (
+		val: nil,
+		name: name,
+		classtype: \samplekit,
+		current_kind: \sample,
+		spec: nil,
+		selected: 0,
+		buffer: nil,
+
+		save_data: { arg self;
+			var data = ();
+			[\name, \classtype, \selected, \spec, \val].do {
+				arg key;
+				data[key] = self[key];
+			};
+			data.debug("make_buf_param: save_data: data");
+			data;
+		},
+
+		load_data: { arg self, data;
+			[\name, \classtype, \selected, \spec].do {
+				arg key;
+				self[key] = data[key];
+			};
+			self.set_val(data[\val]);
+		},
+
+		select_param: { arg self;
+			self.selected = 1;
+			self.changed(\selected);
+		},
+		deselect_param: { arg self;
+			self.selected = 0;
+			self.changed(\selected);
+		},
+
+		get_val: { arg self; self.val },
+
+
+		set_val: { arg self, val;
+			self.val = val;
+		},
+
+		refresh: { arg self;
+			self.changed(\val);
+			self.changed(\selected);
+		},
+
+		vpiano: { arg self;
+			{ self.val };	
+		},
+
+		vpattern: { arg self;
+			Pfunc({ self.val });	
+		}
+
+	);
+	param.set_val(default_value);
+	param;
+
+};
+
+~make_sampleline_param = { arg name;
+	var ret;
+	ret = (
+		name: name,
+		classtype: \sampleline,
+		selected_cell: 0,
+		selected: 0,
+		default_val: default_value.asList,
+		notes: ~default_sampleline.deepCopy,
+		start_offset: 0,
+		end_offset: 0,
+		muted: false,
+		archive_data: [\name, \classtype, \selected, \selected_cell, \default_val, \notes, \start_offset, \end_offset, \notequant],
+		notequant: nil,
+		vnotes: [],
+
+		save_data: { arg self;
+			var data = ();
+			self.archive_data.do {
+				arg key;
+				data[key] = self[key];
+			};
+			[\seq].do { arg kind;
+				data[kind] = ();
+				[\val].do { arg key;
+					data[kind][key] = self[kind][key];
+				}
+			};
+			data;
+		},
+
+		load_data: { arg self, data;
+			self.archive_data.do {
+				arg key;
+				self[key] = data[key];
+			};
+			[\seq].do { arg kind;
+				[\val].do { arg key;
+					 self[kind][key] = data[kind][key];
+				}
+			};
+		},
+
+		seq: (
+			val: default_value.asList,
+			change: { arg self, fun;
+				self.val = fun.(self.val);
+			}
+		),
+		get_cells: { arg self;
+			self.seq.val;
+		},
+		get_selected_cell: { arg self;
+			self.selected_cell;
+		},
+		select_param: { arg self;
+			self.selected = 1;
+			self.changed(\selected);
+		},
+		deselect_param: { arg self;
+			self.selected = 0;
+			self.changed(\selected);
+		},
+
+		add_cells: { arg self, cells;
+			self.seq.val.addAll(cells);
+			self.changed(\cells);
+		},
+
+		remove_cells: { arg self, num;
+			self.seq.val = self.seq.val[.. (self.seq.val.size - num - 1) ];
+			self.changed(\cells);
+		},
+
+		set_val: { arg self, val;
+			self.seq.val[ self.get_selected_cell.() ] = if(val > 1, { 1 },{ 0 });
+		},
+
+		get_notes: { arg self;
+			var no;
+			no = self.vnotes.deepCopy;
+			//no[0].dur+self.start_offset;
+			//no.last.dur+self.end_offset;
+			no;
+		},
+
+		set_notes: { arg self, val;
+			self.notes = val;
+			self.trans_notes;
+			self.update_note_dur;
+		},
+
+		trans_notes: { arg self;
+			// make sample slots compatibles with other code using midinotes
+			self.notes = self.notes.collect { x;
+				x.midinote = x.slotnum;
+			};
+		},
+
+		get_note: { arg self, idx;
+			var no;
+			if( self.vnotes.size > 0 && {self.muted.not}) {
+				no = self.vnotes[idx].deepCopy;
+				if( no.notNil && (self.notequant.notNil) ) {
+					no.dur = no.dur.round(self.notequant);
+					no;
+				} {
+					no
+				}
+			} {
+				"sampleline_param: get_node: No notes".inform;
+				if(idx == 0) {
+					~empty_note;
+				} {
+					nil;
+				};
+			}
+		},
+
+		total_dur: { arg self, notes;
+			var res=0;
+			notes.do { arg x; res = x.dur + res; };
+			res;
+		},
+
+		update_note_dur: { arg self;
+			var find_next, find_prev, delta, prevdelta, idx, previdx;
+			"update_note_dur".debug("start");
+			if( self.notes.size > 2) {
+				find_next = { arg dur, notes;
+					var res=0, vidx=0, last=nil, delta=0, prevdelta=0;
+					dur.debug("find_next: dur");
+					if(dur == 0) {
+						delta = 0;
+						vidx = 0
+					} {
+						notes[1..].do { arg x, n;
+							[n, res, vidx, last, dur].debug("begin n res vidx last");
+							if( res < dur ) {
+								res = x.dur + res;
+								vidx = vidx + 1;
+								last = x.dur;
+							};
+							[n, res, vidx, last].debug("end");
+						};
+						delta = res - dur;
+					};
+					[ delta, vidx+1 ];
+				};
+
+				find_prev = { arg dur, notes;
+					var res=0, vidx=0, last=nil, delta=0, prevdelta=0;
+					dur = self.total_dur( notes[1..(notes.lastIndex-1)] ).debug("total dur") - dur;
+					dur.debug("find_prev: dur");
+
+					notes[1..].do { arg x, n;
+						[n, res, vidx, last].debug("begin n res vidx last");
+						if( res <= dur ) {
+							res = x.dur + res;
+							vidx = vidx + 1;
+							last = x.dur;
+						};
+						[n, res, vidx, last].debug("end");
+					};
+					delta = res - dur;
+					if(last.isNil) {
+						prevdelta = nil
+					} {
+						last.debug("last");
+						prevdelta = last - delta;
+					};
+					[ prevdelta, vidx ];
+				};
+
+				#delta, idx = find_next.(self.notes[0].start_offset, self.notes);
+				#prevdelta, previdx = find_prev.(self.notes[0].end_offset, self.notes);
+				[delta, idx, prevdelta, previdx].debug("delta, idx, prevdelta, previdx");
+				self.notes[0].dur = self.notes[0].start_silence + delta;
+				self.vnotes = [self.notes[0]] ++ self.notes[idx..previdx].deepCopy;
+				self.vnotes[self.vnotes.lastIndex].dur = self.notes[0].end_silence + prevdelta;
+				self.vnotes.debug("update_note_dur: vnotes");
+				self.changed(\notes);
+			} {
+				if(self.notes.size == 2) {
+					self.vnotes = self.notes.deepCopy;
+					if( (self.notes[0].start_silence + self.notes[0].end_silence) < 0.01 ) {
+						"Protection anti infinite loop: setting end_silence to 0.5".error;
+						self.notes[0].end_silence = 0.5
+					};
+					self.vnotes[0].dur = self.notes[0].start_silence;
+					self.vnotes[self.vnotes.lastIndex].dur = self.notes[0].end_silence;
+					self.vnotes.debug("update_note_dur: vnotes");
+					self.changed(\notes);
+				}
+			}
+					
+		},
+
+		set_start_offset: { arg self, val;
+			var dur;
+			if(self.notes.size > 2 ) {
+				dur = self.total_dur( self.notes[1..(self.notes.lastIndex-1)] );
+				if( val >= 0 && (val < (dur - self.notes[0].end_offset)) ) {
+					[val, dur, self.notes[0].end_offset, dur - self.notes[0].end_offset].debug("set start_offset: val, dur, eo, dur-eo");
+					self.notes[0].start_offset = val;
+					self.update_note_dur;
+				} {
+					[val, dur, self.notes[0].end_offset, dur - self.notes[0].end_offset].debug("can't set start_offset: val, dur, eo, dur-eo");
+				}
+			} {
+				"You are stupid!".debug;
+			}
+		},
+
+		set_end_offset: { arg self, val;
+			var dur;
+			if(self.notes.size > 0) {
+				dur = self.total_dur( self.notes[1..(self.notes.lastIndex-1)] );
+				if( val >= 0 && (val < (dur - self.notes[0].start_offset)) ) {
+					[val, dur, self.notes[0].end_offset, dur - self.notes[0].end_offset].debug("can't set end_offset: val, dur, so, dur-so");
+					self.notes[0].end_offset = val;
+					self.update_note_dur;
+				} {
+					[val, dur, self.notes[0].start_offset, dur - self.notes[0].start_offset].debug("can't set end_offset: val, dur, so, dur-so");
+				}
+			}
+		},
+
+		get_start_offset: { arg self;
+			if(self.notes.size > 0) {
+				self.notes[0].start_offset;
+			}
+		},
+
+		get_end_offset: { arg self;
+			if(self.notes.size > 0) {
+				self.notes[0].end_offset;
+			}
+		},
+
+		set_start_silence: { arg self, val;
+
+			if(self.notes.size > 0 && (val >= 0)) {
+				self.notes[0].start_silence = val;
+				self.update_note_dur;
+			} {
+				[val, self.notes.size].debug("can't set start_silence: val, notessize");
+			}
+		},
+
+		set_end_silence: { arg self, val;
+
+			if(self.notes.size > 0 && (val >= 0)) {
+				self.notes[0].end_silence = val;
+				self.update_note_dur;
+			} {
+				[val, self.notes.size].debug("can't set end_silence: val, notessize");
+
+			};
+		},
+
+		get_start_silence: { arg self;
+			if(self.notes.size > 0) {
+				self.notes[0].start_silence;
+			}
+
+		},
+
+		get_end_silence: { arg self;
+			if(self.notes.size > 0) {
+				self.notes[0].end_silence;
+			}
+
+		},
+
+		set_first_note_dur: { arg self, val;
+			var res = 0, lastdur = 0, vidx = 0;
+			if( self.notes.size > 0) {
+				self.notes[0].dur = val;
+				if( val < 0 ) {
+					self.notes.do { arg x;
+						if( res < val.neg ) {
+							res = x.dur + res;
+							vidx = vidx + 1;
+							lastdur = x.dur;
+						}
+					};
+					self.notes[0].virtual_start_idx = vidx -1;
+					self.notes[0].virtual_start_dur = res - val.neg;
+				}
+			}
+		},
+
+		get_first_note_dur: { arg self;
+			self.notes.size.debug("get_first_note_dur self.notes.size");
+			if( self.notes.size > 0) {
+				self.notes[0].dur;
+			} {
+				nil
+			}
+		},
+
+		set_notequant: { arg self, val;
+			self.notequant = val;
+			self.changed(\notes);
+		},
+
+		tick: { arg idx; 
+			//"TICK!".postln;
+		},
+
+		mute: { arg self, val;
+			self.muted = val;
+		},
+
+		toggle_cell: { arg self, idx;
+			var oldsel;
+			[idx, self.get_cells].debug("make_control_param.select_cell idx, selg.get_cells");
+			if( idx < self.get_cells.size, {
+				//oldsel = self.selected_cell;
+				self.selected_cell = idx;
+				//self.changed(\selected_cell, oldsel);
+				self.seq.val[ idx ] = ~toggle_value.(self.seq.val[ idx ]);
+				self.changed(\val, self.selected_cell);
+			})
+		},
+		refresh: { arg self;
+			self.update_note_dur;
+			self.get_notes.debug("noteline param refresh: get_notes");
+			self.changed(\notes);
+			self.changed(\selected);
+		},
+		vpattern: { arg self; 
+			//"YE SOUI PREMIER!!!!".debug;
+			"--------making vpattern of sampleline".debug;
+			~pdynarray.( { arg idx; self.tick; self.get_note(idx) }, \noteline );
+			//self.get_note(0);
+		};
+
+	);
+	ret;
+};
 
 ~make_noteline_param = { arg name, default_value=[];
 	var ret;
@@ -951,7 +1425,7 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 	ret;
 };
 
-~make_volume_param = { arg name;
+~make_volume_param = { arg name, main;
 	var param = (
 		classtype: \volume,
 
@@ -980,11 +1454,12 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 		selected: 1
 
 	);
+	param.midi = main.midi_center.get_midi_control_handler(param);
 	param;
 
 };
 
-~make_control_param = { arg name, kind, default_value, spec;
+~make_control_param = { arg main, player, name, kind, default_value, spec;
 	var param;
 	var bar_length = 4;
 
@@ -1113,6 +1588,45 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 			remove_cells: {}
 		),
 
+		bus: (
+			// dummy functions
+			selected_cell: 0, // always 0
+			val: if(default_value.isArray, { default_value[0] }, { default_value }),
+			busindex: nil,
+
+			get_bus: { arg self;
+				self.bus;
+			},
+
+			set_bus: { arg self, val;
+				self.bus = val;
+			},
+
+			set_val: { arg self, val, idx=nil;
+				self.val = val;
+				param.changed(\val, 0);
+			},
+			get_val: { arg self; self.val },
+
+			set_norm_val: { arg self, norm_val;
+				self.val = param.spec.map(norm_val);
+				param.changed(\val, 0);
+			},
+			get_norm_val: { arg self;
+				param.spec.unmap(self.val);
+			},
+
+			get_cells: { arg self; [self.val] },
+
+			select_cell: { arg self, idx; param.seq.selected_cell = idx }, // when changing kind, correct cell is selected in colselect mode
+			get_selected_cell: { arg self; 0 },
+			add_cells: {},
+			remove_cells: {}
+			
+
+		),
+		
+
 		// preset subobject here
 		//		need a corresponding spec
 
@@ -1177,6 +1691,7 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 			self.changed(\kind);
 			self.changed(\selected);
 			self.changed(\cells);
+			self.midi.refresh;
 		},
 
 		vpiano: { arg self;
@@ -1271,6 +1786,9 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 							}, {
 								ev = self.preset.val[self.preset.selected_cell].yield
 							});
+						},
+						\bus, {
+							self.bus.get_bus.asMap;
 						}
 					);
 				}
@@ -1285,6 +1803,8 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 	// init
 	param.preset = param.seq.deepCopy;
 	param.seg = param.seq;
+
+	param.midi = main.midi_center.get_midi_control_handler(param);
 
 	// \dur special case
 	if([\dur,\segdur, \stretchdur].includes(name), {
@@ -1356,8 +1876,9 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 							case
 								{ (name == \adsr) || name.asString.containsStringAt(0, "adsr_") } {
 									dict[name] = ~make_adsr_param.(
-										name,
+										main,
 										self,
+										name,
 										control.defaultValue
 									)
 								}
@@ -1367,11 +1888,17 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 								}
 								{ (name == \bufnum) || name.asString.containsStringAt(0, "bufnum_") } {
 									dict[name] = ~make_buf_param.(name, "sounds/default.wav", self, ~get_special_spec.(name, defname));
-									self.to_destruct.add(dict[name]);
+									if(dict[\samplekit].isNil) { // prevent multiple creation
+										dict[\samplekit] = ~make_samplekit_param.(\samplekit);
+										dict[\sampleline] = ~make_sampleline_param.(\sampleline);
+									};
+									self.to_destruct.add(dict[name]); //FIXME: make it real
 								}
 								//default
 								{ true } { 
 									dict[name] = ~make_control_param.(
+										main,
+										self,
 										name,
 										\scalar,
 										control.defaultValue,
@@ -1387,12 +1914,12 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 
 			self.data[\noteline] = self.data[\noteline] ?? ~make_noteline_param.(\noteline);
 
-			self.data[\dur] = self.data[\dur] ?? ~make_control_param.(\dur, \scalar, 0.5, ~get_spec.(\dur, defname));
-			self.data[\segdur] = self.data[\segdur] ?? ~make_control_param.(\segdur, \scalar, 0.5, ~get_spec.(\dur, defname));
-			self.data[\stretchdur] = self.data[\stretchdur] ?? ~make_control_param.(\stretchdur, \scalar, 1, ~get_spec.(\dur, defname));
-			self.data[\legato] = self.data[\legato] ?? ~make_control_param.(\legato, \scalar, 0.5, ~get_spec.(\legato, defname));
-			self.data[\sustain] = self.data[\sustain] ?? ~make_control_param.(\sustain, \scalar, 0.5, ~get_spec.(\sustain, defname));
-			self.data[\repeat] = self.data[\repeat] ?? ~make_control_param.(\repeat, \scalar, 1, ~get_spec.(\repeat, defname));
+			self.data[\dur] = self.data[\dur] ?? ~make_control_param.(main, self, \dur, \scalar, 0.5, ~get_spec.(\dur, defname));
+			self.data[\segdur] = self.data[\segdur] ?? ~make_control_param.(main, self, \segdur, \scalar, 0.5, ~get_spec.(\dur, defname));
+			self.data[\stretchdur] = self.data[\stretchdur] ?? ~make_control_param.(main, self, \stretchdur, \scalar, 1, ~get_spec.(\dur, defname));
+			self.data[\legato] = self.data[\legato] ?? ~make_control_param.(main, self, \legato, \scalar, 0.5, ~get_spec.(\legato, defname));
+			self.data[\sustain] = self.data[\sustain] ?? ~make_control_param.(main, self, \sustain, \scalar, 0.5, ~get_spec.(\sustain, defname));
+			self.data[\repeat] = self.data[\repeat] ?? ~make_control_param.(main, self, \repeat, \scalar, 1, ~get_spec.(\repeat, defname));
 
 			self.data[\stepline] = self.data[\stepline] ?? ~make_stepline_param.(\stepline, 1 ! 8 );
 			self.data[\instrument] = self.data[\instrument] ?? ~make_literal_param.(\instrument, defname);
@@ -1820,7 +2347,7 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 		muted: false,
 
 		init: { arg self;
-			self.data[\repeat] = self.data[\repeat] ?? ~make_control_param.(\repeat, \scalar, 1, ~get_spec.(\repeat));
+			self.data[\repeat] = self.data[\repeat] ?? ~make_control_param.(main, self, \repeat, \scalar, 1, ~get_spec.(\repeat));
 			self.get_arg(\repeat).get_val.debug("init repeat.get_val");
 		},
 
@@ -2074,7 +2601,7 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 		kind: \seqnode,
 
 		init: { arg self;
-			self.data[\repeat] = self.data[\repeat] ?? ~make_control_param.(\repeat, \scalar, 1, ~get_spec.(\repeat));
+			self.data[\repeat] = self.data[\repeat] ?? ~make_control_param.(main, self, \repeat, \scalar, 1, ~get_spec.(\repeat));
 			self.get_arg(\repeat).get_val.debug("init repeat.get_val");
 		},
 
@@ -2123,7 +2650,7 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 
 };
 
-//a = ~make_control_param.(\repeat, \scalar, 1, ~get_spec.(\repeat))
+//a = ~make_control_param.(main, self, \repeat, \scalar, 1, ~get_spec.(\repeat))
 //a.get_val
 
 // ==========================================

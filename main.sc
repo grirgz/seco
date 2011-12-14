@@ -105,6 +105,7 @@
 [
 	"synth",
 	"keycode", 
+	"midi",
 	"player",
 	"matrix",
 	"hmatrix",
@@ -520,7 +521,7 @@
 			if(proj.notNil, {
 
 				self.model.colpresetlib = proj.colpresetlib;
-				self.model.colpresetlib.debug("colpresetlib");
+				//self.model.colpresetlib.debug("colpresetlib");
 				self.model.presetlib = proj.presetlib;
 
 				pool = self.unarchive_livenodepool(projpath);
@@ -648,6 +649,7 @@
 			self.panels.seqlive = ~make_seqlive.(self);
 			self.context = ~make_context.(main);
 			self.playmanager = ~make_playmanager.(self);
+			self.midi_center = ~midi_center.(self);
 
 		}
 

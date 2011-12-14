@@ -423,6 +423,21 @@
 		};
 	},
 
+	bind_param: { arg self, ccpath, param;
+		var panel = \midi;
+		if(self.midi_handler[panel].isNil) { self.midi_handler[panel] = Dictionary.new };
+		param.midi.set_ccpath(ccpath);
+		self.midi_handler[panel][ccpath] = { arg val; 
+			[param.name, val].debug("bind_param function: set_val");
+			param.midi.set_val(val);
+		};
+	},
+
+	handle_cc: { arg self, ccpath, val;
+		var panel = \midi;
+		self.midi_handler[panel][ccpath].(val);
+	},
+
 	handle_key: { arg self, panel, shortcut;
 		var fun;
 		//self.kb_handler.debug("handle_key: kb_handler");
@@ -432,7 +447,8 @@
 		
 		//[fun, fun.def, fun.def.sourceCode].debug("function");
 		if(fun.isNil, { "handle_key: nil function".warn; nil }, { fun.value; 1 })
-	};
+	}
+
 
 );
 

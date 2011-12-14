@@ -113,4 +113,20 @@
 
 //~choose_sample.(nil, { arg x; x.debug("yeak") });
 
+~samplekit_bank = Dictionary[
+	\plop -> [
+		"plop.wav"
+	]
+];
+
+~samplekit_manager = (
+	slot_to_bufnum: { arg self, slot, samplekit;
+		if(slot == \rest) {
+			BufferPool.get_sample(\samplekit, "silent.wav").bufnum; // FIXME: find a way to not play at all;
+		} {
+			BufferPool.get_sample(\samplekit, ~samplekit_bank[samplekit][slot]).bufnum;		
+		};
+	}
+);
+
 )

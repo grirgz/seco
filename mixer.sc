@@ -17,10 +17,10 @@
 			var master;
 			var midi;
 			
-			~midi_interface.clear_assigned(\slider);
-			~midi_interface.clear_assigned(\knob);
+			//~midi_interface.clear_assigned(\slider);
+			//~midi_interface.clear_assigned(\knob);
 
-			CCResponder.removeAll; // FIXME: must not remove other useful CC
+			//CCResponder.removeAll; // FIXME: must not remove other useful CC
 
 			row_layout.removeAll;
 
@@ -32,11 +32,9 @@
 			);
 
 			"0paramlist begin".debug;
-			master = ~make_volume_param.(\master);
+			master = mixer.master;
 			"1paramlist begin".debug;
-			master.midi = ~midi_interface.assign_master(master);
-			"2paramlist begin".debug;
-			~make_control_view.(row_layout, mixer.make_param_display(\master, 0), master, master.midi);
+			~make_control_view.(row_layout, mixer.make_param_display(\master, 0), master);
 			"3paramlist begin".debug;
 
 			//self.get_paramlist.debug("paramlist");
@@ -46,9 +44,7 @@
 				var param = paramasso.value;
 				//paramasso.debug("paramasso");
 
-				midi = ~midi_interface.assign_first(\slider, param);
-				param.midi = midi;
-				~make_control_view.(row_layout, mixer.make_param_display(param, i), param, midi);
+				~make_control_view.(row_layout, mixer.make_param_display(param, i), param);
 
 			};
 			"end paramlist method".debug;
@@ -76,6 +72,8 @@
 			max_cells: 8, // not used
 			param_offset: 0@0
 		),
+
+		master: ~make_volume_param.(\master, main),
 
 		make_param_display: { arg self, param, idx;
 			var dis;
@@ -137,6 +135,25 @@
 			list;
 		},
 
+		assign_midi: { arg self;
+			var param;
+			"MAIS assign_midi bordel!!!".debug;
+			main.midi_center.clear_assigned(\slider);
+			main.midi_center.clear_assigned(\knob);
+			self.get_paramlist.debug("c'est quoi cette paramlist de merde");
+			self.get_paramlist.do { arg asso;
+				var player = asso.key;
+				var param = asso.value;
+				"1MAIS assign_midi bordel!!!".debug;
+				main.midi_center.assign_first(\slider, param);
+				"2MAIS assign_midi bordel!!!".debug;
+			};
+			"3MAIS assign_midi bordel!!!".debug;
+			main.commands.bind_param([\slider, 8], self.master);
+			"4MAIS assign_midi bordel!!!".debug;
+
+		},
+
 		get_bank: { arg self;
 			main.context.get_selected_bank
 		},
@@ -149,6 +166,7 @@
 		refresh: { arg self;
 			self.update_title;
 			self.changed(\paramlist);
+			//self.assign_midi;
 		},
 
 		init: { arg self;
@@ -164,6 +182,7 @@
 
 			"ini2".debug;
 
+			self.assign_midi;
 			~mixer_view.(parent, mixer);
 			"inifin".debug;
 

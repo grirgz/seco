@@ -17,12 +17,6 @@
 
 };
 
-~rel_nextTimeOnGrid = { arg beats, quant = 1, phase = 0;
-				var baseBarBeat = TempoClock.baseBarBeat;
-                if (quant == 0) { beats + phase };
-                if (phase < 0) { phase = phase % quant };
-                roundUp(beats - baseBarBeat - (phase % quant), quant) + baseBarBeat + phase
-};
 
 ~make_name_button = { arg parent, label, xsize=50, ysize=50;
 	var bt;
@@ -142,14 +136,13 @@
 
 	env_cell = ~make_env_view.(row_env, ~default_adsr);
 
+	param.name.debug("make_env_control_view: param");
 
-
-	param_messages = Dictionary.newFrom((
+	~make_view_responder.(parent, param, (
 		selected: { arg self;
 			display.selected.debug("env view selected");
 			bt_name.value = display.selected;
 		},
-
 		val: { arg self, msg, cellidx;
 			var newval;
 			newval = self.get_val;
@@ -169,36 +162,21 @@
 		}
 	));
 
-	midi_messages = Dictionary.newFrom((
-		midi_val: { arg self;
-			txt_midi[self.name].string = self.mapped_val;
-		},
-		blocked: { arg self;
-			txt_midi[self.name].background = if(self.blocked == \not, { Color.clear }, { ~editplayer_color_scheme.led });
-		}
-	));
-	
-	sc_param = SimpleController(param);
-	~init_controller.(sc_param, param_messages);
-	param.refresh.();
-
-	//midi.debug("&&&&&&&&&&&&&&&&&&&&&&midi");
-	midi.col.do { arg midi_point;
-		if(midi.notNil, {
-			sc_midi = SimpleController(midi_point);
-			~init_controller.(sc_midi, midi_messages);
-			midi_point.refresh.();
-		}, {
-			"midi is nil".debug;
-		});
-	};
-
-	// remove func
-
-	row_layout.onClose = {
-		param.name.debug("=========== view closed");
-		sc_param.remove;
-		if(midi.notNil, { sc_midi.remove });
+	~adsr_point_order.do { arg key;
+		~make_view_responder.(parent, param.get_param(key), (
+			val: { arg self, msg, cellidx;
+				var newval;
+				txt_val[key].string = self.get_val;
+				env_cell.set_env(param.get_val);
+			},
+			midi_val: { arg self, msg, val;
+				[self.name, msg, val].debug("make_env_control_view: midi_val");
+				txt_midi[key].string = val;
+			},
+			blocked: { arg self, msg, blocked;
+				txt_midi[key].background = if(blocked.not, { Color.clear }, { ~editplayer_color_scheme.led });
+			}
+		))
 	};
 };
 
@@ -325,7 +303,7 @@
 
 	//paraspace.setBackgrDrawFunc_(ps_bg_drawf.(width, height, 8));
 
-	param_messages = Dictionary.newFrom((
+	~make_view_responder.(parent, param, (
 		selected: { arg self;
 			bt_name.value = display.selected;
 		},
@@ -369,13 +347,10 @@
 					sum = sum + no.dur;
 				}
 			};
-		};
+		},
 
-	));
-
-	midi_messages = Dictionary.newFrom((
-		recording: { arg self;
-			if( self.recording, {
+		recording: { arg self, msg, recording;
+			if( recording, {
 				txt_rec.string = "Rec";
 				txt_rec.background = ~editplayer_color_scheme.led;
 			}, {
@@ -383,32 +358,12 @@
 				txt_rec.background = Color.clear;
 			});
 		}
+
 	));
-	
-	sc_param = SimpleController(param);
-	~init_controller.(sc_param, param_messages);
-	param.refresh.();
-
-	midi.debug("&&&&&&&&&&&&&&&&&&&&&&midi");
-	if(midi.notNil, {
-		sc_midi = SimpleController(midi);
-		~init_controller.(sc_midi, midi_messages);
-		midi.refresh.();
-	}, {
-		"midi is nil".debug;
-	});
-
-	// remove func
-
-	row_layout.onClose = {
-		param.name.debug("=========== view closed");
-		sc_param.remove;
-		if(midi.notNil, { sc_midi.remove });
-	};
 };
 
 
-~make_control_view = { arg parent, display, param, midi, param_name=nil, btnamesize=50;
+~make_control_view = { arg parent, display, param, param_name=nil, btnamesize=50;
 	var param_messages,
 		midi_messages,
 		row_layout,
@@ -457,7 +412,7 @@
 		(sel >= start && (sel < (start+max_cells)))
 	};
 
-	param_messages = Dictionary.newFrom((
+	~make_view_responder.(parent, param, (
 		selected: { arg self;
 			bt_name.value = display.selected;
 		},
@@ -543,50 +498,24 @@
 			self.current_kind.debug("make_control_view changed kind");
 			self.get_cells.debug("make_control_view.kind get_cells");
 			self.changed(\cells);	
-		}
-	));
-	midi_messages = Dictionary.newFrom((
+		},
+
 		label: { arg self;
-			txt_midi_label.string = self.label;
+			txt_midi_label.string = self.midi.label;
 		},
-		midi_val: { arg self;
-			txt_midi_val.string = self.mapped_val;
+		midi_val: { arg self, msg, val;
+			txt_midi_val.string = val;
 		},
-		blocked: { arg self;
-			txt_midi_val.background = if(self.blocked == \not, { Color.green }, { ~editplayer_color_scheme.led });
+		blocked: { arg self, msg, blocked;
+			txt_midi_val.background = if(blocked.not, { Color.green }, { ~editplayer_color_scheme.led });
 		},
-		recording: { arg self;
-			txt_midi_label.background = if(self.recording, { ~editplayer_color_scheme.led }, { Color.clear });
+		recording: { arg self, msg, recording;
+			txt_midi_label.background = if(recording, { ~editplayer_color_scheme.led }, { Color.clear });
 		},
 		midi_key: { arg self, msg, key;
 			param_messages.val(param, msg); //TODO
 		}
-			
-
-
 	));
-	
-	sc_param = SimpleController(param);
-	~init_controller.(sc_param, param_messages);
-	param.refresh.();
-
-	if(midi.notNil, {
-		sc_midi = SimpleController(midi);
-		~init_controller.(sc_midi, midi_messages);
-		midi.refresh.();
-	}, {
-		"midi is nil".debug;
-	});
-
-	"mais quoiiii".debug;
-
-	// remove func
-
-	row_layout.onClose = {
-		param.name.debug("=========== view closed");
-		sc_param.remove;
-		if(midi.notNil, { sc_midi.remove });
-	};
 };
 
 ~make_simple_control_view = { arg parent, display, param;
@@ -602,7 +531,7 @@
 
 	txtval = StaticText.new(row_layout, Rect(15,0,width, height));
 
-	param_messages = Dictionary.newFrom((
+	~make_view_responder.(parent, param, (
 		selected: { arg self;
 			bt_name.value = display.selected;
 		},
@@ -618,20 +547,10 @@
 		}
 
 	));
-
-	sc_param = SimpleController(param);
-	~init_controller.(sc_param, param_messages);
-	param.refresh.();
-
-	// remove func
-
-	row_layout.onClose = {
-		sc_param.remove;
-	};
 };
 
 // only used in score.sc for the moment, editplayer use make_control_view
-~make_stepline_view = { arg parent, display, param, midi;
+~make_stepline_view = { arg parent, display, param;
 	var param_messages,
 		midi_messages,
 		row_layout,
@@ -701,7 +620,7 @@
 		(sel >= start && (sel < (start+max_cells)))
 	};
 
-	param_messages = Dictionary.newFrom((
+	~make_view_responder.(parent, param, (
 		selected: { arg self;
 			bt_name.value = display.selected;
 		},
@@ -768,50 +687,24 @@
 			self.current_kind.debug("make_control_view changed kind");
 			self.get_cells.debug("make_control_view.kind get_cells");
 			self.changed(\cells);	
-		}
-	));
-	midi_messages = Dictionary.newFrom((
+		},
+
 		label: { arg self;
-			txt_midi_label.string = self.label;
+			txt_midi_label.string = self.midi.label;
 		},
-		midi_val: { arg self;
-			txt_midi_val.string = self.mapped_val;
+		midi_val: { arg self, msg, val;
+			txt_midi_val.string = val;
 		},
-		blocked: { arg self;
-			txt_midi_val.background = if(self.blocked == \not, { Color.green }, { ~editplayer_color_scheme.led });
+		blocked: { arg self, msg, blocked;
+			txt_midi_val.background = if(blocked.not, { Color.green }, { ~editplayer_color_scheme.led });
 		},
-		recording: { arg self;
-			txt_midi_label.background = if(self.recording, { ~editplayer_color_scheme.led }, { Color.clear });
+		recording: { arg self, msg, recording;
+			txt_midi_label.background = if(recording, { ~editplayer_color_scheme.led }, { Color.clear });
 		},
 		midi_key: { arg self, msg, key;
 			param_messages.val(param, msg); //TODO
 		}
-			
-
-
 	));
-	
-	sc_param = SimpleController(param);
-	~init_controller.(sc_param, param_messages);
-	param.refresh.();
-
-	if(midi.notNil, {
-		sc_midi = SimpleController(midi);
-		~init_controller.(sc_midi, midi_messages);
-		midi.refresh.();
-	}, {
-		"midi is nil".debug;
-	});
-
-	"mais quoiiii".debug;
-
-	// remove func
-
-	row_layout.onClose = {
-		param.name.debug("=========== view closed");
-		sc_param.remove;
-		if(midi.notNil, { sc_midi.remove });
-	};
 
 };
 
@@ -820,6 +713,7 @@
 /////////////////////////////////////////////////////////////////////////
 
 ~midi_interface = (
+	// TODO: obsolete, ported to midi_center
 	next_free: (
 		slider: 0,
 		knob: 0
@@ -1033,99 +927,9 @@
 
 };
 
-~piano_recorder = { arg player;
-	var prec, livesynth = player.get_piano;
-	NoteOnResponder.removeAll;
-	NoteOffResponder.removeAll;
-
-	prec = (
-		nonr: nil,
-		noffr: nil,
-		track: List.new,
-		book: Dictionary.new,
-		livebook: Dictionary.new,
-		lastnote: nil,
-		recording: false,
-
-		start_recording: { arg self;
-			if(self.recording, {
-				"already recording!!!".debug;
-			}, {
-				self.recording = true;
-				self.track = List.new;
-				self.book = Dictionary.new;
-				self.livebook = Dictionary.new;
-				self.lastnote = nil;
-
-				self.nonr = NoteOnResponder { arg src, chan, num, veloc;
-					var note, firstnote;
-					var start_silence;
-
-					[TempoClock.beats, TempoClock.nextTimeOnGrid(EventPatternProxy.defaultQuant,0), EventPatternProxy.defaultQuant].debug("nc,tc,dq");
-					self.livebook[num] = livesynth.value(num.midicps, veloc/127);
-					
-					[src, chan, num, veloc].debug("note on");
-					note = (
-						midinote: num,
-						velocity: veloc,
-						curtime: TempoClock.beats - s.latency
-					);
-					if(self.lastnote.isNil, {
-						// first note
-						start_silence = note.curtime - (TempoClock.nextTimeOnGrid(EventPatternProxy.defaultQuant,0) - EventPatternProxy.defaultQuant);
-						firstnote = (
-							midinote: \rest,
-							velocity: 0,
-							sustain: 0.1,
-							start_silence: start_silence,
-							default_start_silence: start_silence,
-							start_offset: 0,
-							end_offset: 0,
-							dur: start_silence
-						);
-						if(firstnote.dur < 0, { "Negative dur!!".warning; firstnote.dur = 0; });
-						self.track.add(firstnote);
-					}, {
-						self.lastnote.dur = note.curtime - self.lastnote.curtime
-					});
-					self.book[num] = note;
-					self.lastnote = note;
-					self.track.add(note);
-					note.debug("nonr note");
-				};
-				self.noffr = NoteOffResponder { arg src, chan, num, veloc;
-					var note;
-					self.livebook[num].release;
-					note = self.book[num];
-					self.book.removeAt(num);
-					note.debug("noffr note");
-					self.book.debug("noffr book");
-					note.sustain = TempoClock.beats - s.latency - note.curtime;
-				};
-			})
-		},
-
-		stop_recording: { arg self;
-			if(self.recording, {
-				self.nonr.remove;
-				self.noffr.remove;
-				if(self.lastnote.notNil, {
-					self.lastnote.dur = ~rel_nextTimeOnGrid.(self.lastnote.curtime, EventPatternProxy.defaultQuant,0) - self.lastnote.curtime;
-					self.track[0].default_end_silence = self.lastnote.dur;
-					self.track[0].end_silence = self.lastnote.dur;
-				});
-				self.recording = false;
-			}, {
-				"already stoped!!!!".debug;
-			})
-		}
-
-
-	);
-	prec;
-
-};
 ~make_midi_kb_control = { arg player, editplayer;
+	// record cc change dynamicaly in param cells with piano record button
+	// TODO: obsolete, must recode, disabled
 	var nonr, noffr, param, destroy, rec, localknob;
 	
 	// init
@@ -1203,7 +1007,7 @@
 /////////		main
 /////////////////////////////////////////////////////////////////////////
 
-~make_editplayer_view = { arg parent, editplayer, player, param_order;
+~make_editplayer_view = { arg parent, main, editplayer, player, param_order;
 	var midi;
 	var width = 1300;
 	var height = 1300;
@@ -1215,14 +1019,15 @@
 	row_layout = GUI.vLayoutView.new(col_layout, Rect(0,0,width-200,height));
 	row_layout.background = ~editplayer_color_scheme.background;
 
+	debug("DEBIN make_editplayer_view");
 
 	ep_messages = Dictionary.newFrom((
 		paramlist: { arg self;
 			
-			~midi_interface.clear_assigned(\slider);
-			~midi_interface.clear_assigned(\knob);
+			//~midi_interface.clear_assigned(\slider);
+			//~midi_interface.clear_assigned(\knob);
 
-			CCResponder.removeAll; // FIXME: must not remove other useful CC
+			///CCResponder.removeAll; // FIXME: must not remove other useful CC
 
 			info_layout.removeAll;
 			row_layout.removeAll;
@@ -1233,62 +1038,42 @@
 				param_name.debug("creation");
 				case
 					{ [\adsr].includes(param_name) || param_name.asString.containsStringAt(0,"adsr_") } {
-						midi = ~midi_interface.assign_adsr(param);
-						param.midi = midi;
 						~make_env_control_view.(row_layout, player, editplayer.make_param_display(param), param);
 					}
 					{ param_name == \noteline } {
 						if(player.noteline, {
-							midi = ~piano_recorder.(player);
-							param.midi = midi;
+							//TODO: do it in editplayer.assign_midi
+							//midi = ~piano_recorder.(player);
+							//param.midi = midi;
 							~make_noteline_view.(row_layout, editplayer.make_param_display(param), param);
 						});
 					}
 					{ [\repeat].includes(param_name) } {
-						midi = nil;
-						param.midi = midi;
-						~make_simple_control_view.(info_layout, editplayer.make_param_display(param), param, midi);
+						~make_simple_control_view.(info_layout, editplayer.make_param_display(param), param);
 					}
 					{ [\dur].includes(param_name) } {
 						//if(player.noteline.not, {
-							midi = nil;
-							param.midi = midi;
-							~make_simple_control_view.(info_layout, editplayer.make_param_display(param), param, midi);
+							~make_simple_control_view.(info_layout, editplayer.make_param_display(param), param);
 						//})
 					}
 					{ [\bufnum].includes(param_name)|| param_name.asString.containsStringAt(0,"bufnum_") } {
-						midi = nil;
-						param.midi = midi;
-						~make_bufnum_view.(info_layout, editplayer.make_param_display(param), param, midi);
+						~make_bufnum_view.(info_layout, editplayer.make_param_display(param), param);
 					}
 					{ [\segdur, \stretchdur].includes(param_name) } {
 						//if(player.noteline, {
-							midi = nil;
-							param.midi = midi;
-							~make_simple_control_view.(info_layout, editplayer.make_param_display(param), param, midi);
+							~make_simple_control_view.(info_layout, editplayer.make_param_display(param), param);
 						//});
 					}
 					{ [\stepline].includes(param_name) } {
 						if(player.noteline.not, {
-							midi = nil;
-							param.midi = midi;
-							~make_control_view.(row_layout, editplayer.make_param_display(param), param, midi);
+							~make_control_view.(row_layout, editplayer.make_param_display(param), param);
 						});
 					}
 					{ [\legato, \amp, \pan, \attack, \release, \sustain].includes(param_name)} {
-						"argggg".debug;
-						midi = ~midi_interface.assign_first(\slider, param);
-						"argggg".debug;
-						param.midi = midi;
-						"argggg".debug;
-						~make_control_view.(info_layout, editplayer.make_param_display(param), param, midi);
-						"argggg".debug;
+						~make_control_view.(info_layout, editplayer.make_param_display(param), param);
 					}
 					{ true } {
-						//param.debug("C4ESTQUOILEBNPROGKF");
-						midi = ~midi_interface.assign_first(\knob, param);
-						param.midi = midi;
-						~make_control_view.(row_layout, editplayer.make_param_display(param), param, midi);
+						~make_control_view.(row_layout, editplayer.make_param_display(param), param);
 					};
 			};
 
@@ -1297,8 +1082,9 @@
 
 	sc_ep = SimpleController(editplayer);
 	~init_controller.(sc_ep, ep_messages);
-
+	debug("pourquoi il searreteee");
 	editplayer.refresh;
+	debug("2pourquoi il searreteee");
 
 	col_layout.onClose = {
 		sc_ep.remove;
@@ -1334,7 +1120,7 @@
 					player.get_bank;
 				},
 				selected: { arg self;
-					[param.name, player.get_selected_param].debug("il s'interroge");
+					[param.name, player.get_selected_param].debug("il s'interroge s'il est selectioné");
 					if( player.get_selected_param == param.name ) { 1 } { 0 }
 				},
 				max_cells: { arg self;
@@ -1359,6 +1145,7 @@
 		refresh: { arg self;
 			"BEGIN REFRESH".debug;
 			self.changed(\paramlist);
+			self.assign_midi;
 			main.set_window_title("editplayer: "++ player.name ++": bank" + player.get_bank);
 		},
 
@@ -1378,6 +1165,35 @@
 			} {
 				po;
 			}
+		},
+
+		assign_midi: { arg self;
+			var param;
+			main.midi_center.clear_assigned(\slider);
+			main.midi_center.clear_assigned(\knob);
+			self.get_paramlist.do { arg param_name;
+				param = player.get_arg(param_name);
+
+				case
+					{ [\adsr].includes(param_name) || param_name.asString.containsStringAt(0,"adsr_") } {
+						//TODO: working ?
+						main.midi_center.assign_adsr(param)
+					}
+					{ [\noteline, \stepline].includes(param_name) } {
+						//TODO
+						//midi = ~piano_recorder.(player);
+					}
+					{ self.model.param_field_group.includes(param_name) } {
+						// no midi
+					}
+					{ [\legato, \amp, \pan, \attack, \release, \sustain].includes(param_name)} {
+						main.midi_center.assign_first(\slider, param);
+					}
+					{ true } {
+						main.midi_center.assign_first(\knob, param);
+					};
+			};
+
 		},
 
 		get_param_offset: { arg self;
@@ -1417,7 +1233,10 @@
 						main.commands.enable_mode([\editplayer, \noteline]);
 					} {
 						main.commands.disable_mode([\editplayer, \noteline]);
-					}
+					};
+					if(param.classtype == \adsr) {
+						main.midi_center.assign_adsr(param);
+					};
 				}, {
 					idx.debug("selected param out of range");
 				});
@@ -1681,29 +1500,56 @@
 			main.commands.add_enable([\editplayer, \set_noteline_mode], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["n"]], {
 				player.set_noteline(true);
 				editplayer.controller.select_param(editplayer.get_param_offset);
-				editplayer.changed(\paramlist);
+				editplayer.refresh
 			});
 
 			main.commands.add_enable([\editplayer, \unset_noteline_mode], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["b"]], {
 				player.set_noteline(false);
 				editplayer.controller.select_param(editplayer.get_param_offset);
-				editplayer.changed(\paramlist);
+				editplayer.refresh
 			});
 			
 			//~prec = ~piano_recorder.value(player); // debile
 
-			main.commands.add_enable([\editplayer, \start_recording], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["r"]], {
+			////////////////// recording
+
+			editplayer.recorder = ~make_midi_recorder.(player);
+
+			main.commands.add_enable([\editplayer, \start_tempo_recording], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["r"]], {
+				var recorder = editplayer.recorder;
+				var noteline = player.get_arg(\noteline);
 				"STARTRECORD!!".debug; 
-				player.get_arg(\noteline).midi.start_recording.();
-				player.get_arg(\noteline).midi.changed(\recording); 
-				player.get_arg(\noteline).mute(true);
+				recorder.start_tempo_recording(2, TempoClock.tempo, false, { 
+					var sum = 0;
+
+					noteline.changed(\recording, false);
+					recorder.track.debug("66666666666666666666666666666- this is record!!!!");
+
+					recorder.track.do { arg no;
+						sum = sum + no.dur;
+					};
+					sum.debug("total sum");
+					noteline.set_notes(recorder.track);
+					noteline.mute(false);
+					noteline.changed(\notes);
+					player.play_node;
+				});
+				noteline.changed(\recording, true); 
+				noteline.mute(true);
 			});
+
+		//	main.commands.add_enable([\editplayer, \start_recording], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["r"]], {
+		//		"STARTRECORD!!".debug; 
+		//		player.get_arg(\noteline).midi.start_recording.();
+		//		player.get_arg(\noteline).midi.changed(\recording); 
+		//		player.get_arg(\noteline).mute(true);
+		//	});
 
 			main.commands.add_enable([\editplayer, \stop_recording], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["t"]], {
 				var sum = 0;
 				var midi = player.get_arg(\noteline).midi;
 				midi.stop_recording.();
-				midi.changed(\recording);
+				midi.changed(\recording, false);
 				midi.track.debug("66666666666666666666666666666- this is record!!!!");
 
 				midi.track.do { arg no;
@@ -1808,7 +1654,7 @@
 			// midi keys
 			"midi keys".debug;
 
-			~make_midi_kb_control.(player, editplayer);
+			//~make_midi_kb_control.(player, editplayer);
 
 			// change panel
 			"make_panel_shortcuts".debug;
@@ -1818,7 +1664,8 @@
 			// make view
 			"make view".debug;
 
-			~make_editplayer_view.(parent, editplayer, player, param_order);
+			editplayer.assign_midi;
+			~make_editplayer_view.(parent, main, editplayer, player, param_order);
 		}
 	);
 	ep.init(player, parent);
