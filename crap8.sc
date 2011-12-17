@@ -99,3 +99,41 @@ var sum = 0;
 b.do { arg x; sum = sum + x.dur };
 sum
 )
+
+
+(
+a = NoteOnResponder { arg src, chan, num, veloc;
+	[src, chan, num, veloc].debug("noteon");
+}
+
+)
+(
+b = NoteOffResponder { arg src, chan, num, veloc;
+	[src, chan, num, veloc].debug("noteoff");
+}
+)
+b.remove
+
+
+
+
+
+
+(
+
+a = (
+	y: 1,
+	bla: { arg self, x=7; self.y = self.y + 40; x.debug("blablalb"); }
+);
+b = (
+	parent: a,
+	y: 5,
+	bla: { arg self, x=2;
+		"niark".debug;
+		self.parent[\bla].(self, x);
+		self.y.debug("y");
+	}
+);
+b.bla
+
+)

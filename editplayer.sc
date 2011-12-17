@@ -196,7 +196,7 @@
 	txt_buf = GUI.staticText.new(row_layout, Rect(0,0,200,height));
 	txt_buf.string = "nil";
 
-	param_messages = Dictionary.newFrom((
+	~make_view_responder.(parent, param, (
 		selected: { arg self;
 			bt_name.value = display.selected;
 		},
@@ -207,19 +207,35 @@
 		}
 
 	));
+};
 
-	sc_param = SimpleController(param);
-	~init_controller.(sc_param, param_messages);
-	param.refresh.();
+~make_string_param_view = { arg parent, display, param;
+
+	var txt_buf, bt_name;
+	var param_messages, sc_param, 
+		width = 1088,
+		height = display.height;
+	var row_layout;
+
+	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+30),height));
+	row_layout.background = display.background_color;
 
 
-	// remove func
+	bt_name = ~make_name_button.(row_layout, display.name, xsize:display.name_width, ysize:height);
+	txt_buf = GUI.staticText.new(row_layout, Rect(0,0,200,height));
+	txt_buf.string = "nil";
 
-	row_layout.onClose = {
-		param.name.debug("=========== view closed");
-		sc_param.remove;
-	};
+	~make_view_responder.(parent, param, (
+		selected: { arg self;
+			bt_name.value = display.selected;
+		},
 
+		val: { arg self, msg, cellidx;
+			var newval;
+			txt_buf.string = param.get_val.asString;
+		}
+
+	));
 };
 
 
@@ -1041,7 +1057,7 @@
 						~make_env_control_view.(row_layout, player, editplayer.make_param_display(param), param);
 					}
 					{ param_name == \noteline } {
-						if(player.noteline, {
+						if(player.current_mode == \noteline, {
 							//TODO: do it in editplayer.assign_midi
 							//midi = ~piano_recorder.(player);
 							//param.midi = midi;
@@ -1050,6 +1066,9 @@
 					}
 					{ [\repeat].includes(param_name) } {
 						~make_simple_control_view.(info_layout, editplayer.make_param_display(param), param);
+					}
+					{ [\samplekit].includes(param_name) } {
+						~make_string_param_view.(info_layout, editplayer.make_param_display(param), param);
 					}
 					{ [\dur].includes(param_name) } {
 						//if(player.noteline.not, {
@@ -1065,8 +1084,13 @@
 						//});
 					}
 					{ [\stepline].includes(param_name) } {
-						if(player.noteline.not, {
+						if(player.current_mode == \stepline, {
 							~make_control_view.(row_layout, editplayer.make_param_display(param), param);
+						});
+					}
+					{ [\sampleline].includes(param_name) } {
+						if(player.current_mode == \sampleline, {
+							~make_noteline_view.(row_layout, editplayer.make_param_display(param), param);
 						});
 					}
 					{ [\legato, \amp, \pan, \attack, \release, \sustain].includes(param_name)} {
@@ -1093,18 +1117,28 @@
 };
 
 ~make_editplayer = { arg main, parent;
-	var ep, player;
+	var ep, player, param_types;
 	"============making editplayer".debug;
 	player = main.context.get_selected_node;
 	//player.debug("editplayer:player");
+	param_types = (
+				param_field_group: List[\dur, \segdur, \stretchdur, \repeat],
+				param_slider_group: List[\amp, \legato, \pan, \attack, \sustain, \release],
+				param_status_group: List[\amp, \dur, \segdur, \stretchdur, \repeat, \legato, \pan, \attack, \sustain, \release, \bufnum, \samplekit],
+				param_order: List[\stepline, \noteline, \sampleline, \adsr, \freq],
+				param_reject: [\out, \instrument, \type, \gate, \agate, \t_trig]
+	);
+	param_types.param_no_midi = param_types.param_field_group ++ [\bufnum, \samplekit];
 
 	ep = (
 		player: player,
+		param_types: param_types,
 		model: (
-				param_field_group: List[\dur, \segdur, \stretchdur, \repeat],
-				param_status_group: List[\amp, \dur, \segdur, \stretchdur, \repeat, \legato, \pan, \attack, \sustain, \release, \bufnum],
-				param_order: List[\stepline, \noteline, \adsr, \freq],
-				param_reject: [\out, \instrument, \type, \gate, \agate, \t_trig],
+				param_field_group: param_types.param_field_group,
+				param_status_group: param_types.param_status_group,
+				param_order: param_types.param_order,
+				param_reject: param_types.param_reject,
+				param_no_midi: param_types.param_no_midi,
 				max_cells: 8,
 				colselect_mode: true, // select whole column mode
 				selected_param: 0
@@ -1157,11 +1191,11 @@
 		get_paramlist: { arg self;
 			var po = self.model.param_order;
 			if( player.kind == \player ) {
-				if(player.noteline, {
-					po.reject({ arg x; [\stepline].includes(x) });
-				}, {
-					po.reject({ arg x; [\noteline].includes(x) });
-				});
+				switch(player.current_mode,
+					\sampleline, { po.reject({ arg x; [\noteline, \stepline].includes(x) }); },
+					\noteline, { po.reject({ arg x; [\stepline, \sampleline].includes(x) }); },
+					\stepline, { po.reject({ arg x; [\noteline, \sampleline].includes(x) }); }
+				);
 			} {
 				po;
 			}
@@ -1179,14 +1213,14 @@
 						//TODO: working ?
 						main.midi_center.assign_adsr(param)
 					}
-					{ [\noteline, \stepline].includes(param_name) } {
+					{ [\sampleline, \noteline, \stepline].includes(param_name) } {
 						//TODO
 						//midi = ~piano_recorder.(player);
 					}
-					{ self.model.param_field_group.includes(param_name) } {
+					{ self.model.param_no_midi.includes(param_name) } {
 						// no midi
 					}
-					{ [\legato, \amp, \pan, \attack, \release, \sustain].includes(param_name)} {
+					{ self.param_types.param_slider_group.includes(param_name)} {
 						main.midi_center.assign_first(\slider, param);
 					}
 					{ true } {
@@ -1198,11 +1232,7 @@
 
 		get_param_offset: { arg self;
 			if( player.kind == \player ) {
-				if(player.noteline, {
-					self.get_paramlist.indexOf(\noteline);
-				},{
-					self.get_paramlist.indexOf(\stepline);
-				});
+				self.get_paramlist.indexOf(player.current_mode);
 			} {
 				0
 			}
@@ -1495,16 +1525,23 @@
 				editplayer.controller.change_kind(\seg)
 			});
 
-			// noteline
+			// player mode selection
+			"editplayer shorcut 1".debug;
 
 			main.commands.add_enable([\editplayer, \set_noteline_mode], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["n"]], {
-				player.set_noteline(true);
+				player.set_mode(\noteline);
 				editplayer.controller.select_param(editplayer.get_param_offset);
 				editplayer.refresh
 			});
 
-			main.commands.add_enable([\editplayer, \unset_noteline_mode], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["b"]], {
-				player.set_noteline(false);
+			main.commands.add_enable([\editplayer, \set_stepline_mode], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["b"]], {
+				player.set_mode(\stepline);
+				editplayer.controller.select_param(editplayer.get_param_offset);
+				editplayer.refresh
+			});
+
+			main.commands.add_enable([\editplayer, \set_sampleline_mode], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["m"]], {
+				player.set_mode(\sampleline);
 				editplayer.controller.select_param(editplayer.get_param_offset);
 				editplayer.refresh
 			});
@@ -1517,25 +1554,31 @@
 
 			main.commands.add_enable([\editplayer, \start_tempo_recording], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["r"]], {
 				var recorder = editplayer.recorder;
-				var noteline = player.get_arg(\noteline);
+				var nline = if(player.get_mode == \sampleline) {
+					player.get_arg(\sampleline);
+				} {
+					player.get_arg(\noteline);
+				};
 				"STARTRECORD!!".debug; 
+				player.current_mode.debug("player.current_mode");
+				nline.name.debug("nline.name");
 				recorder.start_tempo_recording(2, TempoClock.tempo, false, { 
 					var sum = 0;
 
-					noteline.changed(\recording, false);
+					nline.changed(\recording, false);
 					recorder.track.debug("66666666666666666666666666666- this is record!!!!");
 
 					recorder.track.do { arg no;
 						sum = sum + no.dur;
 					};
 					sum.debug("total sum");
-					noteline.set_notes(recorder.track);
-					noteline.mute(false);
-					noteline.changed(\notes);
+					nline.set_notes(recorder.track);
+					nline.mute(false);
+					nline.changed(\notes);
 					player.play_node;
 				});
-				noteline.changed(\recording, true); 
-				noteline.mute(true);
+				nline.changed(\recording, true); 
+				nline.mute(true);
 			});
 
 		//	main.commands.add_enable([\editplayer, \start_recording], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["r"]], {
@@ -1563,12 +1606,15 @@
 
 			main.commands.add_enable([\editplayer, \set_notequant], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["q"]], { 
 				var delta;
-				var param = player.get_arg(\noteline);
-				delta = player.get_arg(\dur).get_val;
-				if(param.notequant.isNil) {
-					param.set_notequant(delta)
-				} {
-					param.set_notequant(nil)
+				var param;
+				if([\sampleline, \noteline].includes(player.get_mode)) {
+					param = player.get_arg(player.get_mode);
+					delta = player.get_arg(\dur).get_val;
+					if(param.notequant.isNil) {
+						param.set_notequant(delta)
+					} {
+						param.set_notequant(nil)
+					}
 				}
 			});
 
@@ -1577,6 +1623,7 @@
 			main.commands.add_enable([\editplayer, \edit_wrapper], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["w"]], { player.edit_wrapper });
 
 			// noteline
+			"editplayer shorcut 2".debug;
 			
 			noteline = player.get_arg(\noteline);
 			if( noteline.notNil ) {
@@ -1663,6 +1710,7 @@
 
 			// make view
 			"make view".debug;
+
 
 			editplayer.assign_midi;
 			~make_editplayer_view.(parent, main, editplayer, player, param_order);

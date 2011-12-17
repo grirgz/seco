@@ -199,7 +199,7 @@
 };
 
 ~make_midi_recorder = { arg player;
-	var prec, livesynth = player.get_piano;
+	var prec, livesynth;
 	NoteOnResponder.removeAll;
 	NoteOffResponder.removeAll;
 
@@ -250,6 +250,7 @@
 			if(self.recording, {
 				"already recording!!!".debug;
 			}, {
+				livesynth = player.get_piano;
 				self.tclock.debug("lecture de cette foutue horloge");
 				record_start_time = self.tclock.beats;
 				record_start_time.debug("NOW: should be 4 beats");
@@ -263,9 +264,16 @@
 				self.nonr = NoteOnResponder { arg src, chan, num, veloc;
 					var note, firstnote;
 					var start_silence;
+					var slotnum = nil;
 
 					//[TempoClock.beats, TempoClock.nextTimeOnGrid(EventPatternProxy.defaultQuant,0), EventPatternProxy.defaultQuant].debug("nc,tc,dq");
-					self.livebook[num] = livesynth.value(num.midicps, veloc/127);
+					if(chan == 9) {
+						// pad button pressed
+						slotnum = ~samplekit_manager.midinote_to_slot(num);
+						self.livebook[[chan, num]] = livesynth.value(slotnum, veloc/127);
+					} {
+						self.livebook[[chan, num]] = livesynth.value(num.midicps, veloc/127);
+					};
 					
 					[src, chan, num, veloc].debug("note on");
 					note = (
@@ -273,12 +281,15 @@
 						velocity: veloc,
 						curtime: self.tclock.beats - s.latency
 					);
+					if(slotnum.notNil) { note.slotnum = slotnum };
+
 					if(self.lastnote.isNil, {
 						// first note
 						start_silence = self.tclock.beats - s.latency - record_start_time;
 						if(start_silence < 0, { "Negative dur!!".warning; start_silence = 0; });
 						firstnote = (
 							midinote: \rest,
+							slotnum: \rest,
 							velocity: 0,
 							sustain: 0.1,
 							start_silence: start_silence,
@@ -298,7 +309,7 @@
 				};
 				self.noffr = NoteOffResponder { arg src, chan, num, veloc;
 					var note;
-					self.livebook[num].release;
+					self.livebook[[chan,num]].release;
 					note = self.book[num];
 					self.book.removeAt(num);
 					note.debug("noffr note");
@@ -331,6 +342,7 @@
 			if(self.recording, {
 				"already recording!!!".debug;
 			}, {
+				livesynth = player.get_piano;
 				self.recording = true;
 				self.track = List.new;
 				self.book = Dictionary.new;

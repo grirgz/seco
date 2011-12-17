@@ -106,6 +106,7 @@
 	"synth",
 	"keycode", 
 	"midi",
+	"samplelib",
 	"player",
 	"matrix",
 	"hmatrix",

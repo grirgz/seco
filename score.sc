@@ -225,11 +225,7 @@
 							//node.debug("get_paramlist:node");
 							node = main.get_node(nodename);
 							if(node.kind == \player) {
-								if( node.noteline == true, {
-									list.add(node -> node.get_arg(\noteline));
-								},{
-									list.add(node -> node.get_arg(\stepline));
-								});
+								list.add(node -> node.get_arg(node.get_mode));
 							}
 						});
 					};
@@ -292,12 +288,12 @@
 			main.commands.array_add_enable([\score, \select_param], [\kb, ~keycode.mod.alt], ~keycode.kbnumline, { arg i; self.select_param(i) });
 
 			main.commands.add_enable([\score, \set_noteline_mode], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["n"]], {
-				self.get_selected_player.set_noteline(true);
+				self.get_selected_player.set_mode(\noteline);
 				self.changed(\paramlist);
 			});
 
-			main.commands.add_enable([\score, \unset_noteline_mode], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["b"]], {
-				self.get_selected_player.set_noteline(false);
+			main.commands.add_enable([\score, \set_stepline_mode], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["b"]], {
+				self.get_selected_player.set_mode(\stepline);
 				self.changed(\paramlist);
 			});
 
