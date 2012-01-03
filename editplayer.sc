@@ -18,1006 +18,7 @@
 };
 
 
-~make_name_button = { arg parent, label, xsize=50, ysize=50;
-	var bt;
-	bt = GUI.button.new(parent, Rect(50,50,xsize,ysize));
-	bt.states = [
-		[ label, Color.black, Color.white],
-		[ label, Color.white, Color.black ],
-	];
-	bt.value = 0;
-	bt;
-};
 
-~make_step_button = { arg parent, label;
-	var bt;
-	bt = GUI.button.new(parent, Rect(50,50,60,50));
-	bt.states = [
-		[ label, Color.black, Color.white],
-		[ label, Color.white, Color.black ],
-	];
-	bt.value = 0;
-	bt;
-};
-
-~make_states = { arg label;
-	var la = label.asFloat.asStringPrec(6);
-	[
-		[ la, Color.black, Color.white],
-		[ la, Color.white, Color.black ],
-	];
-};
-
-~make_val_button = { arg parent, label, width=60, height=50;
-	var bt;
-	bt = GUI.button.new(parent, Rect(0,0,width,height));
-	bt.states = ~make_states.(label);
-	bt.value = 0;
-	bt;
-};
-
-~change_button_label = { arg button, label;
-	var oldval = button.value;
-	button.states = ~make_states.(label);
-	button.value = oldval;
-	button.refresh;
-	//"boutton changed".debug;
-};
-
-
-
-~pretty_print_freq = { arg freq;
-	// learn midi frequencies, lazy you!
-	freq;
-};
-
-/////////////////////////////////////////////////////////////////////////
-/////////		Control views
-/////////////////////////////////////////////////////////////////////////
-
-~make_env_view = { arg parent, default_val;
-	var env, view;
-
-	env = EnvelopeView(parent, Rect(0, 0, 230, 80))
-        .drawLines_(true)
-        .selectionColor_(Color.red)
-        .drawRects_(true)
-        .resize_(5)
-        .step_(0.05)
-        .thumbSize_(5);
-
-	view = (
-		env_view: env,
-		set_env: { arg self, env_val;
-			env.setEnv( ~adsr_event_to_env.(env_val) )
-		}
-	);
-
-	view.set_env(default_val);
-	view;
-
-};
-
-~make_env_control_view = { arg parent, player, display, param;
-
-	var row_layout,
-		bt_name,
-		bloc,
-		row_midi,
-		row_val,
-		txt_midi = Dictionary.new,
-		txt_val = Dictionary.new,
-		row_env,
-		env_cell,
-		width = 1200;
-	var param_messages, midi_messages, sc_midi, sc_param;
-	var midi = param.midi;
-
-
-
-	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+10),60));
-	row_layout.background = ~editplayer_color_scheme.background;
-
-
-	bt_name = ~make_name_button.(row_layout, param.name);
-
-	bloc = GUI.vLayoutView.new(row_layout, Rect(0,0,300,60));
-	row_midi = GUI.hLayoutView.new(bloc, Rect(0,0,300,30));
-	row_val = GUI.hLayoutView.new(bloc, Rect(0,0,300,30));
-
-
-	~adsr_point_order.do { arg k;
-		k.debug("creating adsr node");
-		txt_midi[k] = GUI.staticText.new(row_midi, Rect(0,0,50,30));
-		txt_val[k] = GUI.staticText.new(row_val, Rect(0,0,50,30));
-	};
-
-	row_env = GUI.hLayoutView.new(row_layout, Rect(0,0,200,60));
-
-	env_cell = ~make_env_view.(row_env, ~default_adsr);
-
-	param.name.debug("make_env_control_view: param");
-
-	~make_view_responder.(parent, param, (
-		selected: { arg self;
-			display.selected.debug("env view selected");
-			bt_name.value = display.selected;
-		},
-		val: { arg self, msg, cellidx;
-			var newval;
-			newval = self.get_val;
-			//newval.debug("newval==============");
-			//self.val.debug("val==============");
-			//self.debug("self==============");
-			newval.keysValuesDo { arg k, v;
-				txt_val[k].string = v;
-			};
-			env_cell.set_env(newval);
-		},
-
-		cells: { arg self; 
-		},
-
-		kind: { arg self;
-		}
-	));
-
-	~adsr_point_order.do { arg key;
-		~make_view_responder.(parent, param.get_param(key), (
-			val: { arg self, msg, cellidx;
-				var newval;
-				txt_val[key].string = self.get_val;
-				env_cell.set_env(param.get_val);
-			},
-			midi_val: { arg self, msg, val;
-				[self.name, msg, val].debug("make_env_control_view: midi_val");
-				txt_midi[key].string = val;
-			},
-			blocked: { arg self, msg, blocked;
-				txt_midi[key].background = if(blocked.not, { Color.clear }, { ~editplayer_color_scheme.led });
-			}
-		))
-	};
-};
-
-~make_bufnum_view = { arg parent, display, param;
-
-	var txt_buf, bt_name;
-	var param_messages, sc_param, 
-		width = 1088,
-		height = display.height;
-	var row_layout;
-
-	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+30),height));
-	row_layout.background = display.background_color;
-
-
-	bt_name = ~make_name_button.(row_layout, display.name, xsize:display.name_width, ysize:height);
-	txt_buf = GUI.staticText.new(row_layout, Rect(0,0,200,height));
-	txt_buf.string = "nil";
-
-	~make_view_responder.(parent, param, (
-		selected: { arg self;
-			bt_name.value = display.selected;
-		},
-
-		val: { arg self, msg, cellidx;
-			var newval;
-			txt_buf.string = PathName.new(param.get_val).fileName;
-		}
-
-	));
-};
-
-~make_string_param_view = { arg parent, display, param;
-
-	var txt_buf, bt_name;
-	var param_messages, sc_param, 
-		width = 1088,
-		height = display.height;
-	var row_layout;
-
-	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+30),height));
-	row_layout.background = display.background_color;
-
-
-	bt_name = ~make_name_button.(row_layout, display.name, xsize:display.name_width, ysize:height);
-	txt_buf = GUI.staticText.new(row_layout, Rect(0,0,200,height));
-	txt_buf.string = "nil";
-
-	~make_view_responder.(parent, param, (
-		selected: { arg self;
-			bt_name.value = display.selected;
-		},
-
-		val: { arg self, msg, cellidx;
-			var newval;
-			txt_buf.string = param.get_val.asString;
-		}
-
-	));
-};
-
-
-~make_noteline_view = { arg parent, display, param;
-
-	var row_layout,
-		bt_name,
-		bloc,
-		row_midi,
-		row_val,
-		txt_midi = Dictionary.new,
-		txt_val = Dictionary.new,
-		txt_rec,
-		row_env,
-		env_cell,
-		width = 900,
-		height = 60,
-		beats = 8,
-		paraspace;
-	var param_messages, midi_messages, sc_midi, sc_param;
-	var midi = param.midi;
-	var ps_bg_drawf;
-
-
-
-	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+30),height));
-	row_layout.background = ~editplayer_color_scheme.background;
-
-
-	bt_name = ~make_name_button.(row_layout, display.name, xsize:display.name_width, ysize:height);
-	txt_rec = GUI.staticText.new(row_layout, Rect(0,0,30,height));
-	txt_rec.string = "Stop";
-
-
-	paraspace = ParaSpace.new(row_layout, bounds: Rect(15, 15, width, height));
-
-	ps_bg_drawf = { arg wid, he, dur, numsep;
-		var vdur = dur - param.get_start_silence - param.get_end_silence;
-		var sepsize = wid/numsep;
-		var xcursor = 0;
-		{
-			//Pen.color = Color.gray(0.7);
-			//Pen.addRect(Rect(param.get_start_silence*sepsize,0,(dur+eoff)*sepsize,he));
-
-			xcursor = 0;
-			Pen.color = Color.gray(0.2);
-			Pen.addRect(Rect(0,0,param.get_start_silence*sepsize,he));
-			Pen.fill;
-
-			xcursor = param.get_start_silence*sepsize;
-			Pen.color = Color.blue(1);
-			Pen.addRect(Rect(xcursor,0,(vdur*sepsize),he));
-			Pen.fill;
-
-			xcursor = xcursor + (vdur*sepsize);
-			Pen.color = Color.gray(0.2);
-			Pen.addRect(Rect(xcursor,0,(param.get_end_silence*sepsize),he));
-			Pen.fill;
-
-			Pen.beginPath;
-			Pen.color = Color.black;
-			numsep.do{|i|
-					Pen.line((i*sepsize)@0, (i*sepsize)@(he+10));
-			};
-			Pen.stroke;
-
-			Pen.beginPath;
-			Pen.color = Color.blue;
-			(numsep/4).do{|i|
-					Pen.line((i*sepsize*4)@0, (i*sepsize*4)@(he+10));
-			};
-			Pen.stroke;
-
-			Pen.color = Color.black;
-			(numsep/8).do{|i|
-					Pen.line((i*sepsize*8+1)@0, (i*sepsize*8+1)@(he+10));
-			};
-			Pen.stroke;
-		}
-	};
-
-	//paraspace.setBackgrDrawFunc_(ps_bg_drawf.(width, height, 8));
-
-	~make_view_responder.(parent, param, (
-		selected: { arg self;
-			bt_name.value = display.selected;
-		},
-		notes: { arg self;
-
-			var totaldur = 0, minnote=127, maxnote=0;
-			var numsep;
-			var soff = param.get_start_silence;
-			var eoff = param.get_end_silence;
-			var sum = 0;
-			var notes = self.get_notes;
-			//var playeddur = self.total_dur( notes[1..(notes.lastIndex-1)] ) + (notes[0].dur - param.get_start_silence);
-			var playeddur = self.total_dur( notes );
-			playeddur.debug("playeddur");
-			
-
-			paraspace.clearSpace;
-			self.get_notes.do { arg no, idx;
-				[idx, no].debug("calcul totaldur: note");
-				if(no.midinote.isSymbol.not, {
-					minnote = min(no.midinote, minnote);
-					maxnote = max(no.midinote, maxnote);
-				});
-				totaldur = no.dur + totaldur
-			};
-
-			[totaldur, minnote, maxnote].debug("stat");
-
-			numsep = display.noteline_numbeats ?? max(roundUp(totaldur+1),5); // one sep per beat + offset + marge
-			
-			paraspace.setBackgrDrawFunc_(ps_bg_drawf.(width, height, playeddur, numsep));
-
-			self.get_notes.do { arg no, idx;
-				[idx, no].debug("note");
-				if(no.midinote.isSymbol.not, {
-					paraspace.createNode(sum/numsep * width, no.midinote.linlin(minnote-1,maxnote+1,height,0));
-				});
-				if(self.notequant.notNil) {
-					sum = sum + no.dur.round(self.notequant);
-				} {
-					sum = sum + no.dur;
-				}
-			};
-		},
-
-		recording: { arg self, msg, recording;
-			if( recording, {
-				txt_rec.string = "Rec";
-				txt_rec.background = ~editplayer_color_scheme.led;
-			}, {
-				txt_rec.string = "Stop";
-				txt_rec.background = Color.clear;
-			});
-		}
-
-	));
-};
-
-
-~make_control_view = { arg parent, display, param, param_name=nil, btnamesize=50;
-	var param_messages,
-		midi_messages,
-		row_layout,
-		bloc,
-		midibloc,
-		btl_cells,
-		bt_name,
-		slider,
-		new_cell,
-		width = 1200,
-		height = 30;
-	var txt_midi_label, txt_midi_val;
-	var sc_param, sc_midi;
-	var max_cells = display.max_cells; // FIXME: already defined in editplayer
-	var inrange;
-
-	"mais quoiiii".debug;
-
-	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+10),height));
-	row_layout.background = ~editplayer_color_scheme.control;
-
-	bt_name = ~make_name_button.(row_layout, display.name, display.name_width ?? btnamesize, height);
-
-	if(display.show_midibloc, {
-		midibloc = GUI.hLayoutView.new(row_layout, Rect(0,0,150,height));
-		txt_midi_label = GUI.staticText.new(midibloc, Rect(0,0,15,height));
-		txt_midi_val = GUI.staticText.new(midibloc, Rect(0,0,75,height));
-
-		slider = GUI.slider.new(midibloc, Rect(0,0,30,height));
-	},{
-		// spacer
-		txt_midi_val = GUI.staticText.new(row_layout, Rect(0,0,30,height));
-	});
-
-	btl_cells = GUI.hLayoutView.new(row_layout, Rect(0,0,width,height));
-
-	"mais quoiiii".debug;
-
-	inrange = { arg sel=nil;
-		var start;
-		start = max_cells * display.get_bank.();
-		sel = sel ?? display.get_selected_cell;
-		start.debug("inrange====");
-		sel.debug("inrange");
-		(sel >= start && (sel < (start+max_cells))).debug("inrange");
-		(sel >= start && (sel < (start+max_cells)))
-	};
-
-	~make_view_responder.(parent, param, (
-		selected: { arg self;
-			bt_name.value = display.selected;
-		},
-
-		selected_cell: { arg self, msg, oldsel;
-			
-			oldsel.debug("selected cell oldsel");
-			display.name.debug("selected_cell display name");
-			if(oldsel.notNil && inrange.(oldsel), {
-				if( btl_cells.children.size > 0 ) {
-					btl_cells.children.wrapAt( oldsel % max_cells ).value = 0;
-				};
-			});
-			if(inrange.(), {
-				display.get_selected_cell.debug("selected_cell sel");
-				if( btl_cells.children.size > 0 ) {
-					btl_cells.children.wrapAt( display.get_selected_cell % max_cells).value = 1;
-				}
-			});
-		},
-
-		val: { arg self, msg, cellidx;
-			var newval;
-			cellidx.debug("val handler: cellidx");
-			self.get_cells[cellidx].debug("val handler: cellidx value");
-			newval = self.get_cells[cellidx];
-			if(btl_cells.children.size > 0) {
-				~change_button_label.(btl_cells.children.wrapAt( cellidx % max_cells ), newval);
-			};
-			//self.debug("val changed");
-			if(self.classtype == \stepline, { 
-				if(btl_cells.children.size > 0) {
-					btl_cells.children.wrapAt( cellidx % max_cells ).value = newval
-				}
-			},{
-				if(slider.notNil, {
-					slider.value = self.spec.unmap(newval);
-				});
-			});
-			//btl_cells.children[ cellidx ].states.debug("======heeeeerreeeee");
-			//btl_cells.children[ cellidx ] = newval;
-		},
-
-		cells: { arg self; 
-			var cells, bank, start, range, sel;
-			"cells removeAll===================".debug;
-			btl_cells.removeAll;
-			"END cells removeAll===================".debug;
-
-			bank = display.get_bank.();
-
-			if(self.current_kind == \seg) {
-				row_layout.background = ~color_scheme.control2;
-			} {
-				row_layout.background = ~color_scheme.control;
-			};
-
-			cells = self.get_cells.();
-			cells.debug("cellls============from "++display.name);
-			start = max_cells * bank;
-			range = (start..((start+max_cells)-1));
-			range.debug("cells");
-			cells[ start..((start+max_cells)-1) ].debug("cells");
-			cells[ start..((start+max_cells)-1) ].do { arg cell, i;
-				~make_val_button.(btl_cells, cell, width:display.cell_width??60, height:height);
-				if(self.classtype== \stepline, {
-					btl_cells.children[i].value = cell
-				});
-			};
-			if(self.classtype == \control, {
-				if(btl_cells.children.size > 0) {
-					sel = display.get_selected_cell;
-					if( sel >= start && (sel < (start+max_cells)), {
-						sel.debug("selected cell");
-						btl_cells.children.wrapAt( sel % max_cells ).debug("wrapat");
-						btl_cells.children.wrapAt( sel % max_cells ).value = 1;
-					})
-				}
-			})
-		},
-
-		kind: { arg self;
-			self.current_kind.debug("make_control_view changed kind");
-			self.get_cells.debug("make_control_view.kind get_cells");
-			self.changed(\cells);	
-		},
-
-		label: { arg self;
-			txt_midi_label.string = self.midi.label;
-		},
-		midi_val: { arg self, msg, val;
-			txt_midi_val.string = val;
-		},
-		blocked: { arg self, msg, blocked;
-			txt_midi_val.background = if(blocked.not, { Color.green }, { ~editplayer_color_scheme.led });
-		},
-		recording: { arg self, msg, recording;
-			txt_midi_label.background = if(recording, { ~editplayer_color_scheme.led }, { Color.clear });
-		},
-		midi_key: { arg self, msg, key;
-			param_messages.val(param, msg); //TODO
-		}
-	));
-};
-
-~make_simple_control_view = { arg parent, display, param;
-	var width = display.width;
-	var height = display.height;
-	var param_messages, sc_param;
-	var bt_name, row_layout, txtval;
-
-	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+10),height));
-	row_layout.background = ~editplayer_color_scheme.control;
-
-	bt_name = ~make_name_button.(row_layout, display.name, display.name_width, height);
-
-	txtval = StaticText.new(row_layout, Rect(15,0,width, height));
-
-	~make_view_responder.(parent, param, (
-		selected: { arg self;
-			bt_name.value = display.selected;
-		},
-		selected_cell: { arg self;
-			param.changed(\cells);
-		},
-
-		cells: { arg self, msg, cellidx;
-
-			param.get_val.debug("simplecontrol val");
-			~seq.debugme2 = param;
-			txtval.string = param.get_val;
-		}
-
-	));
-};
-
-// only used in score.sc for the moment, editplayer use make_control_view
-~make_stepline_view = { arg parent, display, param;
-	var param_messages,
-		midi_messages,
-		row_layout,
-		bloc,
-		midibloc,
-		btl_cells,
-		bt_name,
-		slider,
-		new_cell,
-		width = 1200,
-		height = 30;
-	var txt_midi_label, txt_midi_val;
-	var sc_param, sc_midi;
-	var max_cells = display.max_cells; // FIXME: already defined in editplayer
-	var inrange;
-
-	~make_step_cell = { arg parent, label, width, height;
-		var lb;
-		lb = StaticText.new(parent, width@height);
-		if(label % 8 == 0, {
-			lb.string = (label / 8)+1;
-		}, {
-			lb.string = "";	
-		});
-		lb.align = \center;
-		//lb.stringColor = ~editplayer_color_scheme.control;
-		lb.stringColor = Color.white;
-		lb;
-	};
-	~set_step_state = { arg cell, state;
-		if(state == 1, { 
-			cell.background = Color.black;
-		}, {
-			cell.background = Color.grey;
-		})
-	};
-
-	"mais quoiiii".debug;
-
-	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+10),height));
-	row_layout.background = ~editplayer_color_scheme.control;
-
-	bt_name = ~make_name_button.(row_layout, display.name, display.name_width, height);
-
-	if(display.show_midibloc, {
-		midibloc = GUI.hLayoutView.new(row_layout, Rect(0,0,150,height));
-		txt_midi_label = GUI.staticText.new(midibloc, Rect(0,0,15,height));
-		txt_midi_val = GUI.staticText.new(midibloc, Rect(0,0,75,height));
-
-		slider = GUI.slider.new(midibloc, Rect(0,0,30,height));
-	},{
-		// spacer
-		txt_midi_val = GUI.staticText.new(row_layout, Rect(0,0,30,height));
-	});
-
-	btl_cells = GUI.hLayoutView.new(row_layout, Rect(0,0,width,height));
-
-	"mais quoiiii".debug;
-
-	inrange = { arg sel=nil;
-		var start;
-		start = max_cells * display.get_player_bank.();
-		sel = sel ?? display.get_selected_cell;
-		start.debug("inrange====");
-		sel.debug("inrange");
-		(sel >= start && (sel < (start+max_cells))).debug("inrange");
-		(sel >= start && (sel < (start+max_cells)))
-	};
-
-	~make_view_responder.(parent, param, (
-		selected: { arg self;
-			bt_name.value = display.selected;
-		},
-
-		selected_cell: { arg self, msg, oldsel;
-			
-			oldsel.debug("selected cell oldsel");
-			display.name.debug("selected_cell display name");
-			if(oldsel.notNil && inrange.(oldsel), {
-				~set_step_state.(btl_cells.children[ oldsel % max_cells ], 0);
-			});
-			if(inrange.(), {
-				~set_step_state.(btl_cells.children[ display.get_selected_cell % max_cells ], 1);
-			});
-		},
-
-		val: { arg self, msg, cellidx;
-			var newval;
-			cellidx.debug("val handler: cellidx");
-			self.get_cells[cellidx].debug("val handler: cellidx value");
-			newval = self.get_cells[cellidx];
-			~set_step_state.(btl_cells.children[ cellidx % max_cells ], newval);
-			//self.debug("val changed");
-			if(self.classtype == \stepline, { 
-				~set_step_state.(btl_cells.children[ cellidx % max_cells ], newval);
-			},{
-				if(slider.nolNil, {
-					slider.value = self.spec.unmap(newval);
-				});
-			});
-			//btl_cells.children[ cellidx ].states.debug("======heeeeerreeeee");
-			//btl_cells.children[ cellidx ] = newval;
-		},
-
-		cells: { arg self; 
-			var cells, bank, start, range, sel;
-			"cells removeAll===================".debug;
-			btl_cells.removeAll;
-			"END cells removeAll===================".debug;
-
-			bank = display.get_player_bank.();
-
-			cells = self.get_cells.();
-			cells.debug("cellls============");
-			start = max_cells * bank;
-			range = (start..((start+max_cells)-1));
-			range.debug("cells");
-			cells[ start..((start+max_cells)-1) ].debug("cells");
-			cells[ start..((start+max_cells)-1) ].do { arg cell, i;
-				~make_step_cell.(btl_cells, start+i, width:display.cell_width??60, height:height);
-				if(self.classtype== \stepline, {
-					~set_step_state.(btl_cells.children[i], cell);
-				});
-			};
-			if(self.classtype == \control, {
-				sel = display.get_selected_cell;
-				if( sel >= start && (sel < (start+max_cells)), {
-					~set_step_state.(btl_cells.children[ sel % max_cells ], 1);
-				})
-			})
-		},
-
-		kind: { arg self;
-			self.current_kind.debug("make_control_view changed kind");
-			self.get_cells.debug("make_control_view.kind get_cells");
-			self.changed(\cells);	
-		},
-
-		label: { arg self;
-			txt_midi_label.string = self.midi.label;
-		},
-		midi_val: { arg self, msg, val;
-			txt_midi_val.string = val;
-		},
-		blocked: { arg self, msg, blocked;
-			txt_midi_val.background = if(blocked.not, { Color.green }, { ~editplayer_color_scheme.led });
-		},
-		recording: { arg self, msg, recording;
-			txt_midi_label.background = if(recording, { ~editplayer_color_scheme.led }, { Color.clear });
-		},
-		midi_key: { arg self, msg, key;
-			param_messages.val(param, msg); //TODO
-		}
-	));
-
-};
-
-/////////////////////////////////////////////////////////////////////////
-/////////		MIDI
-/////////////////////////////////////////////////////////////////////////
-
-~midi_interface = (
-	// TODO: obsolete, ported to midi_center
-	next_free: (
-		slider: 0,
-		knob: 0
-	),
-	registry: List[],
-
-	cc_val: Dictionary[
-		[\slider, 0] -> 0
-
-	],
-
-	assign_adsr: { arg self, param;
-		var col = Dictionary.new;
-		var mc = ();
-		~adsr_point_order.do { arg key, i;
-			col[key] = ~make_midi_control.([\slider, i+4], self.cc_val, param.get_param(key))
-		};
-		mc.col = col;
-		mc.kind = \adsr;
-		mc.destroy = { arg self; self.col.do(_.destroy) };
-		self.registry.add( mc );
-		mc;
-	},
-
-	assign_master: { arg self, param;
-		var mc;
-		mc = ~make_midi_control.([\slider, 8], self.cc_val, param);
-		self.registry.add( mc );
-		mc;
-	},
-
-	assign_first: { arg self, kind, param;
-		var mc;
-		mc = ~make_midi_control.([kind, self.next_free[kind]], self.cc_val, param);
-		self.registry.add( mc );
-		// FIXME: set max free val (adsr hold the last sliders)
-		self.next_free[kind] = self.next_free[kind] + 1;
-		mc;
-	},
-
-	clear_assigned: { arg self, kind;
-		self.next_free[kind] = 0;
-		self.registry.copy.do { arg mc;
-			// FIXME: what is this kind member ?
-			if(mc.kind == kind, {
-				mc.destroy;
-				self.registry.remove(mc);
-			});
-		};
-	}
-
-);
-
-
-~make_midi_control = { arg ccid, cc_val, param; 
-	// param interface:
-	// - classtype
-	// - get_norm_val
-	// - set_norm_val
-	// - selected
-	// - spec
-	var midi;
-	var sc_param;
-	var get_midi_val = { cc_val[ccid] ?? 0.5};
-	var param_val = { param.get_norm_val };
-
-	//param.debug("make_midi_control param");
-
-	midi = (
-		blocked: \not,
-		ccid: nil,
-		midi_val: get_midi_val.(),
-		label: \void,
-		name: param.name,
-		recording: false,
-		mapped_val: { arg self;
-			param.spec.map(get_midi_val.())
-		},
-
-		refresh: { arg self;
-			self.changed(\label);
-			self.changed(\blocked);
-			self.changed(\midi_val);
-		},
-
-		set_value: { arg self, cc_value;
-			cc_val[ccid] = cc_value;
-			self.midi_val = cc_value;
-			self.changed(\midi_val);
-
-			if(self.recording.not, {
-				if(ccid.notNil, {
-					self.unblock_do({
-						param.set_norm_val(cc_value);
-					});
-				}, {
-					param.set_norm_val(cc_value);
-				});
-			});
-		},
-
-		set_midi_value: { arg self, cc_value;
-			cc_val[ccid] = cc_value;	
-			self.midi_val = cc_value;
-			self.block;
-			self.changed(\midi_val);
-		},
-
-		get_midi_val: { arg self; get_midi_val.() },
-
-		unblock_do: { arg self, fun;
-			var cc_value, param_value;
-
-		
-			//param.debug("make_midi_control.unblock_do param");
-			cc_value = get_midi_val.();
-			param_value = param.get_norm_val.();
-			param.name.debug("midi unblock param name");
-			param_value.debug("midi unblock param value");
-
-			switch(self.blocked,
-				\not, fun,
-				\sup, {
-					if( cc_value <= param_value , {
-						self.blocked = \not;
-						self.changed(\blocked);
-						fun.value;
-					});
-				},
-				\inf, {
-					if( cc_value >= param_value , {
-						self.blocked = \not;
-						self.changed(\blocked);
-						fun.value;
-					});
-				}
-			);
-
-		},
-		
-		block: { arg self;
-			var cc_value, param_value;
-
-			cc_value = get_midi_val.();
-			param_value = param.get_norm_val.();
-			//param.name.debug("midi block param name");
-			//param_value.debug("midi block param value");
-
-			case 
-				{ cc_value > param_value } {
-					self.blocked = \sup;
-					self.changed(\blocked);
-				}
-				{ cc_value < param_value } {
-					self.blocked = \inf;
-					self.changed(\blocked);
-				}
-				{ true } {
-					self.blocked = \not;
-					self.changed(\blocked);
-				}
-		},
-
-		assign_cc: { arg self, ccid;
-			self.ccid = ccid;
-			 if(ccid.notNil, {
-				self.label = (ccid[0].asString[0] ++ (ccid[1]+1)).asSymbol;
-				self.changed(\label);
-				self.ccresp = CCResponder({ |src,chan,num,value|
-						//[src,chan,num,value].debug("==============CCResponder");
-						//param.classtype.debug("ccresp current_kind");
-						//param.selected.debug("ccresp selected");
-						//cc_val.debug("ccresp cc_val");
-						if(param.classtype == \adsr, {
-							if(param.selected == 1, {
-								self.set_value(value/127);
-							}, {
-								self.set_midi_value(value/127);
-							});
-						}, {
-							self.set_value(value/127);
-						});
-					},
-					nil, // any source
-					nil, // any channel
-					~cakewalk[ccid[0]][ccid[1]], // any CC number
-					nil // any value
-				);
-				}, {
-					"assigning nil ccid".debug("WARNING");
-					"void"
-				});
-
-		},
-
-		destroy: { arg self;
-			self.ccresp.remove;
-		}
-	);
-
-	midi.assign_cc(ccid);
-	midi.block.();
-
-	sc_param = SimpleController(param);
-	sc_param.put(\kind, { arg obj; midi.block.() });
-	sc_param.put(\selected_cell, { arg obj; "BLOK1".debug; midi.block.() });
-	sc_param.put(\selected, { arg obj; "BLOK2".debug; midi.block.() });
-
-
-	midi;
-
-};
-
-~make_midi_kb_control = { arg player, editplayer;
-	// record cc change dynamicaly in param cells with piano record button
-	// TODO: obsolete, must recode, disabled
-	var nonr, noffr, param, destroy, rec, localknob;
-	
-	// init
-	NoteOnResponder.removeAll; // TODO: must save others responders ?
-
-	nonr = NoteOnResponder { arg src, chan, num, veloc;
-		param = editplayer.controller.get_selected_param.();
-		param.set_val(num.midicps);
-	};
-
-	rec = CCResponder({ |src,chan,num,value|
-			var param = editplayer.controller.get_selected_param;
-			var tickline;
-			tickline = player.get_arg(\stepline); 
-
-			if(param.midi.notNil && param.midi.recording.notNil, {
-				if(param.midi.recording, {
-					param.midi.recording = false;
-					param.midi.changed(\recording);
-					tickline.tick = { 
-						//"TICK!!!".postln;
-					};
-				}, {
-					param.midi.recording = true;
-					param.midi.changed(\recording);
-					// TODO : make the rec works with noteline
-//					if(param.noteline, {
-//						TempoClock.schedAbs(TempoClock.beats.roundUp( player.get_arg(\segdur).get_val ).debug("noteline tick"), {
-//							param.midi.get_midi_val.debug("set TICK");
-//							param.seq.set_norm_val(param.midi.get_midi_val, idx);
-//							if(param.midi.recording, {
-//								TempoClock.beats.roundUp( player.get_arg(\segdur).get_val )
-//							}, {
-//								nil // dont reschedule
-//							}
-//						})
-//					}, {
-						tickline.tick = { arg obj, idx;
-							param.midi.get_midi_val.debug("set TICK");
-							param.seq.set_norm_val(param.midi.get_midi_val, idx);
-						};
-//					});
-				});
-			});
-		},
-		nil, // any source
-		nil, // any channel
-		~cakewalk.button[7], // record button
-		nil // any value
-	);
-
-	localknob = CCResponder({ |src,chan,num,value|
-			//[src,chan,num,value].debug("==============CCResponder");
-			var param = editplayer.controller.get_selected_param;
-			if(param.midi.notNil, {
-				param.midi.set_value(value/127);
-			});
-		},
-		nil, // any source
-		nil, // any channel
-		~cakewalk.knob[8], // last knob
-		nil // any value
-	);
-
-	destroy = { 
-		nonr.remove;
-		rec.remove;
-		localknob.remove;
-	};
-	destroy;
-
-};
 
 /////////////////////////////////////////////////////////////////////////
 /////////		main
@@ -1029,6 +30,7 @@
 	var height = 1300;
 	var row_layout, col_layout, info_layout;
 	var sc_ep, ep_messages;
+	var status;
 
 	col_layout = GUI.hLayoutView.new(parent, Rect(0,0,width+10,height));
 	info_layout = GUI.vLayoutView.new(col_layout, Rect(0,0,300,height));
@@ -1100,6 +102,8 @@
 						~make_control_view.(row_layout, editplayer.make_param_display(param), param);
 					};
 			};
+
+			status = ~make_status_view.(info_layout, main.play_manager);
 
 		}
 	));
@@ -1181,6 +185,7 @@
 			self.changed(\paramlist);
 			self.assign_midi;
 			main.set_window_title("editplayer: "++ player.name ++": bank" + player.get_bank);
+			main.play_manager.refresh;
 		},
 
 		set_bank: { arg self, bank;
@@ -1252,6 +257,7 @@
 
 			select_param: { arg self, idx;
 				var param, restorefun = {};
+				if(idx.isNil) { Error("editplayer: select_param: idx is nil").throw };
 				editplayer.model.param_order.debug("editplayer.select_param param_order");
 				idx.debug("selecting param number");
 				editplayer.get_paramlist.debug("select_param: paramlist");
@@ -1430,13 +436,54 @@
 		},
 
 		solo_selected: { arg self;
-			main.playmanager.solo_node(player.uname)
+			main.play_manager.solo_node(player.uname)
 		},
 
 		unsolo_selected: { arg self;
-			main.playmanager.unsolo_node
+			main.play_manager.unsolo_node
 		},
 
+		start_tempo_recorder: { arg self;
+			// TODO: handle when recording finish (play recorded track along what is playing ?)
+			var finish = {
+				main.play_manager.set_recording(false);
+				player.play_node;
+			};
+			if(main.play_manager.is_recording.not) {
+				if(player.kind == \player && (player.name != \voidplayer)) {
+					main.play_manager.set_recording(true);
+					player.name.debug("start_tempo_recorder: player");
+					if(player.defname == \audiotrack) {
+						"start_tempo_recorder:audio recorder player!!".debug;
+						self.recorder = ~make_audio_recorder.(player, main);
+						self.recorder.player_start_tempo_recording(finish);
+					} {
+						if(player.get_mode == \stepline) {
+							if(player.get_arg(\sampleline).notNil) {
+								player.set_mode(\sampleline);
+							} {
+								player.set_mode(\noteline); 
+							}
+						};
+						self.recorder = ~make_midi_recorder.(player, main);
+						self.recorder.player_start_tempo_recording(finish);
+					}
+				} {
+					"INFO: grouplive: start_tempo_recorder: selected cell is not a player".inform;
+				}
+			} {
+				"hmatrix: already recording".debug;
+			};
+		},
+
+		cancel_recording: { arg self;
+			if(main.play_manager.is_recording == true) {
+				self.recorder.cancel_recording;
+				main.play_manager.set_recording(false);
+			} {
+				"hmatrix: not recording".debug;
+			};
+		},
 
 		init: { arg editplayer, player, parent;
 			var noteline, delta;
@@ -1541,44 +588,25 @@
 			});
 
 			main.commands.add_enable([\editplayer, \set_sampleline_mode], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["m"]], {
-				player.set_mode(\sampleline);
-				editplayer.controller.select_param(editplayer.get_param_offset);
-				editplayer.refresh
+				if(player.get_arg(\sampleline).notNil) {
+					player.set_mode(\sampleline);
+					editplayer.controller.select_param(editplayer.get_param_offset);
+					editplayer.refresh
+				} {
+					"editplayer: Can't set sampleline mode: not a sample player".inform;	
+				};
 			});
 			
 			//~prec = ~piano_recorder.value(player); // debile
 
 			////////////////// recording
 
-			editplayer.recorder = ~make_midi_recorder.(player);
 
 			main.commands.add_enable([\editplayer, \start_tempo_recording], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["r"]], {
-				var recorder = editplayer.recorder;
-				var nline = if(player.get_mode == \sampleline) {
-					player.get_arg(\sampleline);
-				} {
-					player.get_arg(\noteline);
-				};
-				"STARTRECORD!!".debug; 
-				player.current_mode.debug("player.current_mode");
-				nline.name.debug("nline.name");
-				recorder.start_tempo_recording(2, TempoClock.tempo, false, { 
-					var sum = 0;
-
-					nline.changed(\recording, false);
-					recorder.track.debug("66666666666666666666666666666- this is record!!!!");
-
-					recorder.track.do { arg no;
-						sum = sum + no.dur;
-					};
-					sum.debug("total sum");
-					nline.set_notes(recorder.track);
-					nline.mute(false);
-					nline.changed(\notes);
-					player.play_node;
-				});
-				nline.changed(\recording, true); 
-				nline.mute(true);
+				editplayer.start_tempo_recorder;
+			});
+			main.commands.add_enable([\editplayer, \cancel_recording], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["t"]], {
+				editplayer.cancel_recording;
 			});
 
 		//	main.commands.add_enable([\editplayer, \start_recording], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["r"]], {
@@ -1588,21 +616,21 @@
 		//		player.get_arg(\noteline).mute(true);
 		//	});
 
-			main.commands.add_enable([\editplayer, \stop_recording], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["t"]], {
-				var sum = 0;
-				var midi = player.get_arg(\noteline).midi;
-				midi.stop_recording.();
-				midi.changed(\recording, false);
-				midi.track.debug("66666666666666666666666666666- this is record!!!!");
+		//	main.commands.add_enable([\editplayer, \stop_recording], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["t"]], {
+		//		var sum = 0;
+		//		var midi = player.get_arg(\noteline).midi;
+		//		midi.stop_recording.();
+		//		midi.changed(\recording, false);
+		//		midi.track.debug("66666666666666666666666666666- this is record!!!!");
 
-				midi.track.do { arg no;
-					sum = sum + no.dur;
-				};
-				sum.debug("total sum");
-				player.get_arg(\noteline).set_notes(midi.track);
-				player.get_arg(\noteline).mute(false);
-				player.get_arg(\noteline).changed(\notes);
-			});
+		//		midi.track.do { arg no;
+		//			sum = sum + no.dur;
+		//		};
+		//		sum.debug("total sum");
+		//		player.get_arg(\noteline).set_notes(midi.track);
+		//		player.get_arg(\noteline).mute(false);
+		//		player.get_arg(\noteline).changed(\notes);
+		//	});
 
 			main.commands.add_enable([\editplayer, \set_notequant], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["q"]], { 
 				var delta;
@@ -1711,6 +739,7 @@
 			// make view
 			"make view".debug;
 
+			editplayer.recorder = ~make_midi_recorder.(player, main);
 
 			editplayer.assign_midi;
 			~make_editplayer_view.(parent, main, editplayer, player, param_order);

@@ -5,6 +5,7 @@ s.waitForBoot({
 TempoClock.tempo = 1.5;
 
 ~synthlib = [
+	\audiotrack,
 	\pulsepass,
 	\flute1,
 	\miaou1,
@@ -36,6 +37,23 @@ TempoClock.tempo = 1.5;
 )
 
 (
+SynthDef(\record_input, { arg out = 0, bufnum = 0, sustain;
+		var input, env;
+        input = SoundIn.ar([0,1]);
+		env = EnvGen.kr(Env.linen(0,sustain,0), doneAction:2); // stop recording after dur..
+        RecordBuf.ar(input, bufnum, doneAction: 0, run:env, loop: 0);
+}).add;
+SynthDef(\audiotrack, { arg out = 0, amp=1.0, bufnum = 0, sustain;
+        var playbuf, ou;
+        playbuf = PlayBuf.ar(2,bufnum,startPos:44100*0.046,doneAction:0);
+        //playbuf = PlayBuf.ar(2,bufnum,startPos:0,doneAction:0);
+		//ou = playbuf * EnvGen.ar(Env.asr(0.01,1,0.01), gate, doneAction:2);
+		ou = playbuf * EnvGen.ar(Env.linen(0.001,sustain,0.001), doneAction:2);
+        Out.ar(out, ou * amp);
+}).add;
+
+
+
 SynthDef(\ringbpf1, { arg out=0, gate=1, freq=200, mod_freqratio=5, mod_ampratio= 0.5, amp=0.1, modulator_amp=1, pan=0, ffreqdetune=0.1, rq=0.1;
 	var modulator, panner, result, env;
 
@@ -92,6 +110,30 @@ SynthDef(\flute1,{ arg out=0, pan=0, amp=0.1, gate=1, noise=1, freq=200, rq=0.1;
 
 }).store;
 
+SynthDef(\monosampler, {| out = 0, amp=0.6, pan=0, bufnum = 0, gate = 1, pos = 0, speed = 1, loop=0|
+
+	var player,env;
+	env = EnvGen.kr(~make_adsr.(\adsr), gate, doneAction:2) * amp;
+	player = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum) * speed, 1, startPos: (pos*BufFrames.kr(bufnum)), doneAction:2, loop: loop);
+	player = Pan2.ar(player, pan, amp);
+	Out.ar(out, player * env);
+
+}, metadata:(specs:(
+	bufnum: (numchan: 1)
+))).store;
+
+SynthDef(\stereosampler, {| out = 0, amp=0.6, bufnum = 0, gate = 1, pos = 0, speed = 1, loop=0|
+
+	var player,env;
+	env =  EnvGen.kr(~make_adsr.(\adsr), gate, doneAction:2);
+	player = PlayBuf.ar(2, bufnum, BufRateScale.kr(bufnum) * speed, 1, startPos: (pos*BufFrames.kr(bufnum)), doneAction:2, loop: loop);
+	player = player * env * amp;
+	Out.ar(out, player);
+
+}, metadata:(specs:(
+	bufnum: (numchan: 2)
+))).store;
+
 // experiment
 
 SynthDef(\pulsepass,{ arg out=0, gate=1, amp=0.1, pan=0, noise=1, freq=250, bpffratio1=1, bpffratio2=1, bpfrq1=1, bpfrq2=1, apdec1=1, apdec2=1;
@@ -112,7 +154,15 @@ SynthDef(\pulsepass,{ arg out=0, gate=1, amp=0.1, pan=0, noise=1, freq=250, bpff
 
 	ou = Pan2.ar(ou,pan, amp);
 	Out.ar(out, ou);
-}).store;
+}, metadata:(specs:(
+	noise: ControlSpec(0, 5, \lin, 0.0001, 0),
+	bpffratio1: ControlSpec(0, 3, \lin, 0, 1),
+	bpffratio2: ControlSpec(0, 3, \lin, 0, 1),
+	bpfrq1: ControlSpec(0.000001, 3, \exp, 0, 1),
+	bpfrq2: ControlSpec(0.000001, 3, \exp, 0, 1),
+	apdec1: ControlSpec(0.000001, 3, \exp, 0, 1),
+	apdec2: ControlSpec(0.000001, 3, \exp, 0, 1)
+))).store;
 
 
 

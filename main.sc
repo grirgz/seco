@@ -106,6 +106,7 @@
 	"synth",
 	"keycode", 
 	"midi",
+	"param",
 	"samplelib",
 	"player",
 	"matrix",
@@ -288,7 +289,6 @@
 			current_panel: \parlive,
 			clipboard: nil,
 
-
 			nodelib: nil,
 			presetlib: Dictionary.new,
 			presetlib_path: nil,
@@ -298,7 +298,9 @@
 			patpool: Dictionary.new,
 			samplelist: List.new,
 
-			livenodepool: Dictionary.new
+			livenodepool: Dictionary.new,
+
+			metronome: false	// enable metronome
 		),
 
 		commands: ~shortcut,
@@ -613,7 +615,7 @@
 		},
 
 		init_synthdesclib: { arg self;
-			SynthDescLib.global.read("synthdefs/*");
+			SynthDescLib.global.read("synthdefs/");
 		},
 
 		test_player: { arg self, libnodename;
@@ -646,10 +648,10 @@
 			"ijensuisla".debug;
 			self.add_node(~empty_player);
 			"jensuisla".debug;
+			self.play_manager = ~make_playmanager.(self);
 			self.panels.parlive = ~make_parlive.(self);
 			self.panels.seqlive = ~make_seqlive.(self);
 			self.context = ~make_context.(main);
-			self.playmanager = ~make_playmanager.(self);
 			self.midi_center = ~midi_center.(self);
 
 		}

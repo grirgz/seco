@@ -145,6 +145,7 @@
 	},
 
 	midinote_to_slot: { arg self, midinote;
+		~keycode.midi.debug("midinote_to_slot: keycode.midi");
 		~keycode.midi[midinote][1]
 	}
 );

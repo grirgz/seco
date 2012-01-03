@@ -241,7 +241,25 @@
 	);
 	~midi = {
 		var dico = Dictionary.new;
-		~cakewalk.collect { arg v, k;
+		~cakewalk.keysValuesDo { arg k, v;
+			v.do { arg raw, i;
+				dico[raw] = [k, i];
+			};
+		};
+		dico;
+	}.value;
+	~midi_cc = {
+		var dico = Dictionary.new;
+		~cakewalk.reject({ arg x; x == \pad }).keysValuesDo { arg k, v;
+			v.do { arg raw, i;
+				dico[raw] = [k, i];
+			};
+		};
+		dico;
+	}.value;
+	~midi_note = {
+		var dico = Dictionary.new;
+		[ ~cakewalk.pad ].keysValuesDo { arg k, v;
 			v.do { arg raw, i;
 				dico[raw] = [k, i];
 			};
@@ -313,6 +331,8 @@
 					//[path, shortcut].debug("path enabled");
 				},
 				\midi, {
+					//[path, shortcut].debug("midi path enabled");
+					//self.commands.debug("commands");
 					self.midi_handler[panel] = self.midi_handler[panel] ?? Dictionary.new;
 					self.midi_handler[panel][shortcut] = action;
 				})
@@ -438,7 +458,20 @@
 
 	handle_cc: { arg self, ccpath, val;
 		var panel = \midi;
+		if(self.midi_handler[panel].isNil) { self.midi_handler[panel] = Dictionary.new };
+		[ccpath, val].debug("keycode: handle_cc");
 		self.midi_handler[panel][ccpath].(val);
+	},
+
+	handle_midi_key: { arg self, panel, shortcut;
+		var fun;
+		//self.kb_handler.debug("handle_key: kb_handler");
+		[shortcut, panel].debug("current shortcut panel");
+		self.commands[panel][shortcut].debug("shortcut of path called");
+		fun = self.midi_handler[panel][shortcut];
+		
+		//[fun, fun.def, fun.def.sourceCode].debug("function");
+		if(fun.isNil, { "handle_key: nil function".warn; nil }, { fun.value; 1 })
 	},
 
 	handle_key: { arg self, panel, shortcut;

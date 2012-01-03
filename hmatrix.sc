@@ -243,11 +243,12 @@
 
 ~make_fhmatrix_view = { arg parent, controller;
 
-	var sl_layout, ps_col_layout, curbank, address;
-	var width = 1350;
+	var main_layout, sl_layout, ps_col_layout, curbank, address, status;
+	var width = 1350, button_width = 150;
 	var bgcolor;
-
-	sl_layout = GUI.hLayoutView.new(parent, Rect(0,0,width,60*6));
+	main_layout = GUI.hLayoutView.new(parent, Rect(0,0,width+60,60*6));
+	status = ~make_status_view.(main_layout, controller.play_manager);
+	sl_layout = GUI.hLayoutView.new(main_layout, Rect(0,0,width,60*6));
 	sl_layout.background = ~editplayer_color_scheme.background;
 
 	if(controller.name == \seqlive) {
@@ -266,8 +267,8 @@
 
 			~general_sizes.groupnode_per_bank.do { arg x;
 				var layout;
-				layout = GUI.vLayoutView.new(sl_layout, Rect(0,0,(160),60*6));
-				layout.background = bgcolor.debug("layout background");
+				layout = GUI.vLayoutView.new(sl_layout, Rect(0,0,button_width,60*6));
+				layout.background = bgcolor;
 				~make_header_cell.(layout, \void);
 				~general_sizes.children_per_groupnode.do { arg y;
 					~make_cell.(layout, \voidplayer);
@@ -317,6 +318,7 @@
 };
 
 
+
 ~make_grouplive = { arg main, panel;
  	// changed messages: \header_selection, \cell_selection, \redraw 
 	var obj;
@@ -325,6 +327,7 @@
 
 	obj = (
 
+		play_manager: main.play_manager,
 		model: (
 			//samplelist: {arg i; "sounds/default" ++ i }!50,
 			//patlist: main.model.patlist,
@@ -339,7 +342,12 @@
 
 			selection: (x:0, y:0, bank:0),
 			bank: 0,
-			offset: 0@0
+			offset: 0@0,
+
+			barrecord: 2,	// duration of the recording (in bars)
+			default_newnode: [\libnode, \pulsepass], // node used to create the livenode when no node specified
+			default_samplekit: \default, // samplekit used to create the livenode when no samplekit specified
+			recording: false	// avoid concurent recording
 		),
 		name: panel,
 
@@ -361,6 +369,10 @@
 			} {
 				elem;
 			}
+		},
+
+		cell_is_empty: { arg self, sel;
+			self.get_selected_cell.name == \voidplayer
 		},
 
 		get_datalist: { arg self;
@@ -388,6 +400,12 @@
 			} {
 				false
 			};
+		},
+
+		address_in_bank_range: { arg self, sel;
+			sel.x.inclusivelyBetween(0, ~general_sizes.groupnode_per_bank-1) 
+				&& sel.y.inclusivelyBetween(-1, ~general_sizes.children_per_groupnode-1)
+				&& sel.bank.inclusivelyBetween(0, ~general_sizes.bank-1)
 		},
 
 		get_cell: { arg self, ad;
@@ -584,7 +602,7 @@
 				bank: self.model.bank
 			);
 			"set_selection:sel".debug(sel);
-			if( self.address_in_range(sel) ) {
+			if( self.address_in_bank_range(sel) ) {
 				oldsel = self.model.selection;
 				self.model.selection = sel;
 				main.context.set_selected_node(self.get_selected_cell);
@@ -623,6 +641,7 @@
 					self.set_selection(sel.x, sel.y);
 				});
 			});
+			main.play_manager.refresh;
 		},
 
 		save_data: { arg self;
@@ -740,15 +759,89 @@
 				"Can't load libnode in header".error;
 			}, {
 				~choose_libnode.(main, { arg libnodename, livenodename; 
+					self.model.default_newnode = [\libnode, libnodename];
 					livenodename = self.make_livenode_from_libnode(libnodename);
 					self.set_selected_cell(livenodename);
 				}, { arg livenodename;
+					self.model.default_newnode = [\livenode, livenodename];
 					livenodename = self.duplicate_livenode(livenodename);
 					livenodename.debug("actionpreset");
 					self.set_selected_cell(livenodename);
 				});
 			})
 		},
+
+		create_new_livenode: { arg self;
+			var livenodename;
+			block { arg break;
+				~general_sizes.children_per_groupnode.do {
+					
+					if(self.cell_is_empty(self.model.selection)) {
+						switch(self.model.default_newnode[0],
+							\libnode, {
+								livenodename = self.make_livenode_from_libnode(self.model.default_newnode[1]);
+								self.set_selected_cell(livenodename);
+							},
+							\livenode, {
+								livenodename = self.duplicate_livenode(self.model.default_newnode[1]);
+								livenodename.debug("actionpreset default");
+								self.set_selected_cell(livenodename);
+							}
+						);
+						break.value;
+					} {
+						"down".debug;
+						if(self.model.selection.y >= (~general_sizes.children_per_groupnode-1)) { "break".debug; break.value };
+						self.set_selection(self.model.selection.x,self.model.selection.y+1) 
+					};
+				}
+			};
+
+		},
+
+		start_tempo_recorder: { arg self;
+			// TODO: handle when recording finish (play recorded track along what is playing ?)
+			var player;
+			var finish = {
+				main.play_manager.set_recording(false);
+			};
+			if(main.play_manager.is_recording.not) {
+				player = self.get_selected_cell;
+				if(player.kind == \player && (player.name != \voidplayer)) {
+					main.play_manager.set_recording(true);
+					player.name.debug("start_tempo_recorder: player");
+					if(player.defname == \audiotrack) {
+						"start_tempo_recorder:audio recorder player!!".debug;
+						self.recorder = ~make_audio_recorder.(player, main);
+						self.recorder.player_start_tempo_recording(finish);
+					} {
+						if(player.get_mode == \stepline) {
+							if(player.get_arg(\sampleline).notNil) {
+								player.set_mode(\sampleline);
+							} {
+								player.set_mode(\noteline); 
+							}
+						};
+						self.recorder = ~make_midi_recorder.(player, main);
+						self.recorder.player_start_tempo_recording(finish);
+					}
+				} {
+					"INFO: grouplive: start_tempo_recorder: selected cell is not a player".inform;
+				}
+			} {
+				"hmatrix: already recording".debug;
+			};
+		},
+
+		cancel_recording: { arg self;
+			if(main.play_manager.is_recording == true) {
+				main.play_manager.set_recording(false);
+				self.recorder.cancel_recording; // FIXME: bug with self.recording being nil
+			} {
+				"hmatrix: not recording".debug;
+			};
+		},
+
 
 		copy_node: { arg self;
 			var uname, address;
@@ -864,11 +957,11 @@
 		},
 
 		solo_selected: { arg self;
-			main.playmanager.solo_node(self.get_selected_cell.uname)
+			main.play_manager.solo_node(self.get_selected_cell.uname)
 		},
 
 		unsolo_selected: { arg self;
-			main.playmanager.unsolo_node
+			main.play_manager.unsolo_node
 		},
 
 		get_y_offset: { arg self;
@@ -877,6 +970,10 @@
 
 		set_y_offset: { arg self, val;
 			self.model.offset.y = val;
+		},
+
+		change_tempo: { arg self;
+			~make_tempo_edit_view.(main, [\knob, 0]);
 		},
 
 		make_gui: { arg self, parent;
@@ -944,7 +1041,40 @@
 			main.commands.add_enable([panel, \quick_save_project], [\kb, ~keycode.mod.ctrlaltshift, ~keycode.kbcalphanum["s"]], { main.quick_save_project });
 			main.commands.add_enable([panel, \quick_load_project], [\kb, ~keycode.mod.ctrlaltshift, ~keycode.kbcalphanum["l"]], { main.quick_load_project });
 
+			main.commands.add_enable([panel, \edit_tempo], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["t"]], { self.change_tempo; });
+			main.commands.add_enable([panel, \edit_quant], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["q"]], { ~make_quant_edit_view.(main, [\knob, 0]); });
+			main.commands.add_enable([panel, \edit_barrecord], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["b"]], { ~make_barrecord_edit_view.(main, [\knob, 0]); });
 
+			main.commands.add_enable([panel, \toggle_metronome], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["m"]], {
+				if(main.model.metronome == false) {
+					main.model.metronome = true;
+				} {
+					main.model.metronome = false;
+				}
+			});
+
+			main.commands.add_enable([panel, \create_new_livenode], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["c"]], { self.create_new_livenode });
+
+			main.commands.add_enable([panel, \toggle_recording], [\midi, 0, ~keycode.cakewalk.button[7]], { 
+				if(main.play_manager.is_recording.not) {
+					self.start_tempo_recorder;
+				} {
+					self.cancel_recording;
+				}
+			});
+
+			main.commands.add_enable([panel, \move_selection_right], [\midi, 0, ~keycode.cakewalk.button[3]], { 
+				self.set_selection(self.model.selection.x+1,self.model.selection.y) 
+			});
+			main.commands.add_enable([panel, \move_selection_left], [\midi, 0, ~keycode.cakewalk.button[0]], { 
+				self.set_selection(self.model.selection.x-1,self.model.selection.y) 
+			});
+			main.commands.add_enable([panel, \move_selection_up], [\midi, 0, ~keycode.cakewalk.button[1]], { 
+				self.set_selection(self.model.selection.x,self.model.selection.y-1) 
+			});
+			main.commands.add_enable([panel, \move_selection_down], [\midi, 0, ~keycode.cakewalk.button[2]], { 
+				self.set_selection(self.model.selection.x,self.model.selection.y+1) 
+			});
 			~make_panel_shortcuts.(main, panel);
 		},
 
