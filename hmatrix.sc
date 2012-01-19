@@ -1046,10 +1046,10 @@
 			main.commands.add_enable([panel, \edit_barrecord], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["b"]], { ~make_barrecord_edit_view.(main, [\knob, 0]); });
 
 			main.commands.add_enable([panel, \toggle_metronome], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["m"]], {
-				if(main.model.metronome == false) {
-					main.model.metronome = true;
+				if(main.play_manager.use_metronome == false) {
+					main.play_manager.use_metronome = true;
 				} {
-					main.model.metronome = false;
+					main.play_manager.use_metronome = false;
 				}
 			});
 

@@ -236,3 +236,58 @@ SynthDescLib.global.browse
 
 
 SynthDescLib.global[\pulsepass].makeWindow;
+
+
+
+
+(
+       var size = 512;
+
+       r = Signal.fill(size, { |i| 2/size *i -1});
+       c = Signal.fftCosTable( size );
+       i = Signal.newClear( size );
+
+       f = fft( r, i, c );
+
+       p = f.phase[size div: 2..];
+       m = f.magnitude[..size div: 2];
+
+       h = Signal.sineFill(size, m, p);
+
+       [r,h].flop.flat.plot(numChannels:2)
+
+)
+Main.version
+
+Quarks.gui
+
+
+
+(
+
+b = BSpline([ [ 0.42695473251029, 2.275 ], [ 1, 1 ], [ 2.5102880658436, 3.1 ], [ 4, 4 ] ]);
+
+b.gui;
+
+// to use X as time we need y values spaced in even X units
+
+d = b.bilinearInterpolate(512);
+
+
+d.plot2;
+
+x = 5.0/512;
+
+// collect into points for plotting
+
+e = d.collect({ |dd,i| [x * i,dd] });
+
+
+w = Window(bounds: Rect(40, 40, 800, 800)).front;
+
+a = ScatterView(w, Rect(10, 10, 760, 760), e, ControlSpec(0.0,5.0), ControlSpec(0.0,5.0));
+
+a.drawAxis_(true).drawMethod_(\fillOval).symbolColor_(Color.blue(0.5, 0.5)).symbolSize_(5);
+
+
+)

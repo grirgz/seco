@@ -134,7 +134,7 @@
 Spec.add(\tempobpm, ControlSpec(30, 300, \lin, 1, 90, "bpm"));
 Spec.add(\tempobps, ControlSpec(0.5, 5, \lin, 1/60, 1.5, "bpm"));
 Spec.add(\quant, ControlSpec(0, 64, \lin, 1, 4, "beats"));
-Spec.add(\seq_dur, ControlSpec(0, 64, \lin, 4, 8, "beats"));
+Spec.add(\seq_dur, ControlSpec(0, 128, \lin, 4, 8, "beats"));
 Spec.add(\dur, ControlSpec(4/128, 4, \lin, 4/64, 0.25, "s"));
 Spec.add(\legato, ControlSpec(0, 1.2, \lin, 0, 0.707));
 Spec.add(\sustain, ControlSpec(0.001, 5, \lin, 0, 0.2));
@@ -220,6 +220,7 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 	task.source = { 
 		//play_manager.start_pos = clock.beats; // debug
 		var clock = play_manager.get_clock;
+		bt.do { arg x; x.background = Color.black };
 		10000.do { //FIXME: fake loop
 			refresh_pos.(clock);
 			1.wait;
@@ -235,13 +236,13 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 		pos: { arg obj, msg, position;
 			refresh_pos.(play_manager.get_clock);
 		},
-		start_counter: {
+		visual_metronome: { arg self;
 			"start_counter!!!".debug;
-			task.play(play_manager.get_clock,quant:1);
-		},
-		stop_counter: {
-			"stop_counter".debug;
-			task.stop;
+			if(self.visual_metronome_enabled) {
+				task.play(play_manager.get_clock,quant:1);
+			} {
+				task.stop;
+			}
 		},
 		head_state: { arg obj, msg, state;
 			switch(state,

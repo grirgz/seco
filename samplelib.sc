@@ -115,30 +115,30 @@
 
 ~samplekit_bank = Dictionary[
 	\default -> [
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/kick_Dry_b.flac",
 		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/sn_Wet_b.flac",
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/sn_Jazz_c.flac",
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/hhp_Dry_a.flac",
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/cym_Jazz.flac",
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/clap_Dry_c.flac",
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/stick_Woody.flac",
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/hhc_Rock_b.flac",
 		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/misc_Cowbell.flac",
 		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/tom_Rock_mid.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/kick_Dry_b.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/hhp_Dry_a.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/clap_Dry_c.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/cym_Jazz.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/hhc_Rock_b.flac",
 		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/cra_Rock_a.flac",
 		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/hhc_Dry_a.flac",
 		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/tom_Rock_hi.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/sn_Jazz_c.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/emptySample.flac",
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/emptySample.flac", // empty
 		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/cym_Rock_b.flac",
 		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/tom_Rock_lo.flac",
 		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/cra_Jazz.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/stick_Woody.flac"
 	]
 ];
 
 ~samplekit_manager = (
 	slot_to_bufnum: { arg self, slot, samplekit;
 		if(slot == \rest) {
-			BufferPool.get_sample(\samplekit, "silent.wav").bufnum; // FIXME: find a way to not play at all;
+			BufferPool.get_sample(\samplekit, "/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/emptySample.flac").bufnum; // FIXME: find a way to not play at all;
 		} {
 			BufferPool.get_sample(\samplekit, ~samplekit_bank[samplekit][slot]).bufnum;		
 		};
@@ -146,7 +146,7 @@
 
 	midinote_to_slot: { arg self, midinote;
 		~keycode.midi.debug("midinote_to_slot: keycode.midi");
-		~keycode.midi[midinote][1]
+		~keycode.midi_note[midinote][1]
 	}
 );
 

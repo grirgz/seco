@@ -925,6 +925,8 @@
 		start_pos: 0,
 		play_length: 16,
 		record_length: 8,
+		syncclap_dur: 4,
+		use_metronome: false,
 		get_clock: { arg self; self.myclock },
 
 		refresh: { arg self;
@@ -1003,7 +1005,7 @@
 				self.myclock = TempoClock.new(self.tempo);
 				self.myclock.permanent = true;
 				self.start_pos = 0;
-				self.changed(\start_counter);
+				self.start_visual_metronome;
 			}
 		},
 

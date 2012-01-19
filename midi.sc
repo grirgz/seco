@@ -268,10 +268,13 @@
 };
 
 
-~do_record_session: { arg main, dur, metronome, metronome_dur, start_action, end_action, preclap_action, postclap_action;
+~do_record_session = { arg main, preclap_action, postclap_action, start_action, end_action;
 	var tc, supertc;
 	var session, supersession;
 	var pman = main.play_manager;
+	var dur = pman.get_record_length;
+	var metronome = pman.use_metronome;
+	var metronome_dur = pman.syncclap_dur;
 
 	if(main.play_manager.is_playing) {
 		main.play_manager.start_new_session;
@@ -286,7 +289,7 @@
 		};
 		session.play(tc, quant:dur);
 	} {
-		supertc = TempoClock.new(tempo);
+		supertc = TempoClock.new(pman.get_tempo);
 		session = Task {
 			if (metronome) { pman.start_metronome(tc, dur) };
 			start_action.(tc);
@@ -306,6 +309,7 @@
 			session.play(tc, quant:dur);
 		};
 		supersession.play(supertc, quant:1);
+	};
 };
 
 ~make_midi_recorder = { arg player, main;
@@ -356,7 +360,7 @@
 				self.recording = true;
 				player.current_mode.debug("player.current_mode");
 				nline.name.debug("nline.name");
-				self.start_tempo_recording(main.play_manager.get_record_length, main.play_manager.get_tempo, main.model.metronome, { 
+				self.start_tempo_recording({ 
 					var sum = 0;
 
 					nline.changed(\recording, false);
@@ -380,91 +384,126 @@
 			self.stop_immediate_recording;
 		},
 
-		start_tempo_recording: { arg self, dur=16, tempo=1, metro=false, action;
-			var tc, supertc;
-			var session, supersession;
+		start_tempo_recording: { arg self, action;
 
-			//[tc, self.tclock, TempoClock.new(tempo), tempo].debug("creation de cette foutue horloge");
-			if(main.play_manager.is_playing) {
-				main.play_manager.start_new_session;
-				tc = main.play_manager.get_clock;
-				self.tclock = tc;
-				tc.debug("jcomprendpas");
-
-				session = Task {
-					//self.start_metronome(tempo);
-					//4.wait;
-
-					"2jcomprendpas".debug;
-					if (metro) { pman.start_metronome(tc, dur) };
+			~do_record_session.(main,
+				// preclap_action
+				{ arg tclock;
+					self.tclock = tclock;
+					if(self.enable_pretrack) { self.start_immediate_recording; };
+				},
+				// postclap_action
+				{
+					if(self.enable_pretrack) { 
+						self.stop_immediate_recording; 
+						self.pretrack = self.track;
+						self.track = List.new;
+					};
+				},
+				// start_action
+				{ arg tclock;
+					self.tclock = tclock;
 					self.start_immediate_recording;
-					main.play_manager.changed(\head_state, \record);
-					"3jcomprendpas".debug;
-					dur.wait;
-					"4jcomprendpas".debug;
-					self.stop_immediate_recording;
-					//self.stop_metronome; // auto-stop
-					action.value;
-				};
-				session.play(tc, quant:dur);
-			} {
-				supertc = TempoClock.new(tempo);
-				session = Task {
-					//self.start_metronome(tempo);
-					//4.wait;
-
-					"2jcomprendpas".debug;
-					self.start_immediate_recording;
-					main.play_manager.changed(\head_state, \record);
-					"3jcomprendpas".debug;
-					dur.wait;
-					"4jcomprendpas".debug;
-					self.stop_immediate_recording;
-
-					//self.stop_metronome;
-
+				},
+				// end_action
+				{
 					// processing early notes (putting them at the end of the loop)
 					if(self.pretrack.size > 0) {
 						self.pretrack.debug("66666666666666666666666this is pretrack");
 						self.track.debug("66666666666666666666666this is track before merging");
 						self.pretrack = self.pretrack.collect { arg x; x.ptdur = x.dur };
-						self.pretrack[0].dur = self.pretrack[0].dur + (dur - self.metronome_dur);
+						self.pretrack[0].dur = self.pretrack[0].dur + (pman.get_record_length - pman.syncclap_dur);
 						self.track = ~merge_notetracks.(self.track, self.pretrack);
 					} {
 						"666666666666666666666666".debug("no pretrack");	
 					};
 
+					self.stop_immediate_recording;
 					action.value;
-				};
-				supersession = Task {
-					pman.start_metronome(supertc, self.metronome_dur);
-					self.metronome_dur.debug("START METRONOME");
+				}
+			);
 
-					self.tclock = supertc;
-					if(self.enable_pretrack) { self.start_immediate_recording; };
-
-					self.metronome_dur.wait;
-
-					if(self.enable_pretrack) { 
-						self.stop_immediate_recording;
-						self.pretrack = self.track;
-						self.track = List.new;
-					};
-
-					//main.play_manager.changed(\stop_counter); // pre-metronome counter
-					main.play_manager.set_record_length(dur); // pre-metronome counter
-					dur.debug("START ACTUAL RECORDING");
-					if (metro.not) { self.stop_metronome };
-					main.play_manager.start_new_session;
-					tc = main.play_manager.get_clock;
-					self.tclock = tc;
-					tc.debug("jcomprendpas");
-
-					session.play(tc, quant:dur);
-				};
-				supersession.play(supertc, quant:1);
-
-			};
+			//[tc, self.tclock, TempoClock.new(tempo), tempo].debug("creation de cette foutue horloge");
+//			if(main.play_manager.is_playing) {
+//				main.play_manager.start_new_session;
+//				tc = main.play_manager.get_clock;
+//				self.tclock = tc;
+//				tc.debug("jcomprendpas");
+//
+//				session = Task {
+//					//self.start_metronome(tempo);
+//					//4.wait;
+//
+//					"2jcomprendpas".debug;
+//					if (metro) { pman.start_metronome(tc, dur) };
+//					self.start_immediate_recording;
+//					main.play_manager.changed(\head_state, \record);
+//					"3jcomprendpas".debug;
+//					dur.wait;
+//					"4jcomprendpas".debug;
+//					self.stop_immediate_recording;
+//					//self.stop_metronome; // auto-stop
+//					action.value;
+//				};
+//				session.play(tc, quant:dur);
+//			} {
+//				supertc = TempoClock.new(tempo);
+//				session = Task {
+//					//self.start_metronome(tempo);
+//					//4.wait;
+//
+//					"2jcomprendpas".debug;
+//					self.start_immediate_recording;
+//					main.play_manager.changed(\head_state, \record);
+//					"3jcomprendpas".debug;
+//					dur.wait;
+//					"4jcomprendpas".debug;
+//					self.stop_immediate_recording;
+//
+//					//self.stop_metronome;
+//
+//					// processing early notes (putting them at the end of the loop)
+//					if(self.pretrack.size > 0) {
+//						self.pretrack.debug("66666666666666666666666this is pretrack");
+//						self.track.debug("66666666666666666666666this is track before merging");
+//						self.pretrack = self.pretrack.collect { arg x; x.ptdur = x.dur };
+//						self.pretrack[0].dur = self.pretrack[0].dur + (dur - self.metronome_dur);
+//						self.track = ~merge_notetracks.(self.track, self.pretrack);
+//					} {
+//						"666666666666666666666666".debug("no pretrack");	
+//					};
+//
+//					action.value;
+//				};
+//				supersession = Task {
+//					pman.start_metronome(supertc, self.metronome_dur);
+//					self.metronome_dur.debug("START METRONOME");
+//
+//					self.tclock = supertc;
+//					if(self.enable_pretrack) { self.start_immediate_recording; };
+//
+//					self.metronome_dur.wait;
+//
+//					if(self.enable_pretrack) { 
+//						self.stop_immediate_recording;
+//						self.pretrack = self.track;
+//						self.track = List.new;
+//					};
+//
+//					//main.play_manager.changed(\stop_counter); // pre-metronome counter
+//					main.play_manager.set_record_length(dur); // pre-metronome counter
+//					dur.debug("START ACTUAL RECORDING");
+//					if (metro.not) { self.stop_metronome };
+//					main.play_manager.start_new_session;
+//					tc = main.play_manager.get_clock;
+//					self.tclock = tc;
+//					tc.debug("jcomprendpas");
+//
+//					session.play(tc, quant:dur);
+//				};
+//				supersession.play(supertc, quant:1);
+//
+//			};
 		},
 
 		start_immediate_recording: { arg self;
@@ -639,6 +678,7 @@
 };
 
 ~make_audio_recorder = { arg player, main;
+	var pman = main.play_manager;
 
 	var obj = (
 		recording: false,
@@ -666,7 +706,7 @@
 					player.get_arg(\bufnum).buffer.debug("************************freeing buffer");
 					player.get_arg(\bufnum).buffer.free;
 				};
-				self.start_tempo_recording(main.play_manager.get_record_length, main.play_manager.get_tempo, main.model.metronome, { 
+				self.start_tempo_recording({ 
 					player.get_arg(\bufnum).set_custom_buffer(self.buf, "AudioInput");
 					player.get_arg(\dur).change_kind(\scalar);
 					player.get_arg(\dur).set_val(main.play_manager.get_record_length);
@@ -678,75 +718,94 @@
 			
 		},
 
-		start_tempo_recording: { arg self, dur=16, tempo=1, metro=false, action;
+		start_tempo_recording: { arg self, action;
 			var tc, supertc;
 			var session, supersession;
-			self.buf = Buffer.alloc(s, 44100 * dur, 2); // a four second 1 channel Buffer
+			self.buf = Buffer.alloc(s, 44100 * pman.get_record_length, 2); 
 			self.buf.bufnum.debug("************************created buffer");
 
+			~do_record_session.(main,
+				// preclap_action
+				{ arg tclock;
+					self.tclock = tclock;
+				},
+				// postclap_action
+				{
+				},
+				// start_action
+				{ arg tclock;
+					self.tclock = tclock;
+					self.start_immediate_recording;
+				},
+				// end_action
+				{
+					self.stop_immediate_recording;
+					action.value;
+				}
+			);
 			//[tc, self.tclock, TempoClock.new(tempo), tempo].debug("creation de cette foutue horloge");
-			if(main.play_manager.is_playing) {
-				main.play_manager.start_new_session;
-				tc = main.play_manager.get_clock;
-				self.tclock = tc;
-				tc.debug("jcomprendpas");
-
-				session = Task {
-					//self.start_metronome(tempo);
-					//4.wait;
-					 // FIXME: somewhere, 0.2s are lost :s
-					"2jcomprendpas".debug;
-					if (metro) { self.start_metronome };
-					self.start_immediate_recording(dur);
-					main.play_manager.changed(\head_state, \record);
-					"3jcomprendpas".debug;
-					dur.wait;
-					"4jcomprendpas".debug;
-					self.stop_immediate_recording;
-					self.stop_metronome;
-					action.value;
-				};
-				session.play(tc, quant:dur);
-			} {
-				supertc = TempoClock.new(tempo);
-				session = Task {
-					//self.start_metronome(tempo);
-					//4.wait;
-
-					"2jcomprendpas".debug;
-					self.start_immediate_recording(dur);
-					main.play_manager.changed(\head_state, \record);
-					"3jcomprendpas".debug;
-					dur.wait;
-					"4jcomprendpas".debug;
-					self.stop_immediate_recording;
-					self.stop_metronome;
-
-					action.value;
-				};
-				supersession = Task {
-					self.start_metronome(tempo);
-
-					self.tclock = supertc;
-					//self.start_immediate_recording;
-
-					4.wait;
-
-					//self.stop_immediate_recording;
-					//self.pretrack = self.track;
-					//self.track = List.new;
-
-					if (metro.not) { self.stop_metronome };
-					main.play_manager.start_new_session;
-					tc = main.play_manager.get_clock;
-					self.tclock = tc;
-					tc.debug("jcomprendpas");
-
-					session.play(tc, quant:dur);
-				};
-				supersession.play(supertc, quant:1);
-
-			};
+//			if(main.play_manager.is_playing) {
+//				main.play_manager.start_new_session;
+//				tc = main.play_manager.get_clock;
+//				self.tclock = tc;
+//				tc.debug("jcomprendpas");
+//
+//				session = Task {
+//					//self.start_metronome(tempo);
+//					//4.wait;
+//					 // FIXME: somewhere, 0.2s are lost :s
+//					"2jcomprendpas".debug;
+//					if (metro) { self.start_metronome };
+//					self.start_immediate_recording(dur);
+//					main.play_manager.changed(\head_state, \record);
+//					"3jcomprendpas".debug;
+//					dur.wait;
+//					"4jcomprendpas".debug;
+//					self.stop_immediate_recording;
+//					self.stop_metronome;
+//					action.value;
+//				};
+//				session.play(tc, quant:dur);
+//			} {
+//				supertc = TempoClock.new(tempo);
+//				session = Task {
+//					//self.start_metronome(tempo);
+//					//4.wait;
+//
+//					"2jcomprendpas".debug;
+//					self.start_immediate_recording(dur);
+//					main.play_manager.changed(\head_state, \record);
+//					"3jcomprendpas".debug;
+//					dur.wait;
+//					"4jcomprendpas".debug;
+//					self.stop_immediate_recording;
+//					self.stop_metronome;
+//
+//					action.value;
+//				};
+//				supersession = Task {
+//					self.start_metronome(tempo);
+//
+//					self.tclock = supertc;
+//					//self.start_immediate_recording;
+//
+//					4.wait;
+//
+//					//self.stop_immediate_recording;
+//					//self.pretrack = self.track;
+//					//self.track = List.new;
+//
+//					if (metro.not) { self.stop_metronome };
+//					main.play_manager.start_new_session;
+//					tc = main.play_manager.get_clock;
+//					self.tclock = tc;
+//					tc.debug("jcomprendpas");
+//
+//					session.play(tc, quant:dur);
+//				};
+//				supersession.play(supertc, quant:1);
+//
+//			};
 		},
 
 		start_immediate_recording: { arg self, dur=1;

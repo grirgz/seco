@@ -298,9 +298,8 @@
 			patpool: Dictionary.new,
 			samplelist: List.new,
 
-			livenodepool: Dictionary.new,
+			livenodepool: Dictionary.new
 
-			metronome: false	// enable metronome
 		),
 
 		commands: ~shortcut,

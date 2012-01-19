@@ -259,10 +259,8 @@
 	}.value;
 	~midi_note = {
 		var dico = Dictionary.new;
-		[ ~cakewalk.pad ].keysValuesDo { arg k, v;
-			v.do { arg raw, i;
-				dico[raw] = [k, i];
-			};
+		~cakewalk.pad.do { arg v, i;
+			dico[v] = [\pad, i];
 		};
 		dico;
 	}.value;
