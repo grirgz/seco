@@ -8,7 +8,7 @@
 
 
 ~make_player_from_synthdef = { arg main, defname, data=nil;
-	// changed messages: \redraw_node
+	// changed messages: \redraw_node, \mode
 	var player;
 	var desc = SynthDescLib.global.synthDescs[defname];
 	if(desc.isNil, {
@@ -36,7 +36,8 @@
 		playing_state: \stop,
 		muted: false,
 		archive_data: [\control, \stepline, \adsr, \noteline, \buf],
-		effect: nil,
+		effects: List.new,
+		is_effect: false,
 
 		init: { arg self;
 			
@@ -66,6 +67,18 @@
 									// skip
 									// FIXME: what is it for ?
 								}
+								{ name == 'in' } {
+									self.is_effect = true;
+
+									//dict[name] = ~make_control_param.(
+									//	main,
+									//	self,
+									//	name,
+									//	\scalar,
+									//	control.defaultValue,
+									//	~get_spec.(name, defname)
+									//)
+								}
 								{ (name == \bufnum) || name.asString.containsStringAt(0, "bufnum_") } {
 									dict[name] = ~make_buf_param.(name, "sounds/default.wav", self, ~get_special_spec.(name, defname));
 									if(dict[\samplekit].isNil) { // prevent multiple creation
@@ -92,57 +105,77 @@
 					dict;
 			}.value;
 
-			self.data[\noteline] = self.data[\noteline] ?? ~make_noteline_param.(\noteline);
+			if(self.is_effect.not) {
+				self.data[\noteline] = self.data[\noteline] ?? ~make_noteline_param.(\noteline);
 
-			self.data[\dur] = self.data[\dur] ?? ~make_control_param.(main, self, \dur, \scalar, 0.5, ~get_spec.(\dur, defname));
-			self.data[\segdur] = self.data[\segdur] ?? ~make_control_param.(main, self, \segdur, \scalar, 0.5, ~get_spec.(\dur, defname));
-			self.data[\stretchdur] = self.data[\stretchdur] ?? ~make_control_param.(main, self, \stretchdur, \scalar, 1, ~get_spec.(\dur, defname));
-			self.data[\legato] = self.data[\legato] ?? ~make_control_param.(main, self, \legato, \scalar, 0.5, ~get_spec.(\legato, defname));
-			self.data[\sustain] = self.data[\sustain] ?? ~make_control_param.(main, self, \sustain, \scalar, 0.5, ~get_spec.(\sustain, defname));
-			self.data[\repeat] = self.data[\repeat] ?? ~make_control_param.(main, self, \repeat, \scalar, 1, ~get_spec.(\repeat, defname));
+				self.data[\dur] = self.data[\dur] ?? ~make_control_param.(main, self, \dur, \scalar, 0.5, ~get_spec.(\dur, defname));
+				self.data[\segdur] = self.data[\segdur] ?? ~make_control_param.(main, self, \segdur, \scalar, 0.5, ~get_spec.(\dur, defname));
+				self.data[\stretchdur] = self.data[\stretchdur] ?? ~make_control_param.(main, self, \stretchdur, \scalar, 1, ~get_spec.(\dur, defname));
+				self.data[\legato] = self.data[\legato] ?? ~make_control_param.(main, self, \legato, \scalar, 0.5, ~get_spec.(\legato, defname));
+				self.data[\sustain] = self.data[\sustain] ?? ~make_control_param.(main, self, \sustain, \scalar, 0.5, ~get_spec.(\sustain, defname));
+				self.data[\repeat] = self.data[\repeat] ?? ~make_control_param.(main, self, \repeat, \scalar, 1, ~get_spec.(\repeat, defname));
 
-			self.data[\stepline] = self.data[\stepline] ?? ~make_stepline_param.(\stepline, 1 ! 8 );
+				self.data[\stepline] = self.data[\stepline] ?? ~make_stepline_param.(\stepline, 1 ! 8 );
+				self.data[\type] = ~make_type_param.(\type);
+			};
 			self.data[\instrument] = self.data[\instrument] ?? ~make_literal_param.(\instrument, defname);
-			self.data[\type] = ~make_type_param.(\type);
+
+			if(self.is_audiotrack) {
+				self.data[\amp].change_kind(\bus)
+			};
 
 			//TODO: handle t_trig arguments
 
 			self.sourcepat = {
 				var dict = Dictionary.new;
 				var list = List[];
-				var prio;
+				var prio, reject;
 				prio = [\repeat, \instrument, \stretchdur, \sampleline, \noteline, \stepline, \type, \samplekit, \bufnum, \dur, \segdur, \legato, \sustain];
+				reject = [];
+				if(self.is_effect) {
+					reject = [\instrument];
+				};
 
 				list.add(\elapsed); list.add(Ptime.new);
 				list.add(\current_mode); list.add(Pfunc({ self.get_mode }));
 				list.add(\muted); list.add(Pfunc({ self.muted }));
-				prio.do { arg key;
+				prio.difference(reject).do { arg key;
 					if(self.data[key].notNil) {
 						list.add(key); list.add( self.data[key].vpattern );
 					}
 				};
-				self.data.keys.difference(prio).do { arg key;
-					list.add(key); list.add( self.data[key].vpattern );
+				self.data.keys.difference(prio).difference(reject).do { arg key;
+					if(self.data[key].notNil) {
+						list.add(key); list.add( self.data[key].vpattern );
+					}
 				};
 				list.debug("maked pbind list");
 				//[\type, \stepline, \instrument].do { arg x; list.add(x); list.add(dict[x]) };
 				//list.debug("maked pbind list");
 				//Pbind(*list).dump;
-				//Pbind(*list).trace;
-				Pbind(*list).trace;
+				if(self.is_effect) {
+					Pmono(self.data[\instrument].vpattern, *list)
+				} {
+					Pbind(*list).trace;
+					//Pbind(*list);
+				}
 			}.value;
+			self.build_real_sourcepat;
 		},
 
-		set_effect: { arg self, val;
-			self.effect = val;
+		set_effects: { arg self, fxlist;
+			self.effects = fxlist.reject({arg fx; main.node_exists(fx).not }).asList;
+			self.build_real_sourcepat;
 		},
-		
-		get_effect: { arg self;
-			if(self.effect.notNil) {
-				main.get_node(self.effect);
-			} {
-				nil
-			}
+
+		add_effect: { arg self, fx;
+			self.effects.add(fx);
+			self.build_real_sourcepat;
+		},
+
+
+		get_effects: { arg self;
+			self.effects;
 		},
 
 		set_playing_state: { arg self, state;
@@ -170,6 +203,9 @@
 		mute: { arg self, val=true;
 			if(val != self.muted) {
 				self.muted = val;
+				if(self.is_audiotrack) {
+					self.data[\amp].bus.mute(val);
+				};
 				self.changed(\redraw_node);
 			}
 		},
@@ -236,10 +272,12 @@
 			});
 		},
 
+
 		set_wrapper: { arg self, pat, code=nil;
 			code.debug("set_wrapper");
 			self.wrapper = pat;
 			if(code.notNil) { self.sourcewrapper = code };
+			self.build_real_sourcepat;
 		},
 
 		set_wrapper_code: { arg self, code;
@@ -263,11 +301,16 @@
 				"player: Can't set sampleline mode: not a sample player".inform;	
 			} {
 				self.current_mode = val;
+				self.changed(\mode);
 			};
 		},
 
 		get_mode: { arg self, val;
 			self.current_mode;
+		},
+
+		is_audiotrack: { arg self;
+			self.defname.asString.beginsWith("audiotrack")
 		},
 
 		set_noteline: { arg self, set;
@@ -308,6 +351,30 @@
 
 		get_args: { arg self;
 			self.data.keys
+		},
+
+		get_all_args: { arg self;
+			var res;
+			res = OrderedIdentitySet.new;
+			res.addAll(self.get_args);
+			self.effects.do { arg fx, i;
+				res.addAll(main.get_node(fx).get_args.collect { arg ar;
+					(ar++"_fx"++i).asSymbol
+				})
+			};
+			res;
+		},
+
+		get_arg: { arg self, key;
+			var splited, argname, fxnum;
+			splited = key.asString.split($_);
+			if(splited.last[0..1] == "fx") {
+				fxnum = splited.pop[2].asString.asInteger;
+				argname = splited.join("_").asSymbol;
+				main.get_node(self.effects[fxnum]).get_arg(argname);
+			} {
+				self.get_raw_arg(key)
+			}
 		},
 
 		set_bank: { arg self, bank;
@@ -380,13 +447,31 @@
 			ev;
 		},
 
-		vpattern: { arg self;
-			self.wrapper.debug("vpattern called: wrapper");
-			if(self.wrapper.notNil) {
+		build_real_sourcepat: { arg self;
+
+			var res;
+			res = if(self.wrapper.notNil) {
 				self.wrapper;
 			} {
 				self.sourcepat;
-			}
+			};
+			self.real_sourcepat = if(self.effects.size > 0) {
+				~pfx.(
+					res,
+					self.effects.collect { arg fx;
+						fx.debug("effect");
+						main.get_node(fx).vpattern.postcs;
+					}
+				)
+			} {
+				res;
+			};
+			self.real_sourcepat.trace;
+		},
+
+		vpattern: { arg self;
+			self.wrapper.debug("vpattern called: wrapper");
+			self.real_sourcepat;
 		},
 
 		vpattern_loop: { arg self;
@@ -440,7 +525,7 @@
 			self.selected_param;
 		},
 
-		get_arg: ~player_get_arg,
+		get_raw_arg: ~player_get_arg,
 		set_arg: ~player_set_arg
 
 	);
@@ -919,6 +1004,7 @@
 		solomuted_nodes: Set.new,
 		recording: false,
 		tempo: TempoClock.default.tempo,
+		visual_metronome_enabled: true,
 
 		myclock: TempoClock.default,
 
@@ -927,11 +1013,13 @@
 		record_length: 8,
 		syncclap_dur: 4,
 		use_metronome: false,
+		keep_recording_session: false,
 		get_clock: { arg self; self.myclock },
 
 		refresh: { arg self;
 			self.changed(\head_state, \stop);
 			self.changed(\pos);
+			self.changed(\visual_metronome);
 			self.changed(\tempo, self.get_clock.tempo);
 		},
 
@@ -940,6 +1028,9 @@
 		},
 
 		get_rel_beat: { arg self;
+			[self.get_clock.beats, self.start_pos, self.get_record_length,
+				((self.get_clock.beats - self.start_pos) % self.get_record_length)
+			].debug("beats, spos, reclen, relbeat");
 			((self.get_clock.beats - self.start_pos) % self.get_record_length)
 		},
 
@@ -963,6 +1054,10 @@
 
 		get_record_length: { arg self;
 			self.record_length;
+		},
+
+		get_record_length_in_seconds: { arg self;
+			self.get_record_length / self.myclock.tempo;
 		},
 
 		set_record_length: { arg self, val;
@@ -994,8 +1089,10 @@
 		},
 
 		start_new_session: { arg self;
-			if(self.is_playing) {
+			if(self.is_playing || self.keep_recording_session) {
 				"start_new_session: already playing".debug;
+				self.keep_recording_session = false;
+				self.changed(\visual_metronome);
 			} {
 				"start_new_session: new session!!".debug;
 				if(self.myclock != TempoClock.default) {
@@ -1005,28 +1102,33 @@
 				self.myclock = TempoClock.new(self.tempo);
 				self.myclock.permanent = true;
 				self.start_pos = 0;
-				self.start_visual_metronome;
+				self.changed(\visual_metronome);
+				//self.start_visual_metronome;
 			}
 		},
 
 		start_metronome: { arg self, clock, dur;
+			// called in midi.sc: preclap
 			var oldclock;
 			oldclock = self.myclock;
 			self.myclock = clock;
 			self.start_pos = 0;
 			self.set_record_length(dur);
 			Task {
-				self.start_visual_metronome;
+				self.changed(\visual_metronome);
+				//self.start_visual_metronome;
 				self.start_audio_metronome(clock, dur);
 				dur.wait;
-				self.stop_visual_metronome;
+				//self.changed(\visual_metronome)
+				//self.stop_visual_metronome;
 				self.myclock = oldclock;
 			}.play(clock, quant:1);
 		},
 
 		start_audio_metronome: { arg self, clock, dur;
-			self.audio_metronome = Pbind(\instrument, \default,
-				\legato, 0.2,
+			self.audio_metronome = Pbind(\instrument, \metronome,
+				\freq, 440,
+				\sustain, 0.1,
 				\dur, Pn(1,dur)
 			).play(clock, quant:1);
 		},
@@ -1035,17 +1137,29 @@
 			self.audio_metronome.stop;
 		},
 
+		enable_visual_metrome: { arg self, val=true;
+			self.visual_metronome_enabled = val;
+			self.changed(\visual_metronome);
+		},
+
 		start_visual_metronome: { arg self;
+			self.get_rel_beat.debug("pm: start_visual_metronome");
 			self.visual_metronome_enabled = true;
 			self.changed(\visual_metronome);
 		},
+
 		stop_visual_metronome: { arg self;
+			self.get_rel_beat.debug("pm: stop_visual_metronome");
 			self.visual_metronome_enabled = false;
 			self.changed(\visual_metronome);
 		},
 
 		is_playing: { arg self;
 			self.top_nodes.size > 0
+		},
+
+		node_is_playing: { arg self, node;
+			self.top_nodes.keys.includes(node.uname) || self.children_nodes.includes(node.uname)
 		},
 
 		play_node: { arg self, nodename;
@@ -1072,6 +1186,7 @@
 						node.mute(false);
 						node.node.source = node.vpattern_loop;
 						quant = if(self.is_playing) { self.get_quant } { 1 };
+						self.get_rel_beat.debug("pm: play node");
 						node.node.play(self.get_clock,quant:quant);
 						node.set_playing_state(\play);
 						esp = node.node.player;
@@ -1093,7 +1208,6 @@
 							};
 							children.collect(_.uname).debug("pm: stop handler: children removed");
 							if(self.is_playing.debug("isplaying").not) {
-								self.changed(\stop_counter);
 								self.changed(\head_state, \stop);
 							};
 							sc.remove;

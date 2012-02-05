@@ -98,6 +98,52 @@
 	if(auto_refresh) { model.refresh() };
 };
 
+// this function take a pattern and a list of Pmono pattern as effects
+~pfx = { arg pat, effects;
+	Pspawner({ |spawner|
+		var str, pbus, pgroup, leffect;
+		var blist = List.new;
+		// create a bus and set the pat to write on it
+		pbus = Bus.audio(s,2).debug("first bus");
+		blist.add(pbus);
+		pat = Pset(\out, pbus, pat);
+		// when the pattern end, free all the effects
+		str = CleanupStream(pat.asStream, {
+			"cleanup".debug;
+			spawner.suspendAll;
+			//pbus.free;
+			//glist.do(_.free);
+		});
+		spawner.par(str);
+		pgroup = 1;
+		// for each effect, set \in to read from the previous effect and \out to write to the next effect
+		// and create a group to maintain order-of-execution
+		// then launch it in parralel with the pat
+		effects[..effects.size-2].do { arg ef;
+			ef = Pset(\in, pbus, ef);
+			pbus = Bus.audio(s,2);
+			blist.add(pbus);
+			ef = Pset(\out, pbus, ef);
+			pgroup = Group.after(pgroup);
+			ef = Pset(\group, pgroup, ef);
+			spawner.par(ef)
+		};
+		// the last effect should write on bus 0 so don't set its \out
+		leffect = effects.last;
+		leffect = Pset(\in, pbus, leffect);
+		pgroup = Group.after(pgroup);
+		pgroup.register;
+		pgroup.addDependant( { arg grp, status;
+			if(status == \n_end) {
+				"fin!!".debug;
+				blist.do(_.free)
+			}
+		});
+		leffect = Pset(\group, pgroup, leffect);
+		spawner.par(leffect)
+	});
+};
+
 // ==========================================
 // INCLUDES
 // ==========================================
@@ -327,6 +373,52 @@
 			};
 		},
 
+		make_livenodename_from_libnodename: { arg self, name;
+			self.find_free_name( { name++"_l"++UniqueID.next; } )
+		},
+
+		find_free_name: { arg self, makename;
+			var newname;
+			block { arg break; 
+				1000.do {
+					newname = makename.();
+					if( main.get_node(newname).isNil ) { break.value };
+					newname.debug("Name exist already");
+				};
+				"make_livenodename_from_libnodename: Error, can't find free name".error;
+			};
+			newname;
+		},
+
+
+		make_newlivenodename_from_livenodename: { arg self, name;
+			self.find_free_name( { 
+				name[ .. name.findBackwards("_l")  ] ++ "l" ++ UniqueID.next;
+			})
+		},
+
+		make_livenode_from_libnode: { arg self, libnodename;
+			var livenodename;
+			var player;
+			livenodename = self.make_livenodename_from_libnodename(libnodename);
+			player = ~make_player.(main, main.model.patpool[libnodename]);
+			player.name = livenodename;
+			player.uname = livenodename;
+			main.add_node(player);
+			player.uname;
+		},
+
+		duplicate_livenode: { arg self, livenodename;
+			var newlivenodename, newlivenode, newlivenode_pdict;
+			newlivenodename = self.make_newlivenodename_from_livenodename(livenodename);
+			newlivenodename.debug("newlivenodename");
+			livenodename.debug("livenodename");
+			//main.model.livenodepool.keys.debug("livenodepool");
+			main.model.livenodepool[newlivenodename] = main.model.livenodepool[livenodename].clone;
+			main.model.livenodepool[newlivenodename].name = newlivenodename;
+			main.model.livenodepool[newlivenodename].uname = newlivenodename;
+			newlivenodename;
+		},
 
 		add_node: { arg self, node;
 			self.model.livenodepool[node.uname] = node
@@ -574,6 +666,17 @@
 			self.model.patpool = patpool;
 		},
 
+		load_effectlib: { arg self, fxlist;
+			var patpool = Dictionary.new;
+
+			fxlist.do { arg asso;
+				patpool[asso.key] = asso.value;
+			};
+
+			self.model.effectlist = fxlist.collect { arg asso; asso.key };
+			self.model.effectpool = patpool;
+		},
+
 		load_samplelib: { arg self, samplelist;
 			self.model.samplelist = samplelist;
 		},
@@ -614,13 +717,14 @@
 		},
 
 		init_synthdesclib: { arg self;
-			SynthDescLib.global.read("synthdefs/");
+			SynthDesc.mdPlugin = TextArchiveMDPlugin; // plugin to store metadata on disk when storing the synthdef
+			SynthDescLib.global.read("synthdefs/*.scsyndef");
 		},
 
 		test_player: { arg self, libnodename;
 			var player, ep, name;
 			self.model.patpool[libnodename] = libnodename;
-			name = main.panels.parlive.make_livenode_from_libnode(libnodename);
+			name = main.make_livenode_from_libnode(libnodename);
 			player = main.get_node(name);
 			self.current_test_player = player;
 			self.model.current_panel = \editplayer;
@@ -647,6 +751,7 @@
 			"ijensuisla".debug;
 			self.add_node(~empty_player);
 			"jensuisla".debug;
+			~parse_bindings.(main.commands,~bindings);
 			self.play_manager = ~make_playmanager.(self);
 			self.panels.parlive = ~make_parlive.(self);
 			self.panels.seqlive = ~make_seqlive.(self);

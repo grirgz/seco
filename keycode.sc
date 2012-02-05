@@ -157,10 +157,32 @@
 	}.value;
 	~kbaalphanum = {
 		var dict = Dictionary.new;
-		//NOTE: only for Alt and no modifier
+		//NOTE: only for Alt modifier
 		var keycodes = [
 				[ 38, 233, 34, 39, 40, 45, 232, 31, 231, 224, 41, 61 ],
 				[97, 122, 101, 114, 116, 121, 117, 105, 111,112, 36 /* ^ not working */, 36 ],
+				[113, 115, 100, 102, 103, 104, 106, 107, 108, 109, 249, 42 ],
+				[60, 119, 120, 99, 118, 98, 110, 44, 59 ] //FIXME: complete keycodes
+		];
+		var alnum = [
+			"1234567890)=",
+			"azertyuiop^$",
+			"qsdfghjklmù*",
+			"<wxcvbn,;:!"
+		];
+		keycodes.do { arg row, rowidx;	
+			row.do { arg kc, kcidx;
+				dict[ alnum[rowidx][kcidx].asString ] = kc;
+			};
+		};
+		dict;
+	}.value;
+	~kbsaalphanum = {
+		var dict = Dictionary.new;
+		//NOTE: only for Alt and Shift modifier
+		var keycodes = [
+				[ 38, 233, 34, 39, 40, 45, 232, 31, 231, 224, 41, 61 ],
+				[97, 122, 69 /* the only one changed, todo: change others */, 114, 116, 121, 117, 105, 111,112, 36 /* ^ not working */, 36 ],
 				[113, 115, 100, 102, 103, 104, 106, 107, 108, 109, 249, 42 ],
 				[60, 119, 120, 99, 118, 98, 110, 44, 59 ] //FIXME: complete keycodes
 		];
@@ -194,6 +216,8 @@
 		minus: 45
 	);
 	~mod = (
+		0: 0,
+		fake: 12345,
 		fx: 8388608,
 		ctrlfx: 8650752,
 		ctrl: 262144,
@@ -220,8 +244,20 @@
 		delete: 127,
 		enter: 13,
 		escape: 27,
-		point: 46
+		point: 46,
+		left: 63234,
+		right: 63235,
+		up: 63232,
+		down: 63233
 	);
+	~kbfxdict = {
+		var dico = Dictionary.new;
+		~kbfx.do { arg kc, i;
+			dico[("f"++(i+1)).asSymbol] = kc;
+		};
+		~kbspecial.putAll(dico);
+		dico
+	}.value;
 	~cakewalk = (
 		\knob: [
 			16,17,18,19, 20,21,22,23, 24
@@ -277,7 +313,7 @@
 	add_shortcut: { arg self, path, default_shortcut=nil, action;
 		var shortcut;
 		self.actions.put(*path++[action]);
-		self.config.put(*path ++ [ self.config.at(*path) ?? default_shortcut ]); //FIXME: why never overwrite shortcut ?
+		self.config.put(*path ++ [ self.config.at(*path) ?? default_shortcut ]); //FIXME: why never overwrite shortcut ? because shortcut already set in conf before
 	},
 
 	set_action: { arg self, path, action;
@@ -382,11 +418,11 @@
 	overload_mode: { arg self, path;
 		var restorefun=nil;
 		var panel = path[0];
-		self.commands.debug("overload_mode:commands");
+		//self.commands.debug("overload_mode:commands");
 		self.config.leafDoFrom(path, { arg leafpath, val;
 			var oldpath;
 			oldpath = self.commands[panel][ self.config.at(*leafpath) ];
-			[oldpath, leafpath, self.config.at(*leafpath)].debug("oldpath, path, scap");
+			//[oldpath, leafpath, self.config.at(*leafpath)].debug("oldpath, path, scap");
 
 			if( oldpath.isNil, {
 				restorefun = restorefun.addFunc({ self.disable(leafpath) });
@@ -464,6 +500,7 @@
 	handle_midi_key: { arg self, panel, shortcut;
 		var fun;
 		//self.kb_handler.debug("handle_key: kb_handler");
+		if(self.midi_handler[panel].isNil) { self.midi_handler[panel] = Dictionary.new };
 		[shortcut, panel].debug("current shortcut panel");
 		self.commands[panel][shortcut].debug("shortcut of path called");
 		fun = self.midi_handler[panel][shortcut];
@@ -486,4 +523,94 @@
 
 );
 
+
+
+~bindings = (
+	editplayer: [
+		["select_cell",							\kb, 0, \kbnumline],
+		["edit_value", 							\kb, 0, \enter],
+		["edit_value_mode.insert_number",		\kb, 0, \kbnumpad],
+		["edit_value_mode.insert_point",		\kb, 0, \point],
+		["edit_value_mode.cancel",				\kb, 0, \escape],
+		["edit_value_mode.ok",					\kb, 0, \enter],
+
+		["solo_selected", \kb, 0, \f7],
+		["unsolo_selected", \kb, \ctrl, \f7],
+		["unsolo_selected", \kb, \ctrl, \f7],
+		["add_effect",							\kb, \ctrl, \f1],
+		//["increase_midi_knob_offset",							\kb, 0, \down],
+	],
+	parlive: [
+		["select_header",							\kb, \alt, \kbnumline],
+		["create_new_livenode", \kb, \alt, "c"],
+	]
+);
+
+~string_to_symbol_list = { arg str;
+	str.split($.).collect(_.asSymbol);
+};
+
+~get_modifer = { arg binding;
+	var realmod;
+	var key = binding[3];
+	var mod = binding[2];
+	if(~keycode.kbfxdict.keys.includes(key)) {
+		realmod = (
+			0: \fx,
+			//shift: \fxshift,
+			ctrl: \ctrlfx
+		)[mod];
+		if(realmod.isNil) {
+			[mod,key].debug("ERROR: modifier fx not found");
+			realmod = \fake;
+		};
+	} {
+		realmod = mod
+	};
+	[mod,key,realmod].debug("get_modifer");
+	~keycode.mod[realmod];
+};
+
+~get_keycode = { arg binding;
+	var realkey;
+	var key = binding[3];
+	var mod = binding[2];
+	if( key.isString && (key.size < 3) ) {
+		case
+			{ [\ctrl, \ctrlaltshift, \ctrlshift].includes(mod) } {
+				realkey = ~keycode.kbcalphanum[key];
+			}
+			{ [\shift, \altshift].includes(mod) } {
+				realkey = ~keycode.kbsaalphanum[key];
+			}
+			{
+				realkey = ~keycode.kbaalphanum[key];
+			}
+		
+	} {
+		realkey = ~keycode.kbspecial[key];
+		if(realkey.isNil) {
+			realkey = ~keycode[key];
+		};
+	};
+	realkey;
+};
+
+~parse_bindings = { arg commands, bindings;
+	"**begin parsing bindings".debug;
+	bindings.keysValuesDo { arg panel, blist;
+		blist.do { arg binding;
+			var kc = ~get_keycode.(binding);
+			if(kc.isArray) {
+				[[panel] ++ ~string_to_symbol_list.(binding[0]), [ binding[1], ~get_modifer.(binding) ], ~get_keycode.(binding)].postcs;
+				commands.array_set_shortcut([panel] ++ ~string_to_symbol_list.(binding[0]), [ binding[1], ~get_modifer.(binding) ], ~get_keycode.(binding))
+			} {
+				[[panel] ++ ~string_to_symbol_list.(binding[0]), [ binding[1], ~get_modifer.(binding), ~get_keycode.(binding) ]].postcs;
+				commands.set_shortcut([panel] ++ ~string_to_symbol_list.(binding[0]), [ binding[1], ~get_modifer.(binding), ~get_keycode.(binding) ])
+			}
+		}
+
+	};
+	"**end parsing bindings".debug;
+};
 

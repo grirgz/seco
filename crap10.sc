@@ -96,6 +96,8 @@ SynthDef(\audiotrack, { arg out = 0, amp=1.0, bufnum = 0;
 }).add;
 )
 
+Synth(\audiotrack, [\bufnum, 12])
+
 // works!!
 
 (
@@ -164,20 +166,80 @@ a = Ppar([
 
 
 
+(
+SynthDef(\test, {arg roomsize, revtime, damping, inputbw, spread = 15, drylevel, earlylevel,
+                taillevel;
+        var a = Resonz.ar(
+                Array.fill(4, {Dust.ar(2)}), 1760 * [1, 2, 4, 8], 0.01).sum * 10;
+//      var a = SoundIn.ar(0);
+//      var a = PlayBuf.ar(1, 0);
+        Out.ar(0, GVerb.ar(
+                a,
+                roomsize,
+                revtime,
+                damping,
+                inputbw,
+                spread,
+                drylevel.dbamp,
+                earlylevel.dbamp,
+                taillevel.dbamp,
+                roomsize, 0.3) + a)}).add
+
+)
+s.scope(2);
+
+//
 
 
 
 
+// bathroom
+a = Synth(\test, [\roomsize, 5, \revtime, 0.6, \damping, 0.62, \inputbw, 0.48, \drylevel -6, \earlylevel, -11, \taillevel, -13]);
+a.free;
+
+//living room
+a = Synth(\test, [\roomsize, 16, \revtime, 1.24, \damping, 0.10, \inputbw, 0.95, \drylevel -3, \earlylevel, -15, \taillevel, -17]);
+a.free;
+
+//church
+a = Synth(\test, [\roomsize, 80, \revtime, 4.85, \damping, 0.41, \inputbw, 0.19, \drylevel -3, \earlylevel, -9, \taillevel, -11]);
+a.free;
+
+// cathedral
+a = Synth(\test, [\roomsize, 243, \revtime, 1, \damping, 0.1, \inputbw, 0.34, \drylevel -3, \earlylevel, -11, \taillevel, -9]);
+a.free
+
+// canyon
+a = Synth(\test, [\roomsize, 300, \revtime, 103, \damping, 0.43, \inputbw, 0.51, \drylevel -5, \earlylevel, -26, \taillevel, -20]);
+a.free;
 
 
+(
+Ndef(\elecguitare, { 
+var ou;
+//ou = SoundIn.ar([0,1]);
+ou = SinOsc.ar(200*(SinOsc.ar(100)*50));
+ou = SinOsc.ar(200);
+ou = ou * EnvGen.ar(Env.perc(0.01,0.01), gate: Impulse.ar(1));
+//ou = ou.dup;
+//ou = (Amplitude.kr(ou.sum,0,1.5) > 0.05) * ou;
+//ou = ((ou *1000).tanh*1100).distort/10 + ou
+//ou = ((ou *1000).tanh*1100).distort/10
+//ou = (ou*10).distort;
+ou * GVerb.ar (ou, roomsize: 100, revtime: 15.3, damping: 0.1, inputbw: 0.9, spread: 15, drylevel: 1, earlyreflevel: 0.7, taillevel: 0.5, maxroomsize: 300);
+ou
 
+}).play;
+
+)
 
 
 
 
 
 SoundIn.a
-{ SoundIn.ar(0) }.plot;
+{ SoundIn.ar([0,1]) }.plot;
+{ SoundIn.ar(0) }.play;
 (
 {
 	var ga, ou;
@@ -189,7 +251,41 @@ SoundIn.a
 s.boot
 
 
+{100.rand}.dup(8).sort
+(
+x = Array.rand(50, 0, 10); // initial array of 50 values
+r = List.new;
+// generate an array of 8 random length without duplicate
+while({r.size < 7}) {
+	d = (x.size-1).rand;
+	if( r.includes(d).not ) {
+		r.add(d)
+	}
+};
+r.sort;
+// separate
+a = -1;
+b = x.separate({ a = a +1; if(a == r.first) { r.removeAt(0); true } { false }; });
+b.postcs;
+b.size;
+)
+1.coin
+[].first
+List[]k
 
+
+x = Array.rand(50, 0, 10); // initial array of 50 values
+(
+y = Array.rand(8, 1, 10); // 8 arrays of random sizes
+y.postln;
+y.normalizeSum.postln;
+(y.normalizeSum * 50).postln;
+(y.normalizeSum * 49).round(1).postln;
+z = x.clumps((y.normalizeSum * 49).round(1));
+z.postcs;
+z.size
+)
+y
 
 Pbind(\instrument, \plop, \sustain, 2).play;
 TempoClock.default.tempo = 3
@@ -200,7 +296,7 @@ SynthDef(\plop, { arg sustain;
 
 
 SynthDesc.mdPlugin = TextArchiveMDPlugin; // plugin to store metadata on disk when storing the synthdef
-SynthDesc.mdPlugin = 
+SynthDesc.mdPlugin 
 
 SynthDef(\pulsepass,{ arg out=0, gate=1, amp=0.1, pan=0, noise=1, freq=250, bpffratio1=1, bpffratio2=1, bpfrq1=1, bpfrq2=1, apdec1=1, apdec2=1;
 	var nois, gen, genenv, ou, ou2;
@@ -231,11 +327,13 @@ SynthDef(\pulsepass,{ arg out=0, gate=1, amp=0.1, pan=0, noise=1, freq=250, bpff
 ))).store;
 
 
-SynthDescLib.global.read("synthdefs/");
+SynthDescLib.global.read("synthdefs/*.scsyndef");
 SynthDescLib.global.browse
 
 
 SynthDescLib.global[\pulsepass].makeWindow;
+SynthDescLib.global[\pulsepass]
+SynthDescLib.global.synthDescs[\pulsepass].metadata
 
 
 
@@ -290,4 +388,147 @@ a = ScatterView(w, Rect(10, 10, 760, 760), e, ControlSpec(0.0,5.0), ControlSpec(
 a.drawAxis_(true).drawMethod_(\fillOval).symbolColor_(Color.blue(0.5, 0.5)).symbolSize_(5);
 
 
+)
+
+(
+SynthDef(\metronome, { arg out=0, amp=1, gate=1, freq=220, pan=0;
+	var ou;
+	ou = SinOsc.ar([freq,freq/2])+LFSaw.ar(freq+0.1);
+	ou = LPF.ar(ou,freq,0.1);
+	ou = ou * EnvGen.ar(Env.asr(0.0001, 1, 0.01),gate, doneAction:2);
+	ou = Pan2.ar(ou,pan,amp*2);
+	Out.ar(out,ou);
+}).store;
+)
+
+
+
+(
+Pbind(\instrument, \metronome,
+	\freq, 440,
+	\sustain, 0.1,
+	\dur, Pn(1,256)
+).play;
+)
+
+Date.getDate.rawSeconds
+c = (note:40, bla:54)
+c.hash
+a.hash
+b = a.deepCopy
+b.hash
+a.note = 41
+
+
+
+
+(
+c = Condition.new;
+
+Routine {
+        1.wait;
+        "waited for 1 second".postln;
+        1.wait;
+        "waited for another second, now waiting for you ... ".postln;
+        c.hang;
+        "the condition has stopped waiting.".postln;
+        1.wait;
+        "waited for another second".postln;
+        "waiting for you ... ".postln;
+        c.hang;
+        "the condition has stopped waiting.".postln;
+}.play;
+)
+
+// continue
+c.unhang;
+
+
+
+(
+c = Condition.new(false);
+
+Routine {
+        1.wait;
+        "waited for 1 second".postln;
+        1.wait;
+        "waited for another second, now waiting for you ... ".postln;
+        c.wait;
+        "the condition has stopped waiting.".postln;
+        1.wait;
+        "waited for another second".postln;
+        "waiting for you ... ".postln;
+                c.test = false;
+                c.wait;
+        "the condition has stopped waiting.".postln;
+        1.wait;
+        "the end".postln;
+}.play;
+)
+
+// continue
+(
+c.test = true;
+c.signal;
+)
+
+// a typical use is a routine that can pause under certin conditions:
+(
+c = Condition.new;
+fork { loop { 1.wait; "going".postln; c.wait } };
+)
+c.test = true; c.signal;
+c.test = false;
+c.test = true;
+c.signal
+
+
+c = Condition.new;
+(
+Pbind(
+	\freq, Prout({
+		loop {
+			200.yield;
+			c.wait;
+		}
+	}),
+	\dur, 1
+).play
+)
+(
+Pbind(
+	\freq, 200,
+	\dur, 1
+).play
+)
+
+
+
+
+
+
+
+
+
+
+
+(
+~bla = {
+	var window, sl_layout;
+	var txt;
+	window = Window.new("bla", Rect(0,0,1500,400));	
+
+	sl_layout = GUI.hLayoutView.new(window, Rect(0,0,1500,60*16));
+	txt = StaticText.new(sl_layout, Rect(0,0,100,100));
+	txt.string = "blaaaaaaaaaaaaaa";
+	txt = Button.new(sl_layout, Rect(0,0,100,100));
+	
+
+
+	window.view.keyDownAction = { arg view, char, modifiers, unicode, keycode;
+		[view, char, modifiers, unicode, keycode].debug("view, char, modifiers, unicode, keycode");
+	};
+	window.front;
+};
+~bla.value
 )

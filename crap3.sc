@@ -49,7 +49,7 @@ SynthDef(\lpf, { arg in=0, out=0, gate=1, freqfm=4, freq_fc=200;
 
 SynthDef(\echo, { arg out=0, in=0, maxdtime=0.2, release=1, dtime=0.2, decay=2, gate=1;
         var env, ou;
-        env = Linen.kr(gate, 0.05, 1, decay, 14);
+        env = Linen.kr(gate, 0.05, 1, decay, 2);
         in = In.ar(in, 2);
 		ou = CombL.ar(in, maxdtime, dtime, decay, 1, in);
 		//DetectSilence.ar(ou,0.001,0.1,doneAction:2);
@@ -83,6 +83,9 @@ SynthDef(\sinosc2, { arg out=0, gate=1, amp=0.1, carrier=200, freq=5, outlag=0.1
 
 s.queryAllNodes; // note the default group (ID 1)
 s.boot
+
+
+
 
 
 
@@ -123,6 +126,7 @@ s.boot
 		pbus = Bus.audio(s,2);
 		pat = Pset(\out, pbus, pat);
 		str = CleanupStream(pat.asStream, {
+			"cleaunppp".debug;
 			spawner.suspendAll;
 			pbus.free;
 		});
@@ -194,7 +198,7 @@ x = ~pfx.(
 	)
 );
 
-x.play;
+x.trace.play;
 )
 Ppar([Pseq([x,Event.silent(5)],inf),y]).play
 
@@ -205,37 +209,39 @@ x = ~pfx2.(
 		\instrument, \sin1,
 		//\out, b,
 		//\group, g,
+		\amp, 0.05,
 		\sustain, 0.1,
 		\freq, Pseq([1,2,3,4])*100,
-		\dur, 0.1
+		\dur, 2.1
 	),
 	[
-	Pmono(
-		\echo,
-		\release, 1,
-		\dtime, Pseq([0.3,0.2,0.1],inf),
-		\decay, 1,
-		\dtime, 0.1
-		//\group, g
-	),
-	Pmono(
-		\echo,
-		\release, 1,
-		\dtime, Pseq([0.3,0.2,0.1],inf),
-		\decay, 10,
-		\dtime, 0.51
-		//\group, g
-	)
+//	Pmono(
+//		\echo,
+//		\release, 1,
+//		\dtime, Pseq([0.3,0.2,0.1],inf),
+//		\decay, 0.51,
+//		\dtime, 0.1
+//		//\group, g
+//	)
+//	,
+//	Pmono(
+//		\echo,
+//		\release, 1,
+//		\dtime, Pseq([0.3,0.2,0.1],inf),
+//		\decay, 1,
+//		\dtime, 0.51
+//		//\group, g
+//	)
 	]
 );
 
-x.play;
+Pn(x,3).play;
 )
 s.queryAllNodes; // note the default group (ID 1)
 s.boot
 ~a = EventPatternProxy.new;
 ~a.source = x;
-~a.play
+Pn(~a,inf).play
 ~a.stop
 (
 ~a = EventPatternProxy.new;

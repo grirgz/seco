@@ -5,7 +5,7 @@ s.waitForBoot({
 TempoClock.tempo = 1.5;
 
 ~synthlib = [
-	\audiotrack,
+	\audiotrack_noisegate,
 	\pulsepass,
 	\flute1,
 	\miaou1,
@@ -18,6 +18,10 @@ TempoClock.tempo = 1.5;
 	\ss_combfreq,
 ].collect({ arg i; i -> i });
 
+~effectlib = [
+	\echo
+].collect({arg i; i -> i });
+
 ~samplelib = [
 	"sounds/perc1.wav",
 	"sounds/pok1.wav",
@@ -27,6 +31,7 @@ TempoClock.tempo = 1.5;
 
 ~seq = ~mk_sequencer.value;
 ~seq.load_patlib( ~synthlib );
+~seq.load_effectlib( ~effectlib );
 ~seq.set_presetlib_path("mypresets2");
 ~seq.append_samplelib_from_path("sounds/" );
 ~seq.append_samplelib_from_path("sounds/hydrogen/GMkit" );
@@ -36,22 +41,56 @@ TempoClock.tempo = 1.5;
 });
 )
 
+~seq.save_project("blablareggae");
+~seq.load_project("blablareggae");
 (
+SynthDef(\echo, { arg out=0, in=0, maxdtime=0.6, release=1, dtime=0.2, decay=2, gate=1;
+        var env, ou;
+        env = Linen.kr(gate, 0.05, 1, decay, doneAction:14);
+        in = In.ar(in, 2);
+		ou = CombL.ar(in, maxdtime, dtime, decay, 1, in);
+        Out.ar(out, ou);
+}, [\ir, \ir, \ir, 0.1, 0.1, 0]).store;
 SynthDef(\record_input, { arg out = 0, bufnum = 0, sustain;
 		var input, env;
         input = SoundIn.ar([0,1]);
 		env = EnvGen.kr(Env.linen(0,sustain,0), doneAction:2); // stop recording after dur..
         RecordBuf.ar(input, bufnum, doneAction: 0, run:env, loop: 0);
-}).add;
-SynthDef(\audiotrack, { arg out = 0, amp=1.0, bufnum = 0, sustain;
+}).store;
+SynthDef(\audiotrack, { arg out = 0, amp=0.20, bufnum = 0, sustain;
         var playbuf, ou;
         playbuf = PlayBuf.ar(2,bufnum,startPos:44100*0.046,doneAction:0);
         //playbuf = PlayBuf.ar(2,bufnum,startPos:0,doneAction:0);
 		//ou = playbuf * EnvGen.ar(Env.asr(0.01,1,0.01), gate, doneAction:2);
 		ou = playbuf * EnvGen.ar(Env.linen(0.001,sustain,0.001), doneAction:2);
         Out.ar(out, ou * amp);
-}).add;
+}).store;
 
+SynthDef(\audiotrack_noisegate, { arg out = 0, amp=0.20, bufnum = 0, sustain, noisegate=0.0, at=0.2, rt=0.2;
+        var playbuf, ou;
+        playbuf = PlayBuf.ar(2,bufnum,startPos:44100*0.046,doneAction:0);
+        //playbuf = PlayBuf.ar(2,bufnum,startPos:0,doneAction:0);
+		//ou = playbuf * EnvGen.ar(Env.asr(0.01,1,0.01), gate, doneAction:2);
+		ou = playbuf;
+		//ou = ((ou < noisegate) * ou) + ((ou > noisegate) * (ou*100).tanh.distort);
+		//ou = (ou*100).distort;
+		ou = ou * EnvGen.ar(Env.linen(0.001,sustain,0.001), doneAction:2);
+		ou = (Amplitude.kr(ou,at,rt) > noisegate) * ou;
+        Out.ar(out, ou * amp);
+}, metadata:(specs:(
+	noisegate: ControlSpec(0, 0.1, \lin, 0, 0),
+	at: ControlSpec(0, 1, \lin, 0.0001, 0),
+	rt: ControlSpec(0, 1, \lin, 0.0001, 0)
+))).store;
+
+SynthDef(\metronome, { arg out=0, amp=1, gate=1, freq=220, pan=0;
+	var ou;
+	ou = SinOsc.ar([freq,freq/2])+LFSaw.ar(freq+0.1);
+	ou = LPF.ar(ou,freq,0.1);
+	ou = ou * EnvGen.ar(Env.asr(0.0001, 1, 0.01),gate, doneAction:2);
+	ou = Pan2.ar(ou,pan,amp*2);
+	Out.ar(out,ou);
+}).store;
 
 
 SynthDef(\ringbpf1, { arg out=0, gate=1, freq=200, mod_freqratio=5, mod_ampratio= 0.5, amp=0.1, modulator_amp=1, pan=0, ffreqdetune=0.1, rq=0.1;

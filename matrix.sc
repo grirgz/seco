@@ -285,7 +285,70 @@
 	sl.choose_cell({ arg sel, win;
 			
 	});
-	sl.set_datalist( ~synthlib.collect { arg asso; asso.key } );
+	sl.set_datalist( main.model.patlist );
+	sl.show_window;
+};
+
+~choose_effect = { arg main, action, actionpreset;
+	var sl;
+	var callbacks;
+	var oldsel = nil;
+	var playlist = List.new;
+
+	callbacks = (
+		selected: { arg self, sel, win, address;
+			sel.debug("selected");
+			if(oldsel == sel, {
+				action.(sel);
+				win.close;
+			}, {
+				oldsel = sel;	
+			});
+		},
+		load: { arg self, defname, patwin;
+			//sl.set_datalist(main.presetpool[sel])
+			var presets, callbacks, datalist;
+			var oldsel = nil;
+			datalist = main.model.fxpresetlib[defname]; // TODO: load real patlib
+			if(datalist.isNil, {
+				"No preset for this pat".inform;
+			}, {
+				callbacks = (
+					selected: { arg self, sel, win;
+						sel.debug("selected");
+						if(oldsel == sel, {
+							actionpreset.(sel);
+							win.close;
+							patwin.close;
+						}, {
+							oldsel = sel;	
+						});
+					},
+					play_selection: { arg self, sel, win, ad;
+						var pl;
+						pl = main.get_node(main.model.fxpresetlib[defname][sl.address_to_index(ad)]);
+						playlist.add(pl);
+						pl.node.play;
+					},
+					stop_selection: { arg self, sel, win, ad;
+						playlist.do { arg pl; pl.node.stop };
+						// FIXME: free player resources
+						playlist = List.new;
+					}
+				);
+				presets = ~make_matrix.(main, callbacks,winname:"choose fxpreset");
+				presets.set_datalist( datalist );
+				presets.choose_cell({ arg sel, win; });
+				presets.show_window;
+			});
+		}
+
+	);
+	sl = ~make_matrix.(main, callbacks,winname:"choose effect");
+	sl.choose_cell({ arg sel, win;
+			
+	});
+	sl.set_datalist( main.model.effectlist );
 	sl.show_window;
 };
 

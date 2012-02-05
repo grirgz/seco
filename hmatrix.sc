@@ -695,51 +695,6 @@
 			pl;
 		},
 
-		find_free_name: { arg self, makename;
-			var newname;
-			block { arg break; 
-				1000.do {
-					newname = makename.();
-					if( main.get_node(newname).isNil ) { break.value };
-					newname.debug("Name exist already");
-				};
-				"make_livenodename_from_libnodename: Error, can't find free name".error;
-			};
-			newname;
-		},
-
-		make_livenodename_from_libnodename: { arg self, name;
-			self.find_free_name( { name++"_l"++UniqueID.next; } )
-		},
-
-		make_newlivenodename_from_livenodename: { arg self, name;
-			self.find_free_name( { 
-				name[ .. name.findBackwards("_l")  ] ++ "l" ++ UniqueID.next;
-			})
-		},
-
-		make_livenode_from_libnode: { arg self, libnodename;
-			var livenodename;
-			var player;
-			livenodename = self.make_livenodename_from_libnodename(libnodename);
-			player = ~make_player.(main, main.model.patpool[libnodename]);
-			player.name = livenodename;
-			player.uname = livenodename;
-			main.add_node(player);
-			player.uname;
-		},
-
-		duplicate_livenode: { arg self, livenodename;
-			var newlivenodename, newlivenode, newlivenode_pdict;
-			newlivenodename = self.make_newlivenodename_from_livenodename(livenodename);
-			newlivenodename.debug("newlivenodename");
-			livenodename.debug("livenodename");
-			//main.model.livenodepool.keys.debug("livenodepool");
-			main.model.livenodepool[newlivenodename] = main.model.livenodepool[livenodename].clone;
-			main.model.livenodepool[newlivenodename].name = newlivenodename;
-			main.model.livenodepool[newlivenodename].uname = newlivenodename;
-			newlivenodename;
-		},
 
 		duplicate_groupnode: { arg self, groupnodename, address;
 			var name, pl, num;
@@ -760,11 +715,11 @@
 			}, {
 				~choose_libnode.(main, { arg libnodename, livenodename; 
 					self.model.default_newnode = [\libnode, libnodename];
-					livenodename = self.make_livenode_from_libnode(libnodename);
+					livenodename = main.make_livenode_from_libnode(libnodename);
 					self.set_selected_cell(livenodename);
 				}, { arg livenodename;
 					self.model.default_newnode = [\livenode, livenodename];
-					livenodename = self.duplicate_livenode(livenodename);
+					livenodename = main.duplicate_livenode(livenodename);
 					livenodename.debug("actionpreset");
 					self.set_selected_cell(livenodename);
 				});
@@ -779,11 +734,11 @@
 					if(self.cell_is_empty(self.model.selection)) {
 						switch(self.model.default_newnode[0],
 							\libnode, {
-								livenodename = self.make_livenode_from_libnode(self.model.default_newnode[1]);
+								livenodename = main.make_livenode_from_libnode(self.model.default_newnode[1]);
 								self.set_selected_cell(livenodename);
 							},
 							\livenode, {
-								livenodename = self.duplicate_livenode(self.model.default_newnode[1]);
+								livenodename = main.duplicate_livenode(self.model.default_newnode[1]);
 								livenodename.debug("actionpreset default");
 								self.set_selected_cell(livenodename);
 							}
@@ -810,7 +765,7 @@
 				if(player.kind == \player && (player.name != \voidplayer)) {
 					main.play_manager.set_recording(true);
 					player.name.debug("start_tempo_recorder: player");
-					if(player.defname == \audiotrack) {
+					if(player.is_audiotrack) {
 						"start_tempo_recorder:audio recorder player!!".debug;
 						self.recorder = ~make_audio_recorder.(player, main);
 						self.recorder.player_start_tempo_recording(finish);
@@ -842,6 +797,25 @@
 			};
 		},
 
+		start_midi_liveplayer: { arg self;
+			var player;
+
+			player = self.get_selected_cell;
+			if(player.kind == \player && (player.name != \voidplayer)) {
+				if(player.is_audiotrack) {
+					"start_midi_liveplayer:not midi".debug;
+				} {
+					self.midi_liveplayer = ~make_midi_liveplayer.(player, main);
+					self.midi_liveplayer.start_liveplay;
+				}
+			} {
+				"INFO: grouplive: start_midi_liveplayer: selected cell is not a player".inform;
+			}
+		},
+
+		stop_midi_liveplayer: { arg self;
+			self.midi_liveplayer.stop_liveplay;
+		},
 
 		copy_node: { arg self;
 			var uname, address;
@@ -873,7 +847,7 @@
 					};
 				} {
 					if( node.kind == \player ) {
-						self.set_selected_cell(self.duplicate_livenode(main.model.clipboard));
+						self.set_selected_cell(main.duplicate_livenode(main.model.clipboard));
 					} {
 						// parplayer and seqplayer
 						self.set_selected_cell(main.model.clipboard);
@@ -896,7 +870,7 @@
 					datalist = main.model.presetlib[node.defname];
 
 					~save_pat.(main, datalist, node, { arg name, offset; 
-						main.model.presetlib[node.defname][offset] = self.duplicate_livenode(node.uname);
+						main.model.presetlib[node.defname][offset] = main.duplicate_livenode(node.uname);
 						main.save_presetlib;
 					});
 				} {
@@ -1029,6 +1003,9 @@
 			main.commands.add_enable([panel, \copy_node], [\kb, ~keycode.mod.ctrl, ~keycode.kbcalphanum["c"]], { self.copy_node });
 			main.commands.add_enable([panel, \paste_node], [\kb, ~keycode.mod.ctrl, ~keycode.kbcalphanum["v"]], { self.paste_node });
 
+			main.commands.add_enable([panel, \midi_play_selected], [\midi, 0, ~keycode.cakewalk.button[5]], { self.play_selected });
+			main.commands.add_enable([panel, \midi_stop_selected], [\midi, 0, ~keycode.cakewalk.button[4]], { self.stop_selected });
+
 			main.commands.add_enable([panel, \play_selected], [\kb, ~keycode.mod.fx, ~keycode.kbfx[4]], { self.play_selected });
 			main.commands.add_enable([panel, \stop_selected], [\kb, ~keycode.mod.fx, ~keycode.kbfx[5]], { self.stop_selected });
 			main.commands.add_enable([panel, \play_bank], [\kb, ~keycode.mod.ctrlfx, ~keycode.kbfx[4]], { self.play_bank });
@@ -1044,6 +1021,8 @@
 			main.commands.add_enable([panel, \edit_tempo], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["t"]], { self.change_tempo; });
 			main.commands.add_enable([panel, \edit_quant], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["q"]], { ~make_quant_edit_view.(main, [\knob, 0]); });
 			main.commands.add_enable([panel, \edit_barrecord], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["b"]], { ~make_barrecord_edit_view.(main, [\knob, 0]); });
+
+			main.commands.add_enable([panel, \start_midi_liveplayer], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["e"]], { self.start_midi_liveplayer });
 
 			main.commands.add_enable([panel, \toggle_metronome], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["m"]], {
 				if(main.play_manager.use_metronome == false) {
@@ -1063,6 +1042,14 @@
 				}
 			});
 
+			main.commands.add_enable([panel, \toggle_recording2], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["r"]], {
+				if(main.play_manager.is_recording.not) {
+					self.start_tempo_recorder;
+				} {
+					self.cancel_recording;
+				}
+			});
+
 			main.commands.add_enable([panel, \move_selection_right], [\midi, 0, ~keycode.cakewalk.button[3]], { 
 				self.set_selection(self.model.selection.x+1,self.model.selection.y) 
 			});
@@ -1074,6 +1061,10 @@
 			});
 			main.commands.add_enable([panel, \move_selection_down], [\midi, 0, ~keycode.cakewalk.button[2]], { 
 				self.set_selection(self.model.selection.x,self.model.selection.y+1) 
+			});
+
+			main.commands.array_add_enable([panel, \set_samplekit_part], [\midi, 0], ~keycode.cakewalk.toggle, { arg i;
+				~samplekit_manager.set_samplekit_part(i)
 			});
 			~make_panel_shortcuts.(main, panel);
 		},

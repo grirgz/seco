@@ -29,7 +29,7 @@
 	var width = 1300;
 	var height = 1300;
 	var row_layout, col_layout, info_layout;
-	var sc_ep, ep_messages;
+	var sc_ep, ep_messages, sc_player, player_messages;
 	var status;
 
 	col_layout = GUI.hLayoutView.new(parent, Rect(0,0,width+10,height));
@@ -53,6 +53,7 @@
 			editplayer.get_paramlist.debug("BEGIN paramlist update");
 			editplayer.get_paramlist.do { arg param_name, i;
 				var param = player.get_arg(param_name);
+				param.debug("make_editplayer_view, param");
 				param_name.debug("creation");
 				case
 					{ [\adsr].includes(param_name) || param_name.asString.containsStringAt(0,"adsr_") } {
@@ -99,7 +100,8 @@
 						~make_control_view.(info_layout, editplayer.make_param_display(param), param);
 					}
 					{ true } {
-						~make_control_view.(row_layout, editplayer.make_param_display(param), param);
+						"standard param".debug;
+						~make_control_view.(row_layout, editplayer.make_param_display(param).debug("il a quoi le display"), param);
 					};
 			};
 
@@ -108,14 +110,21 @@
 		}
 	));
 
+	player_messages = Dictionary.newFrom((
+		mode: ep_messages[\paramlist]
+	));
+
 	sc_ep = SimpleController(editplayer);
+	sc_player = SimpleController(player);
 	~init_controller.(sc_ep, ep_messages);
+	~init_controller.(sc_player, player_messages);
 	debug("pourquoi il searreteee");
 	editplayer.refresh;
 	debug("2pourquoi il searreteee");
 
-	col_layout.onClose = {
+	parent.onClose = parent.onClose.addFunc {
 		sc_ep.remove;
+		sc_player.remove;
 	};
 
 };
@@ -145,6 +154,7 @@
 				param_no_midi: param_types.param_no_midi,
 				max_cells: 8,
 				colselect_mode: true, // select whole column mode
+				midi_knob_offset: 0,
 				selected_param: 0
 
 		),
@@ -168,7 +178,8 @@
 					param.get_selected_cell;
 				},
 				name: { arg self;
-					param.name
+					"chu dans name".debug;
+					param.name;
 				},
 				background_color: ~editplayer_color_scheme.control,
 				show_midibloc: true,
@@ -195,22 +206,45 @@
 
 		get_paramlist: { arg self;
 			var po = self.model.param_order;
-			if( player.kind == \player ) {
-				switch(player.current_mode,
-					\sampleline, { po.reject({ arg x; [\noteline, \stepline].includes(x) }); },
-					\noteline, { po.reject({ arg x; [\stepline, \sampleline].includes(x) }); },
-					\stepline, { po.reject({ arg x; [\noteline, \sampleline].includes(x) }); }
-				);
-			} {
-				po;
-			}
+			var res = List.new;
+			res.addAll(
+				if( player.kind == \player ) {
+					po = switch(player.current_mode,
+						\sampleline, { po.reject({ arg x; [\noteline, \stepline].includes(x) }); },
+						\noteline, { po.reject({ arg x; [\stepline, \sampleline].includes(x) }); },
+						\stepline, { po.reject({ arg x; [\noteline, \sampleline].includes(x) }); }
+					);
+
+				} {
+					po;
+				}
+			);
+			player.get_effects.do { arg fxname, i;
+				var fx = main.get_node(fxname);
+				res.addAll( self.get_effect_paramlist(fx, i) );
+			};
+			res;
+		},
+
+		get_effect_paramlist: { arg self, effect, num;
+			//var reject = [\in, \out];
+			var reject = [\gate, \out, \instrument];
+			var prio = [\dry];
+			num.debug("get_effect_paramlist");
+			effect.get_args.difference(reject).collect { arg argname;
+				(argname.asString ++ "_fx" ++ num.asString).asSymbol
+			};
 		},
 
 		assign_midi: { arg self;
 			var param;
+			var offset = self.model.midi_knob_offset;
 			main.midi_center.clear_assigned(\slider);
 			main.midi_center.clear_assigned(\knob);
+
 			self.get_paramlist.do { arg param_name;
+				player.name.debug("assign_midi player.name");
+				offset.debug("assign_midi offset");
 				param = player.get_arg(param_name);
 
 				case
@@ -226,10 +260,16 @@
 						// no midi
 					}
 					{ self.param_types.param_slider_group.includes(param_name)} {
-						main.midi_center.assign_first(\slider, param);
+							main.midi_center.assign_first(\slider, param);
 					}
 					{ true } {
-						main.midi_center.assign_first(\knob, param);
+						if(offset <= 0) {
+							main.midi_center.assign_first(\knob, param);
+							[offset, param.name].debug("assign_midi assign param");
+						} {
+							offset = offset - 1;
+							offset.debug("assign_midi offset<");
+						};
 					};
 			};
 
@@ -418,6 +458,38 @@
 			});
 		},
 
+		make_fxnode_from_libnode: { arg self, libnodename;
+			var livenodename;
+			var player;
+			livenodename = main.make_livenodename_from_libnodename(libnodename);
+			player = ~make_player.(main, main.model.effectpool[libnodename]);
+			player.debug("maked effect");
+			player.name = livenodename;
+			player.uname = livenodename;
+			main.add_node(player);
+			player.uname.debug("make_fxnode_from_libnode: player.uname");
+		},
+
+		duplicate_fxnode: { arg self, livenodename;
+			//TODO
+		},
+
+		load_effectnode: { arg self;
+			var livenode;
+			~choose_effect.(main, { arg libnodename, livenodename; 
+				//self.model.default_newnode = [\libnode, libnodename];
+				livenodename = self.make_fxnode_from_libnode(libnodename);
+				player.add_effect(livenodename);
+				self.changed(\paramlist);
+			}, { arg livenodename;
+				//self.model.default_newnode = [\livenode, livenodename];
+				livenodename = self.duplicate_fxnode(livenodename);
+				livenodename.debug("actionpreset");
+				player.add_effect(livenodename);
+				self.changed(\paramlist);
+			});
+		},
+
 
 		decrease_first_note_dur: { arg self;
 			var dur, pl;
@@ -447,13 +519,14 @@
 			// TODO: handle when recording finish (play recorded track along what is playing ?)
 			var finish = {
 				main.play_manager.set_recording(false);
+				main.play_manager.keep_recording_session = true; // to play in sync with recording clock (see play_manager.start_new_session)
 				player.play_node;
 			};
 			if(main.play_manager.is_recording.not) {
 				if(player.kind == \player && (player.name != \voidplayer)) {
 					main.play_manager.set_recording(true);
 					player.name.debug("start_tempo_recorder: player");
-					if(player.defname == \audiotrack) {
+					if(player.is_audiotrack) {
 						"start_tempo_recorder:audio recorder player!!".debug;
 						self.recorder = ~make_audio_recorder.(player, main);
 						self.recorder.player_start_tempo_recording(finish);
@@ -483,6 +556,20 @@
 			} {
 				"hmatrix: not recording".debug;
 			};
+		},
+
+		start_midi_liveplayer: { arg self;
+			if(player.kind == \player && (player.name != \voidplayer)) {
+				if(player.is_audiotrack) {
+					"start_midi_liveplayer:not midi".debug;
+				} {
+					self.midi_liveplayer = ~make_midi_liveplayer.(player, main);
+					self.midi_liveplayer.start_liveplay;
+				}
+			} {
+				"INFO: editplayer: start_midi_liveplayer: selected player is not a note player".inform;
+			}
+
 		},
 
 		init: { arg editplayer, player, parent;
@@ -571,6 +658,9 @@
 			main.commands.add_enable([\editplayer, \set_seg_kind], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["g"]], {
 				editplayer.controller.change_kind(\seg)
 			});
+			main.commands.add_enable([\editplayer, \set_bus_kind], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["u"]], {
+				editplayer.controller.change_kind(\bus)
+			});
 
 			// player mode selection
 			"editplayer shorcut 1".debug;
@@ -578,20 +668,20 @@
 			main.commands.add_enable([\editplayer, \set_noteline_mode], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["n"]], {
 				player.set_mode(\noteline);
 				editplayer.controller.select_param(editplayer.get_param_offset);
-				editplayer.refresh
+				//editplayer.refresh
 			});
 
 			main.commands.add_enable([\editplayer, \set_stepline_mode], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["b"]], {
 				player.set_mode(\stepline);
 				editplayer.controller.select_param(editplayer.get_param_offset);
-				editplayer.refresh
+				//editplayer.refresh
 			});
 
 			main.commands.add_enable([\editplayer, \set_sampleline_mode], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["m"]], {
 				if(player.get_arg(\sampleline).notNil) {
 					player.set_mode(\sampleline);
 					editplayer.controller.select_param(editplayer.get_param_offset);
-					editplayer.refresh
+					//editplayer.refresh
 				} {
 					"editplayer: Can't set sampleline mode: not a sample player".inform;	
 				};
@@ -600,6 +690,22 @@
 			//~prec = ~piano_recorder.value(player); // debile
 
 			////////////////// recording
+
+			main.commands.add_enable([\editplayer, \toggle_recording], [\midi, 0, ~keycode.cakewalk.button[7]], { 
+				if(main.play_manager.is_recording.not) {
+					editplayer.start_tempo_recorder;
+				} {
+					editplayer.cancel_recording;
+				}
+			});
+
+			main.commands.add_enable([\editplayer, \toggle_metronome], [\kb, ~keycode.mod.altshift, ~keycode.kbsaalphanum["m"]], {
+				if(main.play_manager.use_metronome == false) {
+					main.play_manager.use_metronome = true;
+				} {
+					main.play_manager.use_metronome = false;
+				}
+			});
 
 
 			main.commands.add_enable([\editplayer, \start_tempo_recording], [\kb, ~keycode.mod.alt, ~keycode.kbaalphanum["r"]], {
@@ -713,11 +819,20 @@
 			// playing
 
 			main.commands.add_enable([\editplayer, \play_selected], [\kb, ~keycode.mod.fx, ~keycode.kbfx[4]], { player.play_node });
+			main.commands.add_enable([\editplayer, \midi_play_selected], [\midi, 0, ~keycode.cakewalk.button[5]], { player.play_node });
 			main.commands.add_enable([\editplayer, \stop_selected], [\kb, ~keycode.mod.fx, ~keycode.kbfx[5]], { player.stop_node });
+			main.commands.add_enable([\editplayer, \midi_stop_selected], [\midi, 0, ~keycode.cakewalk.button[4]], { player.stop_node });
 
 			main.commands.add_enable([\editplayer, \play_repeat_selected], [\kb, ~keycode.mod.ctrlfx, ~keycode.kbfx[4]], { player.play_repeat_node });
 
 			main.commands.add_enable([\editplayer, \panic], [\kb, ~keycode.mod.fx, ~keycode.kbfx[7]], { main.panic });
+
+			main.commands.add_enable([\editplayer, \start_midi_liveplayer], [\kb, ~keycode.mod.altshift, ~keycode.kbsaalphanum["e"]], { editplayer.start_midi_liveplayer });
+
+			// effects
+
+			main.commands.add_enable([\editplayer, \add_effect], nil, { editplayer.load_effectnode });
+
 
 			// select param
 			selected = editplayer.get_paramlist.detectIndex { arg i; player.get_selected_param == i };
@@ -728,6 +843,16 @@
 
 			// midi keys
 			"midi keys".debug;
+
+			main.commands.add_enable([\editplayer, \increase_midi_knob_offset], [\kb, ~keycode.mod.arrow, ~keycode.kbarrow.down], { 
+				editplayer.model.midi_knob_offset = (editplayer.model.midi_knob_offset + 8).max(0);
+				editplayer.assign_midi;
+			});
+
+			main.commands.add_enable([\editplayer, \decrease_midi_knob_offset], [\kb, ~keycode.mod.arrow, ~keycode.kbarrow.up], { 
+				editplayer.model.midi_knob_offset = (editplayer.model.midi_knob_offset - 8).min(4); //FIXME: compute max value
+				editplayer.assign_midi;
+			});
 
 			//~make_midi_kb_control.(player, editplayer);
 

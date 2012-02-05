@@ -207,9 +207,12 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 						+ "/" + play_manager.get_record_length.asString
 						+ "|" + clock.beats.asString; // FIXME: find a way to zero pad
 			bar.range = play_manager.get_rel_beat / play_manager.get_record_length;
+			true; // continue
 		} {
+			play_manager.get_rel_beat.debug("refresh vimetro task: stopped");
 			pos.string = "0 /" + play_manager.get_record_length.asString + "| 0";
 			bar.range = 0;
+			false; // exit
 		}
 	};
 
@@ -220,16 +223,19 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 	task.source = { 
 		//play_manager.start_pos = clock.beats; // debug
 		var clock = play_manager.get_clock;
+		play_manager.get_rel_beat.debug("start vimetro task");
 		bt.do { arg x; x.background = Color.black };
-		10000.do { //FIXME: fake loop
-			refresh_pos.(clock);
-			1.wait;
+		block { arg break;
+			10000.do { //FIXME: fake loop
+				if(refresh_pos.(clock).not) { "BREAK".debug; break.value };
+				1.wait;
+			}
 		}
 	};
 
-	vlayout.onClose = vlayout.onClose.addFunc { "close".postln; task.stop };
+	parent.onClose = parent.onClose.addFunc { "close".postln; task.stop };
 
-	~make_view_responder.(vlayout, play_manager, (
+	~make_view_responder.(parent, play_manager, (
 		tempo: { arg obj, msg, tempo;
 			temp.string = "Tempo: " ++ play_manager.get_bpm_tempo.asString;
 		},
@@ -237,11 +243,13 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 			refresh_pos.(play_manager.get_clock);
 		},
 		visual_metronome: { arg self;
-			"start_counter!!!".debug;
 			if(self.visual_metronome_enabled) {
+				play_manager.get_rel_beat.debug("start vimetro!!!");
 				task.play(play_manager.get_clock,quant:1);
 			} {
+				play_manager.get_rel_beat.debug("stop vimetro!!!");
 				task.stop;
+				task.reset;
 			}
 		},
 		head_state: { arg obj, msg, state;
@@ -738,6 +746,9 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 	var inrange;
 
 	"mais quoiiii".debug;
+	display.debug("il a quoiiii");
+	display[\name].debug("il a quoiiii.name");
+	display.name.debug("il a quoiiii.name2");
 
 	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+10),height));
 	row_layout.background = ~editplayer_color_scheme.control;
@@ -831,8 +842,8 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 			cells.debug("cellls============from "++display.name);
 			start = max_cells * bank;
 			range = (start..((start+max_cells)-1));
-			range.debug("cells");
-			cells[ start..((start+max_cells)-1) ].debug("cells");
+			//range.debug("cells");
+			//cells[ start..((start+max_cells)-1) ].debug("cells");
 			cells[ start..((start+max_cells)-1) ].do { arg cell, i;
 				~make_val_button.(btl_cells, cell, width:display.cell_width??60, height:height);
 				if(self.classtype== \stepline, {
@@ -843,8 +854,8 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 				if(btl_cells.children.size > 0) {
 					sel = display.get_selected_cell;
 					if( sel >= start && (sel < (start+max_cells)), {
-						sel.debug("selected cell");
-						btl_cells.children.wrapAt( sel % max_cells ).debug("wrapat");
+						//sel.debug("selected cell");
+						//btl_cells.children.wrapAt( sel % max_cells ).debug("wrapat");
 						btl_cells.children.wrapAt( sel % max_cells ).value = 1;
 					})
 				}
@@ -1449,7 +1460,8 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 ~empty_note = (
 	midinote: \rest,
 	sustain: 0.1,
-	dur: 0.01
+	emptynote: true,
+	dur: 1.12345
 );
 
 
@@ -1715,6 +1727,19 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 			self.seq.val[ self.get_selected_cell.() ] = if(val > 1, { 1 },{ 0 });
 		},
 
+		quantify_note: { arg self, note;
+			var res;
+			//note.debug("quantify_note input");
+			res = note.deepCopy;
+			if(self.notequant.notNil) {
+				res.dur = res.dur.round(self.notequant);
+				res;
+			} {
+				res;
+			};
+			//res.debug("quantify_note output");
+		},
+
 		get_notes: { arg self;
 			var no;
 			no = self.vnotes.deepCopy;
@@ -1728,18 +1753,66 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 			self.update_note_dur;
 		},
 
+		set_next_notes: { arg self, val, dur=nil;
+			if(self.pat_finish_first.notNil) {
+				// le pattern a deja commencé, assigner les notes tout de suite
+				"**** set_next_notes: assigning next_notes as current notes immediately".debug;
+				self.set_notes(val);
+				self.pat_finish_first = nil;
+			} {
+				"**** set_next_notes: preparing next_notes".debug;
+				self.next_notes = val;
+			};
+			self.notes_dur = dur;
+		},
+
+		set_wait_note: { arg self, note;
+			"**** nline: set_wait_note".debug;
+			self.wait_note = self.quantify_note(note);
+			self.wait_note[\first_note] = true;
+			self.wait_note.debug("wait_note");
+			note.debug("originial note");
+		},
+
 		get_note: { arg self, idx;
 			var no;
 			if( self.vnotes.size > 0 && {self.muted.not}) {
-				no = self.vnotes[idx].deepCopy;
-				if( no.notNil && (self.notequant.notNil) ) {
-					no.dur = no.dur.round(self.notequant);
-					no;
+				if(idx == 0) {
+					// s'il y a deja des next_notes lorsque la note 0 arrive (debut du pattern), c'est que le record a fini _avant_ le pattern
+					// s'il n'y en a pas mais qu'il y a quand meme une wait_note c'est que le record va finir _apres_ le pattern
+					// s'il n'y a ni l'un ni l'autre, c'est que c'est un banale debut de pattern, et cela doit continuer normalement
+					if(self.next_notes.notNil) {
+						"******** recording finish first, using next_notes as current notes".debug;
+						self.set_notes(self.next_notes);
+						self.next_notes = nil;
+						self.wait_note = nil;
+					} {
+						if(self.wait_note.notNil) {
+							"********* recording not yet finished".debug;
+							"***** there is a wait note, using it as first note".debug;
+							no = self.wait_note;
+							self.wait_note = nil;
+							self.pat_finish_first = true;
+						} {
+							no = self.vnotes[idx].deepCopy;
+						};
+					}
 				} {
-					no
-				}
+					no = self.vnotes[idx].deepCopy;
+				};
+				no;
 			} {
-				"noteline_param: get_node: No notes".inform;
+				if(self.muted) {
+					"noteline_param: get_note: muted!".inform;
+				} {
+					if(self.next_notes.notNil) {
+							"setting next_notes when no notes found".debug;
+							self.set_notes(self.next_notes);
+							self.next_notes = nil;
+							self.wait_note = nil;
+					};
+					"noteline_param: get_note: No notes".inform;
+				};
 				if(idx == 0) {
 					~empty_note;
 				} {
@@ -1755,7 +1828,9 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 		},
 
 		update_note_dur: { arg self;
+			// manage start and end offset and silence and put result notes in self.vnotes
 			var find_next, find_prev, delta, prevdelta, idx, previdx;
+			var qnotes, normdur, realdur, size;
 			"update_note_dur".debug("start");
 			if( self.notes.size > 2) {
 				find_next = { arg dur, notes;
@@ -1803,13 +1878,57 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 					[ prevdelta, vidx ];
 				};
 
-				#delta, idx = find_next.(self.notes[0].start_offset, self.notes);
-				#prevdelta, previdx = find_prev.(self.notes[0].end_offset, self.notes);
-				[delta, idx, prevdelta, previdx].debug("delta, idx, prevdelta, previdx");
-				self.notes[0].dur = self.notes[0].start_silence + delta;
-				self.vnotes = [self.notes[0]] ++ self.notes[idx..previdx].deepCopy;
-				self.vnotes[self.vnotes.lastIndex].dur = self.notes[0].end_silence + prevdelta;
+				// quantify notes
+				self.notes.collect({arg no, x; no.numero = x }); // debug purpose
+				self.notes.debug("update_note_dur: original notes");
+				qnotes = self.notes.collect{ arg x; self.quantify_note(x) };
+				qnotes.debug("update_note_dur: qnotes");
+				
+				// troncate too long end silence
+				normdur = self.total_dur(self.notes);
+				if(self.notes_dur.notNil && (normdur != self.notes_dur)) {
+					"fucking bug in recording length!!!!!!!!".debug;
+				};
+				realdur = self.total_dur(qnotes);
+				qnotes.last.dur = qnotes.last.dur - (realdur - (self.notes_dur ?? normdur));
+				~mydur = self.total_dur(qnotes);
+				[self.notes_dur, realdur, normdur, ~mydur].debug("duration::::: notes_dur, real, norm, end");
+
+				if(qnotes.last.dur < 0) {
+					"ERROR: mon hack degueux fonctionne pas vraiment et c'est la grosse merde".error;
+				};
+
+				// remove duplicates
+
+				size = qnotes.size-1;
+				self.vnotes = List.new;
+				qnotes.do { arg no, x;
+					if(x < size) {
+						if((no.dur == 0) && (no.midinote == qnotes[x+1].midinote)) {
+							// duplicate: don't add
+							no.debug("found duplicate: don't add");
+						} {
+							self.vnotes.add(no);
+						};
+					} {
+						self.vnotes.add(no);
+					}
+				};
+
 				self.vnotes.debug("update_note_dur: vnotes");
+
+
+				// old code to calculate offsets when recording non standard durations
+
+				//#delta, idx = find_next.(self.notes[0].start_offset, self.notes);
+				//#prevdelta, previdx = find_prev.(self.notes[0].end_offset, self.notes);
+//				#delta, idx = find_next.(qnotes[0].start_offset, qnotes);
+//				#prevdelta, previdx = find_prev.(qnotes[0].end_offset, qnotes);
+//				[delta, idx, prevdelta, previdx].debug("delta, idx, prevdelta, previdx");
+//				qnotes[0].dur = qnotes[0].start_silence + delta;
+//				self.vnotes = [qnotes[0]] ++ qnotes[idx..previdx].deepCopy;
+//				self.vnotes[self.vnotes.lastIndex].dur = qnotes[0].end_silence + prevdelta;
+//				self.vnotes.debug("update_note_dur: vnotes");
 				self.changed(\notes);
 			} {
 				if(self.notes.size == 2) {
@@ -1821,10 +1940,12 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 					self.vnotes[0].dur = self.notes[0].start_silence;
 					self.vnotes[self.vnotes.lastIndex].dur = self.notes[0].end_silence;
 					self.vnotes.debug("update_note_dur: vnotes");
+					// quantify notes
+					self.vnotes = self.vnotes.collect{ arg x; self.quantify_note(x) };
+					self.vnotes.debug("update_note_dur: vnotes quant");
 					self.changed(\notes);
 				}
-			}
-					
+			};
 		},
 
 		set_start_offset: { arg self, val;
@@ -1933,6 +2054,7 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 
 		set_notequant: { arg self, val;
 			self.notequant = val;
+			self.update_note_dur;
 			self.changed(\notes);
 		},
 
@@ -1962,10 +2084,24 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 			self.changed(\selected);
 		},
 		vpattern: { arg self; 
-			~pdynarray.( { arg idx; self.tick; self.classtype.debug("classtype!!!!!!!!"); self.get_note(idx) }, self.classtype );
-		};
+			~pdynarray.( { arg idx, no;
+				self.tick;
+				//self.classtype.debug("classtype!!!!!!!!");
+				no = self.get_note(idx);
+				"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".debug;
+				self.classtype.debug("classtype");
+				idx.debug("note number");
+				no.debug("note");
+				no;
+			}, self.classtype );
+		},
+
+		init: { arg self;
+			self.update_note_dur; // to take in account default_noteline
+		}
 
 	);
+	ret.init;
 	ret;
 };
 
@@ -2297,6 +2433,15 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 			selected_cell: 0, // always 0
 			val: if(default_value.isArray, { default_value[0] }, { default_value }),
 			busindex: nil,
+			muted: false,
+			initialized: false,
+
+			init: { arg self, val;
+				self.bus = Bus.control(s, 1); // TODO: destructor
+				self.bus.debug("init the bus!");
+				if(val.notNil) { self.set_val(val); };
+				self.initialized = true;
+			},
 
 			get_bus: { arg self;
 				self.bus;
@@ -2307,13 +2452,28 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 			},
 
 			set_val: { arg self, val, idx=nil;
+				self.bus.set(val);
 				self.val = val;
 				param.changed(\val, 0);
 			},
+
+			mute: { arg self, val;
+				if(self.muted != val) {
+					self.muted = val;
+					if(val) {
+						self.oldval = self.val;
+						self.set_val(0);
+					} {
+						self.set_val(self.oldval);
+					}
+				}
+			},
+
 			get_val: { arg self; self.val },
 
 			set_norm_val: { arg self, norm_val;
 				self.val = param.spec.map(norm_val);
+				self.bus.set(self.val);
 				param.changed(\val, 0);
 			},
 			get_norm_val: { arg self;
@@ -2383,18 +2543,22 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 		},
 
 		// ===================
+
+		mute: { arg self, val;
+			self.muted = val;
+		},
 		
 		change_kind: { arg self, kind;
 			self.current_kind = kind;
 			if(kind == \seq && { self.seq.initialized.not } ) { self.seq.init(self.scalar.get_val) };
+			if(kind == \bus && { self.bus.initialized.not } ) { self.bus.init(self.scalar.get_val) };
 			[name, kind].debug("CHANGED KIND!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 			self.changed(\kind);
 		},
 
 		refresh: { arg self;
-			self.changed(\kind);
-			self.changed(\selected);
 			self.changed(\cells);
+			self.changed(\selected);
 			self.midi.refresh;
 		},
 
@@ -2522,7 +2686,7 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 							);
 						},
 						\bus, {
-							self.bus.get_bus.asMap;
+							self.bus.get_bus.asMap.yield;
 						}
 					);
 				}

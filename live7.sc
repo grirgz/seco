@@ -33,7 +33,7 @@ s.waitForBoot({
 });
 )
 
-~seq.save_project("reggaenul2");
+~seq.save_project("blablareggae");
 ~seq.load_project("projtest8");
 
 

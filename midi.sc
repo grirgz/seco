@@ -268,7 +268,7 @@
 };
 
 
-~do_record_session = { arg main, preclap_action, postclap_action, start_action, end_action;
+~do_record_session = { arg main, preclap_action, postclap_action, start_action, end_action, preend_action={};
 	var tc, supertc;
 	var session, supersession;
 	var pman = main.play_manager;
@@ -284,7 +284,9 @@
 			if (metronome) { pman.start_metronome(tc, dur) };
 			start_action.(tc);
 			main.play_manager.changed(\head_state, \record);
-			dur.wait;
+			(dur-0.01).wait;
+			preend_action.();
+			0.01.wait;
 			end_action.();
 		};
 		session.play(tc, quant:dur);
@@ -360,23 +362,35 @@
 				self.recording = true;
 				player.current_mode.debug("player.current_mode");
 				nline.name.debug("nline.name");
-				self.start_tempo_recording({ 
-					var sum = 0;
+				self.track = List.new;
+				self.start_tempo_recording(
+					// end_action
+					{ 
+						var sum = 0;
 
-					nline.changed(\recording, false);
-					self.track.debug("66666666666666666666666666666- this is record!!!!");
+						nline.set_next_notes(self.track, pman.get_record_length);
+						player.mute(false);
+						nline.changed(\recording, false);
 
-					self.track.do { arg no;
-						sum = sum + no.dur;
-					};
-					sum.debug("total sum");
-					nline.set_notes(self.track);
-					nline.mute(false);
-					nline.changed(\notes);
-					finish_action.();
-				});
+						self.track.debug("66666666666666666666666666666- this is record!!!!");
+
+						self.track.do { arg no;
+							sum = sum + no.dur;
+						};
+						sum.debug("total sum");
+						finish_action.();
+					},
+					// preend_action
+					{
+						"**** preend_action".debug;
+						if(pman.node_is_playing(player)) {
+							"**** preend action: node is playing: seting wait note".debug;
+							nline.set_wait_note(self.track[0]);
+						}
+					}
+				);
 				nline.changed(\recording, true); 
-				nline.mute(true);
+				player.mute(true);
 			}
 		},
 
@@ -384,7 +398,7 @@
 			self.stop_immediate_recording;
 		},
 
-		start_tempo_recording: { arg self, action;
+		start_tempo_recording: { arg self, action, preend_action;
 
 			~do_record_session.(main,
 				// preclap_action
@@ -395,6 +409,7 @@
 				// postclap_action
 				{
 					if(self.enable_pretrack) { 
+						// TODO: check if pretrack works with assigning track to player note list at the begining
 						self.stop_immediate_recording; 
 						self.pretrack = self.track;
 						self.track = List.new;
@@ -420,94 +435,16 @@
 
 					self.stop_immediate_recording;
 					action.value;
-				}
+				},
+				// preend_action
+				preend_action
 			);
 
-			//[tc, self.tclock, TempoClock.new(tempo), tempo].debug("creation de cette foutue horloge");
-//			if(main.play_manager.is_playing) {
-//				main.play_manager.start_new_session;
-//				tc = main.play_manager.get_clock;
-//				self.tclock = tc;
-//				tc.debug("jcomprendpas");
-//
-//				session = Task {
-//					//self.start_metronome(tempo);
-//					//4.wait;
-//
-//					"2jcomprendpas".debug;
-//					if (metro) { pman.start_metronome(tc, dur) };
-//					self.start_immediate_recording;
-//					main.play_manager.changed(\head_state, \record);
-//					"3jcomprendpas".debug;
-//					dur.wait;
-//					"4jcomprendpas".debug;
-//					self.stop_immediate_recording;
-//					//self.stop_metronome; // auto-stop
-//					action.value;
-//				};
-//				session.play(tc, quant:dur);
-//			} {
-//				supertc = TempoClock.new(tempo);
-//				session = Task {
-//					//self.start_metronome(tempo);
-//					//4.wait;
-//
-//					"2jcomprendpas".debug;
-//					self.start_immediate_recording;
-//					main.play_manager.changed(\head_state, \record);
-//					"3jcomprendpas".debug;
-//					dur.wait;
-//					"4jcomprendpas".debug;
-//					self.stop_immediate_recording;
-//
-//					//self.stop_metronome;
-//
-//					// processing early notes (putting them at the end of the loop)
-//					if(self.pretrack.size > 0) {
-//						self.pretrack.debug("66666666666666666666666this is pretrack");
-//						self.track.debug("66666666666666666666666this is track before merging");
-//						self.pretrack = self.pretrack.collect { arg x; x.ptdur = x.dur };
-//						self.pretrack[0].dur = self.pretrack[0].dur + (dur - self.metronome_dur);
-//						self.track = ~merge_notetracks.(self.track, self.pretrack);
-//					} {
-//						"666666666666666666666666".debug("no pretrack");	
-//					};
-//
-//					action.value;
-//				};
-//				supersession = Task {
-//					pman.start_metronome(supertc, self.metronome_dur);
-//					self.metronome_dur.debug("START METRONOME");
-//
-//					self.tclock = supertc;
-//					if(self.enable_pretrack) { self.start_immediate_recording; };
-//
-//					self.metronome_dur.wait;
-//
-//					if(self.enable_pretrack) { 
-//						self.stop_immediate_recording;
-//						self.pretrack = self.track;
-//						self.track = List.new;
-//					};
-//
-//					//main.play_manager.changed(\stop_counter); // pre-metronome counter
-//					main.play_manager.set_record_length(dur); // pre-metronome counter
-//					dur.debug("START ACTUAL RECORDING");
-//					if (metro.not) { self.stop_metronome };
-//					main.play_manager.start_new_session;
-//					tc = main.play_manager.get_clock;
-//					self.tclock = tc;
-//					tc.debug("jcomprendpas");
-//
-//					session.play(tc, quant:dur);
-//				};
-//				supersession.play(supertc, quant:1);
-//
-//			};
 		},
 
 		start_immediate_recording: { arg self;
 			var record_start_time;
+			var latency = s.latency + 0.2;
 			livesynth = player.get_piano;
 			self.tclock.debug("lecture de cette foutue horloge");
 			record_start_time = self.tclock.beats;
@@ -537,7 +474,7 @@
 				note = (
 					midinote: num,
 					velocity: veloc/127,
-					curtime: self.tclock.beats - s.latency
+					curtime: self.tclock.beats - latency
 					//curtime: self.tclock.beats // ben pourquoi y'a plus de latency ?
 				);
 				if(note.curtime < 0) { "Negative curtime!!".debug; note.curtime = 0 };
@@ -545,7 +482,7 @@
 
 				if(self.lastnote.isNil, {
 					// first note
-					start_silence = self.tclock.beats - s.latency - record_start_time;
+					start_silence = self.tclock.beats - latency - record_start_time;
 					//start_silence = self.tclock.beats - record_start_time;
 
 					if(start_silence < 0, { "Negative dur!!".warn; start_silence = 0; });
@@ -562,7 +499,7 @@
 					);
 					self.track.add(firstnote);
 				}, {
-					self.lastnote.dur = note.curtime - self.lastnote.curtime
+					self.lastnote.dur = note.curtime - self.lastnote.curtime;
 				});
 				self.book[num] = note;
 				self.lastnote = note;
@@ -576,7 +513,7 @@
 				self.book.removeAt(num);
 				note.debug("noffr note");
 				self.book.debug("noffr book");
-				note.sustain = self.tclock.beats - s.latency - note.curtime;
+				note.sustain = self.tclock.beats - latency - note.curtime;
 			};
 		},
 
@@ -591,8 +528,16 @@
 				self.track[0].default_end_silence = self.lastnote.dur;
 				self.track[0].end_silence = self.lastnote.dur;
 			});
+			
+			// if noteoff occurs after recording end, set to sustain until track end
+			self.track.do { arg no;
+				if(no.sustain.isNil) {
+					no.sustain = now - no.curtime
+				}
+			};
+
 			self.recording = false;
-			self.lastnode = nil;
+			self.lastnote = nil;
 		},
 
 
@@ -677,6 +622,57 @@
 
 };
 
+
+~make_midi_liveplayer = { arg player, main;
+	var prec, livesynth, pman;
+	NoteOnResponder.removeAll;
+	NoteOffResponder.removeAll;
+	pman = main.play_manager;
+
+	prec = (
+		nonr: nil,
+		noffr: nil,
+		livebook: Dictionary.new,
+
+		start_liveplay: { arg self;
+			var record_start_time;
+			livesynth = player.get_piano;
+			self.livebook = Dictionary.new;
+
+			self.nonr = NoteOnResponder { arg src, chan, num, veloc;
+				var note, firstnote;
+				var start_silence;
+				var slotnum = nil;
+
+				//[TempoClock.beats, TempoClock.nextTimeOnGrid(EventPatternProxy.defaultQuant,0), EventPatternProxy.defaultQuant].debug("nc,tc,dq");
+				if(chan == 9) {
+					// pad button pressed
+					slotnum = ~samplekit_manager.midinote_to_slot(num);
+					self.livebook[[chan, num]] = livesynth.value(slotnum, veloc/127);
+				} {
+					self.livebook[[chan, num]] = livesynth.value(num.midicps, veloc/127);
+				};
+				
+				[src, chan, num, veloc].debug("note on");
+			};
+			self.noffr = NoteOffResponder { arg src, chan, num, veloc;
+				var note;
+				self.livebook[[chan,num]].release;
+			};
+		},
+
+		stop_liveplay: { arg self;
+			"".debug("end liveplay: NOW");
+			self.nonr.remove;
+			self.noffr.remove;
+			self.livebook.keysValuesDo { arg k, v; v.release }; // free last synths
+		}
+	);
+	prec;
+
+};
+
+
 ~make_audio_recorder = { arg player, main;
 	var pman = main.play_manager;
 
@@ -709,6 +705,7 @@
 				self.start_tempo_recording({ 
 					player.get_arg(\bufnum).set_custom_buffer(self.buf, "AudioInput");
 					player.get_arg(\dur).change_kind(\scalar);
+					player.get_arg(\stepline).seq.change({ [1] });
 					player.get_arg(\dur).set_val(main.play_manager.get_record_length);
 					main.get_clock.debug("quoiiiiiiiiiiiii");
 					player.get_arg(\sustain).set_val(main.play_manager.get_record_length / main.play_manager.get_clock.tempo);
@@ -721,24 +718,28 @@
 		start_tempo_recording: { arg self, action;
 			var tc, supertc;
 			var session, supersession;
-			self.buf = Buffer.alloc(s, 44100 * pman.get_record_length, 2); 
+			self.buf = Buffer.alloc(s, 44100 * pman.get_record_length_in_seconds, 2); 
 			self.buf.bufnum.debug("************************created buffer");
 
 			~do_record_session.(main,
 				// preclap_action
 				{ arg tclock;
+					"TTpreclap".debug;
 					self.tclock = tclock;
 				},
 				// postclap_action
 				{
+					"TTpostclap".debug;
 				},
 				// start_action
 				{ arg tclock;
+					"TTstart".debug;
 					self.tclock = tclock;
-					self.start_immediate_recording;
+					self.start_immediate_recording(pman.get_record_length);
 				},
 				// end_action
 				{
+					"TTend".debug;
 					self.stop_immediate_recording;
 					action.value;
 				}

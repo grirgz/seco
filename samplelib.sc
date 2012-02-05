@@ -128,25 +128,50 @@
 		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/cra_Rock_a.flac",
 		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/hhc_Dry_a.flac",
 		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/tom_Rock_hi.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/emptySample.flac", // empty
 		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/cym_Rock_b.flac",
 		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/tom_Rock_lo.flac",
 		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/cra_Jazz.flac",
+
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/PowR_HH_2.flac",
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/CHH_1.flac",
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/HardHse_K_03_B.flac",
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/PowR_HH_1.flac",
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/Hard_CHH_02.flac",
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/yFX_3.flac",
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/HardHse_K_02.flac",
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/FX_Chh_01.flac",
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/PowR_BD_1.flac",
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/yFX_8.flac",
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/xFX_6.flac",
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/Hard_Hse_OHH_1.flac",
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/Hard_CHH_01.flac",
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/PowR_SN_1.flac",
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/Clap_1.flac",
+		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/Amp_Clap_1.flac",
 	]
 ];
 
+~empty_sample_path = "/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/emptySample.flac";
+
 ~samplekit_manager = (
+	samplekit_part: 0,
+
 	slot_to_bufnum: { arg self, slot, samplekit;
 		if(slot == \rest) {
-			BufferPool.get_sample(\samplekit, "/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/emptySample.flac").bufnum; // FIXME: find a way to not play at all;
+			BufferPool.get_sample(\samplekit, ~empty_sample_path).bufnum; // FIXME: find a way to not play at all;
 		} {
 			BufferPool.get_sample(\samplekit, ~samplekit_bank[samplekit][slot]).bufnum;		
 		};
 	},
 
+	set_samplekit_part: { arg self, val;
+		self.samplekit_part = val;
+
+	},
+
 	midinote_to_slot: { arg self, midinote;
 		~keycode.midi.debug("midinote_to_slot: keycode.midi");
-		~keycode.midi_note[midinote][1]
+		~keycode.midi_note[midinote][1] + (self.samplekit_part * 8)
 	}
 );
 
