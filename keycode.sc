@@ -121,6 +121,50 @@
 	dico;
 }.value;
 
+~twoWayDictionary = {
+	var dic;
+	dic = (
+		valkey2: Dictionary.new,
+		keyval2: Dictionary.new,
+		keyval: Dictionary.new,
+		valkey: Dictionary.new,
+
+		bind: { arg self, key, val;
+			var oldval, oldkey;
+			oldval = self.keyval[key];
+			oldkey = self.valkey[val];
+			if(oldkey.notNil) { self.keyval[oldkey] = nil; };
+			if(oldval.notNil) { self.valkey[oldval] = nil; };
+			self.keyval[key] = val;
+			self.valkey[val] = key;
+		},
+
+		unbind_key: { arg self, key;
+			var val;
+			val = self.keyval[key];
+			self.keyval[key] = nil;
+			self.valkey[val] = nil;
+		},
+
+		unbind_val: { arg self, val;
+			var key;
+			key = self.valkey[val];
+			self.keyval[key] = nil;
+			self.valkey[val] = nil;
+		},
+
+		get_val_by_key: { arg self, key;
+			self.keyval[key]
+		},
+
+		get_key_by_val: { arg self, val;
+			self.valkey[val]
+		}
+
+	);
+	dic;
+
+};
 
 
 
@@ -177,15 +221,16 @@
 		};
 		dict;
 	}.value;
+
 	~kbsaalphanum = {
 		var dict = Dictionary.new;
 		//NOTE: only for Alt and Shift modifier
 		var keycodes = [
 				[ 38, 233, 34, 39, 40, 45, 232, 31, 231, 224, 41, 61 ],
-				[97, 122, 69 /* the only one changed, todo: change others */, 114, 116, 121, 117, 105, 111,112, 36 /* ^ not working */, 36 ],
+				[97, 122, 101, 114, 116, 121, 117, 105, 111,112, 36 /* ^ not working */, 36 ],
 				[113, 115, 100, 102, 103, 104, 106, 107, 108, 109, 249, 42 ],
 				[60, 119, 120, 99, 118, 98, 110, 44, 59 ] //FIXME: complete keycodes
-		];
+		]-32;
 		var alnum = [
 			"1234567890)=",
 			"azertyuiop^$",
@@ -309,6 +354,9 @@
 	config: MultiLevelIdentityDictionary.new,   // path -> shortcut keycode
 	commands: Dictionary.new,					// panel -> shortcut keycode -> path
 	modes: Dictionary.new,						// path -> restore function
+	//ccpathdict: ~twoWayDictionary.(),			// key:ccpath <-> val:param
+	ccpathToParam: Dictionary.new,
+	paramToCcpath: IdentityDictionary.new,
 
 	add_shortcut: { arg self, path, default_shortcut=nil, action;
 		var shortcut;
@@ -482,12 +530,35 @@
 
 	bind_param: { arg self, ccpath, param;
 		var panel = \midi;
+		var oldparam;
+		"I---I bind_param".debug;
 		if(self.midi_handler[panel].isNil) { self.midi_handler[panel] = Dictionary.new };
-		param.midi.set_ccpath(ccpath);
+		//oldparam = self.ccpathdict.get_val_by_key(ccpath);
+		oldparam = self.ccpathToParam[ccpath];
+		[param.name, ccpath].debug("assigning ccpath to param");
+		//self.ccpathdict.bind(ccpath, param); // key: ccpath, val: param
+		self.ccpathToParam[ccpath] = param;
+		self.paramToCcpath[param] = ccpath;
+		if(oldparam.notNil && (oldparam != param)) {
+			self.paramToCcpath[oldparam] = nil;
+			//self.get_param_binded_ccpath(oldparam).debug("ce n'est point possible");
+			oldparam.name.debug("refreshing oldparam");
+			oldparam.midi.refresh;
+		};
+		param.midi.get_ccpath.debug("verif");
+		param.name.debug("refreshing param");
+		param.midi.refresh;
 		self.midi_handler[panel][ccpath] = { arg val; 
 			[param.name, val].debug("bind_param function: set_val");
 			param.midi.set_val(val);
 		};
+		"I---I end bind_param".debug;
+	},
+
+	get_param_binded_ccpath: { arg self, param;
+		//[param.name, self.ccpathdict.get_key_by_val(param)].debug("shortcut: get_param_binded_ccpath");
+		//self.ccpathdict.get_key_by_val(param)
+		self.paramToCcpath[param]
 	},
 
 	handle_cc: { arg self, ccpath, val;
@@ -538,10 +609,14 @@
 		["unsolo_selected", \kb, \ctrl, \f7],
 		["unsolo_selected", \kb, \ctrl, \f7],
 		["add_effect",							\kb, \ctrl, \f1],
-		//["increase_midi_knob_offset",							\kb, 0, \down],
+		["increase_midi_knob_offset",			\kb, 0, \down],
+		["decrease_midi_knob_offset",			\kb, 0, \up],
+		["toggle_cc_recording",					\kb, \altshift, "r"],
+		["change_param_kind.recordbus",			\kb, \altshift, "u"],
 	],
 	parlive: [
 		["select_header",							\kb, \alt, \kbnumline],
+		["show_panel.editplayer",							\kb, 0, \f12],
 		["create_new_livenode", \kb, \alt, "c"],
 	]
 );
@@ -554,19 +629,30 @@
 	var realmod;
 	var key = binding[3];
 	var mod = binding[2];
-	if(~keycode.kbfxdict.keys.includes(key)) {
-		realmod = (
-			0: \fx,
-			//shift: \fxshift,
-			ctrl: \ctrlfx
-		)[mod];
-		if(realmod.isNil) {
-			[mod,key].debug("ERROR: modifier fx not found");
-			realmod = \fake;
+	case
+		{ ~keycode.kbarrow.keys.includes(key) } {
+			realmod = (
+				0: \arrow
+				//shift: \fxshift,
+			)[mod];
+			if(realmod.isNil) {
+				[mod,key].debug("ERROR: modifier arrow not found");
+				realmod = \fake;
+			};
+		}
+		{ ~keycode.kbfxdict.keys.includes(key) } {
+			realmod = (
+				0: \fx,
+				//shift: \fxshift,
+				ctrl: \ctrlfx
+			)[mod];
+			if(realmod.isNil) {
+				[mod,key].debug("ERROR: modifier fx not found");
+				realmod = \fake;
+			}
+		} {
+			realmod = mod
 		};
-	} {
-		realmod = mod
-	};
 	[mod,key,realmod].debug("get_modifer");
 	~keycode.mod[realmod];
 };

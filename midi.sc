@@ -60,13 +60,16 @@
 			knob: 0
 		),
 
+		get_main: { arg self; main },
+
 		assign_first: { arg self, kind, param;
 			var ccpath;	
 			"HEINNNN".debug;
 			if(self.next_free[kind] < 8) { //FIXME: hardcoded value
 				ccpath = [kind, self.next_free[kind]];
-				[param.name, ccpath, self.next_free].debug("assigning midi");
+				[param.name, ccpath, self.next_free].debug("III: assign_first: assigning midi");
 				main.commands.bind_param(ccpath, param);
+				main.commands.get_param_binded_ccpath(param).debug("III: assigned ccpath verification");
 				self.next_free[kind] = self.next_free[kind] + 1;
 			} {
 				("Too much assigned param: no midi controller left."+param.name).error;
@@ -82,11 +85,16 @@
 			};
 		},
 
+		get_ccpath_assigned_with_given_param: { arg self, param;
+			main.commands.get_param_binded_ccpath(param);
+		},
+
 		clear_assigned: { arg self, kind;
 			self.next_free[kind] = 0;
 		},
 
 		get_control_val: { arg self, ccpath;
+			//[ccpath, self.cc_states[ccpath]].debug("get_control_val");
 			if(self.cc_states[ccpath].isNil) {
 				0
 			} {
@@ -159,15 +167,16 @@
 		set_val: { arg self, val, cell=nil;
 			[param.name, val].debug("get_midi_control_handler:set_val");
 			self.unblock_do {
-				debug("get_midi_control_handler:set_val: not blocked");
+				//debug("get_midi_control_handler:set_val: not blocked");
+				//self.get_midi_norm_val.debug("BLAAA1");
 				//TODO: implement cell setting
 				param.set_norm_val(val);
-				1.debug("get_midi_control_handler:set_val");
+				//1.debug("get_midi_control_handler:set_val");
 				//TODO: recording of val ?
 			};
-			2.debug("get_midi_control_handler:set_val");
+			//2.debug("get_midi_control_handler:set_val");
 			param.changed(\midi_val, self.get_midi_val);
-			3.debug("get_midi_control_handler:set_val");
+			//3.debug("get_midi_control_handler:set_val");
 		},
 
 		get_midi_val: { arg self;
@@ -176,16 +185,19 @@
 		},
 
 		get_midi_norm_val: { arg self;
+			//[param.name, midi_center.get_ccpath_assigned_with_given_param(param)].debug("get_midi_norm_val");
 			midi_center.get_control_val(self.get_ccpath);
 		},
 
 		get_ccpath: { arg self;
-			self.ccpath;
+			//self.ccpath;
+			//[param.name, midi_center.get_param_binded_ccpath(param)].debug("III: get_ccpath");
+			midi_center.get_ccpath_assigned_with_given_param(param);
 		},
 
 		label: { arg self;
 			param.name.debug("get_midi_control_handler: label");
-			if(self.ccpath.isNil) {
+			if(self.get_ccpath.isNil) {
 				"X"
 			} {
 				(self.get_ccpath[0].asString[0].asString ++ (self.get_ccpath[1]+1).asString).debug("get_midi_control_handler: label: label choosed");
@@ -194,34 +206,49 @@
 		},
 
 		set_ccpath: { arg self, val;
-			param.name.debug("get_midi_control_handler: set_ccpath");
+			param.name.debug("get_midi_control_handler: set_ccpath (deprecated method??)");
 			self.ccpath = val;
 			self.refresh;
 		},
 
 		unblock_do: { arg self, fun;
 			var midi_val, param_val;
+			var main;
 
-			1.debug("unblock_do: midi_val, param_val");
+			//1.debug("unblock_do: midi_val, param_val");
 			midi_val = self.get_midi_norm_val;
 			param_val = param.get_norm_val;
 
-			[midi_val, param_val].debug("unblock_do: midi_val, param_val");
+			//[midi_val, param_val].debug("unblock_do: midi_val, param_val");
+			
+			//self.get_midi_norm_val.debug("BLAAA2");
+
+			main = midi_center.get_main;
 		
 			switch(self.blocked,
 				\not, fun,
 				\sup, {
 					if( midi_val <= param_val , {
+						//self.get_midi_norm_val.debug("BLAAA3");
 						self.blocked = \not;
+						//self.get_midi_norm_val.debug("BLAAA7");
 						param.changed(\blocked, false);
+						//self.get_midi_norm_val.debug("BLAAA8");
 						fun.value;
+						//self.get_midi_norm_val.debug("BLAAA9");
 					});
 				},
 				\inf, {
 					if( midi_val >= param_val , {
+						//self.get_midi_norm_val.debug("BLAAA4");
+						//[main.commands.ccpathToParam.keys, main.commands.paramToCcpath.values].debug("FFFFFFFFFFFFUUUUUUUUUUU");
 						self.blocked = \not;
+						//[main.commands.ccpathToParam.keys, main.commands.paramToCcpath.values].debug("FFFFFFFFFFFFUUUUUUUUUUU2");
+						//self.get_midi_norm_val.debug("BLAAA5");
 						param.changed(\blocked, false);
+						//self.get_midi_norm_val.debug("BLAAA6");
 						fun.value;
+						//self.get_midi_norm_val.debug("BLAAA6.5");
 					});
 				}
 			);
@@ -314,6 +341,7 @@
 	};
 };
 
+// should be named make_midi_note_recorder
 ~make_midi_recorder = { arg player, main;
 	var prec, livesynth, pman;
 	NoteOnResponder.removeAll;
@@ -328,20 +356,9 @@
 		enable_pretrack: false,
 		book: Dictionary.new,
 		livebook: Dictionary.new,
-		metronome_dur: 4,
 		lastnote: nil,
 		recording: false,
-		metronome: { arg self; { arg tempo=1; Ringz.ar(Impulse.ar(tempo), [401, 400], 1/tempo) } },
 		tclock: nil,
-
-		start_metronome: { arg self, tempo;
-			self.metro_player = self.metronome(tempo).play(args:[\tempo, tempo]);
-			self.tbclock = TempoBusClock(self.metro_player, tempo);
-		},
-
-		stop_metronome: { arg self;
-			self.metro_player.release;
-		},
 
 		start_overdubing: { arg self;
 
@@ -622,6 +639,210 @@
 
 };
 
+~make_midi_cc_recorder = { arg player, main;
+	var prec, livesynth, pman;
+	NoteOnResponder.removeAll;
+	NoteOffResponder.removeAll;
+	pman = main.play_manager;
+
+	prec = (
+		ccr: nil,
+		recording: false,
+		tclock: nil,
+		paramlist: nil,
+		recblobs: nil,
+
+		get_paramlist: {
+			var param, ccpath, res = List.new;
+			player.get_all_args.do { arg paramname;
+				param = player.get_arg(paramname);
+				if(param.classtype == \control) {
+					ccpath = param.midi.get_ccpath;
+					if(ccpath.notNil && {ccpath[0] == \knob}) {
+						res.add(param);
+					}
+				}
+			};
+			res;
+		},
+
+		player_start_tempo_recording: { arg self, finish_action={};
+			var nline;
+
+			self.paramlist = self.get_paramlist;
+			self.recblobs = self.paramlist.collect { arg param;
+				~make_midi_cc_recorder_blob.(param);
+			};
+			"STARTCCRECORD!!".debug; 
+			if(self.recording == true) {
+				"recorder: already recording!!!".debug;
+			} {
+				self.recording = true;
+				self.start_tempo_recording(
+					// end_action
+					{ 
+						finish_action.();
+					},
+					// preend_action
+					{
+						"**** preend_action".debug;
+					}
+				);
+			}
+		},
+
+		cancel_recording: { arg self;
+			self.recblobs.do { arg recblob;
+				recblob.stop_immediate_recording;
+			};
+		},
+
+		start_tempo_recording: { arg self, action, preend_action;
+
+			~do_record_session.(main,
+				// preclap_action
+				{ arg tclock;
+					//self.tclock = tclock;
+				},
+				// postclap_action
+				{
+				},
+				// start_action
+				{ arg tclock;
+					self.tclock = tclock;
+					self.recblobs.do { arg recblob;
+						recblob.start_immediate_recording(tclock);
+					}
+				},
+				// end_action
+				{
+					self.recblobs.do { arg recblob;
+						recblob.stop_immediate_recording;
+						recblob.save_record_to_param;
+					};
+					action.value;
+				},
+				// preend_action
+				preend_action
+			);
+
+		}
+
+
+	);
+	prec;
+
+};
+
+~ccpath_to_ccnum = { arg ccpath;
+	~keycode.cakewalk[ccpath[0]][ccpath[1]]
+};
+
+~make_midi_cc_recorder_blob = { arg param;
+	(
+		recording: false,
+		tclock: nil,
+
+		start_immediate_recording: { arg self, tclock;
+			var record_start_time;
+			var latency = s.latency + 0.2;
+			var ccnum;
+			self.tclock = tclock;
+			record_start_time = self.tclock.beats;
+			self.recording = true;
+			self.track = List.new;
+			self.lastnote = nil;
+
+			ccnum = ~ccpath_to_ccnum.(param.midi.get_ccpath);
+			[param.name, ccnum].debug("!!!!!CC RECORDING!!!!!! start");
+			self.ccr = CCResponder ({ arg src, chan, num, val;
+					var note, firstnote;
+					var start_silence;
+					var slotnum = nil;
+					val = val/127;
+
+					//[TempoClock.beats, TempoClock.nextTimeOnGrid(EventPatternProxy.defaultQuant,0), EventPatternProxy.defaultQuant].debug("nc,tc,dq");
+
+					// TODO: change param
+					param.bus.set_norm_val(val);
+					
+					[src, chan, num, val].debug("cc msg");
+					note = (
+						val: val,	// FIXME: store as normalised or mapped value ? (currently normalised)
+						curtime: self.tclock.beats - latency
+						//curtime: self.tclock.beats // ben pourquoi y'a plus de latency ?
+					);
+					if(note.curtime < 0) { "Negative curtime!!".debug; note.curtime = 0 };
+
+					if(self.lastnote.isNil, {
+						// first note
+						start_silence = self.tclock.beats - latency - record_start_time;
+						//start_silence = self.tclock.beats - record_start_time;
+
+						if(start_silence < 0, { "Negative dur!!".warn; start_silence = 0; });
+						firstnote = (
+							val: param.get_val,
+							start_silence: start_silence,
+							default_start_silence: start_silence,
+							start_offset: 0,
+							end_offset: 0,
+							dur: start_silence
+						);
+						self.track.add(firstnote);
+					}, {
+						self.lastnote.dur = note.curtime - self.lastnote.curtime;
+					});
+					self.lastnote = note;
+					self.track.add(note);
+					note.debug("nonr note");
+				},
+				nil, // any source,
+				nil, // any chan,
+				ccnum, // only current param ccnum
+				nil // any val
+			);
+		},
+
+		stop_immediate_recording: { arg self;
+			var now = self.tclock.beats;
+			var sum = 0;
+			now.debug("end recording: NOW");
+			self.ccr.remove;
+			if(self.lastnote.notNil, {
+				self.lastnote.dur = now - self.lastnote.curtime;
+				self.track[0].default_end_silence = self.lastnote.dur;
+				self.track[0].end_silence = self.lastnote.dur;
+			});
+
+			self.track = self.track.reject({ arg no; 
+				if(no.dur == 0) {
+					no.debug("reject note!");
+					true;
+				} {
+					false;
+				}
+			});
+			"notes kept:".debug;
+			self.track.printAll;
+
+			self.track.do { arg no;
+				sum = sum + no.dur;
+			};
+			sum.debug("TOTAL SUM");
+			
+			self.recording = false;
+			self.lastnote = nil;
+		},
+
+		save_record_to_param: { arg self;
+			param.recordbus.set_record(self.track);
+		}
+
+
+	);
+
+};
+
 
 ~make_midi_liveplayer = { arg player, main;
 	var prec, livesynth, pman;
@@ -745,68 +966,6 @@
 				}
 			);
 			//[tc, self.tclock, TempoClock.new(tempo), tempo].debug("creation de cette foutue horloge");
-//			if(main.play_manager.is_playing) {
-//				main.play_manager.start_new_session;
-//				tc = main.play_manager.get_clock;
-//				self.tclock = tc;
-//				tc.debug("jcomprendpas");
-//
-//				session = Task {
-//					//self.start_metronome(tempo);
-//					//4.wait;
-//					 // FIXME: somewhere, 0.2s are lost :s
-//					"2jcomprendpas".debug;
-//					if (metro) { self.start_metronome };
-//					self.start_immediate_recording(dur);
-//					main.play_manager.changed(\head_state, \record);
-//					"3jcomprendpas".debug;
-//					dur.wait;
-//					"4jcomprendpas".debug;
-//					self.stop_immediate_recording;
-//					self.stop_metronome;
-//					action.value;
-//				};
-//				session.play(tc, quant:dur);
-//			} {
-//				supertc = TempoClock.new(tempo);
-//				session = Task {
-//					//self.start_metronome(tempo);
-//					//4.wait;
-//
-//					"2jcomprendpas".debug;
-//					self.start_immediate_recording(dur);
-//					main.play_manager.changed(\head_state, \record);
-//					"3jcomprendpas".debug;
-//					dur.wait;
-//					"4jcomprendpas".debug;
-//					self.stop_immediate_recording;
-//					self.stop_metronome;
-//
-//					action.value;
-//				};
-//				supersession = Task {
-//					self.start_metronome(tempo);
-//
-//					self.tclock = supertc;
-//					//self.start_immediate_recording;
-//
-//					4.wait;
-//
-//					//self.stop_immediate_recording;
-//					//self.pretrack = self.track;
-//					//self.track = List.new;
-//
-//					if (metro.not) { self.stop_metronome };
-//					main.play_manager.start_new_session;
-//					tc = main.play_manager.get_clock;
-//					self.tclock = tc;
-//					tc.debug("jcomprendpas");
-//
-//					session.play(tc, quant:dur);
-//				};
-//				supersession.play(supertc, quant:1);
-//
-//			};
 		},
 
 		start_immediate_recording: { arg self, dur=1;
@@ -838,297 +997,3 @@
 )
 
 
-///////////////////////////////////////////////////////////////////////////
-///////////		MIDI (deprecated)
-///////////////////////////////////////////////////////////////////////////
-//
-//~midi_interface = (
-//	// TODO: obsolete, ported to midi_center
-//	next_free: (
-//		slider: 0,
-//		knob: 0
-//	),
-//	registry: List[],
-//
-//	cc_val: Dictionary[
-//		[\slider, 0] -> 0
-//
-//	],
-//
-//	assign_adsr: { arg self, param;
-//		var col = Dictionary.new;
-//		var mc = ();
-//		~adsr_point_order.do { arg key, i;
-//			col[key] = ~make_midi_control.([\slider, i+4], self.cc_val, param.get_param(key))
-//		};
-//		mc.col = col;
-//		mc.kind = \adsr;
-//		mc.destroy = { arg self; self.col.do(_.destroy) };
-//		self.registry.add( mc );
-//		mc;
-//	},
-//
-//	assign_master: { arg self, param;
-//		var mc;
-//		mc = ~make_midi_control.([\slider, 8], self.cc_val, param);
-//		self.registry.add( mc );
-//		mc;
-//	},
-//
-//	assign_first: { arg self, kind, param;
-//		var mc;
-//		mc = ~make_midi_control.([kind, self.next_free[kind]], self.cc_val, param);
-//		self.registry.add( mc );
-//		// FIXME: set max free val (adsr hold the last sliders)
-//		self.next_free[kind] = self.next_free[kind] + 1;
-//		mc;
-//	},
-//
-//	clear_assigned: { arg self, kind;
-//		self.next_free[kind] = 0;
-//		self.registry.copy.do { arg mc;
-//			// FIXME: what is this kind member ?
-//			if(mc.kind == kind, {
-//				mc.destroy;
-//				self.registry.remove(mc);
-//			});
-//		};
-//	}
-//
-//);
-//
-//
-//~make_midi_control = { arg ccid, cc_val, param; 
-//	// param interface:
-//	// - classtype
-//	// - get_norm_val
-//	// - set_norm_val
-//	// - selected
-//	// - spec
-//	var midi;
-//	var sc_param;
-//	var get_midi_val = { cc_val[ccid] ?? 0.5};
-//	var param_val = { param.get_norm_val };
-//
-//	//param.debug("make_midi_control param");
-//
-//	midi = (
-//		blocked: \not,
-//		ccid: nil,
-//		midi_val: get_midi_val.(),
-//		label: \void,
-//		name: param.name,
-//		recording: false,
-//		mapped_val: { arg self;
-//			param.spec.map(get_midi_val.())
-//		},
-//
-//		refresh: { arg self;
-//			self.changed(\label);
-//			self.changed(\blocked);
-//			self.changed(\midi_val);
-//		},
-//
-//		set_value: { arg self, cc_value;
-//			cc_val[ccid] = cc_value;
-//			self.midi_val = cc_value;
-//			self.changed(\midi_val);
-//
-//			if(self.recording.not, {
-//				if(ccid.notNil, {
-//					self.unblock_do({
-//						param.set_norm_val(cc_value);
-//					});
-//				}, {
-//					param.set_norm_val(cc_value);
-//				});
-//			});
-//		},
-//
-//		set_midi_value: { arg self, cc_value;
-//			cc_val[ccid] = cc_value;	
-//			self.midi_val = cc_value;
-//			self.block;
-//			self.changed(\midi_val);
-//		},
-//
-//		get_midi_val: { arg self; get_midi_val.() },
-//
-//		unblock_do: { arg self, fun;
-//			var cc_value, param_value;
-//
-//		
-//			//param.debug("make_midi_control.unblock_do param");
-//			cc_value = get_midi_val.();
-//			param_value = param.get_norm_val.();
-//			param.name.debug("midi unblock param name");
-//			param_value.debug("midi unblock param value");
-//
-//			switch(self.blocked,
-//				\not, fun,
-//				\sup, {
-//					if( cc_value <= param_value , {
-//						self.blocked = \not;
-//						self.changed(\blocked);
-//						fun.value;
-//					});
-//				},
-//				\inf, {
-//					if( cc_value >= param_value , {
-//						self.blocked = \not;
-//						self.changed(\blocked);
-//						fun.value;
-//					});
-//				}
-//			);
-//
-//		},
-//		
-//		block: { arg self;
-//			var cc_value, param_value;
-//
-//			cc_value = get_midi_val.();
-//			param_value = param.get_norm_val.();
-//			//param.name.debug("midi block param name");
-//			//param_value.debug("midi block param value");
-//
-//			case 
-//				{ cc_value > param_value } {
-//					self.blocked = \sup;
-//					self.changed(\blocked);
-//				}
-//				{ cc_value < param_value } {
-//					self.blocked = \inf;
-//					self.changed(\blocked);
-//				}
-//				{ true } {
-//					self.blocked = \not;
-//					self.changed(\blocked);
-//				}
-//		},
-//
-//		assign_cc: { arg self, ccid;
-//			self.ccid = ccid;
-//			 if(ccid.notNil, {
-//				self.label = (ccid[0].asString[0] ++ (ccid[1]+1)).asSymbol;
-//				self.changed(\label);
-//				self.ccresp = CCResponder({ |src,chan,num,value|
-//						//[src,chan,num,value].debug("==============CCResponder");
-//						//param.classtype.debug("ccresp current_kind");
-//						//param.selected.debug("ccresp selected");
-//						//cc_val.debug("ccresp cc_val");
-//						if(param.classtype == \adsr, {
-//							if(param.selected == 1, {
-//								self.set_value(value/127);
-//							}, {
-//								self.set_midi_value(value/127);
-//							});
-//						}, {
-//							self.set_value(value/127);
-//						});
-//					},
-//					nil, // any source
-//					nil, // any channel
-//					~cakewalk[ccid[0]][ccid[1]], // any CC number
-//					nil // any value
-//				);
-//				}, {
-//					"assigning nil ccid".debug("WARNING");
-//					"void"
-//				});
-//
-//		},
-//
-//		destroy: { arg self;
-//			self.ccresp.remove;
-//		}
-//	);
-//
-//	midi.assign_cc(ccid);
-//	midi.block.();
-//
-//	sc_param = SimpleController(param);
-//	sc_param.put(\kind, { arg obj; midi.block.() });
-//	sc_param.put(\selected_cell, { arg obj; "BLOK1".debug; midi.block.() });
-//	sc_param.put(\selected, { arg obj; "BLOK2".debug; midi.block.() });
-//
-//
-//	midi;
-//
-//};
-//
-//~make_midi_kb_control = { arg player, editplayer;
-//	// record cc change dynamicaly in param cells with piano record button
-//	// TODO: obsolete, must recode, disabled
-//	var nonr, noffr, param, destroy, rec, localknob;
-//	
-//	// init
-//	NoteOnResponder.removeAll; // TODO: must save others responders ?
-//
-//	nonr = NoteOnResponder { arg src, chan, num, veloc;
-//		param = editplayer.controller.get_selected_param.();
-//		param.set_val(num.midicps);
-//	};
-//
-//	rec = CCResponder({ |src,chan,num,value|
-//			var param = editplayer.controller.get_selected_param;
-//			var tickline;
-//			tickline = player.get_arg(\stepline); 
-//
-//			if(param.midi.notNil && param.midi.recording.notNil, {
-//				if(param.midi.recording, {
-//					param.midi.recording = false;
-//					param.midi.changed(\recording);
-//					tickline.tick = { 
-//						//"TICK!!!".postln;
-//					};
-//				}, {
-//					param.midi.recording = true;
-//					param.midi.changed(\recording);
-//					// TODO : make the rec works with noteline
-////					if(param.noteline, {
-////						TempoClock.schedAbs(TempoClock.beats.roundUp( player.get_arg(\segdur).get_val ).debug("noteline tick"), {
-////							param.midi.get_midi_val.debug("set TICK");
-////							param.seq.set_norm_val(param.midi.get_midi_val, idx);
-////							if(param.midi.recording, {
-////								TempoClock.beats.roundUp( player.get_arg(\segdur).get_val )
-////							}, {
-////								nil // dont reschedule
-////							}
-////						})
-////					}, {
-//						tickline.tick = { arg obj, idx;
-//							param.midi.get_midi_val.debug("set TICK");
-//							param.seq.set_norm_val(param.midi.get_midi_val, idx);
-//						};
-////					});
-//				});
-//			});
-//		},
-//		nil, // any source
-//		nil, // any channel
-//		~cakewalk.button[7], // record button
-//		nil // any value
-//	);
-//
-//	localknob = CCResponder({ |src,chan,num,value|
-//			//[src,chan,num,value].debug("==============CCResponder");
-//			var param = editplayer.controller.get_selected_param;
-//			if(param.midi.notNil, {
-//				param.midi.set_value(value/127);
-//			});
-//		},
-//		nil, // any source
-//		nil, // any channel
-//		~cakewalk.knob[8], // last knob
-//		nil // any value
-//	);
-//
-//	destroy = { 
-//		nonr.remove;
-//		rec.remove;
-//		localknob.remove;
-//	};
-//	destroy;
-//
-//};

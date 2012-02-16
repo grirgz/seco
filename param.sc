@@ -19,30 +19,30 @@
 		ev[\current_mode].debug("pdynarray:current_mode");
 		switch(userepeat,
 			false, {
-				repeat = inf;	
+				repeat = ~general_sizes.safe_inf;	
 			},
 			\noteline, {
 				if( ev[\current_mode] == \noteline ) {
 					repeat = ev[\repeat];
-					if(repeat == 0) { repeat = inf };
+					if(repeat == 0) { repeat = ~general_sizes.safe_inf };
 				} {
-					repeat = inf;
+					repeat = ~general_sizes.safe_inf;
 				};
 			},
 			\stepline, {
 				if( ev[\current_mode] == \stepline ) {
 					repeat = ev[\repeat];
-					if(repeat == 0) { repeat = inf };
+					if(repeat == 0) { repeat = ~general_sizes.safe_inf };
 				} {
-					repeat = inf;
+					repeat = ~general_sizes.safe_inf;
 				};
 			},
 			\sampleline, {
 				if( ev[\current_mode] == \sampleline ) {
 					repeat = ev[\repeat];
-					if(repeat == 0) { repeat = inf };
+					if(repeat == 0) { repeat = ~general_sizes.safe_inf };
 				} {
-					repeat = inf;
+					repeat = ~general_sizes.safe_inf;
 				};
 			}
 		);
@@ -141,6 +141,7 @@ Spec.add(\sustain, ControlSpec(0.001, 5, \lin, 0, 0.2));
 Spec.add(\repeat, ControlSpec(0, 100, \lin, 1, 0));
 Spec.add(\pos, ControlSpec(0, 1, \lin, 0.0001, 0));
 Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
+Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 
 //SynthDescLib.global.synthDescs[\pulsepass].metadata;
 
@@ -199,19 +200,28 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 	bar = RangeSlider(vlayout, 40@20);
 
 	refresh_pos = { arg clock;
+		var posstring, barrange, bib, col;
 		if(play_manager.is_playing || play_manager.is_recording) {
 			clock.beatInBar.debug("beatInBar");
-			bt[clock.beatInBar].background = if(play_manager.is_near_end) { Color.red } { Color.green };
-			bt.wrapAt(clock.beatInBar -1).background = Color.black;
-			pos.string = play_manager.get_rel_beat.round(0.01).asString 
-						+ "/" + play_manager.get_record_length.asString
-						+ "|" + clock.beats.asString; // FIXME: find a way to zero pad
-			bar.range = play_manager.get_rel_beat / play_manager.get_record_length;
+			posstring = play_manager.get_rel_beat.round(0.01).asString.padLeft(3, " ")
+							+ "/" + play_manager.get_record_length.asString
+							+ "|" + clock.beats.asString; // FIXME: find a way to zero pad
+			barrange = play_manager.get_rel_beat / play_manager.get_record_length;
+			bib = clock.beatInBar;
+			col = if(play_manager.is_near_end) { Color.red } { Color.green };
+			{
+				bt[bib].background = col;
+				bt.wrapAt(bib - 1).background = Color.black;
+				pos.string = posstring;
+				bar.range = barrange;
+			}.defer;
 			true; // continue
 		} {
 			play_manager.get_rel_beat.debug("refresh vimetro task: stopped");
-			pos.string = "0 /" + play_manager.get_record_length.asString + "| 0";
-			bar.range = 0;
+			{
+				pos.string = "0 /" + play_manager.get_record_length.asString + "| 0";
+				bar.range = 0;
+			}.defer;
 			false; // exit
 		}
 	};
@@ -224,7 +234,9 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 		//play_manager.start_pos = clock.beats; // debug
 		var clock = play_manager.get_clock;
 		play_manager.get_rel_beat.debug("start vimetro task");
-		bt.do { arg x; x.background = Color.black };
+		{	
+			bt.do { arg x; x.background = Color.black };
+		}.defer;
 		block { arg break;
 			10000.do { //FIXME: fake loop
 				if(refresh_pos.(clock).not) { "BREAK".debug; break.value };
@@ -277,7 +289,9 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 	midi_val.string = param.midi.get_midi_val.asString;
 	ez.value = param.get_val;
 
-	ez.action = { arg ezs; param.set_val(ezs.value) };
+	ez.action = { arg ezs; ezs.value.debug("make_edit_number_view: action called"); param.set_val(ezs.value) };
+	// FIXME: action not called with 3.5 when hiting enter
+	// TODO: verify value is correct
 
 	~make_view_responder.(win, param, (
 		val: { arg obj, msg;
@@ -298,12 +312,12 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 	layout.keyDownAction = { arg view, char, modifiers, u, k; 
 		["tempo", modifiers, u].debug("KEYBOARD INPUT");
 		if( u == ~keycode.kbspecial.escape ) { win.close };
-		if( u == ~keycode.kbspecial.enter ) { win.close };
+		if( u == ~keycode.kbspecial.enter ) { "bla".debug; win.close }; // return false -> propage keydown
 	};
 	ez.numberView.keyDownAction = { arg view, char, modifiers, u, k; 
 		["tempo", modifiers, u].debug("KEYBOARD INPUT");
 		if( u == ~keycode.kbspecial.escape ) { win.close };
-		if( u == ~keycode.kbspecial.enter ) { win.close };
+		if( u == ~keycode.kbspecial.enter ) { ez.value.debug("con"); ez.doAction; "rah".debug; win.close };
 	};
 	win.front;
 
@@ -688,7 +702,7 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 			paraspace.clearSpace;
 			self.get_notes.do { arg no, idx;
 				[idx, no].debug("calcul totaldur: note");
-				if(no.midinote.isSymbol.not, {
+				if(no.midinote.isSymbolWS.not, {
 					minnote = min(no.midinote, minnote);
 					maxnote = max(no.midinote, maxnote);
 				});
@@ -703,7 +717,7 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 
 			self.get_notes.do { arg no, idx;
 				[idx, no].debug("note");
-				if(no.midinote.isSymbol.not, {
+				if(no.midinote.isSymbolWS.not, {
 					paraspace.createNode(sum/numsep * width, no.midinote.linlin(minnote-1,maxnote+1,height,0));
 				});
 				if(self.notequant.notNil) {
@@ -2304,6 +2318,8 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 	var param;
 	var bar_length = 4;
 
+	name.debug("---- make_control_param");
+
 	param = (
 		name: name,
 		classtype: \control,
@@ -2403,6 +2419,7 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 		),
 
 		scalar: (
+			quoi: { "QUOI".debug; }.value,
 			selected_cell: 0, // always 0
 			val: if(default_value.isArray, { default_value[0] }, { default_value }),
 
@@ -2428,16 +2445,100 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 			remove_cells: {}
 		),
 
+		recordbus: (
+			record: nil,
+			initialized: false,
+
+			set_record: { arg self, record;
+				if(self.record.isNil) {
+					self.record = record;
+					player.build_real_sourcepat;
+				} {
+					self.record = record
+				};
+			},
+
+			init: { arg self, val;
+				if(param.bus.bus.isNil) {
+					param.bus.bus = Bus.control(s, 1); // TODO: destructor
+				} {
+					param.name.debug("recordbus.init: bus already exists");
+				};
+				param.bus.bus.debug("recordbus: init the bus!");
+				if(val.notNil) { self.set_val(val); };
+				self.initialized = true;
+			},
+
+			get_bus: { arg self;
+				param.bus.bus;
+			},
+
+			set_bus: { arg self, val;
+				param.bus.bus = val;
+			},
+
+			set_val: { arg self, val, idx=nil;
+				// do nothing because values come from the record
+			},
+
+			mute: { arg self, val;
+				// FIXME: who call this ?
+			},
+
+			get_val: { arg self; param.bus.get_val },
+
+			set_norm_val: { arg self, norm_val;
+				// do nothing because values come from the record
+			},
+
+			get_norm_val: { arg self;
+				param.spec.unmap(self.get_val);
+			},
+
+			get_cells: { arg self; [self.get_val] },
+
+			select_cell: { arg self, idx; param.seq.selected_cell = idx }, // when changing kind, correct cell is selected in colselect mode
+			get_selected_cell: { arg self; 0 },
+			add_cells: {},
+			remove_cells: {},
+
+			vpattern: { arg self;
+				var vals = List.new, durs = List.new;
+				// return the pattern which set continously the bus according to record
+				if(self.record.notNil) {
+					self.record.do { arg note;
+						vals.add(note.val);
+						durs.add(note.dur);
+					};
+					Pbind(
+						\type, \bus,
+						\notes, Plazy({ Pseq(self.record) }),
+						\array, Pfunc { arg ev; ev[\notes].val },
+						\out, self.get_bus,
+						\dur, Pfunc { arg ev; ev[\notes].dur }
+					)
+				} {
+					nil
+				}
+			}
+		),
+
 		bus: (
 			// dummy functions
+			quoi: { "QUOI".debug; }.value,
 			selected_cell: 0, // always 0
 			val: if(default_value.isArray, { default_value[0] }, { default_value }),
 			busindex: nil,
 			muted: false,
 			initialized: false,
+			bus: nil,
 
 			init: { arg self, val;
-				self.bus = Bus.control(s, 1); // TODO: destructor
+				if(self.bus.isNil) {
+					self.bus = Bus.control(s, 1); // TODO: destructor
+				} {
+					param.name.debug("bus.init: bus already exists");
+				};
 				self.bus.debug("init the bus!");
 				if(val.notNil) { self.set_val(val); };
 				self.initialized = true;
@@ -2485,6 +2586,7 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 			select_cell: { arg self, idx; param.seq.selected_cell = idx }, // when changing kind, correct cell is selected in colselect mode
 			get_selected_cell: { arg self; 0 },
 			add_cells: {},
+			quoii: { "QUOI3".debug }.value,
 			remove_cells: {}
 			
 
@@ -2549,11 +2651,25 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 		},
 		
 		change_kind: { arg self, kind;
-			self.current_kind = kind;
-			if(kind == \seq && { self.seq.initialized.not } ) { self.seq.init(self.scalar.get_val) };
-			if(kind == \bus && { self.bus.initialized.not } ) { self.bus.init(self.scalar.get_val) };
-			[name, kind].debug("CHANGED KIND!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-			self.changed(\kind);
+			[name, kind].debug("change_kind");
+			if(kind != self.current_kind) {
+				if(self.current_kind == \recordbus) {
+					// if old kind was recordbus, remove it from player pattern
+					player.remove_ccbus(self);
+				};
+				self.current_kind = kind;
+				if(kind == \seq && { self.seq.initialized.not } ) { self.seq.init(self.scalar.get_val) };
+				if(kind == \bus && { self.bus.initialized.not } ) { self.bus.init(self.scalar.get_val) };
+				if(kind == \recordbus) {
+					"changed to recordbus".debug;
+					if (self.recordbus.initialized.not) {
+						self.recordbus.init(self.scalar.get_val)
+					};
+					player.add_ccbus(self);
+				};
+				[name, kind].debug("CHANGED KIND!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+				self.changed(\kind);
+			}
 		},
 
 		refresh: { arg self;
@@ -2687,6 +2803,14 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 						},
 						\bus, {
 							self.bus.get_bus.asMap.yield;
+						},
+						\recordbus, {
+							self.bus.get_bus.asMap.yield;
+						},
+						// else
+						{
+							[param.name, self.current_kind].debug("ERROR: param kind dont match");
+							0.yield;
 						}
 					);
 				}
@@ -2696,25 +2820,35 @@ Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 			//});
 			//Pseq([self.get_val],inf);
 			//Pseq([self.scalar.get_val],inf);
-		}
+		},
+		quoi: { "QUOI".debug; }.value
 	);
 	// init
 	param.preset = param.seq.deepCopy;
+		"rah1".debug;
 	param.seg = param.seq;
+		"rah1".debug;
 
 	param.midi = main.midi_center.get_midi_control_handler(param);
+		"rah1".debug;
 
 	// \dur special case
 	if([\dur,\segdur, \stretchdur].includes(name), {
+		"rah5".debug;
 		param.change_kind(\preset);
+		"rah5".debug;
 		param.preset.val = List[ 4, 2, 1, 0.5, 0.25, 0.125, 0.0625 ];
+		"rah5".debug;
 		if(name == \stretchdur, {
+		"rah2".debug;
 			param.select_cell(2);
 		}, {
+		"rah3".debug;
 			param.select_cell(4);
 		});
 	});
 
+	name.debug("---- make_control_param END");
 	// return object
 	param;
 };

@@ -480,12 +480,14 @@
 				//self.model.default_newnode = [\libnode, libnodename];
 				livenodename = self.make_fxnode_from_libnode(libnodename);
 				player.add_effect(livenodename);
+				self.assign_midi;
 				self.changed(\paramlist);
 			}, { arg livenodename;
 				//self.model.default_newnode = [\livenode, livenodename];
 				livenodename = self.duplicate_fxnode(livenodename);
 				livenodename.debug("actionpreset");
 				player.add_effect(livenodename);
+				self.assign_midi;
 				self.changed(\paramlist);
 			});
 		},
@@ -555,6 +557,36 @@
 				main.play_manager.set_recording(false);
 			} {
 				"hmatrix: not recording".debug;
+			};
+		},
+
+		start_cc_recorder: { arg self;
+			// TODO: handle when recording finish (play recorded track along what is playing ?)
+			var finish = {
+				main.play_manager.set_recording(false);
+				//main.play_manager.keep_recording_session = true; // to play in sync with recording clock (see play_manager.start_new_session)
+				//player.play_node;
+			};
+			if(main.play_manager.is_recording.not) {
+				if(player.kind == \player && (player.name != \voidplayer)) {
+					main.play_manager.set_recording(true);
+					player.name.debug("start_cc_recorder: player");
+					self.cc_recorder = ~make_midi_cc_recorder.(player, main);
+					self.cc_recorder.player_start_tempo_recording(finish);
+				} {
+					"INFO: grouplive: start_cc_recorder: selected cell is not a player".inform;
+				}
+			} {
+				"hmatrix: already cc recording".debug;
+			};
+		},
+
+		cancel_cc_recording: { arg self;
+			if(main.play_manager.is_recording == true) {
+				self.cc_recorder.cancel_recording;
+				main.play_manager.set_recording(false);
+			} {
+				"hmatrix: not cc recording".debug;
 			};
 		},
 
@@ -662,6 +694,10 @@
 				editplayer.controller.change_kind(\bus)
 			});
 
+			main.commands.add_enable([\editplayer, \change_param_kind, \recordbus], nil, {
+				editplayer.controller.change_kind(\recordbus)
+			});
+
 			// player mode selection
 			"editplayer shorcut 1".debug;
 
@@ -696,6 +732,14 @@
 					editplayer.start_tempo_recorder;
 				} {
 					editplayer.cancel_recording;
+				}
+			});
+
+			main.commands.add_enable([\editplayer, \toggle_cc_recording], nil, { 
+				if(main.play_manager.is_recording.not) {
+					editplayer.start_cc_recorder;
+				} {
+					editplayer.cancel_cc_recording;
 				}
 			});
 

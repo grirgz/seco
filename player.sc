@@ -38,6 +38,7 @@
 		archive_data: [\control, \stepline, \adsr, \noteline, \buf],
 		effects: List.new,
 		is_effect: false,
+		ccbus_set: IdentitySet.new,
 
 		init: { arg self;
 			
@@ -447,15 +448,28 @@
 			ev;
 		},
 
+		add_ccbus: { arg self, param;
+			// a param is on recordbus mode, so include a pattern to set the bus while playing
+			var vpat;
+			param.name.debug("player.add_ccbus");
+			self.ccbus_set.add(param);
+			self.build_real_sourcepat;
+		},
+
+		remove_ccbus: { arg self, param;
+			self.ccbus_set.remove(param);
+			self.build_real_sourcepat;
+		},
+
 		build_real_sourcepat: { arg self;
 
-			var res;
+			var res, list;
 			res = if(self.wrapper.notNil) {
 				self.wrapper;
 			} {
 				self.sourcepat;
 			};
-			self.real_sourcepat = if(self.effects.size > 0) {
+			res = if(self.effects.size > 0) {
 				~pfx.(
 					res,
 					self.effects.collect { arg fx;
@@ -466,7 +480,13 @@
 			} {
 				res;
 			};
-			self.real_sourcepat.trace;
+			// add bus setting
+			if(self.ccbus_set.size > 0) {
+				list = self.ccbus_set.as(Array).collect({ arg x; x.recordbus.vpattern }).reject(_.isNil) ++ [res];
+				list.debug("******** build_real_sourcepat: ppar list");
+				res = Ppar( list )
+			};
+			self.real_sourcepat = res.trace;
 		},
 
 		vpattern: { arg self;
@@ -475,7 +495,7 @@
 		},
 
 		vpattern_loop: { arg self;
-			Pn(self.vpattern, inf);
+			Pn(self.vpattern, ~general_sizes.safe_inf);
 		},
 
 		prepared_node: { arg self;
@@ -587,7 +607,7 @@
 ~make_player = { arg main, instr, data=nil;
 	var player = nil;
 	case
-		{ instr.isSymbol || instr.isString } {
+		{ instr.isSymbolWS || instr.isString } {
 			player = ~make_player_from_synthdef.(main,instr.asSymbol, data);
 		} 
 		{ instr.isFunction } {
@@ -826,7 +846,7 @@
 		},
 
 		vpattern_loop: { arg self;
-			Pn(self.vpattern, inf);
+			Pn(self.vpattern, ~general_sizes.safe_inf);
 		},
 
 		play_node: { arg self;
@@ -1304,7 +1324,7 @@
 					};
 				} {
 					node.uname.debug("&&&&&&&&&&&&&&&&par_spawner: respawning stream");
-					spawner.par(Pn(node.vpattern, inf))
+					spawner.par(Pn(node.vpattern, ~general_sizes.safe_inf))
 				};
 			});
 			streams.add(stream);

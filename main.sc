@@ -32,6 +32,7 @@
 };
 
 ~general_sizes = (
+	safe_inf: 10000,
 	bank: 10,
 	children_per_groupnode: 16,
 	children_part_per_groupnode: 4, // keyboard can access to only 4 children at the same time
@@ -68,11 +69,17 @@
 	messages.keysValuesDo { arg key, val; controller.put(key, val) };
 };
 
+
 ~editplayer_color_scheme = (
 	background: Color.newHex("94A1BA"),
 	control: Color.newHex("6F88BA"),
 	led: Color.newHex("A788BA")
 );
+//~editplayer_color_scheme = (
+//	background: Color.white,
+//	control: Color.white,
+//	led: Color.white
+//);
 
 ~color_scheme = (
 	background: Color.newHex("94A1BA"),
@@ -83,6 +90,15 @@
 	header_cell: Color.newHex("BBBBA9")
 
 );
+//~color_scheme = (
+//	background: Color.white,
+//	control: Color.white,
+//	control2: Color.white,
+//	led: Color.white,
+//
+//	header_cell: Color.white
+//
+//);
 
 ~make_view_responder = { arg parent, model, message_responders, auto_refresh=true; 
 	var controller;
@@ -162,7 +178,7 @@
 	"score"
 ].do { arg file;
 	("Loading " ++ file ++".sc...").inform;
-	("/home/ggz/code/sc/seco/"++file++".sc").loadDocument;
+	("/home/ggz/code/sc/seco/"++file++".sc").load;
 };
 "Done loading.".inform;
 
@@ -718,7 +734,8 @@
 
 		init_synthdesclib: { arg self;
 			SynthDesc.mdPlugin = TextArchiveMDPlugin; // plugin to store metadata on disk when storing the synthdef
-			SynthDescLib.global.read("synthdefs/*.scsyndef");
+			SynthDescLib.global.read(SynthDef.synthDefDir ++ "*.scsyndef");
+			//SynthDescLib.global.synthDescs.keys.printAll;
 		},
 
 		test_player: { arg self, libnodename;
