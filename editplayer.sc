@@ -31,11 +31,14 @@
 	var row_layout, col_layout, info_layout;
 	var sc_ep, ep_messages, sc_player, player_messages;
 	var status;
+	var super_info_layout, super_row_layout;
 
 	col_layout = GUI.hLayoutView.new(parent, Rect(0,0,width+10,height));
-	info_layout = GUI.vLayoutView.new(col_layout, Rect(0,0,300,height));
-	row_layout = GUI.vLayoutView.new(col_layout, Rect(0,0,width-200,height));
-	row_layout.background = ~editplayer_color_scheme.background;
+	super_info_layout = GUI.vLayoutView.new(col_layout, Rect(0,0,300,height));
+	info_layout = GUI.vLayoutView.new(super_info_layout, Rect(0,0,300,height));
+	super_row_layout = GUI.vLayoutView.new(col_layout, Rect(0,0,width-200,height));
+	row_layout = GUI.vLayoutView.new(super_row_layout, Rect(0,0,width-200,height));
+	super_row_layout.background = ~editplayer_color_scheme.background;
 
 	debug("DEBIN make_editplayer_view");
 
@@ -47,8 +50,10 @@
 
 			///CCResponder.removeAll; // FIXME: must not remove other useful CC
 
-			info_layout.removeAll;
-			row_layout.removeAll;
+			super_info_layout.removeAll;
+			super_row_layout.removeAll;
+			info_layout = GUI.vLayoutView.new(super_info_layout, Rect(0,0,300,height));
+			row_layout = GUI.vLayoutView.new(super_row_layout, Rect(0,0,width-200,height));
 
 			editplayer.get_paramlist.debug("BEGIN paramlist update");
 			editplayer.get_paramlist.do { arg param_name, i;
@@ -553,7 +558,9 @@
 
 		cancel_recording: { arg self;
 			if(main.play_manager.is_recording == true) {
-				self.recorder.cancel_recording;
+				if(self.recorder.notNil) {
+					self.recorder.cancel_recording;
+				};
 				main.play_manager.set_recording(false);
 			} {
 				"hmatrix: not recording".debug;

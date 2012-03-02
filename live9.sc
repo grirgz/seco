@@ -83,15 +83,20 @@ SynthDef(\audiotrack_noisegate, { arg out = 0, amp=0.20, bufnum = 0, sustain, no
 	rt: ControlSpec(0, 1, \lin, 0.0001, 0)
 ))).store;
 
-SynthDef(\audiotrack_expander, { arg out = 0, amp=0.20, bufnum = 0, sustain, wet=1, threshold=0.0, slopeBelow=1, slopeAbove=1, clampTime=0, relaxTime=0;
+SynthDef(\audiotrack_expander, { arg out = 0, amp=0.20, bufnum = 0, sustain, 
+			delay=0.046, fadein=0.001, fadeout=0.001,
+			wet=1, threshold=0.0, slopeBelow=1, slopeAbove=1, clampTime=0, relaxTime=0;
         var playbuf, ou, cou;
-        playbuf = PlayBuf.ar(2,bufnum,startPos:44100*0.046,doneAction:0);
+        playbuf = PlayBuf.ar(2,bufnum,startPos:44100*delay,doneAction:0);
 		ou = playbuf;
-		ou = ou * EnvGen.ar(Env.linen(0.001,sustain,0.001), doneAction:2);
+		ou = ou * EnvGen.ar(Env.linen(fadein,sustain,fadeout), doneAction:2);
 		cou = Compander.ar(ou, ou, threshold, slopeBelow, slopeAbove, clampTime, relaxTime);
 		ou = SelectX.ar(wet, [ou, cou]);
         Out.ar(out, ou * amp);
 }, metadata:(specs:(
+	delay: ControlSpec(0, 0.1, \lin, 0, 0),
+	fadein: ControlSpec(0, 0.01, \lin, 0, 0),
+	fadeout: ControlSpec(0, 0.01, \lin, 0, 0),
 	threshold: ControlSpec(0, 0.1, \lin, 0, 0),
 	clampTime: ControlSpec(0, 1, \lin, 0.0001, 0),
 	relaxTime: ControlSpec(0, 1, \lin, 0.0001, 0)

@@ -1,4 +1,21 @@
 (
+
+~event_rel_to_abs = { arg li;	
+	var res = List.new, elm, time;
+	0.for(li.size-1) { arg x;
+		x.debug("iter");
+		elm = li[x].copy;
+		if(x == 0) {
+			elm.time = 0;
+		} {
+			elm.time = li[x-1].dur + res[x-1].time;
+		};
+		res.add(elm);
+	};
+	res;
+};
+
+
 ~merge_notetracks = { arg no1, no2;
 	var ano1, ano2, res;
 	var makeabs, makerel, time = 0, last = 0, elm;
@@ -652,7 +669,7 @@
 		paramlist: nil,
 		recblobs: nil,
 
-		get_paramlist: {
+		get_paramlist: { arg self;
 			var param, ccpath, res = List.new;
 			player.get_all_args.do { arg paramname;
 				param = player.get_arg(paramname);
@@ -666,10 +683,14 @@
 			res;
 		},
 
+		get_selected_paramlist: { arg self;
+			[ player.get_arg(player.get_selected_param) ];
+		},
+
 		player_start_tempo_recording: { arg self, finish_action={};
 			var nline;
 
-			self.paramlist = self.get_paramlist;
+			self.paramlist = self.get_selected_paramlist;
 			self.recblobs = self.paramlist.collect { arg param;
 				~make_midi_cc_recorder_blob.(param);
 			};
@@ -752,6 +773,8 @@
 			self.recording = true;
 			self.track = List.new;
 			self.lastnote = nil;
+			
+			param.midi.get_ccpath.debug("make_midi_cc_recorder_blob: start_immediate_recording: param.midi.get_ccpath");
 
 			ccnum = ~ccpath_to_ccnum.(param.midi.get_ccpath);
 			[param.name, ccnum].debug("!!!!!CC RECORDING!!!!!! start");
@@ -878,6 +901,7 @@
 			};
 			self.noffr = NoteOffResponder { arg src, chan, num, veloc;
 				var note;
+				[self.livebook[[chan,num]], [src, chan, num, veloc]].debug("note off");
 				self.livebook[[chan,num]].release;
 			};
 		},

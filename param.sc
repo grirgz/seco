@@ -175,6 +175,18 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 };
 
 // ==========================================
+// Default Data
+// ==========================================
+
+~default_ccrecord = [
+	(dur:0.1, val:0.5),
+	(dur:0.5, val:0.2),
+	(dur:0.4, val:0.1),
+	(dur:0.2, val:0.3),
+	(dur:0.1, val:0.9),
+];
+
+// ==========================================
 // PARAM VIEW
 // ==========================================
 
@@ -437,6 +449,7 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 /////////////////////////////////////////////////////////////////////////
 /////////		Control views
 /////////////////////////////////////////////////////////////////////////
+
 
 ~make_env_view = { arg parent, default_val;
 	var env, view;
@@ -757,7 +770,11 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 	var txt_midi_label, txt_midi_val;
 	var sc_param, sc_midi;
 	var max_cells = display.max_cells; // FIXME: already defined in editplayer
+	var content_view;
 	var inrange;
+	var ccview;
+	var make_ccview;
+	var make_cellsview;
 
 	"mais quoiiii".debug;
 	display.debug("il a quoiiii");
@@ -780,7 +797,47 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 		txt_midi_val = GUI.staticText.new(row_layout, Rect(0,0,30,height));
 	});
 
-	btl_cells = GUI.hLayoutView.new(row_layout, Rect(0,0,width,height));
+	content_view = HLayoutView.new(row_layout, 	Rect(0,0,width,height));
+
+
+	make_cellsview = {
+		btl_cells = GUI.hLayoutView.new(content_view, Rect(0,0,width,height));
+	};
+
+	//make_cellsview.value;
+	parent.onClose = parent.onClose.addFunc{
+		"===========================================================".debug;
+		param.name.debug("closing param view");
+		"===========================================================".debug;
+		"===========================================================".debug;
+	};
+
+	make_ccview = {
+		ccview = UserView(content_view, Rect(30,0,width-450,height));
+		//ccview.resize = 5; // TODO: what's that ?
+		ccview.background_(Color.rand);
+
+		ccview.drawFunc={|uview|
+			var cur = 0;		
+			var totdur = 0;
+			var size = ccview.bounds.debug;
+			var record = param.recordbus.get_record;
+			var evs;
+			if(record.isNil) {
+				record = ~default_ccrecord;
+			};
+			evs = ~event_rel_to_abs.(record);
+			evs.debug("evs");
+			Pen.moveTo(0@(1-evs[0].val*size.height));
+			//Pen.moveTo(10@10);
+			record.do { arg ev; totdur = ev.dur + totdur; };
+			evs.do { arg ev;
+				Pen.lineTo((ev.time/totdur * size.width) @ (1-ev.val*size.height));
+				[(ev.time/totdur * size.width) , (1-ev.val*size.height)].debug("point ev");
+			};
+			Pen.stroke;
+		};
+	};
 
 	"mais quoiiii".debug;
 
@@ -840,46 +897,61 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 
 		cells: { arg self; 
 			var cells, bank, start, range, sel;
-			"cells removeAll===================".debug;
-			btl_cells.removeAll;
-			"END cells removeAll===================".debug;
+			if(btl_cells.notNil) {
+				"cells removeAll===================".debug;
+				btl_cells.removeAll;
+				"END cells removeAll===================".debug;
 
-			bank = display.get_bank.();
+				bank = display.get_bank.();
 
-			if(self.current_kind == \seg) {
-				row_layout.background = ~color_scheme.control2;
+				if(self.current_kind == \seg) {
+					row_layout.background = ~color_scheme.control2;
+				} {
+					row_layout.background = ~color_scheme.control;
+				};
+
+				cells = self.get_cells.();
+				cells.debug("cellls============from "++display.name);
+				start = max_cells * bank;
+				range = (start..((start+max_cells)-1));
+				//range.debug("cells");
+				//cells[ start..((start+max_cells)-1) ].debug("cells");
+				cells[ start..((start+max_cells)-1) ].do { arg cell, i;
+					~make_val_button.(btl_cells, cell, width:display.cell_width??60, height:height);
+					if(self.classtype== \stepline, {
+						btl_cells.children[i].value = cell
+					});
+				};
+				if(self.classtype == \control, {
+					if(btl_cells.children.size > 0) {
+						sel = display.get_selected_cell;
+						if( sel >= start && (sel < (start+max_cells)), {
+							//sel.debug("selected cell");
+							//btl_cells.children.wrapAt( sel % max_cells ).debug("wrapat");
+							btl_cells.children.wrapAt( sel % max_cells ).value = 1;
+						})
+					}
+				})
 			} {
-				row_layout.background = ~color_scheme.control;
-			};
-
-			cells = self.get_cells.();
-			cells.debug("cellls============from "++display.name);
-			start = max_cells * bank;
-			range = (start..((start+max_cells)-1));
-			//range.debug("cells");
-			//cells[ start..((start+max_cells)-1) ].debug("cells");
-			cells[ start..((start+max_cells)-1) ].do { arg cell, i;
-				~make_val_button.(btl_cells, cell, width:display.cell_width??60, height:height);
-				if(self.classtype== \stepline, {
-					btl_cells.children[i].value = cell
-				});
-			};
-			if(self.classtype == \control, {
-				if(btl_cells.children.size > 0) {
-					sel = display.get_selected_cell;
-					if( sel >= start && (sel < (start+max_cells)), {
-						//sel.debug("selected cell");
-						//btl_cells.children.wrapAt( sel % max_cells ).debug("wrapat");
-						btl_cells.children.wrapAt( sel % max_cells ).value = 1;
-					})
-				}
-			})
+				param.name.debug("cells msg: btl_cells is nil");
+			}
 		},
 
 		kind: { arg self;
 			self.current_kind.debug("make_control_view changed kind");
 			self.get_cells.debug("make_control_view.kind get_cells");
-			self.changed(\cells);	
+			content_view.removeAll;
+			if(self.current_kind == \recordbus) {
+				make_ccview.value;
+				self.changed(\record);	
+			} {
+				make_cellsview.value;
+				self.changed(\cells);	
+			};
+		},
+
+		record: { arg self;
+			ccview.refresh;
 		},
 
 		label: { arg self;
@@ -919,6 +991,10 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 		},
 		selected_cell: { arg self;
 			param.changed(\cells);
+		},
+
+		kind: { arg self;
+			self.changed(\cells);
 		},
 
 		cells: { arg self, msg, cellidx;
@@ -970,7 +1046,7 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 		})
 	};
 
-	"mais quoiiii".debug;
+	"maisiu quoiiii".debug;
 
 	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+10),height));
 	row_layout.background = ~editplayer_color_scheme.control;
@@ -2240,7 +2316,8 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 			})
 		},
 		refresh: { arg self;
-			self.changed(\cells);
+			self.changed(\kind);
+			//self.changed(\cells);
 			self.changed(\selected);
 		},
 		vpattern: { arg self; 
@@ -2315,6 +2392,7 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 };
 
 ~make_control_param = { arg main, player, name, kind, default_value, spec;
+	// changed messages: \selected, \selected_cell, \val, \cells, \record
 	var param;
 	var bar_length = 4;
 
@@ -2456,6 +2534,11 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 				} {
 					self.record = record
 				};
+				self.changed(\record);
+			},
+
+			get_record: { arg self;
+				self.record
 			},
 
 			init: { arg self, val;
@@ -2513,7 +2596,7 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 					Pbind(
 						\type, \bus,
 						\notes, Plazy({ Pseq(self.record) }),
-						\array, Pfunc { arg ev; ev[\notes].val },
+						\array, Pfunc { arg ev; param.spec.map(ev[\notes].val) },
 						\out, self.get_bus,
 						\dur, Pfunc { arg ev; ev[\notes].dur }
 					)
@@ -2673,7 +2756,8 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 		},
 
 		refresh: { arg self;
-			self.changed(\cells);
+			self.changed(\kind);
+			//self.changed(\cells);
 			self.changed(\selected);
 			self.midi.refresh;
 		},

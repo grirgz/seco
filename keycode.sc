@@ -613,6 +613,8 @@
 		["decrease_midi_knob_offset",			\kb, 0, \up],
 		["toggle_cc_recording",					\kb, \altshift, "r"],
 		["change_param_kind.recordbus",			\kb, \altshift, "u"],
+		["start_midi_liveplayer",			\kb, \altshift, "e"],
+
 	],
 	parlive: [
 		["select_header",							\kb, \alt, \kbnumline],
