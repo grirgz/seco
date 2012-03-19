@@ -5,6 +5,7 @@ TempoClock.tempo = 1.5;
 
 ~synthlib = [
 	\audiotrack_expander,
+	\lead2,
 	\pulsepass,
 	\flute1,
 	\miaou1,
@@ -43,6 +44,22 @@ TempoClock.tempo = 1.5;
 ~seq.save_project("blablareggae");
 ~seq.load_project("blablareggae");
 (
+SynthDef(\lead2, {	arg out=0, freq = 100, pan=0, amp=0.1, mdetune=1.004, gate=1, rq=0.1, fratio = 1, fbase=400, wet=1, fbfreq=100, fbamp=0.8, fbpamp=1, rt=0.4; 
+	var fb, ou, filtenv;
+	//gate = LFPulse.ar(1);
+	ou = LFSaw.ar(freq * [1, mdetune]).sum;
+	filtenv = EnvGen.ar(Env.adsr(0.01,0.25,0.07,0.3), gate, freq * fratio, fbase, doneAction:0);
+	ou = RLPF.ar(ou, filtenv, rq);
+	fb = LocalIn.ar(1) + ou;
+	fb = HPF.ar(fb, fbfreq);
+	LocalOut.ar(fb * fbamp);
+	fb = Limiter.ar(fb, amp);
+	fb = SelectX.ar(wet, [ou, fb*fbpamp]);
+	fb = fb * EnvGen.ar(Env.adsr(0.001,0.4,0.1,rt), gate, doneAction:2);
+	fb = Pan2.ar(fb, pan, amp);
+	Out.ar(out, fb);
+}).store;
+
 SynthDef(\echo, { arg out=0, in=0, maxdtime=0.6, dtime=0.2, decay=2, wet=1, gate=1;
         var env, ou;
         env = Linen.kr(gate, 0.05, 1, decay, doneAction:14);

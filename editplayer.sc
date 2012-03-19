@@ -58,7 +58,7 @@
 			editplayer.get_paramlist.debug("BEGIN paramlist update");
 			editplayer.get_paramlist.do { arg param_name, i;
 				var param = player.get_arg(param_name);
-				param.debug("make_editplayer_view, param");
+				//param.debug("make_editplayer_view, param");
 				param_name.debug("creation");
 				case
 					{ [\adsr].includes(param_name) || param_name.asString.containsStringAt(0,"adsr_") } {
@@ -186,6 +186,7 @@
 					"chu dans name".debug;
 					param.name;
 				},
+				slider_width: 100,
 				background_color: ~editplayer_color_scheme.control,
 				show_midibloc: true,
 				width: 200,
@@ -705,6 +706,20 @@
 				editplayer.controller.change_kind(\recordbus)
 			});
 
+			main.commands.add_enable([\editplayer, \param_set_pkey_mode], nil, {
+				var param = editplayer.controller.get_selected_param;
+				if(param.classtype == \control, {
+					param.set_pkey_mode(true);
+				});
+			});
+
+			main.commands.add_enable([\editplayer, \param_unset_pkey_mode], nil, {
+				var param = editplayer.controller.get_selected_param;
+				if(param.classtype == \control, {
+					param.set_pkey_mode(false);
+				});
+			});
+
 			// player mode selection
 			"editplayer shorcut 1".debug;
 
@@ -845,7 +860,7 @@
 
 			// cells 
 
-			main.commands.add_enable([\editplayer, \add_cell_bar], [\kb, 0, ~keycode.numpad.plus], {
+			main.commands.add_enable([\editplayer, \add_cell_bar], [\kb, -2, ~keycode.numpad.plus], {
 				editplayer.controller.add_cell_bar.() 
 			});
 			main.commands.add_enable([\editplayer, \remove_cell_bar], [\kb, ~keycode.mod.ctrl, ~keycode.numpad.plus], {

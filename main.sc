@@ -32,6 +32,10 @@
 };
 
 ~general_sizes = (
+	midi_cc: (
+		knob: 8,
+		slider: 8
+	),
 	safe_inf: 10000,
 	bank: 10,
 	children_per_groupnode: 16,
@@ -86,6 +90,7 @@
 	control: Color.newHex("6F88BA"),
 	control2: Color.newHex("6F889A"),
 	led: Color.newHex("A788BA"),
+	led_ok: Color.newHex("A7BBBA"),
 
 	header_cell: Color.newHex("BBBBA9")
 
@@ -112,6 +117,35 @@
 	parent.onClose = parent.onClose.addFunc { controller.remove };
 
 	if(auto_refresh) { model.refresh() };
+
+	controller;
+};
+
+~sort_by_template = { arg list, template;
+	var res = List.new;
+	template.do { arg i;
+		if(list.includes(i)) {
+			res.add(i);
+		}
+	};
+	list.do { arg i;
+		if(res.includes(i).not) {
+			res.add(i)
+		}
+	};
+	res;
+
+};
+
+~find_path_difference = { arg path1, path2;
+	var res = List.new;
+	path1.do { arg i, x;
+		if(i == path2[x]) {
+		} {
+			res.add(i)
+		}
+	};
+	res;
 };
 
 // this function take a pattern and a list of Pmono pattern as effects
@@ -175,13 +209,13 @@
 	"hmatrix",
 	"editplayer",
 	"mixer",
-	"score"
+	"score",
+	"side",
 ].do { arg file;
 	("Loading " ++ file ++".sc...").inform;
 	("/home/ggz/code/sc/seco/"++file++".sc").load;
 };
 "Done loading.".inform;
-
 
 // ==========================================
 // SEQUENCER FACTORY
@@ -351,12 +385,12 @@
 			current_panel: \parlive,
 			clipboard: nil,
 
-			nodelib: nil,
+			nodelib: List.new,
 			presetlib: Dictionary.new,
 			presetlib_path: nil,
 			colpresetlib: Dictionary.new,
 
-			patlist: nil,
+			patlist: List.new,
 			patpool: Dictionary.new,
 			samplelist: List.new,
 
@@ -398,7 +432,7 @@
 			block { arg break; 
 				1000.do {
 					newname = makename.();
-					if( main.get_node(newname).isNil ) { break.value };
+					if( self.get_node(newname).isNil ) { break.value };
 					newname.debug("Name exist already");
 				};
 				"make_livenodename_from_libnodename: Error, can't find free name".error;
@@ -417,10 +451,10 @@
 			var livenodename;
 			var player;
 			livenodename = self.make_livenodename_from_libnodename(libnodename);
-			player = ~make_player.(main, main.model.patpool[libnodename]);
+			player = ~make_player.(main, self.model.patpool[libnodename]);
 			player.name = livenodename;
 			player.uname = livenodename;
-			main.add_node(player);
+			self.add_node(player);
 			player.uname;
 		},
 
@@ -430,9 +464,9 @@
 			newlivenodename.debug("newlivenodename");
 			livenodename.debug("livenodename");
 			//main.model.livenodepool.keys.debug("livenodepool");
-			main.model.livenodepool[newlivenodename] = main.model.livenodepool[livenodename].clone;
-			main.model.livenodepool[newlivenodename].name = newlivenodename;
-			main.model.livenodepool[newlivenodename].uname = newlivenodename;
+			self.model.livenodepool[newlivenodename] = self.model.livenodepool[livenodename].clone;
+			self.model.livenodepool[newlivenodename].name = newlivenodename;
+			self.model.livenodepool[newlivenodename].uname = newlivenodename;
 			newlivenodename;
 		},
 
@@ -759,8 +793,23 @@
 			//self.window.view.focus(true);
 		},
 
+		edit_mpdef: { arg self, name;
+			var player, ep;
+			player = main.get_node(name);
+			self.current_test_player = player;
+			self.model.current_panel = \editplayer;
+			self.context.set_selected_node(player);
+
+			self.main_view = ~main_view.(self);
+		},
+
+
 		make_gui: { arg self;
 			self.main_view = ~main_view.(self);
+		},
+
+		make_side_gui: { arg self;
+			self.panels.side.make_gui;
 		},
 
 		init: { arg self;
@@ -769,11 +818,13 @@
 			self.add_node(~empty_player);
 			"jensuisla".debug;
 			~parse_bindings.(main.commands,~bindings);
+			self.node_manager = ~make_node_manager.(self);
+			self.midi_center = ~midi_center.(self);
 			self.play_manager = ~make_playmanager.(self);
+			self.context = ~make_context.(main);
 			self.panels.parlive = ~make_parlive.(self);
 			self.panels.seqlive = ~make_seqlive.(self);
-			self.context = ~make_context.(main);
-			self.midi_center = ~midi_center.(self);
+			self.panels.side = ~make_side_panel.(self);
 
 		}
 

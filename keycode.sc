@@ -166,7 +166,17 @@
 
 };
 
-
+~keygroups = Environment.make({
+	//~kbpad8x4 = [
+	//	"1234567890)=",
+	//	"azertyuiop^$",
+	//	"qsdfghjklm%*",
+	//	"<xcvbn,;:!"
+	//];
+	~numline = "1234567890)=";
+	~numpad = (0..9).collect { arg x; (\np ++ x).asSymbol };
+	~fx = (1..12).collect { arg x; (\f ++ x).asSymbol };
+});
 
 ~keycode = Environment.make({
 	~kbpad8x4 = [
@@ -189,7 +199,7 @@
 		var alnum = [
 			"1234567890)=",
 			"azertyuiop^$",
-			"qsdfghjklmù*",
+			"qsdfghjklm%*",
 			"<xcvbn,;:!"
 		];
 		keycodes.do { arg row, rowidx;	
@@ -204,14 +214,14 @@
 		//NOTE: only for Alt modifier
 		var keycodes = [
 				[ 38, 233, 34, 39, 40, 45, 232, 31, 231, 224, 41, 61 ],
-				[97, 122, 101, 114, 116, 121, 117, 105, 111,112, 36 /* ^ not working */, 36 ],
+				[97, 122, 101, 114, 116, 121, 117, 105, 111,112, 94 /* ^ not working in swing */, 36 ],
 				[113, 115, 100, 102, 103, 104, 106, 107, 108, 109, 249, 42 ],
-				[60, 119, 120, 99, 118, 98, 110, 44, 59 ] //FIXME: complete keycodes
+				[60, 119, 120, 99, 118, 98, 110, 44, 59, 58, 33 ]
 		];
 		var alnum = [
 			"1234567890)=",
 			"azertyuiop^$",
-			"qsdfghjklmù*",
+			"qsdfghjklm%*",
 			"<wxcvbn,;:!"
 		];
 		keycodes.do { arg row, rowidx;	
@@ -221,20 +231,21 @@
 		};
 		dict;
 	}.value;
+	~kbraalphanum = ~kbaalphanum.invert;
 
 	~kbsaalphanum = {
 		var dict = Dictionary.new;
 		//NOTE: only for Alt and Shift modifier
 		var keycodes = [
 				[ 38, 233, 34, 39, 40, 45, 232, 31, 231, 224, 41, 61 ],
-				[97, 122, 101, 114, 116, 121, 117, 105, 111,112, 36 /* ^ not working */, 36 ],
+				[97, 122, 101, 114, 116, 121, 117, 105, 111,112, 94 /* ^ not working in swing*/, 36 ],
 				[113, 115, 100, 102, 103, 104, 106, 107, 108, 109, 249, 42 ],
-				[60, 119, 120, 99, 118, 98, 110, 44, 59 ] //FIXME: complete keycodes
+				[60, 119, 120, 99, 118, 98, 110, 44, 59, 58, 33  ]
 		]-32;
 		var alnum = [
 			"1234567890)=",
 			"azertyuiop^$",
-			"qsdfghjklmù*",
+			"qsdfghjklm%*", // ù replaced by % because multibyte cause offset
 			"<wxcvbn,;:!"
 		];
 		keycodes.do { arg row, rowidx;	
@@ -244,11 +255,16 @@
 		};
 		dict;
 	}.value;
+	~kbrsaalphanum = ~kbsaalphanum.invert;
 	~kb8x2line = [
 		38, 97, 233, 122, 34, 101, 39, 114, 40, 166, 45, 121, 232, 117, 95, 105
 	];
 	~kbnumline = [
 		38, 233, 34, 39, 40, 45, 232, 95, 231, 224, 41, 61
+	];
+	~kbrnumline = [
+		// 11 = ")", 12 = "="
+		1,2,3,4,5,6,7,8,9,0,")","="
 	];
 	~kbcnumline = [ // for control // FIXME: why the fuck 8 changes with control ???
 		38, 233, 34, 39, 40, 45, 232, 31, 231, 224, 41, 61
@@ -269,13 +285,29 @@
 		shift: 131072,
 		arrow: 8388608,
 		altshift: 655360,
+		ctrlalt: 786432,
+		ctrlshift: 393216,
 		ctrlaltshift: 917504,
+		numpad: 2097152,
 		alt: 524288
 
 	);
+	~rmod = { 
+		var res = ~mod.invert;
+		res[8650752] = \ctrl; 
+		res[8519680] = \shift; 
+		res[8781824] = \ctrlshift; 
+
+		res;
+	}.value;
 	~kbfx = [
 		// modifiers = 8388608
 		63236, 63237, 63238, 63239, 63240, 63241, 63242, 63243, 63244, 63245, 63246, 63247
+		//49,50,51,52,53,54,55,56,57,58
+	];
+	~kbqtfx = [
+		// modifiers = 8388608
+		16777264, 16777265, 16777266, 16777267, 16777268, 16777269, 16777270, 16777271, 16777272, 16777273, 16777274, 16777275
 		//49,50,51,52,53,54,55,56,57,58
 	];
 	~kbarrow = (
@@ -284,6 +316,28 @@
 		right: 63235,
 		up: 63232,
 		down: 63233
+	);
+	~midispecial = (
+		begin: 34,
+		left: 35,
+		right: 36,
+		end: 37,
+		stop: 38,
+		play: 39,
+		pause: 40,
+		record: 41,
+		hold: 42,
+
+		b1: 43,
+		b2: 44,
+		b3: 45,
+		b4: 46
+	);
+	~kbqtnumpad = (
+		npslash: 47,
+		npstar: 42,
+		npminus: 45,
+		npplus: 43
 	);
 	~kbspecial = (
 		delete: 127,
@@ -295,6 +349,33 @@
 		up: 63232,
 		down: 63233
 	);
+	~kbspecial.putAll(~kbqtnumpad);
+	~kbqtspecial = (
+		space: 32,
+		enter: 16777220,
+		npenter: 16777221,
+		backspace: 16777219,
+		escape: 16777216,
+		point: 46,
+		left: 16777234,
+		right: 16777236,
+		up: 16777235,
+		down: 16777237,
+		insert: 16777222,
+		delete: 16777223,
+		home: 16777232,
+		end: 16777233,
+		pageup: 16777238,
+		pagedown: 16777239,
+		windows: 16777250,
+		scrolllock: 16777254,
+		pause: 16777224,
+		tab: 16777217,
+		square: 178,
+		menu: 16777301,
+		hothome: 16777360
+	);
+	~kbrqtspecial = ~kbqtspecial.invert;
 	~kbfxdict = {
 		var dico = Dictionary.new;
 		~kbfx.do { arg kc, i;
@@ -316,10 +397,14 @@
 		\slider: [
 			25,26,27,28, 29,30,31,32, 33
 		],
-		\pad: [ // in order of label number
+		\pad: [ // in order of label number // FIXME: order incorect
 			36, 38, 42, 43, 46, 47, 50, 49,
 		]
 	);
+	~midipads = [ // in top-down order
+			43, 47, 50, 49,
+			36, 38, 42, 46,
+	] + 1000; // offset to difference from cc
 	~midi = {
 		var dico = Dictionary.new;
 		~cakewalk.keysValuesDo { arg k, v;
@@ -367,10 +452,33 @@
 	set_action: { arg self, path, action;
 		var panel = path[0];
 		self.actions.put(*path++[action]);
+		if(self.commands[panel].isNil) {
+			self.commands[panel] = Dictionary.new;
+		};
 		if ( self.commands[panel][self.config.at(*path)] == path ) {
 			path.debug("already enabled, so enforce");
 			self.enable(path);
 		};
+	},
+
+	copy_action: { arg self, frompath, topath, enable=true;
+		[frompath, topath].debug("copy_action");
+
+		if(self.actions.at(*frompath).class == IdentityDictionary) {
+			self.actions.leafDoFrom(frompath, { arg leafpath, val;
+				self.copy_action(leafpath, topath ++ ~find_path_difference.(frompath, leafpath));
+			});
+		} {
+			self.actions.at(*frompath).debug("action");
+			self.set_action(topath, self.actions.at(*frompath));
+			if(enable) {
+				self.enable(topath)
+			};
+		};
+	},
+
+	copy_action_list: { arg self, panel, prefix, paths;
+		~copy_action_bindings.(self, panel, prefix, paths);
 	},
 
 	remove_panel: { arg self, panel;
@@ -399,26 +507,31 @@
 		//path.debug("enabling path");
 		shortcut = self.config.at(*path);
 		action = self.actions.at(*path);
-		//shortcut.debug("shortcut");
-		//action.debug("action");
-		if(shortcut.notNil, {
-			if(self.commands[panel].isNil) {
-				self.commands[panel] = Dictionary.new;
-			};
-			self.commands[panel][shortcut] = path;
-			switch(shortcut[0],
-				\kb, {
-					self.kb_handler[panel] = self.kb_handler[panel] ?? Dictionary.new;
-					self.kb_handler[panel][shortcut] = action;
-					//[path, shortcut].debug("path enabled");
-				},
-				\midi, {
-					//[path, shortcut].debug("midi path enabled");
-					//self.commands.debug("commands");
-					self.midi_handler[panel] = self.midi_handler[panel] ?? Dictionary.new;
-					self.midi_handler[panel][shortcut] = action;
-				})
-		})
+
+		if(shortcut.class == IdentityDictionary) {
+			self.config.leafDoFrom(path, { arg leafPath, val; self.enable(leafPath); });
+		} {
+			//shortcut.debug("shortcut");
+			//action.debug("action");
+			if(shortcut.notNil, {
+				if(self.commands[panel].isNil) {
+					self.commands[panel] = Dictionary.new;
+				};
+				self.commands[panel][shortcut] = path;
+				switch(shortcut[0],
+					\kb, {
+						self.kb_handler[panel] = self.kb_handler[panel] ?? Dictionary.new;
+						self.kb_handler[panel][shortcut] = action;
+						//[path, shortcut].debug("path enabled");
+					},
+					\midi, {
+						//[path, shortcut].debug("midi path enabled");
+						//self.commands.debug("commands");
+						self.midi_handler[panel] = self.midi_handler[panel] ?? Dictionary.new;
+						self.midi_handler[panel][shortcut] = action;
+					})
+			})
+		}
 
 	},
 
@@ -426,20 +539,25 @@
 		var shortcut, panel = path[0];
 
 		shortcut = self.config.at(*path);
+		if(shortcut.class == IdentityDictionary) {
+			self.config.leafDoFrom(path, { arg leafPath, val; self.disable(leafPath); });
+		} {
+			shortcut.debug("disabling shortcut");
 
-		if(shortcut.notNil, {
-			self.commands[panel][shortcut] = nil;
-			switch(shortcut[0],
-				\kb, {
-					self.kb_handler[panel] = self.kb_handler[panel] ?? Dictionary.new;
-					self.kb_handler[panel][shortcut] = nil;
-					//[path, shortcut].debug("path disabled");
-				},
-				\midi, {
-					self.midi_handler[panel] = self.midi_handler[panel] ?? Dictionary.new;
-					self.midi_handler[panel][shortcut] = nil;
-				})
-		})
+			if(shortcut.notNil, {
+				self.commands[panel][shortcut] = nil;
+				switch(shortcut[0],
+					\kb, {
+						self.kb_handler[panel] = self.kb_handler[panel] ?? Dictionary.new;
+						self.kb_handler[panel][shortcut] = nil;
+						//[path, shortcut].debug("path disabled");
+					},
+					\midi, {
+						self.midi_handler[panel] = self.midi_handler[panel] ?? Dictionary.new;
+						self.midi_handler[panel][shortcut] = nil;
+					})
+			})
+		};
 
 	},
 
@@ -462,6 +580,12 @@
 		}
 	},
 
+//~rah = MultiLevelIdentityDictionary.new;
+//~rah[\bla,\niak] = 4
+//~rah[\bla,\rah,\goui] = 4
+//~rah.leafDoFrom([\bla], { arg x, y; [x,y].postcs });
+//~rah[\bla,\niak].nodeType
+//~rah[\bla,\rah,\goui].class
 
 	overload_mode: { arg self, path;
 		var restorefun=nil;
@@ -508,7 +632,12 @@
 		};
 	},
 
-
+	array_set_action_enable: { arg self, path, size, action;
+		size.do { arg i;
+			self.set_action(path++[i], { action.(i) });
+			self.enable(path++[i]);
+		};
+	},
 	
 	set_shortcut: { arg self, path, shortcut;
 		self.config.put(*path++[shortcut]);
@@ -520,6 +649,10 @@
 		};
 	},
 
+	parse_action_bindings: { arg self, panel, actions;
+		~parse_action_bindings.(self, panel, actions);
+	},
+
 	get_kb_responder: { arg self, name;
 		name.debug("giving panel responder");
 		{ arg view, char, modifiers, u, k; 
@@ -528,37 +661,60 @@
 		};
 	},
 
+	qt_get_kb_responder: { arg self, name;
+		name.debug("giving panel responder");
+		{ arg view, char, modifiers, u, k; 
+			var res;
+			[name, modifiers, u].debug("KEYBOARD INPUT");
+
+			res = ~keycode_to_keysymbol.(view, char, modifiers, u, k);
+			if( res.notNil ) {
+				self.handle_key(name, [\kb] ++ res);
+			} {
+				"~keycode_to_keysymbol yielded no result".debug;
+			}
+		};
+	},
+
 	bind_param: { arg self, ccpath, param;
 		var panel = \midi;
 		var oldparam;
-		"I---I bind_param".debug;
+		//"I---I bind_param".debug;
 		if(self.midi_handler[panel].isNil) { self.midi_handler[panel] = Dictionary.new };
 		//oldparam = self.ccpathdict.get_val_by_key(ccpath);
 		oldparam = self.ccpathToParam[ccpath];
-		[param.name, ccpath].debug("assigning ccpath to param");
+		//[param.name, ccpath].debug("assigning ccpath to param");
 		//self.ccpathdict.bind(ccpath, param); // key: ccpath, val: param
 		self.ccpathToParam[ccpath] = param;
 		self.paramToCcpath[param] = ccpath;
 		if(oldparam.notNil && (oldparam != param)) {
 			self.paramToCcpath[oldparam] = nil;
 			//self.get_param_binded_ccpath(oldparam).debug("ce n'est point possible");
-			oldparam.name.debug("refreshing oldparam");
+			//oldparam.name.debug("refreshing oldparam");
 			oldparam.midi.refresh;
 		};
-		param.midi.get_ccpath.debug("verif");
-		param.name.debug("refreshing param");
+		//param.midi.get_ccpath.debug("verif");
+		//param.name.debug("refreshing param");
 		param.midi.refresh;
 		self.midi_handler[panel][ccpath] = { arg val; 
-			[param.name, val].debug("bind_param function: set_val");
+			//[param.name, val].debug("bind_param function: set_val");
 			param.midi.set_val(val);
 		};
-		"I---I end bind_param".debug;
+		//"I---I end bind_param".debug;
 	},
 
 	get_param_binded_ccpath: { arg self, param;
 		//[param.name, self.ccpathdict.get_key_by_val(param)].debug("shortcut: get_param_binded_ccpath");
 		//self.ccpathdict.get_key_by_val(param)
 		self.paramToCcpath[param]
+	},
+
+	ccpath_to_param: { arg self, ccpath;
+		self.ccpathToParam[ccpath];
+	},
+
+	param_to_ccpath: { arg self, param;
+		self.paramToCcpath[param];
 	},
 
 	handle_cc: { arg self, ccpath, val;
@@ -594,6 +750,111 @@
 
 );
 
+~keycode_to_keysymbol = { arg view, char, modifiers, unicode, keycode;
+	var fxtest, fxsymbol, modsymbol, keysymbol;
+	var onlymodifer;
+	[char, modifiers, unicode, keycode].postcs;
+
+	onlymodifer = [
+		16777249, 16777251, 16777248
+	];
+
+	if(onlymodifer.includes(keycode)) {
+		"Modifier only".debug;
+	} {
+
+		if(GUI.scheme == QtGUI) {
+			"qtgui".debug;
+			fxtest = {  ~keycode.kbqtfx.includes(keycode) };
+			fxsymbol = { ("f" ++ (~keycode.kbqtfx.indexOf(keycode) + 1)).asSymbol; }
+		} {
+			fxtest = { ~keycode.kbfx.includes(unicode) };
+			fxsymbol = { ("f" ++ (~keycode.kbfx.indexOf(unicode) + 1)).asSymbol; }
+		};
+
+		keysymbol = case 
+			{ ~keycode.kbrqtspecial.includesKey(keycode) }
+				{
+					"MATCH".debug;	
+					~keycode.kbrqtspecial[keycode].postcs
+				}
+			{ ~keycode.kbspecial.values.includes(unicode) }
+				{
+					"MATCH".debug;	
+					~keycode.kbspecial.invert[unicode].postcs
+				}
+			{ fxtest.() }
+				{
+					"MATCH".debug;	
+					fxsymbol.().postcs;
+				}
+			{ ~keycode.kbnumpad.includes(unicode) }
+				{
+					"MATCH".debug;	
+					(\np ++ ~keycode.kbnumpad.indexOf(unicode)).asSymbol.postcs;
+				}
+			{ ~keycode.kbnumline.includes(unicode) }
+				{
+					"MATCH".debug;	
+					~keycode.kbrnumline[~keycode.kbnumline.indexOf(unicode)].asString.postcs;
+				}
+			{
+				~keycode.kbsaalphanum.values.includes(keycode); 
+				//or: { ~keycode.kbsaalphanum.values.includes(unicode) 
+				//or: { ~keycode.kbcalphanum.values.includes(unicode) }}
+			} 
+				{
+					"MATCH saa".debug;	
+					~keycode.kbrsaalphanum[keycode].asString.toLower.postcs;
+				}
+			{
+				~keycode.kbaalphanum.values.includes(unicode) 
+				//or: { ~keycode.kbsaalphanum.values.includes(unicode) 
+				//or: { ~keycode.kbcalphanum.values.includes(unicode) }}
+			} 
+				{
+					"MATCH aa".debug;	
+					~keycode.kbraalphanum[unicode].asString.toLower.postcs;
+				}
+			// else	
+				{
+					"NO MATCH".debug;	
+				};
+
+		modsymbol = case
+			{
+				~keycode.rmod.includesKey(modifiers)
+			}
+				{
+					var m;
+					"MOD MATCH".debug;
+					m = ~keycode.rmod[modifiers].postcs;
+					if(m == \numpad) {
+						m = 0
+					};
+					if(m == \fx) {
+						0
+					};
+					m
+				}
+			// else
+			{
+				"MOD NO MATCH".debug;
+			};
+
+		if(modsymbol == \numpad) {
+			if(~keycode.kbqtnumpad.values.includes(keycode)) {
+				keysymbol = ~keycode.kbqtnumpad.invert[keycode]
+			}
+		};
+
+		"--END:".debug;
+		keysymbol.postln;
+		[modsymbol, keysymbol].postcs;
+
+	};
+	nil;
+};
 
 
 ~bindings = (
@@ -614,17 +875,87 @@
 		["toggle_cc_recording",					\kb, \altshift, "r"],
 		["change_param_kind.recordbus",			\kb, \altshift, "u"],
 		["start_midi_liveplayer",			\kb, \altshift, "e"],
+		["param_set_pkey_mode",			\kb, \alt, "k"],
+		["param_unset_pkey_mode",			\kb, \altshift, "k"],
 
 	],
 	parlive: [
 		["select_header",							\kb, \alt, \kbnumline],
 		["show_panel.editplayer",							\kb, 0, \f12],
 		["create_new_livenode", \kb, \alt, "c"],
+	],
+	side: [
+		["decrease_select_offset", \midi, 0, \begin],
+		["increase_select_offset", \midi, 0, \end],
+
+		["play_selected", \kb, 0, \f5],
+		["midi.play_selected", \midi, 0, \play],
+		["stop_selected", \kb, 0, \f6],
+		["midi.stop_selected", \midi, 0, \stop],
+		//["mute_selected", \kb, 0, \f7],
+		//["unmute_selected", \kb, \ctrl, \f7],
+		["solo_selected", \kb, 0, \f7],
+		["unsolo_selected", \kb, \ctrl, \f7],
+		["toggle_solo_selected", \midi, 0, \pause],
+		["panic", \kb, 0, \f8],
+		["edit_tempo", \kb, \ctrlalt, "r"], // t open terminal
+		["edit_quant", \kb, \ctrlalt, "q"],
+		["edit_barrecord", \kb, \ctrlalt, "b"],
+		["edit_selected_param", \kb, 0, \enter],
+
+		["load_node_from_lib", \kb, 0, \f1],
+		["create_default_node", \kb, \alt, "c"],
+
+		["select_param", \kb, 0, \kbpad8x4_flat],
+		["pad_select_param", \midi, 0, \midipads],
+
+		["select_param_cell", \kb, \alt, \kbnumline],
+
+		["select_player", \kb, 0, \kbpad8x4_flat],
+		["pad_select_player", \midi, 0, \midipads],
+
+		["set_global_mode.param", \kb, 0, \f9],
+		["set_global_mode.group", \kb, 0, \f10],
+		["set_global_mode.liveplay", \kb, 0, \f11],
+		["midi.set_global_mode.param", \midi, 0, \b1],
+		["midi.set_global_mode.group", \midi, 0, \b2],
+		["midi.set_global_mode.liveplay", \midi, 0, \b3],
+
+		["set_notequant", \kb, \alt, "q"],
+		["add_cell_bar", \kb, 0, \npplus],
+		["remove_cell_bar", \kb, \ctrl, \npplus],
+
+
+		//["toggle_player_recording", \midi, 0, \record],
+		["toggle_player_recording", \midi, 0, \record],
+		["toggle_metronome", \kb, \alt, "m"],
+
+		["change_param_kind.seq",			\kb, \altshift, "q"],
+		["change_param_kind.scalar",			\kb, \altshift, "s"],
+		["change_param_kind.recordbus",			\kb, \altshift, "d"],
+		["change_param_kind.bus",			\kb, \altshift, "f"],
+		["change_param_kind.seg",			\kb, \altshift, "g"],
+		["change_param_kind.pkey",			\kb, \altshift, "h"],
+
+		["change_player_mode.stepline",			\kb, \altshift, "q"],
+		["change_player_mode.noteline",			\kb, \altshift, "s"],
+		["change_player_mode.sampleline",			\kb, \altshift, "d"],
 	]
 );
 
 ~string_to_symbol_list = { arg str;
-	str.split($.).collect(_.asSymbol);
+	if(str.class == Symbol) {
+		[str]
+	} {
+		str.split($.).collect(_.asSymbol);
+	}
+};
+
+~qt_get_modifer = { arg binding;
+	var realmod;
+	var key = binding[3];
+	var mod = binding[2];
+	mod;
 };
 
 ~get_modifer = { arg binding;
@@ -661,11 +992,12 @@
 
 ~get_keycode = { arg binding;
 	var realkey;
+	var kind = binding[1];
 	var key = binding[3];
 	var mod = binding[2];
 	if( key.isString && (key.size < 3) ) {
 		case
-			{ [\ctrl, \ctrlaltshift, \ctrlshift].includes(mod) } {
+			{ [\ctrl, \ctrlaltshift, \ctrlshift, \ctrlalt].includes(mod) } {
 				realkey = ~keycode.kbcalphanum[key];
 			}
 			{ [\shift, \altshift].includes(mod) } {
@@ -676,12 +1008,27 @@
 			}
 		
 	} {
-		realkey = ~keycode.kbspecial[key];
+		if(kind == \midi) {
+			realkey = ~keycode.midispecial[key];
+		} {
+			realkey = ~keycode.kbspecial[key];
+		};
 		if(realkey.isNil) {
 			realkey = ~keycode[key];
 		};
 	};
 	realkey;
+};
+
+~qt_get_keycode = { arg binding;
+	var realkey;
+	var key = binding[3];
+	var mod = binding[2];
+	if( ~keygroups[key].notNil ) {
+		~keygroups[key]
+	} {
+		key;
+	};
 };
 
 ~parse_bindings = { arg commands, bindings;
@@ -702,3 +1049,61 @@
 	"**end parsing bindings".debug;
 };
 
+~parse_action_bindings = { arg commands, panel, actions;
+	var path;
+	var process_line;
+
+	process_line = { arg action;
+		path = [panel] ++ ~string_to_symbol_list.(action[0]);
+		action.postcs;
+		if(action.last == \disabled) {
+			if(action[1].isInteger) {
+				commands.array_set_action(path, action[1], action[2]);
+			} {
+				commands.set_action(path, action[1]);
+			}
+		} {
+			if(action[1].isInteger) {
+				commands.array_set_action_enable(path, action[1], action[2]);
+			} {
+				commands.add_enable(path, nil, action[1]);
+			}
+		}
+	};
+	"CCCCC parse_action_bindings".debug;
+	actions.do { arg action;
+		if(action[0].class == Array) {
+			action[0].do { arg path;
+				process_line.([path] ++ action[1..]);
+			}
+		} {
+			process_line.(action)
+		}
+	}
+};
+
+~copy_action_bindings = { arg commands, panel, prefix, paths;
+	paths.do { arg path;
+		path = ~string_to_symbol_list.(path);
+		commands.copy_action([panel]++path, [panel, prefix] ++ path)
+	};
+};
+
+~bladebug = {
+	GUI.scheme;
+	~keycode.kbqtfx.indexOf(16777264);
+	~keycode.kbqtfx.includes(16777264);
+	w = Window.new;
+	UserView.new(w);
+	w.view.keyDownAction = ~keycode_to_keysymbol;
+	w.front;
+	~keycode.mod.invert;
+	GUI.swing;
+	s.boot;
+	GUI.qt;
+	//~keycode.kbsaalphanum.values.includes(36);
+	//~keycode.kbaalphanum.values.includes(36);
+	//~keycode.kbsaalphanum.values;
+	//~keycode.kbraalphanum.keys;
+	//~keycode.kbraalphanum[36].asString.toLower.postcs;
+};

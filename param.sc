@@ -99,7 +99,7 @@
 
 ~player_get_arg = { arg self, argName;
 	var ret;
-	argName.dump;
+	//argName.dump;
 	//self.get_args.do { arg an; an.debug("an====").dump };
 	ret = if(self.get_args.includes(argName), {
 		if([\type, \stepline].includes(argName), {
@@ -142,6 +142,13 @@ Spec.add(\repeat, ControlSpec(0, 100, \lin, 1, 0));
 Spec.add(\pos, ControlSpec(0, 1, \lin, 0.0001, 0));
 Spec.add(\amp, ControlSpec(0, 3, \lin, 0.0001, 0));
 Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
+Spec.add(\mix, ControlSpec(0, 1, \lin, 0, 0));
+Spec.add(\damp, ControlSpec(0, 1, \lin, 0, 0));
+Spec.add(\room, ControlSpec(0, 1, \lin, 0, 0));
+Spec.add(\mdetune, ControlSpec(0.1, 2, \lin, 0, 0));
+Spec.add(\pwidth, ControlSpec(0, 1, \lin, 0, 0.5));
+Spec.add(\pwdetune, ControlSpec(-1, 1, \lin, 0, 0));
+Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 
 //SynthDescLib.global.synthDescs[\pulsepass].metadata;
 
@@ -191,6 +198,7 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 // ==========================================
 
 ~make_status_view = { arg parent, play_manager;
+	// DEPRECATED, use make_status_view_horizontal
 	var win, vlayout, but_layout, bt, bar, temp, pos, clock, task, color;
 	var hstatetxt;
 	var refresh_pos;
@@ -290,16 +298,270 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 
 };
 
+~make_status_view_horizontal = { arg parent, play_manager, size;
+	var win, vlayout, but_layout, bt, bar, temp, pos, clock, task, color;
+	var hstatetxt;
+	var quanttxt;
+	var refresh_pos;
+	var fieldsize;
+	size = size ?? (120@200);
+	fieldsize = (size.x/8)@size.y;
+
+
+	"hein".debug;
+	clock = play_manager.get_clock;
+
+	vlayout = HLayoutView(parent, Rect(0,0,size.x,size.y));
+	hstatetxt = StaticText(vlayout, fieldsize);
+	temp = StaticText(vlayout, fieldsize);
+	temp.string = "Tempo:" + (clock.tempo*60).asString;
+	pos = StaticText(vlayout, fieldsize);
+	pos.string = "002 / 004 | 2 | 1254";
+	but_layout = HLayoutView(vlayout, fieldsize);
+	bt = { arg i;
+		StaticText(but_layout, Rect(0,0,20,20)).background_(Color.black);
+	} ! clock.beatsPerBar;
+	bar = RangeSlider(vlayout, fieldsize);
+
+	quanttxt = StaticText(vlayout, fieldsize);
+
+	refresh_pos = { arg clock;
+		var posstring, barrange, bib, col;
+		if(play_manager.is_playing || play_manager.is_recording) {
+			clock.beatInBar.debug("beatInBar");
+			posstring = play_manager.get_rel_beat.round(0.01).asString.padLeft(3, " ")
+							+ "/" + play_manager.get_record_length.asString
+							+ "|" + clock.beats.asString; // FIXME: find a way to zero pad
+			barrange = play_manager.get_rel_beat / play_manager.get_record_length;
+			bib = clock.beatInBar;
+			col = if(play_manager.is_near_end) { Color.red } { Color.green };
+			{
+				bt[bib].background = col;
+				bt.wrapAt(bib - 1).background = Color.black;
+				pos.string = posstring;
+				bar.range = barrange;
+			}.defer;
+			true; // continue
+		} {
+			play_manager.get_rel_beat.debug("refresh vimetro task: stopped");
+			{
+				pos.string = "0 /" + play_manager.get_record_length.asString + "| 0";
+				bar.range = 0;
+			}.defer;
+			false; // exit
+		}
+	};
+
+
+
+	clock.postln;
+	task = TaskProxy.new;
+	task.source = { 
+		//play_manager.start_pos = clock.beats; // debug
+		var clock = play_manager.get_clock;
+		play_manager.get_rel_beat.debug("start vimetro task");
+		{	
+			bt.do { arg x; x.background = Color.black };
+		}.defer;
+		block { arg break;
+			10000.do { //FIXME: fake loop
+				if(refresh_pos.(clock).not) { "BREAK".debug; break.value };
+				1.wait;
+			}
+		}
+	};
+
+	parent.onClose = parent.onClose.addFunc { "close".postln; task.stop };
+
+	~make_view_responder.(parent, play_manager, (
+		tempo: { arg obj, msg, tempo;
+			temp.string = "Tempo: " ++ play_manager.get_bpm_tempo.asString;
+		},
+		pos: { arg obj, msg, position;
+			refresh_pos.(play_manager.get_clock);
+		},
+		quant: { arg obj;
+			quanttxt.string = "Quant: "++EventPatternProxy.defaultQuant;
+		},
+		visual_metronome: { arg self;
+			if(self.visual_metronome_enabled) {
+				play_manager.get_rel_beat.debug("start vimetro!!!");
+				task.play(play_manager.get_clock,quant:1);
+			} {
+				play_manager.get_rel_beat.debug("stop vimetro!!!");
+				task.stop;
+				task.reset;
+			}
+		},
+		head_state: { arg obj, msg, state;
+			switch(state,
+				\prepare, { hstatetxt.string = "Prepare"; hstatetxt.background = Color.new255(255, 165, 0) },
+				\record, { hstatetxt.string = "Rec"; hstatetxt.background = Color.red },
+				\overdub, { hstatetxt.string = "Dub"; hstatetxt.background = Color.new255(205, 92, 92) },
+				\play, { hstatetxt.string = "Play"; hstatetxt.background = Color.green },
+				\stop, { hstatetxt.string = "Stop"; hstatetxt.background = Color.clear }
+			);
+		}
+
+	));
+
+};
+
 ~make_edit_number_view = { arg main, name, param, midi_cc;
 	var win = Window.new(name,Rect(500,500,200,100));
-	var layout = GUI.hLayoutView.new(win, Rect(0,0,200,100));
+	var parent = win;
+	var vlayout, hlayout;
+	var bt_name, txt_midi_label, kind, txt_midi_val, paramval, slider;
+	var bsize = 23;
+	var font;
+	var param_view, param_responder;
+	var size = 200@56;
+	var lineheigth = 26;
+	var tf_val;
+	var validate_action;
+	var key_responder;
+	var old_param, old_ccpath;
+	var close_window;
+	font = Font.default;
+	font.size = 12;
+	font.setDefault;
+
+	vlayout = VLayoutView.new(parent, Rect(0,0,size.x,size.y+45));
+	bt_name = StaticText.new(vlayout, Rect(0,0,size.x,lineheigth));
+	tf_val = TextField.new(vlayout, Rect(0,0,size.x,lineheigth));
+	hlayout = HLayoutView.new(vlayout, Rect(0,0,size.x,lineheigth));
+	slider = Slider(vlayout, Rect(0,0,size.x,5));
+	txt_midi_label = StaticText.new(hlayout, Rect(0,0,bsize-7,size.y/2));
+	kind = StaticText.new(hlayout, Rect(0,0,bsize,size.y/2));
+	txt_midi_val = StaticText.new(hlayout, Rect(0,0,(size.x-(bsize*2)-15)/2,size.y/2));
+	paramval = StaticText.new(hlayout, Rect(0,0,(size.x-(bsize*2))/2,size.y/2));
+
+	bt_name.string = param.name;
+	txt_midi_label.string = "";
+	kind.string = "";
+	txt_midi_val.string = "";
+	paramval.string = "";
+
+	vlayout.background = ~color_scheme.background;
+	//bt_name.background = ~color_scheme.control;
+	//bt_name.background = Color.newHex("343154");
+	bt_name.background = Color.newHex("54516A");
+	bt_name.stringColor = Color.white;
+	bt_name.font = font.boldVariant;
+	//txt_midi_label.background = ~color_scheme.control;
+	txt_midi_label.stringColor = Color.white;
+	//kind.background = ~color_scheme.control;
+	kind.stringColor = Color.white;
+	txt_midi_val.background = ~color_scheme.control;
+	txt_midi_val.stringColor = Color.white;
+	paramval.background = ~color_scheme.control;
+	paramval.stringColor = Color.white;
+
+	slider.value = param.get_norm_val;
+	//tf_val.string = param.get_val;
+
+	old_param = main.commands.ccpath_to_param(midi_cc);
+	old_ccpath = main.commands.param_to_ccpath(param);
+	main.commands.bind_param(midi_cc, param);
+	win.front;
+
+	validate_action = { 
+		var val = tf_val.value;
+		if(val.size > 0) {
+			param.set_val(val.asFloat.debug("la valeur"));
+		};
+	};
+	close_window = {
+		main.commands.bind_param(midi_cc, old_param);
+		if(old_ccpath.notNil) {
+			main.commands.bind_param(old_ccpath, param);
+		};
+		win.close;
+	};
+	slider.action = { param.set_norm_val(slider.value) };
+
+	key_responder = { arg view, char, modifiers, u, k; 
+		["tempo", modifiers, u].debug("KEYBOARD INPUT");
+		if( u == ~keycode.kbspecial.escape ) { close_window.() };
+		if( u == ~keycode.kbspecial.enter ) { validate_action.(); close_window.(); };
+	};
+
+
+	tf_val.keyDownAction = key_responder;
+	vlayout.keyDownAction = key_responder;
+	
+	param_responder = { arg display; (
+		selected: { arg self;
+			if(display.selected == 1) {
+				self.name.debug("je suis select");
+				bt_name.debug("bt_name");
+				bt_name.background = Color.newHex("B4B1BA");
+			} {
+				self.name.debug("je suis DEselect");
+				bt_name.background = Color.newHex("54516A");
+			}
+		},
+
+		val: { arg self, msg, cellidx=0;
+			var newval;
+			name.debug("param_responder: val");
+			paramval.string = self.get_val(cellidx);
+
+			if(slider.notNil, {
+				slider.value = self.get_norm_val(cellidx);
+			});
+		},
+
+		kind: { arg self;
+			kind.string = if(self.pkey_mode.notNil and: {self.pkey_mode}) {
+				"KEY"
+			} {
+				if([\stepline,\sampleline,\noteline].includes(self.classtype)) {
+					""
+				} {
+					switch(self.current_kind,
+						\seq, { "seq" },
+						\seg, { "sg" },
+						\scalar, { "sca" },
+						\bus, { "bus" },
+						\recordbus, { "rbu" },
+						\preset, { "pre" },
+						{ "..." }
+					)
+				}
+			};
+		},
+
+		label: { arg self;
+			txt_midi_label.string = self.midi.label;
+		},
+		midi_val: { arg self, msg, val;
+			txt_midi_val.string = val;
+		},
+		blocked: { arg self, msg, blocked;
+			txt_midi_val.background = if(blocked.not, { ~color_scheme.led_ok }, { ~editplayer_color_scheme.led });
+		},
+		recording: { arg self, msg, recording;
+			txt_midi_label.background = if(recording, { ~editplayer_color_scheme.led }, { Color.clear });
+		}
+	)};
+	
+	~make_view_responder.(vlayout, param, param_responder.((selected:1)));
+
+};
+~make_edit_number_view2 = { arg main, name, param, midi_cc;
+	var win = Window.new(name,Rect(500,500,200,100));
+	var layout = GUI.hLayoutView.new(win, Rect(0,0,400,100));
 	var ez, midi_val;
+	var validate_action;
+	var bla;
 
 	ez = EZSlider(layout, 150@42, name, param.spec ,unitWidth:0, numberWidth:60,layout:\line2, margin: 1@1);
 	ez.setColors(Color.grey,Color.white, Color.grey(0.7),Color.grey, Color.black, Color.yellow,nil,nil, Color.grey(0.7));
 	midi_val = StaticText.new(layout,Rect(0,0,200,100));
 	midi_val.string = param.midi.get_midi_val.asString;
 	ez.value = param.get_val;
+	bla = Button.new(layout,Rect(0,0,50,50));
 
 	ez.action = { arg ezs; ezs.value.debug("make_edit_number_view: action called"); param.set_val(ezs.value) };
 	// FIXME: action not called with 3.5 when hiting enter
@@ -321,15 +583,20 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 
 	main.commands.bind_param(midi_cc, param);
 
+	validate_action = { bla.focus; ez.value.debug("con"); ez.doAction; "rah".debug; win.close };
+
 	layout.keyDownAction = { arg view, char, modifiers, u, k; 
 		["tempo", modifiers, u].debug("KEYBOARD INPUT");
 		if( u == ~keycode.kbspecial.escape ) { win.close };
-		if( u == ~keycode.kbspecial.enter ) { "bla".debug; win.close }; // return false -> propage keydown
+		//if( u == ~keycode.kbspecial.enter ) { "bla".debug; win.close }; // return false -> propage keydown
+		if( modifiers == ~keycode.mod.ctrl and: { u == 3 }) { validate_action.() }; // ctrl-c
 	};
 	ez.numberView.keyDownAction = { arg view, char, modifiers, u, k; 
 		["tempo", modifiers, u].debug("KEYBOARD INPUT");
 		if( u == ~keycode.kbspecial.escape ) { win.close };
-		if( u == ~keycode.kbspecial.enter ) { ez.value.debug("con"); ez.doAction; "rah".debug; win.close };
+		//if( u == ~keycode.kbspecial.enter ) { ez.value.debug("con"); ez.doAction; "rah".debug; win.close };
+		//if( u == ~keycode.kbspecial.enter ) { ez.value.debug("con"); ez.doAction; "rah".debug; win.close };
+		if( modifiers == ~keycode.mod.ctrl and: { u == 3 }) { validate_action.() }; // ctrl-c
 	};
 	win.front;
 
@@ -769,7 +1036,7 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 		height = 30;
 	var txt_midi_label, txt_midi_val;
 	var sc_param, sc_midi;
-	var max_cells = display.max_cells; // FIXME: already defined in editplayer
+	var max_cells = display.max_cells; 
 	var content_view;
 	var inrange;
 	var ccview;
@@ -787,11 +1054,15 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 	bt_name = ~make_name_button.(row_layout, display.name, display.name_width ?? btnamesize, height);
 
 	if(display.show_midibloc, {
-		midibloc = GUI.hLayoutView.new(row_layout, Rect(0,0,150,height));
+		midibloc = GUI.hLayoutView.new(row_layout, Rect(0,0,15+75+5+display.slider_width,height));
 		txt_midi_label = GUI.staticText.new(midibloc, Rect(0,0,15,height));
 		txt_midi_val = GUI.staticText.new(midibloc, Rect(0,0,75,height));
 
-		slider = GUI.slider.new(midibloc, Rect(0,0,60,height));
+		slider = GUI.slider.new(midibloc, Rect(0,0,display.slider_width,height));
+		slider.action = {
+			param.set_norm_val(slider.value)
+		};
+			
 	},{
 		// spacer
 		txt_midi_val = GUI.staticText.new(row_layout, Rect(0,0,30,height));
@@ -873,26 +1144,28 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 			});
 		},
 
-		val: { arg self, msg, cellidx;
+		val: { arg self, msg, cellidx=0;
 			var newval;
 			cellidx.debug("val handler: cellidx");
-			self.get_cells[cellidx].debug("val handler: cellidx value");
-			newval = self.get_cells[cellidx];
-			if(btl_cells.children.size > 0) {
-				~change_button_label.(btl_cells.children.wrapAt( cellidx % max_cells ), newval);
-			};
-			//self.debug("val changed");
-			if(self.classtype == \stepline, { 
+			if(btl_cells.notNil) {
+				self.get_cells[cellidx].debug("val handler: cellidx value");
+				newval = self.get_cells[cellidx];
 				if(btl_cells.children.size > 0) {
-					btl_cells.children.wrapAt( cellidx % max_cells ).value = newval
-				}
-			},{
-				if(slider.notNil, {
-					slider.value = self.spec.unmap(newval);
+					~change_button_label.(btl_cells.children.wrapAt( cellidx % max_cells ), newval);
+				};
+				//self.debug("val changed");
+				if(self.classtype == \stepline, { 
+					if(btl_cells.children.size > 0) {
+						btl_cells.children.wrapAt( cellidx % max_cells ).value = newval
+					}
+				},{
+					if(slider.notNil, {
+						slider.value = self.spec.unmap(newval);
+					});
 				});
-			});
-			//btl_cells.children[ cellidx ].states.debug("======heeeeerreeeee");
-			//btl_cells.children[ cellidx ] = newval;
+				//btl_cells.children[ cellidx ].states.debug("======heeeeerreeeee");
+				//btl_cells.children[ cellidx ] = newval;
+			};
 		},
 
 		cells: { arg self; 
@@ -955,16 +1228,24 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 		},
 
 		label: { arg self;
-			txt_midi_label.string = self.midi.label;
+			if(display.show_midibloc) {
+				txt_midi_label.string = self.midi.label;
+			};
 		},
 		midi_val: { arg self, msg, val;
-			txt_midi_val.string = val;
+			if(display.show_midibloc) {
+				txt_midi_val.string = val;
+			};
 		},
 		blocked: { arg self, msg, blocked;
-			txt_midi_val.background = if(blocked.not, { Color.green }, { ~editplayer_color_scheme.led });
+			if(display.show_midibloc) {
+				txt_midi_val.background = if(blocked.not, { Color.green }, { ~editplayer_color_scheme.led });
+			};
 		},
 		recording: { arg self, msg, recording;
-			txt_midi_label.background = if(recording, { ~editplayer_color_scheme.led }, { Color.clear });
+			if(display.show_midibloc) {
+				txt_midi_label.background = if(recording, { ~editplayer_color_scheme.led }, { Color.clear });
+			};
 		},
 		midi_key: { arg self, msg, key;
 			param_messages.val(param, msg); //TODO
@@ -1343,6 +1624,10 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 
 };
 
+~make_empty_param = { arg main;
+	~make_simple_number_param.(main, "voidparam", \amp.asSpec, 0.123);
+};
+
 ~make_simple_number_param = { arg main, name, spec, default_value;
 	var res = (
 		name: name,
@@ -1403,8 +1688,11 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 		},
 
 		refresh: { arg self;
+			self.changed(\kind);
 			self.changed(\val);
+			//self.changed(\cells);
 			self.changed(\selected);
+			self.midi.refresh;
 		}
 	);
 	res.midi = main.midi_center.get_midi_control_handler(res);
@@ -1751,7 +2039,7 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 		start_offset: 0,
 		end_offset: 0,
 		muted: false,
-		archive_data: [\name, \classtype, \selected, \selected_cell, \default_val, \notes, \start_offset, \end_offset, \notequant],
+		archive_data: [\name, \classtype, \selected, \selected_cell, \default_val, \notes, \start_offset, \end_offset, \notequant, \muted],
 		notequant: nil,
 		vnotes: [],
 
@@ -1780,6 +2068,7 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 					 self[kind][key] = data[kind][key];
 				}
 			};
+			self.refresh;
 		},
 
 		seq: (
@@ -2234,6 +2523,7 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 		classtype: \stepline,
 		selected_cell: 0,
 		selected: 0,
+		current_kind: \stepline, // hack to harmonize with control_param
 		default_val: default_value.asList,
 
 		save_data: { arg self;
@@ -2396,7 +2686,7 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 	var param;
 	var bar_length = 4;
 
-	name.debug("---- make_control_param");
+	//name.debug("---- make_control_param");
 
 	param = (
 		name: name,
@@ -2407,7 +2697,9 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 		selected_cell: 0,
 		bar_length: bar_length,
 		default_val: default_value,
-		archive_data: [\name, \classtype, \current_kind, \spec, \selected, \selected_cell, \default_val, \noteline],
+		pkey_mode: false,
+		muted: false,
+		archive_data: [\name, \classtype, \current_kind, \spec, \selected, \selected_cell, \default_val, \noteline, \muted, \pkey_mode],
 
 		save_data: { arg self;
 			var data = ();
@@ -2415,10 +2707,12 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 				arg key;
 				data[key] = self[key];
 			};
-			[\seq, \scalar, \preset].do { arg kind;
+			[\seq, \scalar, \preset, \bus, \recordbus].do { arg kind;
 				data[kind] = ();
-				[\val, \selected_cell].do { arg key;
-					data[kind][key] = self[kind][key];
+				[\val, \selected_cell, \record].do { arg key;
+					if(self[kind][key].notNil) {
+						data[kind][key] = self[kind][key];
+					}
 				}
 			};
 			data;
@@ -2430,8 +2724,10 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 				self[key] = data[key];
 			};
 			[\seq, \scalar, \preset].do { arg kind;
-				[\val, \selected_cell].do { arg key;
-					 self[kind][key] = data[kind][key];
+				[\val, \selected_cell, \record].do { arg key;
+					if(data[kind][key].notNil) {
+						self[kind][key] = data[kind][key];
+					}
 				}
 			};
 		},
@@ -2497,7 +2793,7 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 		),
 
 		scalar: (
-			quoi: { "QUOI".debug; }.value,
+			//quoi: { "QUOI".debug; }.value,
 			selected_cell: 0, // always 0
 			val: if(default_value.isArray, { default_value[0] }, { default_value }),
 
@@ -2608,7 +2904,7 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 
 		bus: (
 			// dummy functions
-			quoi: { "QUOI".debug; }.value,
+			//quoi: { "QUOI".debug; }.value,
 			selected_cell: 0, // always 0
 			val: if(default_value.isArray, { default_value[0] }, { default_value }),
 			busindex: nil,
@@ -2669,7 +2965,7 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 			select_cell: { arg self, idx; param.seq.selected_cell = idx }, // when changing kind, correct cell is selected in colselect mode
 			get_selected_cell: { arg self; 0 },
 			add_cells: {},
-			quoii: { "QUOI3".debug }.value,
+			//quoii: { "QUOI3".debug }.value,
 			remove_cells: {}
 			
 
@@ -2755,8 +3051,14 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 			}
 		},
 
+		set_pkey_mode: { arg self, set=true;
+			self.pkey_mode = set;
+			self.changed(\kind);
+		},
+
 		refresh: { arg self;
 			self.changed(\kind);
+			self.changed(\val);
 			//self.changed(\cells);
 			self.changed(\selected);
 			self.midi.refresh;
@@ -2818,85 +3120,89 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 				}
 			);
 			Prout({ arg ev;
-				var repeat = 1000000;
+				var repeat = ~general_sizes.safe_inf;
 				var idx, val=0;
 				repeat.do {
 					//[name, ev].debug("################################## prout!!!!");
 					//ev.dump;
-					switch( self.current_kind,
-						\scalar, {
-							//ev.debug("=========== in scalar ev");
-							8.do {		// hack to be in phase when changing kind (should be the size of stepline)
+					if(self.pkey_mode) {
+						ev = ev[self.name].yield;
+					} {
+						switch( self.current_kind,
+							\scalar, {
+								//ev.debug("=========== in scalar ev");
+								8.do {		// hack to be in phase when changing kind (should be the size of stepline)
+									switch(player.get_mode,
+										\sampleline, {
+											[name, scalm.value(ev)].debug("############# scalm!!");
+											ev = scalm.value(ev).yield;
+											//ev = 1.yield;
+										},
+										\noteline, {
+											ev = scalf.value(ev).yield;
+										},
+										\stepline, {
+											ev = self.scalar.val.yield;
+										}
+									);
+								}
+								//ev.debug("=========== in scalar ev END");
+							},
+							\seg, {
+								[
+									ev[\elapsed], ev[\segdur], 
+									ev[\elapsed]/ev[\segdur], 
+									(self.seg.val.size),
+									(ev[\elapsed]/ev[\segdur]) % (self.seg.val.size),
+									self.seg.val.blendAt((ev[\elapsed]/ev[\segdur]) % (self.seg.val.size))
+								].debug("seggggggggggggggggg: elapsed, segdur, size, el/dur, el/dur%size, res");
+								ev = (self.seg.val++[self.seg.val[0]]).blendAt((ev[\elapsed]/ev[\segdur]) % (self.seg.val.size)).yield;
+							},
+							\seq, {
+								if(player.get_mode == \noteline, {
+									//ev.debug("=========== in noteline ev");
+									//segf.debug("=========== in noteline segf");
+									//segf.value(ev).debug("=========== in noteline");
+									ev = segf.value(ev).yield;
+								}, {
+									idx = 0;
+									val = self.seq.val[idx];
+									while( { val.notNil } , { 
+										ev = val.yield;
+										idx = idx + 1;
+										val = self.seq.val[idx];
+									});
+								});
+								//ev.debug("=========== in seq ev END");
+							},
+							\preset, {
 								switch(player.get_mode,
 									\sampleline, {
-										[name, scalm.value(ev)].debug("############# scalm!!");
-										ev = scalm.value(ev).yield;
+										[name, scalm.value(ev)].debug("############# scalm!!2");
 										//ev = 1.yield;
+										ev = scalm.value(ev).yield;
 									},
 									\noteline, {
-										ev = scalf.value(ev).yield;
+										ev = pref.value(ev).yield;
 									},
 									\stepline, {
-										ev = self.scalar.val.yield;
+										ev = self.preset.val[self.preset.selected_cell].yield
 									}
 								);
+							},
+							\bus, {
+								self.bus.get_bus.asMap.yield;
+							},
+							\recordbus, {
+								self.bus.get_bus.asMap.yield;
+							},
+							// else
+							{
+								[param.name, self.current_kind].debug("ERROR: param kind dont match");
+								0.yield;
 							}
-							//ev.debug("=========== in scalar ev END");
-						},
-						\seg, {
-							[
-								ev[\elapsed], ev[\segdur], 
-								ev[\elapsed]/ev[\segdur], 
-								(self.seg.val.size),
-								(ev[\elapsed]/ev[\segdur]) % (self.seg.val.size),
-								self.seg.val.blendAt((ev[\elapsed]/ev[\segdur]) % (self.seg.val.size))
-							].debug("seggggggggggggggggg: elapsed, segdur, size, el/dur, el/dur%size, res");
-							ev = (self.seg.val++[self.seg.val[0]]).blendAt((ev[\elapsed]/ev[\segdur]) % (self.seg.val.size)).yield;
-						},
-						\seq, {
-							if(player.get_mode == \noteline, {
-								//ev.debug("=========== in noteline ev");
-								//segf.debug("=========== in noteline segf");
-								//segf.value(ev).debug("=========== in noteline");
-								ev = segf.value(ev).yield;
-							}, {
-								idx = 0;
-								val = self.seq.val[idx];
-								while( { val.notNil } , { 
-									ev = val.yield;
-									idx = idx + 1;
-									val = self.seq.val[idx];
-								});
-							});
-							//ev.debug("=========== in seq ev END");
-						},
-						\preset, {
-							switch(player.get_mode,
-								\sampleline, {
-									[name, scalm.value(ev)].debug("############# scalm!!2");
-									//ev = 1.yield;
-									ev = scalm.value(ev).yield;
-								},
-								\noteline, {
-									ev = pref.value(ev).yield;
-								},
-								\stepline, {
-									ev = self.preset.val[self.preset.selected_cell].yield
-								}
-							);
-						},
-						\bus, {
-							self.bus.get_bus.asMap.yield;
-						},
-						\recordbus, {
-							self.bus.get_bus.asMap.yield;
-						},
-						// else
-						{
-							[param.name, self.current_kind].debug("ERROR: param kind dont match");
-							0.yield;
-						}
-					);
+						);
+					}
 				}
 			});
 			//Prout({
@@ -2904,35 +3210,35 @@ Spec.add(\wet, ControlSpec(0, 1, \lin, 0, 0));
 			//});
 			//Pseq([self.get_val],inf);
 			//Pseq([self.scalar.get_val],inf);
-		},
-		quoi: { "QUOI".debug; }.value
+		}
+		//quoi: { "QUOI".debug; }.value
 	);
 	// init
 	param.preset = param.seq.deepCopy;
-		"rah1".debug;
+		//"rah1".debug;
 	param.seg = param.seq;
-		"rah1".debug;
+		//"rah1".debug;
 
 	param.midi = main.midi_center.get_midi_control_handler(param);
-		"rah1".debug;
+		//"rah1".debug;
 
 	// \dur special case
 	if([\dur,\segdur, \stretchdur].includes(name), {
-		"rah5".debug;
+		//"rah5".debug;
 		param.change_kind(\preset);
-		"rah5".debug;
+		//"rah5".debug;
 		param.preset.val = List[ 4, 2, 1, 0.5, 0.25, 0.125, 0.0625 ];
-		"rah5".debug;
+		//"rah5".debug;
 		if(name == \stretchdur, {
-		"rah2".debug;
+		//"rah2".debug;
 			param.select_cell(2);
 		}, {
-		"rah3".debug;
+		//"rah3".debug;
 			param.select_cell(4);
 		});
 	});
 
-	name.debug("---- make_control_param END");
+	//name.debug("---- make_control_param END");
 	// return object
 	param;
 };

@@ -35,7 +35,8 @@
 		sourcewrapper: nil,
 		playing_state: \stop,
 		muted: false,
-		archive_data: [\control, \stepline, \adsr, \noteline, \buf],
+		archive_param_data: [\control, \stepline, \adsr, \noteline, \buf],
+		archive_data: [\current_mode, \effects],
 		effects: List.new,
 		is_effect: false,
 		ccbus_set: IdentitySet.new,
@@ -150,15 +151,14 @@
 						list.add(key); list.add( self.data[key].vpattern );
 					}
 				};
-				list.debug("maked pbind list");
+				//list.debug("maked pbind list");
 				//[\type, \stepline, \instrument].do { arg x; list.add(x); list.add(dict[x]) };
 				//list.debug("maked pbind list");
 				//Pbind(*list).dump;
 				if(self.is_effect) {
 					Pmono(self.data[\instrument].vpattern, *list)
 				} {
-					Pbind(*list).trace;
-					//Pbind(*list);
+					Pbind(*list);
 				}
 			}.value;
 			self.build_real_sourcepat;
@@ -201,15 +201,6 @@
 			)
 		},
 
-		mute: { arg self, val=true;
-			if(val != self.muted) {
-				self.muted = val;
-				if(self.is_audiotrack) {
-					self.data[\amp].bus.mute(val);
-				};
-				self.changed(\redraw_node);
-			}
-		},
 
 		get_piano: { arg self;
 			var veloc_ratio = 0.1;
@@ -298,11 +289,16 @@
 		},
 
 		set_mode: { arg self, val;
-			if(val == \sampleline && (self.get_arg(\sampleline).isNil)) {
-				"player: Can't set sampleline mode: not a sample player".inform;	
-			} {
-				self.current_mode = val;
-				self.changed(\mode);
+			if(self.current_mode != val) {
+				if(val == \sampleline && (self.get_arg(\sampleline).isNil)) {
+					"player: Can't set sampleline mode: not a sample player".inform;	
+				} {
+					if(self.get_selected_param == self.current_mode) {
+						self.select_param(val);
+					};
+					self.current_mode = val;
+					self.changed(\mode);
+				};
 			};
 		},
 
@@ -312,28 +308,6 @@
 
 		is_audiotrack: { arg self;
 			self.defname.asString.beginsWith("audiotrack")
-		},
-
-		set_noteline: { arg self, set;
-			1.erreur;
-			self.data.keysValuesDo { arg key, val;
-				if(val.classtype == \control, {
-					[val.name, set].debug("setting noteline");
-					val.noteline = set
-				})
-			};
-			self.noteline = set;
-		},
-
-		set_sampleline: { arg self, set;
-			1.erreur;
-			self.data.keysValuesDo { arg key, val;
-				if(val.classtype == \control, {
-					[val.name, set].debug("setting sampleline");
-					val.sampleline = set
-				})
-			};
-			self.sampleline = set;
 		},
 
 		clone: { arg self;
@@ -352,6 +326,10 @@
 
 		get_args: { arg self;
 			self.data.keys
+		},
+
+		get_ordered_args: { arg self;
+			~sort_by_template.(self.data.keys, desc.controls.collect { arg x; x.name });
 		},
 
 		get_all_args: { arg self;
@@ -393,7 +371,7 @@
 			data.args = ();
 			self.get_args.do { arg key;
 				argdat = self.get_arg(key);	
-				if(self.archive_data.includes(argdat.classtype), {
+				if(self.archive_param_data.includes(argdat.classtype), {
 					data.args[key] = argdat.save_data
 				})
 			};
@@ -402,6 +380,11 @@
 			data.bank = self.bank;
 			data.current_mode = self.get_mode;
 			data.sourcewrapper = self.sourcewrapper;
+			self.archive_data.do { arg key;
+				if(self[key].notNil) {
+					data[key] = self[key]
+				}
+			};
 			data;
 		},
 
@@ -409,13 +392,19 @@
 			var argdat;
 			self.get_args.do { arg key;
 				argdat = self.get_arg(key);	
-				if(self.archive_data.includes(argdat.classtype), {
+				if(self.archive_param_data.includes(argdat.classtype), {
 					argdat.load_data( data.args[key] )
 				})
 			};
 			self.bank = data.bank;
 			self.set_wrapper_code(data.sourcewrapper);
 			self.set_mode(data.current_mode ?? \stepline);
+			self.archive_data.do { arg key;
+				if(data[key].notNil) {
+					self[key] = data[key]
+				}
+			};
+			self.build_real_sourcepat;
 		},
 
 		save_column_preset: { arg self;
@@ -461,19 +450,38 @@
 			self.build_real_sourcepat;
 		},
 
-		build_real_sourcepat: { arg self;
+		set_input_pattern: { arg self, pat;
+			if(self.input_pattern.isNil) {
+				self.input_pattern = EventPatternProxy.new;
+				self.input_pattern.source = pat;
+				self.build_real_sourcepat;
+			} {
+				self.input_pattern.source = pat;
+			}
+		},
 
+		build_real_sourcepat: { arg self;
 			var res, list;
+			"entering build_real_sourcepat".debug;
+
 			res = if(self.wrapper.notNil) {
 				self.wrapper;
 			} {
 				self.sourcepat;
 			};
+
+			if(self.input_pattern.notNil) {
+				//"entering build_real_sourcepat: making input pattern".debug;
+				self.input_pattern.source.postcs;
+				res.postcs;
+				res = res <> self.input_pattern;
+			};
+
 			res = if(self.effects.size > 0) {
 				~pfx.(
 					res,
 					self.effects.collect { arg fx;
-						fx.debug("effect");
+						//fx.debug("effect");
 						main.get_node(fx).vpattern.postcs;
 					}
 				)
@@ -483,14 +491,14 @@
 			// add bus setting
 			if(self.ccbus_set.size > 0) {
 				list = self.ccbus_set.as(Array).collect({ arg x; x.recordbus.vpattern }).reject(_.isNil) ++ [res];
-				list.debug("******** build_real_sourcepat: ppar list");
+				//list.debug("******** build_real_sourcepat: ppar list");
 				res = Ppar( list )
 			};
 			self.real_sourcepat = res.trace;
 		},
 
 		vpattern: { arg self;
-			self.wrapper.debug("vpattern called: wrapper");
+			//self.wrapper.debug("vpattern called: wrapper");
 			self.real_sourcepat;
 		},
 
@@ -515,6 +523,16 @@
 			self.uname.debug("++++++++++++++++++++++++++++++++++++++++++++++++++stop");
 			//self.node.source = nil;
 			self.uname.debug("++++++++++++++++++++++++++++++++++++++++++++++++++niling source");
+		},
+
+		mute: { arg self, val=true;
+			if(val != self.muted) {
+				self.muted = val;
+				if(self.is_audiotrack) {
+					self.data[\amp].bus.mute(val);
+				};
+				self.changed(\redraw_node);
+			}
 		},
 
 		play_repeat_node: { arg self; 
@@ -551,6 +569,36 @@
 	);
 	player.init;
 	player;
+};
+
+~make_player_from_pbind = { arg main, pat;
+	var defname, player, param;
+	if(pat.class == Pbind) {
+		pat.patternpairs.do { arg elm, x;
+			if(elm == \instrument) {
+				defname = pat.patternpairs[x + 1];
+				player = ~make_player_from_synthdef.(main, defname);
+			}
+		};
+		if(defname.isNil) {
+			"ERROR: ~make_player_from_pbind: instrument key not found in pbind".debug;
+			nil
+		} {
+			pat.patternpairs.clump(2).do { arg elm, x;
+				param = player.get_arg(elm[0]);
+				if(param.notNil) {
+					param.set_pkey_mode(true);
+				} {
+					elm[0].debug("ERROR: ~make_player_from_pbind: param not found");
+				}
+			};
+			player.set_input_pattern(pat);
+			player;
+		};
+	} {
+		"ERROR: ~make_player_from_pbind: pat not a pbind".debug;
+		nil
+	}
 };
 
 ~make_player_from_colpreset = { arg main, data;
@@ -618,18 +666,18 @@
 	player;
 };
 
-// ==========================================
-// PARPLAYER FACTORY
-// ==========================================
-
-~empty_pattern = Pn((freq:\rest, dur:0.0001),1);
-
 ~make_empty_player = (
 	name: \voidplayer,
 	uname: \voidplayer,
 	get_playing_state: \stop,
 	kind: \player
 );
+
+// ==========================================
+// PARPLAYER FACTORY
+// ==========================================
+
+~empty_pattern = Pn((freq:\rest, dur:0.0001),1);
 
 ~empty_player = ~make_empty_player; // compat
 
@@ -662,7 +710,7 @@
 };
 
 ~make_groupplayer = { arg main, children=List[];
-	// changed messages: \redraw, \redraw_node
+	// changed messages: \redraw, \redraw_node, \selected_child
 	var pplayer;
 	pplayer = (
 		//children: SparseArray.newClear(8, ~empty_player),
@@ -675,9 +723,12 @@
 		playlist: List.new,
 		playing_state: \stop,
 		muted: false,
+		selected_child: \none,
+		selected_child_index: 0,
 
 		init: { arg self;
 			self.data[\repeat] = self.data[\repeat] ?? ~make_control_param.(main, self, \repeat, \scalar, 1, ~get_spec.(\repeat));
+			self.data[\amp] = self.data[\amp] ?? ~make_control_param.(main, self, \amp, \scalar, 1, ~get_spec.(\amp)); // dummy param FTM
 			self.get_arg(\repeat).get_val.debug("init repeat.get_val");
 		},
 
@@ -716,8 +767,39 @@
 			self.refresh;
 		},
 
+		select_child: { arg self, name;
+			var oldidx;
+			self.selected_child = name;
+			oldidx = self.selected_child_index;
+			self.selected_child_index = self.children.detectIndex { arg i; i == name };
+			self.changed(\selected_child, oldidx);
+			self.changed(\selected_child, self.selected_child_index);
+		},
+
+		select_child_at: { arg self, index;
+			var oldidx;
+			oldidx = self.selected_child_index;
+			self.selected_child_index = index;
+			self.selected_child = self.children[index];
+			self.changed(\selected_child, oldidx);
+			self.changed(\selected_child, index);
+		},
+
+		set_selected_child: { arg self, name;
+			name.debug("groupnode: set_selected_child");
+			self.children[self.selected_child_index] = name;
+			self.refresh;
+		},
+
+		add_children: { arg self, name;
+			name.debug("groupplayer.add_children");
+			self.children = self.children.add(name);
+			self.refresh;
+		},
+
 		refresh: { arg self;
 			self.changed(\redraw, self, self.get_view_children);
+			self.changed(\selected_child, self.selected_child_index);
 		},
 
 		get_children_nodes: { arg self;
@@ -741,6 +823,15 @@
 			res = self.children.reject({ arg na; [\void, \voidplayer].includes(na) }).collect { arg na; main.get_node(na) };
 			res = res.reject(_.isNil); // in bankplayer, some children don't exists
 			res.collect(_.uname).debug("groupplayer: get_children");
+			res.asList;
+		},
+
+		get_children_and_void: { arg self;
+			var res;
+			res = self.children.reject({ arg na; [\void, \voidplayer].includes(na) }).collect { arg na; main.get_node(na) };
+			res = res.reject(_.isNil); // in bankplayer, some children don't exists
+			res.collect(_.uname).debug("groupplayer: get_children");
+			res = res.add(main.get_node(\voidplayer));
 			res.asList;
 		},
 
@@ -1039,6 +1130,7 @@
 		refresh: { arg self;
 			self.changed(\head_state, \stop);
 			self.changed(\pos);
+			self.changed(\quant);
 			self.changed(\visual_metronome);
 			self.changed(\tempo, self.get_clock.tempo);
 		},
@@ -1106,6 +1198,7 @@
 
 		set_quant: { arg self, val;
 			EventPatternProxy.defaultQuant = val;
+			self.changed(\quant);
 		},
 
 		start_new_session: { arg self;
@@ -1286,6 +1379,10 @@
 				main.get_node(nname).mute(false);
 			};
 			self.solomuted_nodes = Set.new;
+		},
+
+		is_in_solo_mode: { arg self;
+			self.solomuted_nodes.size != 0
 		},
 
 

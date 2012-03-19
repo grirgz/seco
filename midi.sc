@@ -77,25 +77,33 @@
 			knob: 0
 		),
 
+		
+
 		get_main: { arg self; main },
+
+		is_next_free: { arg self, kind;
+			self.next_free[kind] < ~general_sizes.midi_cc[kind]
+		},
 
 		assign_first: { arg self, kind, param;
 			var ccpath;	
-			"HEINNNN".debug;
-			if(self.next_free[kind] < 8) { //FIXME: hardcoded value
+			//"HEINNNN".debug;
+			if(self.is_next_free(kind)) { //FIXME: hardcoded value
 				ccpath = [kind, self.next_free[kind]];
-				[param.name, ccpath, self.next_free].debug("III: assign_first: assigning midi");
+				//[param.name, ccpath, self.next_free].debug("III: assign_first: assigning midi");
 				main.commands.bind_param(ccpath, param);
-				main.commands.get_param_binded_ccpath(param).debug("III: assigned ccpath verification");
+				//main.commands.get_param_binded_ccpath(param).debug("III: assigned ccpath verification");
 				self.next_free[kind] = self.next_free[kind] + 1;
+				true;
 			} {
-				("Too much assigned param: no midi controller left."+param.name).error;
+				("Too much assigned param: no midi controller left."+param.name).warn;
+				false;
 			};
 		},
 
 		assign_adsr: { arg self, param;
 			var ccpath;	
-			param.name.debug("midi_center: assign_adsr");
+			//param.name.debug("midi_center: assign_adsr");
 			~adsr_point_order.do { arg key, i;
 				ccpath = [\slider, i+4];
 				main.commands.bind_param(ccpath, param.get_param(key));
@@ -120,7 +128,7 @@
 		},
 
 		set_control_val: { arg self, ccpath, val;
-			[ccpath, val].debug("===================midi_center: set_control_val");
+			//[ccpath, val].debug("===================midi_center: set_control_val");
 			self.cc_states[ccpath] = val;
 		},
 
@@ -165,12 +173,36 @@
 
 		},
 
+		install_pad_responders: { arg self;
+			self.nonr = List.new;
+			
+			[\pad].do { arg cctype; ~keycode.cakewalk[cctype].do { arg keycode, i;
+				var ccpath = [\midi, 0, keycode + 1000]; // add offset to difference from cc
+				self.nonr.add( 
+					NoteOnResponder ({ arg src, chan, num, veloc;
+						main.commands.handle_midi_key(main.model.current_panel, ccpath);
+					},
+					nil,
+					nil,
+					keycode,
+					nil
+					)
+				)
+			}};
+		},
+
+		uninstall_pad_responders: { arg self;
+			self.nonr.do { arg x; x.remove; };
+			self.nonr = nil;
+		},
+
 		uninstall_responders: { arg self;
 			self.ccresp.do { arg x; x.remove };
 			self.ccresp = nil;
 		}
 	);
 	CCResponder.removeAll;
+	NoteOnResponder.removeAll;
 	mc.install_responders;
 	mc;
 };
@@ -179,10 +211,10 @@
 	// param interface: name, set_norm_val, get_norm_val, changed, spec
 	// changed notifications: midi_val(number), blocked(bool), label
 	(
-		blocked: \sup,
+		blocked: \inf,
 
 		set_val: { arg self, val, cell=nil;
-			[param.name, val].debug("get_midi_control_handler:set_val");
+			//[param.name, val].debug("get_midi_control_handler:set_val");
 			self.unblock_do {
 				//debug("get_midi_control_handler:set_val: not blocked");
 				//self.get_midi_norm_val.debug("BLAAA1");
@@ -197,7 +229,7 @@
 		},
 
 		get_midi_val: { arg self;
-			[self.get_ccpath, midi_center.get_control_val(self.get_ccpath), param.spec.map(midi_center.get_control_val(self.get_ccpath))].debug("get_midi_val");
+			//[self.get_ccpath, midi_center.get_control_val(self.get_ccpath), param.spec.map(midi_center.get_control_val(self.get_ccpath))].debug("get_midi_val");
 			param.spec.map(midi_center.get_control_val(self.get_ccpath));
 		},
 
@@ -213,17 +245,17 @@
 		},
 
 		label: { arg self;
-			param.name.debug("get_midi_control_handler: label");
+			//param.name.debug("get_midi_control_handler: label");
 			if(self.get_ccpath.isNil) {
 				"X"
 			} {
-				(self.get_ccpath[0].asString[0].asString ++ (self.get_ccpath[1]+1).asString).debug("get_midi_control_handler: label: label choosed");
+				//(self.get_ccpath[0].asString[0].asString ++ (self.get_ccpath[1]+1).asString).debug("get_midi_control_handler: label: label choosed");
 				self.get_ccpath[0].asString[0].asString ++ (self.get_ccpath[1]+1).asString;
 			}
 		},
 
 		set_ccpath: { arg self, val;
-			param.name.debug("get_midi_control_handler: set_ccpath (deprecated method??)");
+			//param.name.debug("get_midi_control_handler: set_ccpath (deprecated method??)");
 			self.ccpath = val;
 			self.refresh;
 		},
@@ -295,7 +327,7 @@
 		},
 
 		refresh: { arg self;
-			param.name.debug("get_midi_control_handler: refresh");
+			//param.name.debug("get_midi_control_handler: refresh");
 			self.block;
 			param.changed(\label);
 			param.changed(\midi_val, self.get_midi_val);
@@ -429,7 +461,10 @@
 		},
 
 		cancel_recording: { arg self;
-			self.stop_immediate_recording;
+			self.nonr.remove;
+			self.noffr.remove;
+			self.livebook.keysValuesDo { arg k, v; v.release }; // free last synths
+			self.recording = false;
 		},
 
 		start_tempo_recording: { arg self, action, preend_action;
