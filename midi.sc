@@ -1,73 +1,5 @@
 (
 
-~event_rel_to_abs = { arg li;	
-	var res = List.new, elm, time;
-	0.for(li.size-1) { arg x;
-		x.debug("iter");
-		elm = li[x].copy;
-		if(x == 0) {
-			elm.time = 0;
-		} {
-			elm.time = li[x-1].dur + res[x-1].time;
-		};
-		res.add(elm);
-	};
-	res;
-};
-
-
-~merge_notetracks = { arg no1, no2;
-	var ano1, ano2, res;
-	var makeabs, makerel, time = 0, last = 0, elm;
-	makerel = { arg li;
-		var res = List.new, elm, time;
-		0.for(li.size-1) { arg x;
-			elm = li[x].copy;
-			if( x == (li.size-1) ) {
-			} {
-				elm.dur = li[x+1].time - li[x].time
-			};
-			elm.time = nil; // tidy up
-			res.add(elm);
-		};
-		res;
-	};
-	makeabs = { arg li;	
-		var res = List.new, elm, time;
-		0.for(li.size-1) { arg x;
-			x.debug("iter");
-			elm = li[x].copy;
-			if(x == 0) {
-				elm.time = 0;
-			} {
-				elm.time = li[x-1].dur + res[x-1].time;
-			};
-			res.add(elm);
-		};
-		res;
-	};
-	ano1 = makeabs.(no1);
-	ano2 = makeabs.(no2);
-	
-	res = ano1 ++ ano2;
-	res.sort({ arg a, b; 
-		if(a.time == b.time) {
-			// always put header in first in case of equality
-			a.start_silence.notNil
-		} {
-			a.time < b.time
-		}
-	});
-	res = makerel.(res);
-
-	res = res[1..]; // remove double rest
-	res[0].start_silence = res[0].dur;
-	res[0].end_silence = res.last.dur;
-
-	res;
-
-};
-
 ~midi_center = { arg main;
 	var mc = (
 		cc_states: Dictionary.new,
@@ -154,20 +86,33 @@
 				}
 			};
 			[\button, \toggle].do { arg cctype; ~keycode.cakewalk[cctype].do { arg keycode, i;
-
-					self.ccresp.add( CCResponder({ |src,chan,num,value|
-							var ccpath = [\midi, 0, keycode];
-							var val = value/127;
-							if(val == 1) {
-								main.commands.handle_midi_key(main.model.current_panel, ccpath);
-							};
-						},
-						nil, // any source
-						nil, // any channel
-						keycode, // any CC number
-						nil // any value
+					if(keycode == ~keycode.cakewalk[\button][8]) {
+						self.ccresp.add( CCResponder({ |src,chan,num,value|
+								var ccpath = [\midi, 0, keycode];
+								var val = value/127;
+								main.commands.set_midi_modifier(\hold, val);
+							},
+							nil, // any source
+							nil, // any channel
+							keycode, // any CC number
+							nil // any value
+							)
 						)
-					)
+					} {
+						self.ccresp.add( CCResponder({ |src,chan,num,value|
+								var ccpath = [\midi, 0, keycode];
+								var val = value/127;
+								if(val == 1) {
+									main.commands.handle_midi_key(main.model.current_panel, ccpath);
+								};
+							},
+							nil, // any source
+							nil, // any channel
+							keycode, // any CC number
+							nil // any value
+							)
+						)
+					};
 				}
 			};
 
@@ -344,7 +289,7 @@
 };
 
 
-~do_record_session = { arg main, preclap_action, postclap_action, start_action, end_action, preend_action={};
+~do_record_session2 = { arg main, preclap_action, postclap_action, start_action, end_action, preend_action={};
 	var tc, supertc;
 	var session, supersession;
 	var pman = main.play_manager;
@@ -390,8 +335,68 @@
 	};
 };
 
+~do_record_session = { arg main, preclap_action, postclap_action, start_action, end_action, preend_action={}, kind=\limited;
+	var tc, supertc;
+	var session, supersession;
+	var pman = main.play_manager;
+	var dur = pman.get_record_length;
+	var recdur;
+	var metronome = pman.use_metronome;
+	var metronome_dur = pman.syncclap_dur;
+
+	if(kind == \unlimited) {
+		recdur = 100000; // FIXME: hardcoded; is inf correct ?
+		recdur.debug("UNLIMITED RECORD");
+	} {
+		recdur = dur;
+		recdur.debug("LIMITED RECORD");
+	};
+
+	if(main.play_manager.is_playing) {
+		main.play_manager.start_new_session;
+		tc = main.play_manager.get_clock;
+
+		session = Task {
+			if (metronome) { pman.start_metronome(tc, recdur) };
+			start_action.(tc);
+			main.play_manager.changed(\head_state, \record);
+			(recdur-0.01).wait;
+			preend_action.();
+			0.01.wait;
+			end_action.();
+		};
+		session.play(tc, quant:dur);
+	} {
+		main.play_manager.start_new_session;
+		supertc = main.play_manager.get_clock;
+		session = Task {
+			if (metronome) { pman.start_metronome(tc, recdur) };
+			start_action.(tc);
+			main.play_manager.changed(\head_state, \record);
+			recdur.wait;
+			end_action.();
+		};
+		supersession = Task {
+			preclap_action.(supertc);
+			pman.start_metronome(supertc, metronome_dur);
+			metronome_dur.wait;
+			postclap_action.();
+
+			pman.visual_metronome_enabled = false;
+			pman.changed(\visual_metronome);
+			pman.visual_metronome_enabled = true;
+			main.play_manager.set_record_length(dur); // changed by pman.start_metronome
+			main.play_manager.start_new_session;
+			tc = main.play_manager.get_clock;
+			session.play(tc, quant:dur);
+		};
+		supersession.play(supertc, quant:1);
+	};
+};
+
 // should be named make_midi_note_recorder
 ~make_midi_recorder = { arg player, main;
+	// notes interface: set_wait_note, set_next_notes, set_next_notes_as_current_notes
 	var prec, livesynth, pman;
 	NoteOnResponder.removeAll;
 	NoteOffResponder.removeAll;
@@ -413,14 +418,20 @@
 
 		},
 
-		player_start_tempo_recording: { arg self, finish_action={};
+		player_start_tempo_recording: { arg self, finish_action={}, kind=\limited;
 			var nline;
 
-			nline = if(player.get_mode == \sampleline) {
-				player.get_arg(\sampleline);
-			} {
-				player.get_arg(\noteline);
-			};
+			nline = case
+				{ player.subkind == \nodesampler } {
+					player.get_arg(\nodeline);	
+				} 
+				{ player.get_mode == \sampleline } {
+					player.get_arg(\sampleline);
+				}
+				{
+					player.get_arg(\noteline);
+				};
+
 			"STARTRECORD!!".debug; 
 			if(self.recording == true) {
 				"recorder: already recording!!!".debug;
@@ -433,8 +444,21 @@
 					// end_action
 					{ 
 						var sum = 0;
+						var reclen = pman.get_record_length;
+						var quantized_end;
 
-						nline.set_next_notes(self.track, pman.get_record_length);
+						//nline.set_next_notes(self.track, pman.get_record_length);
+						self.track = self.notescore.get_rel_notes;
+						//self.track = ~default_noteline;
+						if(kind == \unlimited) {
+							self.notescore.abs_end.debug("end action: UNLIMITED: old abs_end");
+							quantized_end = ~rel_nextTimeOnGrid.(self.notescore.abs_end, reclen,0);
+							self.notescore.set_end(quantized_end);
+							//reclen = quantized_end - self.notescore.abs_start;
+							[self.notescore.abs_start, quantized_end, reclen].debug("end action: abs_start, quantized_end, reclen");
+						};
+						pman.get_record_length.debug("player_start_tempo_recording: end action: pman.get_record_length");
+						nline.set_next_notescore(self.notescore, reclen);
 						player.mute(false);
 						nline.changed(\recording, false);
 
@@ -444,6 +468,11 @@
 							sum = sum + no.dur;
 						};
 						sum.debug("total sum");
+							//"1SE FOU".debug;
+						if(pman.node_is_playing(player).not) {
+							"player_start_tempo_recording: end_action:set_next_notes_as_current_notes".debug;
+							nline.forward_to_next_notescore;
+						};
 						finish_action.();
 					},
 					// preend_action
@@ -451,9 +480,12 @@
 						"**** preend_action".debug;
 						if(pman.node_is_playing(player)) {
 							"**** preend action: node is playing: seting wait note".debug;
-							nline.set_wait_note(self.track[0]);
+							//nline.set_wait_note(self.track[0]);
+							self.notescore.get_wait_note.debug("wait note");
+							nline.set_wait_note(self.notescore.get_wait_note);
 						}
-					}
+					},
+					kind
 				);
 				nline.changed(\recording, true); 
 				player.mute(true);
@@ -467,16 +499,16 @@
 			self.recording = false;
 		},
 
-		start_tempo_recording: { arg self, action, preend_action;
+		start_tempo_recording: { arg self, action, preend_action, kind=\limited;
+			var recordfun;
 
-			~do_record_session.(main,
-				// preclap_action
-				{ arg tclock;
+			recordfun = ~do_record_session;
+			self.action_dict = (
+				preclap_action: { arg tclock;
 					self.tclock = tclock;
 					if(self.enable_pretrack) { self.start_immediate_recording; };
 				},
-				// postclap_action
-				{
+				postclap_action: {
 					if(self.enable_pretrack) { 
 						// TODO: check if pretrack works with assigning track to player note list at the begining
 						self.stop_immediate_recording; 
@@ -484,45 +516,63 @@
 						self.track = List.new;
 					};
 				},
-				// start_action
-				{ arg tclock;
+				start_action: { arg tclock;
 					self.tclock = tclock;
 					self.start_immediate_recording;
 				},
-				// end_action
-				{
+				end_action: {
 					// processing early notes (putting them at the end of the loop)
-					if(self.pretrack.size > 0) {
-						self.pretrack.debug("66666666666666666666666this is pretrack");
-						self.track.debug("66666666666666666666666this is track before merging");
-						self.pretrack = self.pretrack.collect { arg x; x.ptdur = x.dur };
-						self.pretrack[0].dur = self.pretrack[0].dur + (pman.get_record_length - pman.syncclap_dur);
-						self.track = ~merge_notetracks.(self.track, self.pretrack);
-					} {
-						"666666666666666666666666".debug("no pretrack");	
-					};
+					//if(self.pretrack.size > 0) {
+					//	self.pretrack.debug("66666666666666666666666this is pretrack");
+					//	self.track.debug("66666666666666666666666this is track before merging");
+					//	self.pretrack = self.pretrack.collect { arg x; x.ptdur = x.dur };
+					//	self.pretrack[0].dur = self.pretrack[0].dur + (pman.get_record_length - pman.syncclap_dur);
+					//	self.track = ~merge_notetracks.(self.track, self.pretrack);
+					//} {
+					//	"666666666666666666666666".debug("no pretrack");	
+					//};
 
 					self.stop_immediate_recording;
 					action.value;
 				},
-				// preend_action
-				preend_action
+				preend_action: preend_action
 			);
+
+			recordfun.(main, 
+				self.action_dict[\preclap_action],
+				self.action_dict[\postclap_action],
+				self.action_dict[\start_action],
+				self.action_dict[\end_action],
+				self.action_dict[\preend_action],
+				kind
+			);
+
+		},
+
+		stop_unlimited_recording: { arg self;
+			self.action_dict[\end_action].();
+			main.play_manager.stop_audio_metronome;
 
 		},
 
 		start_immediate_recording: { arg self;
 			var record_start_time;
-			var latency = s.latency + 0.2;
+			//var latency = s.latency + 0.2;
+			var latency = s.latency ;
+			var notescore;
+			var curtime;
 			livesynth = player.get_piano;
 			self.tclock.debug("lecture de cette foutue horloge");
 			record_start_time = self.tclock.beats;
-			record_start_time.debug("NOW: should be 4 beats");
+			record_start_time.debug("NOW: should be 0 beats");
 			self.recording = true;
-			self.track = List.new;
-			self.book = Dictionary.new;
+			//self.track = List.new;
+			//self.book = Dictionary.new;
 			self.livebook = Dictionary.new;
-			self.lastnote = nil;
+			//self.lastnote = nil;
+
+			self.notescore = notescore = ~make_notescore.();
+			notescore.set_start(record_start_time);
 
 
 			self.nonr = NoteOnResponder { arg src, chan, num, veloc;
@@ -542,47 +592,59 @@
 				[src, chan, num, veloc].debug("note on");
 				note = (
 					midinote: num,
-					velocity: veloc/127,
-					curtime: self.tclock.beats - latency
+					velocity: veloc/127
+					//curtime: self.tclock.beats - latency
 					//curtime: self.tclock.beats // ben pourquoi y'a plus de latency ?
 				);
-				if(note.curtime < 0) { "Negative curtime!!".debug; note.curtime = 0 };
+
+				curtime = self.tclock.beats - latency;
+				[self.tclock.beats, curtime, latency].debug("beats, curtime, latency");
+				if(curtime < 0) { 
+					"correcting negative curtime".debug;
+					curtime = 0;
+				};
+
+
+				//if(note.curtime < 0) { "Negative curtime!!".debug; note.curtime = 0 };
 				if(slotnum.notNil) { note.slotnum = slotnum };
 
-				if(self.lastnote.isNil, {
-					// first note
-					start_silence = self.tclock.beats - latency - record_start_time;
-					//start_silence = self.tclock.beats - record_start_time;
+				notescore.add_note(note, curtime, num);
 
-					if(start_silence < 0, { "Negative dur!!".warn; start_silence = 0; });
-					firstnote = (
-						midinote: \rest,
-						slotnum: \rest,
-						velocity: 0,
-						sustain: 0.1,
-						start_silence: start_silence,
-						default_start_silence: start_silence,
-						start_offset: 0,
-						end_offset: 0,
-						dur: start_silence
-					);
-					self.track.add(firstnote);
-				}, {
-					self.lastnote.dur = note.curtime - self.lastnote.curtime;
-				});
-				self.book[num] = note;
-				self.lastnote = note;
-				self.track.add(note);
+				//if(self.lastnote.isNil, {
+				//	// first note
+				//	start_silence = self.tclock.beats - latency - record_start_time;
+				//	//start_silence = self.tclock.beats - record_start_time;
+
+				//	if(start_silence < 0, { "Negative dur!!".warn; start_silence = 0; });
+				//	firstnote = (
+				//		midinote: \rest,
+				//		slotnum: \rest,
+				//		velocity: 0,
+				//		sustain: 0.1,
+				//		start_silence: start_silence,
+				//		default_start_silence: start_silence,
+				//		start_offset: 0,
+				//		end_offset: 0,
+				//		dur: start_silence
+				//	);
+				//	self.track.add(firstnote);
+				//}, {
+				//	self.lastnote.dur = note.curtime - self.lastnote.curtime;
+				//});
+				//self.book[num] = note;
+				//self.lastnote = note;
+				//self.track.add(note);
 				note.debug("nonr note");
 			};
 			self.noffr = NoteOffResponder { arg src, chan, num, veloc;
-				var note;
+				var curtime;
+				curtime = self.tclock.beats - latency;
 				self.livebook[[chan,num]].release;
-				note = self.book[num];
-				self.book.removeAt(num);
-				note.debug("noffr note");
-				self.book.debug("noffr book");
-				note.sustain = self.tclock.beats - latency - note.curtime;
+				self.notescore.add_noteoff(num, curtime)
+				//self.book.removeAt(num);
+				//note.debug("noffr note");
+				//self.book.debug("noffr book");
+				//note.sustain = self.tclock.beats - latency - note.curtime;
 			};
 		},
 
@@ -592,21 +654,22 @@
 			self.nonr.remove;
 			self.noffr.remove;
 			self.livebook.keysValuesDo { arg k, v; v.release }; // free last synths
-			if(self.lastnote.notNil, {
-				self.lastnote.dur = now - self.lastnote.curtime;
-				self.track[0].default_end_silence = self.lastnote.dur;
-				self.track[0].end_silence = self.lastnote.dur;
-			});
-			
-			// if noteoff occurs after recording end, set to sustain until track end
-			self.track.do { arg no;
-				if(no.sustain.isNil) {
-					no.sustain = now - no.curtime
-				}
-			};
+			self.notescore.set_end(now);
+			//if(self.lastnote.notNil, {
+			//	self.lastnote.dur = now - self.lastnote.curtime;
+			//	self.track[0].default_end_silence = self.lastnote.dur;
+			//	self.track[0].end_silence = self.lastnote.dur;
+			//});
+			//
+			//// if noteoff occurs after recording end, set to sustain until track end
+			//self.track.do { arg no;
+			//	if(no.sustain.isNil) {
+			//		no.sustain = now - no.curtime
+			//	}
+			//};
 
 			self.recording = false;
-			self.lastnote = nil;
+			//self.lastnote = nil;
 		},
 
 

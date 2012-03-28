@@ -370,6 +370,22 @@
 			}, {
 				oldsel = sel;	
 			});
+		},
+		play_selection: { arg self, sel, win, ad;
+			var pl;
+			//pl = main.get_node(main.model.presetlib[defname][sl.address_to_index(ad)]);
+			[samples[sel], sel].debug("play_selection: sel");
+			{
+				var buf;
+				buf = Buffer.read(s, samples[sel]);
+				s.sync;
+				Synth(\monosampler, [\bufnum, buf]).onFree {
+					buf.free;
+				};
+			}.fork;
+		},
+		stop_selection: { arg self, sel, win, ad;
+			// FIXME: free player resources
 		}
 
 	);

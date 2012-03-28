@@ -276,6 +276,7 @@
 		plus: 43,
 		minus: 45
 	);
+	~midi_mod = [ \hold ];
 	~mod = (
 		0: 0,
 		fake: 12345,
@@ -287,6 +288,7 @@
 		altshift: 655360,
 		ctrlalt: 786432,
 		ctrlshift: 393216,
+		ctrlshiftfx: 8781824,
 		ctrlaltshift: 917504,
 		numpad: 2097152,
 		alt: 524288
@@ -442,6 +444,7 @@
 	//ccpathdict: ~twoWayDictionary.(),			// key:ccpath <-> val:param
 	ccpathToParam: Dictionary.new,
 	paramToCcpath: IdentityDictionary.new,
+	midi_modifier: 0,
 
 	add_shortcut: { arg self, path, default_shortcut=nil, action;
 		var shortcut;
@@ -717,6 +720,15 @@
 		self.paramToCcpath[param];
 	},
 
+	set_midi_modifier: { arg self, mod, val;
+		[mod, val].debug("keycode.set_midi_modifier: mod, val");
+		if(val == 1) {
+			self.midi_modifier = mod;
+		} {
+			self.midi_modifier = 0;
+		}
+	},
+
 	handle_cc: { arg self, ccpath, val;
 		var panel = \midi;
 		if(self.midi_handler[panel].isNil) { self.midi_handler[panel] = Dictionary.new };
@@ -727,6 +739,7 @@
 	handle_midi_key: { arg self, panel, shortcut;
 		var fun;
 		//self.kb_handler.debug("handle_key: kb_handler");
+		shortcut[1] = self.midi_modifier;
 		if(self.midi_handler[panel].isNil) { self.midi_handler[panel] = Dictionary.new };
 		[shortcut, panel].debug("current shortcut panel");
 		self.commands[panel][shortcut].debug("shortcut of path called");
@@ -888,6 +901,8 @@
 		["decrease_select_offset", \midi, 0, \begin],
 		["increase_select_offset", \midi, 0, \end],
 
+		["play_group", \midi, \hold, \play],
+		["stop_group", \midi, \hold, \stop],
 		["play_selected", \kb, 0, \f5],
 		["midi.play_selected", \midi, 0, \play],
 		["stop_selected", \kb, 0, \f6],
@@ -903,8 +918,19 @@
 		["edit_barrecord", \kb, \ctrlalt, "b"],
 		["edit_selected_param", \kb, 0, \enter],
 
+		["edit_wrapper", \kb, \alt, "w"],
+
+		["copy_node", \kb, \ctrl, "c"],
+		["paste_node", \kb, \ctrl, "v"],
+
 		["load_node_from_lib", \kb, 0, \f1],
 		["create_default_node", \kb, \alt, "c"],
+		["reload_player", \kb, \altshift, "r"],
+
+		["add_effect", \kb, \ctrlshift, \f2],
+
+		["load_colpreset", \kb, \ctrl, \f1],
+		["save_colpreset", \kb, \ctrl, \f2],
 
 		["select_param", \kb, 0, \kbpad8x4_flat],
 		["pad_select_param", \midi, 0, \midipads],
@@ -914,12 +940,17 @@
 		["select_player", \kb, 0, \kbpad8x4_flat],
 		["pad_select_player", \midi, 0, \midipads],
 
+		["forward_in_record_history", \kb, 0, \right],
+		["backward_in_record_history", \kb, 0, \left],
+
 		["set_global_mode.param", \kb, 0, \f9],
 		["set_global_mode.group", \kb, 0, \f10],
 		["set_global_mode.liveplay", \kb, 0, \f11],
+		["set_global_mode.mixer", \kb, 0, \f12],
 		["midi.set_global_mode.param", \midi, 0, \b1],
 		["midi.set_global_mode.group", \midi, 0, \b2],
 		["midi.set_global_mode.liveplay", \midi, 0, \b3],
+		["midi.set_global_mode.mixer", \midi, 0, \b4],
 
 		["set_notequant", \kb, \alt, "q"],
 		["add_cell_bar", \kb, 0, \npplus],
@@ -962,32 +993,37 @@
 	var realmod;
 	var key = binding[3];
 	var mod = binding[2];
-	case
-		{ ~keycode.kbarrow.keys.includes(key) } {
-			realmod = (
-				0: \arrow
-				//shift: \fxshift,
-			)[mod];
-			if(realmod.isNil) {
-				[mod,key].debug("ERROR: modifier arrow not found");
-				realmod = \fake;
-			};
-		}
-		{ ~keycode.kbfxdict.keys.includes(key) } {
-			realmod = (
-				0: \fx,
-				//shift: \fxshift,
-				ctrl: \ctrlfx
-			)[mod];
-			if(realmod.isNil) {
-				[mod,key].debug("ERROR: modifier fx not found");
-				realmod = \fake;
+	if(~keycode.midi_mod.includes(mod)) {
+		mod
+	} {
+		case
+			{ ~keycode.kbarrow.keys.includes(key) } {
+				realmod = (
+					0: \arrow
+					//shift: \fxshift,
+				)[mod];
+				if(realmod.isNil) {
+					[mod,key].debug("ERROR: modifier arrow not found");
+					realmod = \fake;
+				};
 			}
-		} {
-			realmod = mod
-		};
-	[mod,key,realmod].debug("get_modifer");
-	~keycode.mod[realmod];
+			{ ~keycode.kbfxdict.keys.includes(key) } {
+				realmod = (
+					0: \fx,
+					//shift: \fxshift,
+					ctrl: \ctrlfx,
+					ctrlshift: \ctrlshiftfx
+				)[mod];
+				if(realmod.isNil) {
+					[mod,key].debug("ERROR: modifier fx not found");
+					realmod = \fake;
+				}
+			} {
+				realmod = mod
+			};
+		[mod,key,realmod].debug("get_modifer");
+		~keycode.mod[realmod];
+	}
 };
 
 ~get_keycode = { arg binding;

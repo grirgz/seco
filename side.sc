@@ -122,6 +122,10 @@
 					mode: { arg self;
 						controller.changed(\paramlist);
 						controller.changed(\extparamlist);
+					},
+
+					redraw_node: { arg self;
+						player.get_arg(\amp).changed(\playingstate, player.name, player.get_playing_state);
 					}
 						
 				));
@@ -136,17 +140,19 @@
 			var args;
 			var display;
 			var player = controller.current_player;
+			var args2;
 			//player.get_ordered_args.do { arg param_name, idx;
 
 
 			args = self.get_paramlist_splited;
+			args2 = args[1] ++ args[2];
 			
 			paramview_list.do.do { arg view, idx;
 				var param_name;
 				if(idx < 8) {
 					param_name = args[0][idx];
 				} {
-					param_name = args[1][idx-8];
+					param_name = args2[idx-8];
 				};
 				if(param_name.notNil) {
 					param = player.get_arg(param_name);
@@ -167,7 +173,9 @@
 			var player = controller.current_player;
 
 			inner_extparam_layout.remove;
+			debug("REMOVING!!!");
 			inner_extparam_layout = VLayoutView.new(extparam_layout, Rect(0,0,winsize.x,500));
+			extparamview_list = List.new;
 
 			args = self.get_extparamlist;
 			args.do { arg param_name, idx;
@@ -375,6 +383,8 @@
 
 		set_param: { arg self, param, display;
 			bt_name.string = param.name;
+
+			self.kind = \param;
 			
 			if( self.responder.notNil ) {
 				self.responder.remove
@@ -391,6 +401,7 @@
 
 		set_group_param: { arg self, player, param, display;
 			var resp;
+			self.kind = \player;
 			bt_name.string = player.name;
 			
 			if( self.responder.notNil ) {
@@ -406,6 +417,18 @@
 						\seqnode, { "seq" },
 						{ "???" }
 					)
+				},
+				playingstate: { arg self, msg, name, state;
+					state = switch(state,
+						\play, { " >" },
+						\stop, { "  " },
+						\mute, { "M>" },
+						\mutestop, { "M " },
+						{ "? " }
+					);
+
+
+					bt_name.string = state ++ " " ++ name;
 				}
 
 			));
@@ -447,33 +470,42 @@
 			pl;
 		},
 
-		start_tempo_recorder: { arg self, player;
+		start_tempo_recorder: { arg self, player, kind=\limited;
 			// TODO: handle when recording finish (play recorded track along what is playing ?)
 			var finish = {
 				main.play_manager.set_recording(false);
 			};
+			kind = \unlimited; // DEBUG;
 			if(main.play_manager.is_recording.not) {
-				if(player.kind == \player && (player.name != \voidplayer)) {
-					main.play_manager.set_recording(true);
-					player.name.debug("start_tempo_recorder: player");
-					if(player.is_audiotrack) {
-						"start_tempo_recorder:audio recorder player!!".debug;
-						self.recorder = ~make_audio_recorder.(player, main);
-						self.recorder.player_start_tempo_recording(finish);
-					} {
-						if(player.get_mode == \stepline) {
-							if(player.get_arg(\sampleline).notNil) {
-								player.set_mode(\sampleline);
-							} {
-								player.set_mode(\noteline); 
-							}
-						};
-						self.recorder = ~make_midi_recorder.(player, main);
-						self.recorder.player_start_tempo_recording(finish);
+				case
+					{ player.kind == \player && (player.name != \voidplayer) } {
+						main.play_manager.set_recording(true);
+						player.name.debug("start_tempo_recorder: player");
+						if(player.is_audiotrack) {
+							"start_tempo_recorder:audio recorder player!!".debug;
+							self.recorder = ~make_audio_recorder.(player, main);
+							self.recorder.player_start_tempo_recording(finish);
+						} {
+							if(player.get_mode == \stepline) {
+								if(player.get_arg(\sampleline).notNil) {
+									player.set_mode(\sampleline);
+								} {
+									player.set_mode(\noteline); 
+								}
+							};
+							self.recorder = ~make_midi_recorder.(player, main);
+							self.recorder.player_start_tempo_recording(finish, kind);
+						}
 					}
-				} {
-					"INFO: grouplive: start_tempo_recorder: selected cell is not a player".inform;
-				}
+					{ player.subkind == \nodesampler } {
+						main.play_manager.set_recording(true);
+						player.name.debug("start_tempo_recorder: nodesampler");
+						self.recorder = ~make_midi_recorder.(player, main);
+						self.recorder.player_start_tempo_recording(finish, kind);
+					}
+					{
+						"INFO: grouplive: start_tempo_recorder: selected cell is not a player".inform;
+					}
 			} {
 				"hmatrix: already recording".debug;
 			};
@@ -490,7 +522,8 @@
 
 		toggle_recording: { arg self, player;
 			if(main.play_manager.is_recording == true) {
-				self.cancel_recording;
+				//self.cancel_recording;
+				self.recorder.stop_unlimited_recording;
 			} {
 				self.start_tempo_recorder(player);
 			}
@@ -562,6 +595,14 @@
 
 		},
 
+		reload_player: { arg self, player;
+			var newplayer = player.clone;
+			newplayer.uname = player.uname;
+			newplayer.name = player.name;
+			main.add_node(newplayer);
+			newplayer;
+		},
+
 		duplicate_node: { arg self, nodename;
 			var name, pl, num;
 			pl = self.get_node(nodename).clone;
@@ -601,35 +642,201 @@
 			livenodename;
 		},
 
-		mpdef: { arg self, name, pat;
+		save_column_preset: { arg self, player;
+			//TODO: handle synth args change
+			var datalist;
+			datalist = main.model.colpresetlib[player.defname];
+			if( datalist.isNil ) {
+				main.model.colpresetlib[player.defname] = SparseArray.newClear(4*8*10, \empty);
+				datalist = main.model.colpresetlib[player.defname];
+			};
+			datalist = datalist.collect { arg d; 
+				if( d == \empty ) { d } { d.name }
+			};
+			~save_player_column.(main, "SAVE column preset", player, datalist, { arg sel, offset;
+				var name;
+				if( sel == \empty ) {
+					name = player.defname ++ "_c" ++ UniqueID.next;
+				} {
+					name = sel;
+				};
+				main.model.colpresetlib[player.defname][offset] = player.save_column_preset;
+				main.model.colpresetlib[player.defname][offset].name = name;
+				main.save_presetlib;
+			}, { arg offset, newname;
+				// rename action
+				if(main.model.colpresetlib[player.defname][offset] != \empty) {
+					main.model.colpresetlib[player.defname][offset].name = newname;
+					main.save_presetlib;
+				};
+			});
+		},
+
+		load_column_preset: { arg self, player;
+			var datalist;
+			datalist = main.model.colpresetlib[player.defname];
+			if( datalist.isNil ) {
+				main.model.colpresetlib[player.defname] = SparseArray.newClear(4*8*10, \empty);
+				datalist = main.model.colpresetlib[player.defname];
+			};
+			datalist = datalist.collect { arg d; 
+				if( d == \empty ) { d } { d.name }
+			};
+			~save_player_column.(main, "LOAD column preset", player, datalist, { arg sel, offset;
+				// load action
+				if( sel == \empty ) {
+					"load_column_preset: Can't load empty preset".error;
+				} {
+					player.load_column_preset(main.model.colpresetlib[player.defname][offset]);
+				}
+			}, { arg offset, newname;
+				// rename action
+				if(main.model.colpresetlib[player.defname][offset] != \empty) {
+					main.model.colpresetlib[player.defname][offset].name = newname;
+					main.save_presetlib;
+				};
+			});
+		},
+
+		make_fxnode_from_libnode: { arg self, libnodename;
+			var livenodename;
+			var player;
+			livenodename = self.make_livenodename_from_libnodename(libnodename);
+			player = ~make_player.(main, main.model.effectpool[libnodename]);
+			player.debug("maked effect");
+			player.name = livenodename;
+			player.uname = livenodename;
+			main.add_node(player);
+			player.uname.debug("make_fxnode_from_libnode: player.uname");
+		},
+
+		duplicate_fxnode: { arg self, livenodename;
+			//TODO
+		},
+
+		load_effectnode: { arg self, player, action;
+			var livenode;
+			~choose_effect.(main, { arg libnodename, livenodename; 
+				//self.model.default_newnode = [\libnode, libnodename];
+				livenodename = self.make_fxnode_from_libnode(libnodename);
+				player.add_effect(livenodename);
+				action.();
+			}, { arg livenodename;
+				//self.model.default_newnode = [\livenode, livenodename];
+				livenodename = self.duplicate_fxnode(livenodename);
+				livenodename.debug("actionpreset");
+				player.add_effect(livenodename);
+				action.();
+			});
+		},
+
+		copy_node: { arg self, node;
+			var uname, address;
+			uname = node.uname;
+			uname.debug("copied node1");
+			if(uname == \void || (uname == \voidplayer)) {
+				"Can't copy empty player".error;
+			} {
+				uname.debug("copied node2");
+				main.model.clipboard = uname;
+				main.model.clipboard.debug("copied node");
+			};
+		},
+
+		paste_node: { arg self;
+			var node;
+			if( main.model.clipboard.isNil ) {
+				"Can't paste: clipboard is empty".error;
+			} {
+				node = main.get_node(main.model.clipboard);
+				if( node.kind == \player ) {
+					self.duplicate_livenode(main.model.clipboard);
+				} {
+					"paste_node: paste groupnode: not implemented".debug;
+					nil;
+				};
+			};
+
+		},
+
+		mpdef: { arg self, name, pat, instr=nil;
 			var node;
 
 			if(pat.notNil) {
-					if(pat.class == Pbind) {
-						if(main.node_exists(name)) {
-							node = main.get_node(name);
-							node.set_input_pattern(pat);
-							main.panels.side.set_current_player(node);
-							Pdef(name, node.vpattern);
-						} {
-							node = ~make_player_from_pbind.(main, pat);
-							if(node.notNil) {
-								node.name = name;
-								node.uname = name;
-								main.add_node(node);
-								main.node_manager.add_node_to_default_group(node);
+					case
+						{ pat.class == Pbind } {
+							if(main.node_exists(name)) {
+								node = main.get_node(name);
+								node.set_input_pattern(pat);
 								main.panels.side.set_current_player(node);
-								//main.focus_mpdef(node);
 								Pdef(name, node.vpattern);
 							} {
-								"ERROR: player could not be created".debug;
-								nil;
-							};
+								node = ~make_player_from_pbind.(main, pat);
+								if(node.notNil) {
+									node.name = name;
+									node.uname = name;
+									main.add_node(node);
+									main.node_manager.add_node_to_default_group(node);
+									main.panels.side.set_current_player(node);
+									//main.focus_mpdef(node);
+									Pdef(name, node.vpattern);
+								} {
+									"ERROR: player could not be created".debug;
+									nil;
+								};
+							}
+
 						}
-					} {
-						"ERROR: pat class not understood".debug;
-						Pdef(name, pat);
-					}
+						{ pat.class == Pchain } {
+							if(main.node_exists(name)) {
+								node = main.get_node(name);
+								node.set_input_pattern(pat);
+								main.panels.side.set_current_player(node);
+								Pdef(name, node.vpattern);
+							} {
+								node = ~make_player_from_pchain.(main, pat, instr);
+								if(node.notNil) {
+									node.name = name;
+									node.uname = name;
+									main.add_node(node);
+									main.node_manager.add_node_to_default_group(node);
+									main.panels.side.set_current_player(node);
+									//main.focus_mpdef(node);
+									Pdef(name, node.vpattern);
+								} {
+									"ERROR: player could not be created".debug;
+									nil;
+								};
+							}
+
+						}
+						{ pat.class == Ppar } {
+
+							if(main.node_exists(name)) {
+								node = main.get_node(name);
+								node.set_input_pattern(pat);
+								main.panels.side.set_current_group(node);
+								Pdef(name, node.vpattern);
+							} {
+								node = ~make_parplayer.(main);
+								if(node.notNil) {
+									node.name = name;
+									node.uname = name;
+									main.add_node(node);
+									node.set_input_pattern(pat);
+									main.panels.side.set_current_group(node);
+									//main.focus_mpdef(node);
+									Pdef(name, node.vpattern);
+								} {
+									"ERROR: player could not be created".debug;
+									nil;
+								};
+							}
+						}
+						{
+							"ERROR: pat class not understood".debug;
+							Pdef(name, pat);
+						}
 			} {
 				Pdef(name)
 			}
@@ -655,6 +862,7 @@
 	param_types.param_reject = param_types.param_reject ++ param_types.param_mode;
 
 	side = (
+		archive_data: [\model],
 
 		get_main: { arg self; main },
 
@@ -662,13 +870,36 @@
 			param_no_midi: param_types.param_no_midi,
 			select_offset: 0,
 			max_cells: 8,
+			current_mode: \param,
 			colselect_mode: true,
 			midi_knob_offset: 0
 		),
 
+		save_data: { arg self;
+			var data = Dictionary.new;
+			self.archive_data.do { arg key;
+				data[key] = self[key];
+			};
+			data[\current_player] = self.current_player.uname;
+			data[\current_group] = self.current_group.uname;
+			data;
+		},
+
+		load_data: { arg self, data;
+			var group;
+			self.archive_data.do { arg key;
+				self[key] = data[key];
+			};
+			group = main.get_node(data[\current_group]);
+			self.set_current_group( group );
+			self.set_current_player( main.get_node(group.selected_child), group.selected_child_index );
+			self.refresh;
+		},
+
 		make_param_display: { arg editplayer, param, player=nil;
 			player = player ?? editplayer.get_current_player;
 			(
+				extparam_content_size: 590@100,
 				set_parent_group: { arg self, group;
 					self.parent_group = group;
 				},
@@ -718,6 +949,7 @@
 			var args;
 			var args1;
 			var args2;
+			var args3;
 			if(player.uname == \voidplayer) {
 				[[], []]
 			} {
@@ -735,9 +967,30 @@
 
 				args1 = args.select { arg x; ([mode] ++ param_types.param_status_group).includes(x) };
 				args2 = args.reject { arg x; ([mode] ++ param_types.param_status_group).includes(x) };
+				args3 = self.get_effects_paramlist;
 
-				[args1, args2];
+				[args1, args2, args3];
 			}
+		},
+
+		get_effects_paramlist: { arg self, num;
+			var player = self.get_current_player;
+			var res = List.new;
+			player.get_effects.do { arg fxname, i;
+				var fx = main.get_node(fxname);
+				res.addAll( self.get_effect_paramlist(fx, i) );
+			};
+			res;
+		},
+
+		get_effect_paramlist: { arg self, effect, num;
+			//var reject = [\in, \out];
+			var reject = [\gate, \out, \instrument];
+			var prio = [\dry, \wet];
+			num.debug("get_effect_paramlist");
+			effect.get_args.difference(reject).collect { arg argname;
+				(argname.asString ++ "_fx" ++ num.asString).asSymbol
+			};
 		},
 
 		get_paramlist: { arg self;
@@ -756,7 +1009,7 @@
 			args = self.get_paramlist;
 			args.select({ arg param_name;
 				param = player.get_arg(param_name);
-				if(([\control]++param_types.param_mode).includes(param.classtype)) { 
+				if(([\control, \adsr]++param_types.param_mode).includes(param.classtype)) { 
 					res = switch(param.current_kind,
 						\scalar, { false },
 						\bus, { false },
@@ -772,53 +1025,88 @@
 			});
 		},
 
-		assign_midi: { arg self;
+		assign_midi_mixer: { arg self;
 			var param;
-			var player = self.current_player;
+			var player;
 			var offset = self.model.midi_knob_offset;
-			var kind = \knob;
-			[player.name].debug("side.assign_midi");
-			main.midi_center.clear_assigned(\slider);
-			main.midi_center.clear_assigned(\knob);
+			var kind = \slider;
 
-			self.get_paramlist.do { arg param_name;
+			self.get_current_group.children.do { arg child_name;
 				//player.name.debug("assign_midi player.name");
 				//offset.debug("assign_midi offset");
 				//param_name.debug("param_name");
-				param = player.get_arg(param_name);
+				player = main.get_node(child_name);
 
-				if(main.midi_center.is_next_free(kind).not) {
-					kind = \slider;
-				};
+				if(player.uname != \voidplayer) {
 
-				case
-					{ [\adsr].includes(param_name) || param_name.asString.containsStringAt(0,"adsr_") } {
-						//TODO: working ?
-						main.midi_center.assign_adsr(param)
-					}
-					{ \amp == param_name }
-					{
-						main.commands.bind_param([\knob, 8], param);
-					}
-					{ self.model.param_no_midi.includes(param_name) } {
-						// no midi
-					}
-					//{ self.param_types.param_slider_group.includes(param_name)} {
-					//		main.midi_center.assign_first(\slider, param);
-					//}
-					{ true } {
-						if(offset <= 0) {
-							main.midi_center.assign_first(kind, param);
-							//[offset, param.name].debug("assign_midi assign param");
-						} {
-							offset = offset - 1;
-							//offset.debug("assign_midi offset<");
-						};
-					};
+					main.midi_center.assign_first(kind, player.get_arg(\amp));
+
+				}
 			};
 
 		},
 
+		assign_midi: { arg self;
+			main.midi_center.clear_assigned(\slider);
+			main.midi_center.clear_assigned(\knob);
+			if(self.model.current_mode == \mixer) {
+				self.assign_midi_mixer;
+				self.assign_midi_params;
+			} {
+				self.assign_midi_params;
+			}
+		},
+
+		assign_midi_params: { arg self;
+			var param;
+			var player = self.current_player;
+			var offset = self.model.midi_knob_offset;
+			var kind = \knob;
+			if(player.notNil) {
+				[player.name].debug("side.assign_midi");
+
+				self.get_paramlist.do { arg param_name;
+					//player.name.debug("assign_midi player.name");
+					//offset.debug("assign_midi offset");
+					//param_name.debug("param_name");
+					param = player.get_arg(param_name);
+
+					if(main.midi_center.is_next_free(kind).not) {
+						kind = \slider;
+					};
+
+					case
+						{ [\adsr].includes(param_name) || param_name.asString.containsStringAt(0,"adsr_") } {
+							//TODO: working ?
+							main.midi_center.assign_adsr(param)
+						}
+						{ \amp == param_name }
+						{
+							if(self.model.current_mode != \mixer) {
+								main.commands.bind_param([\knob, 8], param);
+							};
+						}
+						{ self.model.param_no_midi.includes(param_name) } {
+							// no midi
+						}
+						//{ self.param_types.param_slider_group.includes(param_name)} {
+						//		main.midi_center.assign_first(\slider, param);
+						//}
+						{ true } {
+							if(offset <= 0) {
+								main.midi_center.assign_first(kind, param);
+								//[offset, param.name].debug("assign_midi assign param");
+							} {
+								offset = offset - 1;
+								//offset.debug("assign_midi offset<");
+							};
+						};
+				};
+			}
+
+		},
+
+		
 
 
 		///// param
@@ -832,6 +1120,7 @@
 		select_param: { arg self, index;
 			var oldsel, sel;
 			var pl;
+			var param;
 			var player = self.get_current_player;
 			//self.model.debug("c'est dingue!!!!");
 			//oldsel = self.model.selected_param;
@@ -854,6 +1143,11 @@
 			} {
 				"disable change_player_mode".debug;
 				main.commands.disable_mode([\side, \change_player_mode]);
+			};
+
+			param = player.get_arg(sel);
+			if(param.classtype == \adsr) {
+				main.midi_center.assign_adsr(param);
 			};
 
 		},
@@ -924,6 +1218,7 @@
 		///// player
 
 		set_current_player: { arg self, player, index;
+			// set player object
 			var oldplayer;
 			if(self.current_player != player) {
 				oldplayer = main.get_node(self.get_current_group.selected_child);
@@ -949,7 +1244,10 @@
 
 		},
 
-		get_current_player: { arg self; self.current_player },
+		get_current_player: { arg self;
+			// return player object
+			self.current_player 
+		},
 
 		///// group
 
@@ -963,12 +1261,12 @@
 
 		set_current_group: { arg self, group;
 			if(group != self.model.current_group) {
-				self.model.current_group = group;
+				self.current_group = group;
 				self.changed(\group);
 			};
 		},
 
-		get_current_group: { arg self; self.model.current_group },
+		get_current_group: { arg self; self.current_group },
 
 		refresh: { arg self;
 			self.changed(\group);
@@ -1067,6 +1365,14 @@
 					//FIXME: hardcoded limit
 				}],
 
+				[\play_group, {
+					self.get_current_group.play_node;
+				}], 
+
+				[\stop_group, {
+					self.get_current_group.stop_node;
+				}], 
+
 				[\play_selected, {
 					self.get_current_player.play_node;
 				}], 
@@ -1104,7 +1410,7 @@
 					var player;
 					"toggle_player_recording".debug;
 					player = self.get_current_player;
-					player.debug("toggle_player_recording: player!!");
+					player.name.debug("toggle_player_recording: player!!");
 					if(player.notNil) {
 						main.node_manager.toggle_recording(player);
 					}
@@ -1142,11 +1448,48 @@
 					~make_barrecord_edit_view.(main, [\knob, 0]);
 				}],
 
+				[\edit_wrapper, {
+					var player = self.get_current_player;
+					player.edit_wrapper;
+				}],
+
+				[\forward_in_record_history, {
+					var player = self.get_current_player;
+					var nline = if(player.get_mode == \sampleline) { player.get_arg(\sampleline) } { player.get_arg(\noteline) };
+					nline.scoreset.forward_in_history;
+					if(main.play_manager.node_is_playing(player).not) {
+						nline.forward_to_next_notescore;
+					}
+				}],
+
+				[\backward_in_record_history, {
+					var player = self.get_current_player;
+					var nline = if(player.get_mode == \sampleline) { player.get_arg(\sampleline) } { player.get_arg(\noteline) };
+					nline.scoreset.backward_in_history;
+					if(main.play_manager.node_is_playing(player).not) {
+						nline.forward_to_next_notescore;
+					}
+				}],
+
 				[\edit_selected_param, {
 					self.edit_selected_param;
 				}],
 
 				///// new node
+
+				[\copy_node, {
+					var player = self.get_current_player;
+					main.node_manager.copy_node(player);
+				}],
+
+				[\paste_node, {
+					var player = self.get_current_player;
+					var group = self.get_current_group;
+					var nodename;
+					nodename = main.node_manager.paste_node(player);
+					group.set_selected_child(nodename);
+					self.set_current_player(main.get_node(nodename));
+				}],
 
 				[\load_node_from_lib, {
 					var group = self.get_current_group;
@@ -1162,6 +1505,24 @@
 					nodename = main.node_manager.create_default_livenode;
 					group.set_selected_child(nodename);
 					self.set_current_player(main.get_node(nodename));
+				}],
+
+				[\reload_player, {
+					var player = self.get_current_player;
+					var newplayer;
+					newplayer = main.node_manager.reload_player(player);
+					self.set_current_player(newplayer);
+
+				}],
+
+				[\load_colpreset, {
+					var player = self.get_current_player;
+					main.node_manager.load_column_preset(player);
+				}],
+
+				[\save_colpreset, {
+					var player = self.get_current_player;
+					main.node_manager.save_column_preset(player);
 				}],
 
 				///// eventline
@@ -1191,28 +1552,53 @@
 					self.remove_cell_bar.() 
 				}],
 
+				///// effects
+
+				[\add_effect, {
+					var player = self.get_current_player;
+					main.node_manager.load_effectnode(player);
+					self.changed(\paramlist);
+				}],
+
 				///// global modes
 
 				["set_global_mode.liveplay", {
 					"liveplay".debug("mode");
+					self.model.current_mode = \liveplay;
 					main.node_manager.start_midi_liveplayer(self.get_current_player);
+					self.assign_midi;
 					//main.commands.disable([\side, 
 				}],
 				["set_global_mode.param", {
 					"param".debug("mode");
+					self.model.current_mode = \param;
 					main.node_manager.stop_midi_liveplayer;
 					main.commands.disable([\side, \select_player]);
 					main.commands.disable([\side, \pad_select_player]);
 					main.commands.enable([\side, \select_param]);
 					main.commands.enable([\side, \pad_select_param]);
+					self.assign_midi;
 				}],
 				["set_global_mode.group", {
 					"group".debug("mode");
+					self.model.current_mode = \group;
 					main.node_manager.stop_midi_liveplayer;
 					main.commands.disable([\side, \select_param]);
 					main.commands.disable([\side, \pad_select_param]);
 					main.commands.enable([\side, \select_player]);
 					main.commands.enable([\side, \pad_select_player]);
+					self.assign_midi;
+				}],
+
+				["set_global_mode.mixer", {
+					"group".debug("mode");
+					self.model.current_mode = \mixer;
+					main.node_manager.stop_midi_liveplayer;
+					main.commands.disable([\side, \select_param]);
+					main.commands.disable([\side, \pad_select_param]);
+					main.commands.enable([\side, \select_player]);
+					main.commands.enable([\side, \pad_select_player]);
+					self.assign_midi;
 				}],
 			]);
 
@@ -1239,6 +1625,7 @@
 				"set_global_mode.liveplay",
 				"set_global_mode.param",
 				"set_global_mode.group",
+				"set_global_mode.mixer",
 			]);
 
 			main.commands.actions.at(*[\side, \set_global_mode, \param]).();

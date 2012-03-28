@@ -201,6 +201,7 @@
 [
 	"synth",
 	"keycode", 
+	"eventscore",
 	"midi",
 	"param",
 	"samplelib",
@@ -385,6 +386,8 @@
 			current_panel: \parlive,
 			clipboard: nil,
 
+			velocity_ratio: 0.3,
+
 			nodelib: List.new,
 			presetlib: Dictionary.new,
 			presetlib_path: nil,
@@ -553,6 +556,14 @@
 			pool;
 		},
 
+		get_audio_save_path: { arg self;
+			if(self.model.project_path.isNil) {
+				"/tmp/"
+			} {
+				self.model.project_path
+			}
+		},
+
 		save_project: { arg self, name;
 			var proj, projpath;
 
@@ -569,16 +580,19 @@
 			proj.panels = ();
 			proj.panels.parlive = self.panels.parlive.save_data;
 			proj.panels.seqlive = self.panels.seqlive.save_data;
+			proj.panels.side = self.panels.side.save_data;
 
 			fork {
 				name.debug("Saving project");
 				projpath = "projects/"++name;
+				self.model.project_path = projpath;
 				("mkdir "++projpath).unixCmd;
 				1.wait;
 				//TODO: save context
 
 				self.archive_livenodepool(projpath);
 				
+				self.model.project_path = nil;
 				proj.writeArchive(projpath++"/core");
 			}
 
@@ -597,13 +611,16 @@
 				self.model.samplelist = proj.samplelist;
 				s.volume.volume = proj.volume;
 
+				self.model.project_path = projpath;
 
 				self.model.livenodepool = self.unarchive_livenodepool(projpath);
 				self.model.livenodepool.keys.debug("unarchived livenodepool keys");
 				//TODO: load context
+				self.model.project_path = nil;
 
 				self.panels.parlive.load_data(proj.panels.parlive);
 				self.panels.seqlive.load_data(proj.panels.seqlive);
+				self.panels.side.load_data(proj.panels.side);
 
 
 				self.refresh;

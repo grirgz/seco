@@ -149,6 +149,8 @@ Spec.add(\mdetune, ControlSpec(0.1, 2, \lin, 0, 0));
 Spec.add(\pwidth, ControlSpec(0, 1, \lin, 0, 0.5));
 Spec.add(\pwdetune, ControlSpec(-1, 1, \lin, 0, 0));
 Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
+Spec.add(\attack, ControlSpec(0.001, 1, \exp, 0.0001, 0));
+Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 //SynthDescLib.global.synthDescs[\pulsepass].metadata;
 
@@ -219,8 +221,9 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 	} ! clock.beatsPerBar;
 	bar = RangeSlider(vlayout, 40@20);
 
-	refresh_pos = { arg clock;
+	refresh_pos = { 
 		var posstring, barrange, bib, col;
+		var clock = play_manager.get_clock;
 		if(play_manager.is_playing || play_manager.is_recording) {
 			clock.beatInBar.debug("beatInBar");
 			posstring = play_manager.get_rel_beat.round(0.01).asString.padLeft(3, " ")
@@ -259,7 +262,7 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 		}.defer;
 		block { arg break;
 			10000.do { //FIXME: fake loop
-				if(refresh_pos.(clock).not) { "BREAK".debug; break.value };
+				if(refresh_pos.().not) { "BREAK".debug; break.value };
 				1.wait;
 			}
 		}
@@ -277,6 +280,8 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 		visual_metronome: { arg self;
 			if(self.visual_metronome_enabled) {
 				play_manager.get_rel_beat.debug("start vimetro!!!");
+				play_manager.get_clock.beats.debug("visual_metronome handler: clock beats");
+				play_manager.get_clock.hash.debug("visual_metronome handler: clock hash");
 				task.play(play_manager.get_clock,quant:1);
 			} {
 				play_manager.get_rel_beat.debug("stop vimetro!!!");
@@ -325,9 +330,12 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 
 	quanttxt = StaticText(vlayout, fieldsize);
 
-	refresh_pos = { arg clock;
+	refresh_pos = {
 		var posstring, barrange, bib, col;
+		var clock = play_manager.get_clock;
 		if(play_manager.is_playing || play_manager.is_recording) {
+			clock.beats.debug("refresh_pos: clock beats");
+			clock.hash.debug("refresh_pos: clock hash");
 			clock.beatInBar.debug("beatInBar");
 			posstring = play_manager.get_rel_beat.round(0.01).asString.padLeft(3, " ")
 							+ "/" + play_manager.get_record_length.asString
@@ -352,6 +360,11 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 		}
 	};
 
+//~t = TaskProxy.new;
+//~t.source = { 2.do { "bla".debug; 2.wait; } };
+//~t.play
+//~t.player.isPlaying
+//TempoClock.default.hash
 
 
 	clock.postln;
@@ -364,8 +377,8 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 			bt.do { arg x; x.background = Color.black };
 		}.defer;
 		block { arg break;
-			10000.do { //FIXME: fake loop
-				if(refresh_pos.(clock).not) { "BREAK".debug; break.value };
+			~general_sizes.safe_inf.do { 
+				if(refresh_pos.().not) { "BREAK".debug; break.value };
 				1.wait;
 			}
 		}
@@ -386,6 +399,8 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 		visual_metronome: { arg self;
 			if(self.visual_metronome_enabled) {
 				play_manager.get_rel_beat.debug("start vimetro!!!");
+				play_manager.get_clock.beats.debug("visual_metronome handler: clock beats");
+				play_manager.get_clock.hash.debug("visual_metronome handler: clock hash");
 				task.play(play_manager.get_clock,quant:1);
 			} {
 				play_manager.get_rel_beat.debug("stop vimetro!!!");
@@ -883,6 +898,7 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 
 
 ~make_noteline_view = { arg parent, display, param;
+	// notes interface: get_start_silence, get_end_silence, get_notes, total_dur
 
 	var row_layout,
 		bt_name,
@@ -894,7 +910,7 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 		txt_rec,
 		row_env,
 		env_cell,
-		width = 900,
+		width = display.extparam_content_size.x ?? 900,
 		height = 60,
 		beats = 8,
 		paraspace;
@@ -929,7 +945,7 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 			Pen.fill;
 
 			xcursor = param.get_start_silence*sepsize;
-			Pen.color = Color.blue(1);
+			Pen.color = ~color_scheme.control;
 			Pen.addRect(Rect(xcursor,0,(vdur*sepsize),he));
 			Pen.fill;
 
@@ -962,7 +978,7 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 
 	//paraspace.setBackgrDrawFunc_(ps_bg_drawf.(width, height, 8));
 
-	~make_view_responder.(parent, param, (
+	~make_view_responder.(row_layout, param, (
 		selected: { arg self;
 			bt_name.value = display.selected;
 		},
@@ -1746,23 +1762,40 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 		spec: nil,
 		selected: 0,
 		buffer: nil,
+		audio_id: nil,
+		archive_data: [\name, \classtype, \selected, \spec, \has_custom_buffer, \audio_id],
 
 		save_data: { arg self;
 			var data = ();
-			[\name, \classtype, \selected, \spec, \val].do {
+			var savepath;
+			if(self.has_custom_buffer) { // FIXME: clashing ID, should save when saving project, should save in project dir
+				self.audio_id = "audio_" ++ player.uname ++ "_" ++ name;
+				savepath = player.get_main.get_audio_save_path;
+				self.buffer.write(savepath +/+ self.audio_id ++ ".wav", "WAV", "float");
+			};
+			self.archive_data.do {
 				arg key;
 				data[key] = self[key];
 			};
+			data[\val] = self.get_val;
 			data.debug("make_buf_param: save_data: data");
 			data;
 		},
 
 		load_data: { arg self, data;
-			[\name, \classtype, \selected, \spec].do {
+			var savepath;
+			self.archive_data.do {
 				arg key;
 				self[key] = data[key];
 			};
-			self.set_val(data[\val]);
+			if(self.has_custom_buffer) { // FIXME: clashing ID, 
+				savepath = player.get_main.get_audio_save_path;
+				self.buffer = Buffer.read(s, savepath +/+ self.audio_id ++ ".wav");
+				self.buffer.debug("make_buf_param: load_data: loaded buffer!!");
+				self.val = data[\val];
+			} {
+				self.set_val(data[\val]);
+			}
 		},
 
 		select_param: { arg self;
@@ -1835,131 +1868,6 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 
 };
 
-~empty_note = (
-	midinote: \rest,
-	sustain: 0.1,
-	emptynote: true,
-	dur: 1.12345
-);
-
-
-~default_noteline3 = [ // FIXME: crash when no notes
-	(
-		midinote: \rest,
-		sustain: 0.1,
-		start_silence: 0.5,
-		default_start_silence: 0.5,
-		end_silence: 2.0,
-		default_end_silence: 2.0,
-		start_offset: 0,
-		end_offset: 0,
-		dur: 0.5
-	),
-	(
-		midinote: 68,
-		sustain: 0.1,
-		dur: 1.5
-	),
-	(
-		midinote: 66,
-		sustain: 0.1,
-		dur: 2.0
-	),
-];
-~default_noteline = [ // FIXME: crash when no notes
-	(
-		midinote: \rest,
-		sustain: 0.1,
-		start_silence: 0.5,
-		default_start_silence: 0.5,
-		end_silence: 0.5,
-		default_end_silence: 0.5,
-		start_offset: 0,
-		end_offset: 0,
-		dur: 0.5
-	),
-	(
-		midinote: 66,
-		sustain: 0.1,
-		dur: 0.9
-	),
-	(
-		midinote: 67,
-		sustain: 0.1,
-		dur: 0.1
-	),
-	(
-		midinote: 68,
-		sustain: 0.1,
-		dur: 1.5
-	),
-	(
-		midinote: 64,
-		sustain: 0.1,
-		dur: 0.5
-	),
-	(
-		midinote: 66,
-		sustain: 0.1,
-		dur: 0.5
-	),
-];
-~default_noteline2 = [
-	(
-		midinote: 64,
-		sustain: 0.1,
-		dur: 0.5
-	),
-	(
-		midinote: 65,
-		sustain: 0.1,
-		dur: 0.4
-	),
-	(
-		midinote: 66,
-		sustain: 0.1,
-		dur: 0.9
-	),
-	(
-		midinote: 67,
-		sustain: 0.1,
-		dur: 0.1
-	),
-	(
-		midinote: 68,
-		sustain: 0.1,
-		dur: 1.5
-	),
-	(
-		midinote: 69,
-		sustain: 0.1,
-		dur: 0.6
-	)
-];
-
-~default_sampleline = [ // FIXME: crash when no notes
-	(
-		slotnum: \rest,
-		sustain: 0.1,
-		start_silence: 0.5,
-		default_start_silence: 0.5,
-		end_silence: 2.0,
-		default_end_silence: 2.0,
-		start_offset: 0,
-		end_offset: 0,
-		dur: 0.5
-	),
-	(
-		slotnum: 0,
-		sustain: 0.1,
-		dur: 1.5
-	),
-	(
-		slotnum: 0,
-		sustain: 0.1,
-		dur: 2.0
-	),
-];
 
 ~make_samplekit_param = { arg name, default_value=\default;
 
@@ -2031,7 +1939,7 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 	var ret;
 	ret = (
 		name: name,
-		classtype: \noteline,
+		classtype: \recordline,
 		selected_cell: 0,
 		selected: 0,
 		default_val: default_value.asList,
@@ -2055,6 +1963,7 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 					data[kind][key] = self[kind][key];
 				}
 			};
+			data[\scoreset] = self.scoreset.save_data;
 			data;
 		},
 
@@ -2068,6 +1977,7 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 					 self[kind][key] = data[kind][key];
 				}
 			};
+			self.scoreset.load_data(data[\scoreset]);
 			self.refresh;
 		},
 
@@ -2106,7 +2016,7 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 			self.seq.val[ self.get_selected_cell.() ] = if(val > 1, { 1 },{ 0 });
 		},
 
-		quantify_note: { arg self, note;
+		quantify_note2: { arg self, note;
 			var res;
 			//note.debug("quantify_note input");
 			res = note.deepCopy;
@@ -2120,6 +2030,9 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 		},
 
 		get_notes: { arg self;
+			self.scoreset.get_notes;
+		},
+		get_notes2: { arg self;
 			var no;
 			no = self.vnotes.deepCopy;
 			//no[0].dur+self.start_offset;
@@ -2128,11 +2041,23 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 		},
 
 		set_notes: { arg self, val;
+			self.scoreset.set_notes(val);
+			//self.changed(\notes);
+		},
+		set_notes2: { arg self, val;
 			self.notes = val;
 			self.update_note_dur;
 		},
 
 		set_next_notes: { arg self, val, dur=nil;
+			self.scoreset.set_next_notes(val, dur);
+		},
+
+		set_next_notescore: { arg self, val, dur=nil;
+			self.scoreset.set_next_notescore_history(val, dur);
+		},
+
+		set_next_notes2: { arg self, val, dur=nil;
 			if(self.pat_finish_first.notNil) {
 				// le pattern a deja commencé, assigner les notes tout de suite
 				"**** set_next_notes: assigning next_notes as current notes immediately".debug;
@@ -2142,10 +2067,27 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 				"**** set_next_notes: preparing next_notes".debug;
 				self.next_notes = val;
 			};
-			self.notes_dur = dur;
+			self.notes_dur = dur; // used to check is dur is correct after quantization
+		},
+
+		set_next_notes_as_current_notes: { arg self;
+			self.scoreset.set_next_notes_as_current_notes;
+		},
+
+		forward_to_next_notescore: {arg self;
+			self.scoreset.forward_to_next_notescore;
+		},
+
+		set_next_notes_as_current_notes2: { arg self;
+			self.set_notes(self.next_notes);
+			self.next_notes = nil;
+			self.wait_note = nil;
 		},
 
 		set_wait_note: { arg self, note;
+			self.scoreset.set_wait_note(note);	
+		},
+		set_wait_note2: { arg self, note;
 			"**** nline: set_wait_note".debug;
 			self.wait_note = self.quantify_note(note);
 			self.wait_note[\first_note] = true;
@@ -2154,6 +2096,10 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 		},
 
 		get_note: { arg self, idx;
+			self.scoreset.get_note(self, idx);
+		},
+
+		get_note2: { arg self, idx;
 			var no;
 			if( self.vnotes.size > 0 && {self.muted.not}) {
 				if(idx == 0) {
@@ -2162,9 +2108,7 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 					// s'il n'y a ni l'un ni l'autre, c'est que c'est un banale debut de pattern, et cela doit continuer normalement
 					if(self.next_notes.notNil) {
 						"******** recording finish first, using next_notes as current notes".debug;
-						self.set_notes(self.next_notes);
-						self.next_notes = nil;
-						self.wait_note = nil;
+						self.set_next_notes_as_current_notes;
 					} {
 						if(self.wait_note.notNil) {
 							"********* recording not yet finished".debug;
@@ -2201,12 +2145,20 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 		},
 
 		total_dur: { arg self, notes;
+			self.scoreset.total_dur(notes);
+		},
+
+		total_dur2: { arg self, notes;
 			var res=0;
 			notes.do { arg x; res = x.dur + res; };
 			res;
 		},
 
 		update_note_dur: { arg self;
+			self.scoreset.update_notes;
+		},
+
+		update_note_dur2: { arg self;
 			// manage start and end offset and silence and put result notes in self.vnotes
 			var find_next, find_prev, delta, prevdelta, idx, previdx;
 			var qnotes, normdur, realdur, size;
@@ -2391,6 +2343,10 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 		},
 
 		get_start_silence: { arg self;
+			self.scoreset.get_start_silence;
+		},
+
+		get_start_silence2: { arg self;
 			if(self.notes.size > 0) {
 				self.notes[0].start_silence;
 			}
@@ -2398,6 +2354,10 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 		},
 
 		get_end_silence: { arg self;
+			self.scoreset.get_end_silence;
+		},
+
+		get_end_silence2: { arg self;
 			if(self.notes.size > 0) {
 				self.notes[0].end_silence;
 			}
@@ -2432,6 +2392,9 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 		},
 
 		set_notequant: { arg self, val;
+			self.scoreset.set_notequant;
+		},
+		set_notequant2: { arg self, val;
 			self.notequant = val;
 			self.update_note_dur;
 			self.changed(\notes);
@@ -2476,11 +2439,12 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 		},
 
 		init: { arg self;
+			self.scoreset = ~make_scoreset_hack.(self);
 			self.update_note_dur; // to take in account default_noteline
 		}
 
 	);
-	ret.init;
+	//ret.init; //should init in subclasses
 	ret;
 };
 
@@ -2503,6 +2467,7 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 			self.parent[\update_note_dur].(self);
 		}
 	);
+	ret.init;
 	ret;
 };
 
@@ -2513,6 +2478,7 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 		classtype: \noteline,
 		notes: ~default_noteline3.deepCopy
 	);
+	ret.init;
 	ret;
 };
 
@@ -2700,6 +2666,7 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 		pkey_mode: false,
 		muted: false,
 		archive_data: [\name, \classtype, \current_kind, \spec, \selected, \selected_cell, \default_val, \noteline, \muted, \pkey_mode],
+		archive_kind: [\seq, \scalar, \preset, \bus, \recordbus],
 
 		save_data: { arg self;
 			var data = ();
@@ -2707,7 +2674,7 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 				arg key;
 				data[key] = self[key];
 			};
-			[\seq, \scalar, \preset, \bus, \recordbus].do { arg kind;
+			self.archive_kind.do { arg kind;
 				data[kind] = ();
 				[\val, \selected_cell, \record].do { arg key;
 					if(self[kind][key].notNil) {
@@ -2723,7 +2690,7 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 				arg key;
 				self[key] = data[key];
 			};
-			[\seq, \scalar, \preset].do { arg kind;
+			self.archive_kind.do { arg kind;
 				[\val, \selected_cell, \record].do { arg key;
 					if(data[kind][key].notNil) {
 						self[kind][key] = data[kind][key];
@@ -3076,9 +3043,12 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 
 		vpattern: { arg self; 
 			var segf, scalf, pref, scalm;
+			var veloc_ratio = main.model.velocity_ratio;
 			switch(self.name,
 				\dur, {
 					segf = { arg ev;
+						
+						//[ev[\noteline].dur, ev[\stretchdur]].debug("vpattern: dur: segf");
 						ev[\noteline].dur * ev[\stretchdur];
 					};
 					scalm = { arg ev;
@@ -3092,6 +3062,13 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 				\freq, {
 					segf = { arg ev;
 						ev[\noteline].midinote.midicps;	
+					};
+					scalm = { arg ev; self.scalar.val };
+					scalf = pref = segf;
+				},
+				\amp, { // FIXME: handle sampleline; does pseg/bus need velocity adjusting ?
+					segf = { arg ev;
+						self.scalar.get_val + ((ev[\noteline].velocity ?? 0) * veloc_ratio);	
 					};
 					scalm = { arg ev; self.scalar.val };
 					scalf = pref = segf;
@@ -3125,7 +3102,7 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 				repeat.do {
 					//[name, ev].debug("################################## prout!!!!");
 					//ev.dump;
-					if(self.pkey_mode) {
+					if(self.pkey_mode and: { ev.includesKey(self.name) }) {
 						ev = ev[self.name].yield;
 					} {
 						switch( self.current_kind,
@@ -3227,6 +3204,7 @@ Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
 		//"rah5".debug;
 		param.change_kind(\preset);
 		//"rah5".debug;
+		//param.preset.val = List[ 4, 2, 1, 0.5, 0.25, 0.125, 0.0625 ];
 		param.preset.val = List[ 4, 2, 1, 0.5, 0.25, 0.125, 0.0625 ];
 		//"rah5".debug;
 		if(name == \stretchdur, {

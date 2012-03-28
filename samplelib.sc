@@ -155,18 +155,36 @@
 
 ~samplekit_manager = (
 	samplekit_part: 0,
+	samplekit_bank: Dictionary.new,
 
 	slot_to_bufnum: { arg self, slot, samplekit;
+		var path;
 		if(slot == \rest) {
 			BufferPool.get_sample(\samplekit, ~empty_sample_path).bufnum; // FIXME: find a way to not play at all;
 		} {
-			BufferPool.get_sample(\samplekit, ~samplekit_bank[samplekit][slot]).bufnum;		
+			path = self.samplekit_bank[samplekit][slot];
+			if(path.isString.not) {
+				path = path[0]
+			};
+			BufferPool.get_sample(\samplekit, path).bufnum;		
+		};
+	},
+
+	slot_to_startPos: { arg self, slot, samplekit;
+		var path = self.samplekit_bank[samplekit][slot];
+		if(path.isString) {
+			0
+		} {
+			path[1]
 		};
 	},
 
 	set_samplekit_part: { arg self, val;
 		self.samplekit_part = val;
-
+	},
+	
+	add_samplekit: { arg self, name, samplekit;
+		self.samplekit_bank[name] = samplekit;
 	},
 
 	midinote_to_slot: { arg self, midinote;

@@ -42,6 +42,7 @@
 		ccbus_set: IdentitySet.new,
 
 		init: { arg self;
+			var colpreset;
 			
 			self.sourcewrapper = "Pbind(\n\t\\freq, Pkey(\\freq)\n) <> ~pat;\nfalse";
 
@@ -128,6 +129,12 @@
 
 			//TODO: handle t_trig arguments
 
+			// load default preset
+			colpreset = try { main.model.colpresetlib[defname][0] };
+			if(colpreset.notNil) {
+				self.load_column_preset(colpreset, \scalar);
+			};
+
 			self.sourcepat = {
 				var dict = Dictionary.new;
 				var list = List[];
@@ -162,6 +169,10 @@
 				}
 			}.value;
 			self.build_real_sourcepat;
+		},
+
+		get_main: { arg self;
+			main
 		},
 
 		set_effects: { arg self, fxlist;
@@ -203,7 +214,7 @@
 
 
 		get_piano: { arg self;
-			var veloc_ratio = 0.1;
+			var veloc_ratio = main.model.velocity_ratio;
 			var exclu, list = List[];
 			exclu = [\instrument, \noteline, \amp, \bufnum, \freq, \sampleline, \samplekit, \repeat, \stretchdur, \stepline, \type, \dur, \segdur, \legato, \sustain];
 			self.data.keys.difference(exclu).do { arg key;
@@ -214,7 +225,8 @@
 				if(self.data[\freq].notNil) {
 					list.add(\freq); list.add( self.data[\freq].vpiano ?? self.data[\freq].vpattern );
 				};
-				{ arg slotnum, veloc; 
+				{ arg slotnum, veloc=1; 
+					veloc = veloc ?? 1;
 					[slotnum, self.data[\samplekit].get_val].debug("slotnum, samplekit get val");
 					~samplekit_manager.slot_to_bufnum(slotnum, self.data[\samplekit].get_val).debug("bufnum");
 					Synth(self.data[\instrument].vpiano, (
@@ -226,9 +238,14 @@
 				if(self.data[\bufnum].notNil) {
 					list.add(\bufnum); list.add( self.data[\bufnum].vpiano ?? self.data[\bufnum].vpattern );
 				};
-				{ arg freq, veloc; 
+				{ arg freq, veloc=1; 
+					veloc = veloc ?? 1;
+					if(self.data[\freq].notNil) {
+						list.add(\freq); list.add( freq ?? self.data[\freq].vpiano ?? self.data[\freq].vpattern );
+					};
+					[self.data[\amp].vpiano.value, veloc].debug("CESTLA?");
 					Synth(self.data[\instrument].vpiano, (
-						[\freq, freq, \amp, self.data[\amp].vpiano.value * veloc ] ++
+						[\amp, self.data[\amp].vpiano.value + (veloc * veloc_ratio) ] ++
 							list.collect(_.value)).debug("arg listHHHHHHHHHHHHHHHHHHHHHHHHHHH")) 
 				}
 
@@ -393,7 +410,9 @@
 			self.get_args.do { arg key;
 				argdat = self.get_arg(key);	
 				if(self.archive_param_data.includes(argdat.classtype), {
-					argdat.load_data( data.args[key] )
+					if( data.args[key].notNil ) {
+						argdat.load_data( data.args[key] )
+					}
 				})
 			};
 			self.bank = data.bank;
@@ -474,7 +493,19 @@
 				//"entering build_real_sourcepat: making input pattern".debug;
 				self.input_pattern.source.postcs;
 				res.postcs;
-				res = res <> self.input_pattern;
+				res = Pfunc({ arg ev; 
+					//ev.debug("EV"); 
+					if(ev.as(Dictionary).includesKey(\degree)) {
+						ev.removeAt(\freq);
+					} {
+						if(ev.as(Dictionary).includesKey(\midinote)) {
+							ev.removeAt(\freq);
+						};
+					};
+					ev;
+					//ev.debug("EV2"); 
+				}) <> res <> self.input_pattern;
+				//res = self.input_pattern; // DEBUG
 			};
 
 			res = if(self.effects.size > 0) {
@@ -494,6 +525,7 @@
 				//list.debug("******** build_real_sourcepat: ppar list");
 				res = Ppar( list )
 			};
+
 			self.real_sourcepat = res.trace;
 		},
 
@@ -599,6 +631,28 @@
 		"ERROR: ~make_player_from_pbind: pat not a pbind".debug;
 		nil
 	}
+};
+
+~make_player_from_pchain = { arg main, pat, instr;
+	var defname, player, param;
+	defname = instr;
+	if(defname.isNil) {
+		"ERROR: ~make_player_from_pchain: can't found instrument, guessing NOT IMPLEMENTED".debug;
+		nil
+	} {
+		player = ~make_player_from_synthdef.(main, defname);
+		param = player.get_args.do { arg elm, x;
+			//if([\stretchdur, \segdur, 
+			param = player.get_arg(elm);
+			if(param.notNil) {
+				param.set_pkey_mode(true);
+			} {
+				elm.debug("ERROR: ~make_player_from_pchain: param not found");
+			}
+		};
+		player.set_input_pattern(pat);
+		player;
+	};
 };
 
 ~make_player_from_colpreset = { arg main, data;
@@ -719,7 +773,7 @@
 		name: \new,
 		uname: \new,
 		data: Dictionary.new,
-		archive_data: [\children, \kind, \name],
+		archive_data: [\children, \kind, \name, \selected_child, \selected_child_index],
 		playlist: List.new,
 		playing_state: \stop,
 		muted: false,
@@ -730,6 +784,30 @@
 			self.data[\repeat] = self.data[\repeat] ?? ~make_control_param.(main, self, \repeat, \scalar, 1, ~get_spec.(\repeat));
 			self.data[\amp] = self.data[\amp] ?? ~make_control_param.(main, self, \amp, \scalar, 1, ~get_spec.(\amp)); // dummy param FTM
 			self.get_arg(\repeat).get_val.debug("init repeat.get_val");
+		},
+
+		set_input_pattern: { arg self, pat;
+			var res;
+			res = SparseArray.newClear(~general_sizes.children_per_groupnode, \voidplayer);
+			self.children = pat.list.collect { arg inpat;
+				if(inpat.key.notNil) {
+					res.add(inpat.key);
+				}
+			};
+			self.children = res;
+			self.children.debug("groupplayer: set_input_pattern: children");
+			self.changed(\redraw);
+		},
+
+		set_input_pattern2: { arg self, pat;
+			var res;
+			res = pat.list.collect { arg inpat;
+				if(inpat.key.notNil) {
+					if(self.children.includes(inpat.key).not) {
+						self.add_children(inpat)
+					}
+				}
+			};
 		},
 
 		set_playing_state: { arg self, state;
@@ -1026,6 +1104,28 @@
 			self.get_arg(\repeat).get_val.debug("init repeat.get_val");
 		},
 
+		get_piano: { arg self;
+			var veloc_ratio = 0.1;
+			var exclu, list = List[];
+			var pianos = List.new;
+
+			self.get_children.do { arg child;
+				if(child.kind == \player and: { child.name != \voidplayer }) {
+					pianos.add(child.get_piano)
+				}
+			};
+
+			{ arg slotnum, veloc=1;
+				var pia;
+				veloc = veloc ?? 1;
+				pia = pianos[slotnum];
+				if(pia.notNil) {
+					pia.(nil, veloc);
+				}
+			};
+
+		},
+
 		vpattern: { arg self;
 			var repeat;
 			repeat = self.get_arg(\repeat).get_val;
@@ -1046,6 +1146,39 @@
 
 };
 
+~make_nodesampler = { arg main, children=List[];
+	var pplayer;
+	var obj;
+	obj = ~make_parplayer.(main, children);
+	pplayer = (
+		kind: \parnode,
+		subkind: \nodesampler,
+
+		init: { arg self;
+			self.data[\repeat] = self.data[\repeat] ?? ~make_control_param.(main, self, \repeat, \scalar, 1, ~get_spec.(\repeat));
+			self.data[\nodeline] = self.data[\nodeline] ?? ~make_nodeline_param.(main, self, \nodeline);
+			self.get_arg(\repeat).get_val.debug("init repeat.get_val");
+		},
+
+		vpattern: { arg self, noreplay=true;
+			var repeat;
+			repeat = self.get_arg(\repeat).get_val.debug("vpattern repeat.get_val");
+			self.uname.debug("vpattern");
+			
+			Pn(~par_spawner.(main.play_manager, self.get_children), repeat);
+		},
+
+		new_self: { arg self, main, children=List[];
+			~make_nodesampler.(main, children);
+		}
+	
+	);
+	pplayer.keysValuesDo { arg key, val;
+		obj[key] = val;
+	};
+	obj.init();
+	obj;
+};
 
 // ==========================================
 // BANKPLAYER FACTORY
@@ -1214,6 +1347,8 @@
 				};
 				self.myclock = TempoClock.new(self.tempo);
 				self.myclock.permanent = true;
+				self.myclock.beats.debug("start_new_session: new clock beats");
+				self.myclock.hash.debug("hash");
 				self.start_pos = 0;
 				self.changed(\visual_metronome);
 				//self.start_visual_metronome;
@@ -1223,18 +1358,18 @@
 		start_metronome: { arg self, clock, dur;
 			// called in midi.sc: preclap
 			var oldclock;
-			oldclock = self.myclock;
-			self.myclock = clock;
+			//oldclock = self.myclock;
+			//self.myclock = clock;
 			self.start_pos = 0;
 			self.set_record_length(dur);
 			Task {
-				self.changed(\visual_metronome);
+				//self.changed(\visual_metronome);
 				//self.start_visual_metronome;
 				self.start_audio_metronome(clock, dur);
 				dur.wait;
 				//self.changed(\visual_metronome)
 				//self.stop_visual_metronome;
-				self.myclock = oldclock;
+				//self.myclock = oldclock;
 			}.play(clock, quant:1);
 		},
 
@@ -1246,7 +1381,7 @@
 			).play(clock, quant:1);
 		},
 
-		stop_audio_metronome: { arg self, clock, dur;
+		stop_audio_metronome: { arg self;
 			self.audio_metronome.stop;
 		},
 
