@@ -29,7 +29,7 @@ Pbind(\freq, 100, \degree, 0, \noise, Pfunc({ arg ev;
 
 )
 
-
+s.meter
 
 (
 Pdef(\plopi, 

@@ -155,18 +155,24 @@
 
 ~samplekit_manager = (
 	samplekit_part: 0,
-	samplekit_bank: Dictionary.new,
+	samplekit_bank: ~samplekit_bank,
 
 	slot_to_bufnum: { arg self, slot, samplekit;
 		var path;
+		[slot, samplekit].debug("slot_to_bufnum");
 		if(slot == \rest) {
 			BufferPool.get_sample(\samplekit, ~empty_sample_path).bufnum; // FIXME: find a way to not play at all;
 		} {
-			path = self.samplekit_bank[samplekit][slot];
-			if(path.isString.not) {
-				path = path[0]
-			};
-			BufferPool.get_sample(\samplekit, path).bufnum;		
+			if(self.samplekit_bank[samplekit].isNil or: {self.samplekit_bank[samplekit][slot].isNil}) {
+				samplekit.debug("error: samplekit_manager: slot_to_bufnum: no such samplekit or slotnum!");
+				BufferPool.get_sample(\samplekit, ~empty_sample_path).bufnum; // FIXME: find a way to not play at all;
+			} {
+				path = self.samplekit_bank[samplekit][slot];
+				if(path.isString.not) {
+					path = path[0]
+				};
+				BufferPool.get_sample(\samplekit, path).bufnum;		
+			}
 		};
 	},
 
@@ -181,6 +187,9 @@
 
 	set_samplekit_part: { arg self, val;
 		self.samplekit_part = val;
+	},
+	get_samplekit_part: { arg self;
+		self.samplekit_part;
 	},
 	
 	add_samplekit: { arg self, name, samplekit;

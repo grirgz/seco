@@ -55,7 +55,7 @@ SynthDef(\lead2, {	arg out=0, freq = 100, pan=0, amp=0.1, mdetune=1.004, gate=1,
 	LocalOut.ar(fb * fbamp);
 	fb = Limiter.ar(fb, amp);
 	fb = SelectX.ar(wet, [ou, fb*fbpamp]);
-	fb = fb * EnvGen.ar(Env.adsr(0.001,0.4,0.1,rt), gate, doneAction:2);
+	fb = fb * EnvGen.ar(Env.adsr(0.001,0.4,0.9,rt), gate, doneAction:2);
 	fb = Pan2.ar(fb, pan, amp);
 	Out.ar(out, fb);
 }).store;
@@ -71,6 +71,12 @@ SynthDef(\echo, { arg out=0, in=0, maxdtime=0.6, dtime=0.2, decay=2, wet=1, gate
 SynthDef(\record_input, { arg out = 0, bufnum = 0, sustain;
 		var input, env;
         input = SoundIn.ar([0,1]);
+		env = EnvGen.kr(Env.linen(0,sustain,0), doneAction:2); // stop recording after dur..
+        RecordBuf.ar(input, bufnum, doneAction: 0, run:env, loop: 0);
+}).store;
+SynthDef(\record_input_mono, { arg out = 0, bufnum = 0, sustain;
+		var input, env;
+        input = SoundIn.ar([0,1]).sum;
 		env = EnvGen.kr(Env.linen(0,sustain,0), doneAction:2); // stop recording after dur..
         RecordBuf.ar(input, bufnum, doneAction: 0, run:env, loop: 0);
 }).store;

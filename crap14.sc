@@ -327,3 +327,77 @@ Pdefn
 
 )
 
+1+1
+~res.printAll
+~res4.free
+~res4 = nil
+~res2
+(
+~res4 = 500.collect { arg i;
+	~make_player_from_synthdef.(~seq, \lead2)
+};
+)
+
+0.5.coin
+(
+100.collect { 
+	if(0.5.coin) { 1 } { 0 }
+}
+)
+
+
+
+(// * //watch the postWindow
+ a=["m","x","f","k","d","p"];
+ x=Array;
+ y=x.newClear(6);
+~mxfkdp=Task({
+	inf.do({
+	 	y.put(x.series(6,0,1).choose,a.scramble).postln;
+		0.03.wait;
+	})
+}).play;
+
+m=fork({
+	inf.do({
+		//"array num:".postcln;
+		if(y[x.series(6,0,1).choose]==a, {
+		 	"lo encontraste!/found it!".postcln;
+			{ GVerb.ar(
+					 EnvGen.ar(Env.perc(0.01,8),1,doneAction:2)*
+					 Blip.ar(XLine.kr(440,1600,8)),50,10,0.02)
+			}.play;
+			~mxfkdp.stop;
+			m.stop;
+		},{
+			//"buscando.../seeking...".postcln;
+		});
+		0.03.wait
+	})
+});
+);
+//.SCtweetLong
+
+
+
+
+{CombC.ar(Klang.ar(`[[100,101,1000,1001]],1,0)*0.1,0.33,LFTri.ar(0.1, 0, 0.1, 0.11)+LFTri.ar(0.17, 0, 0.1, 0.22),10)!2}.play;
+
+
+
+//Variation
+
+{CombC.ar(Klang.ar(`[[100,101,1000,1001]],1,0)*0.1,1.33,LFTri.ar(0.3, 0, 0.1, 0.71)+LFTri.ar(0.7, 0, 0.1, 0.52),10)!2}.play;
+
+
+(
+PfadeOut(PfadeIn(Pbind(
+	\instrument, \pulsepass,
+	\freq, 200,
+	\dur, 1,
+	\bla, Pfunc{"bla".postln},
+	\amp, 0.1
+),2),2,~bla).play;
+)
+~bla = inf
+~bla = 0

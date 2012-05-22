@@ -900,12 +900,17 @@
 	side: [
 		["decrease_select_offset", \midi, 0, \begin],
 		["increase_select_offset", \midi, 0, \end],
+		["increase_samplekit_part", \midi, 0, \right],
+		["decrease_samplekit_part", \midi, 0, \left],
 
-		["play_group", \midi, \hold, \play],
-		["stop_group", \midi, \hold, \stop],
+		["midi.play_group", \midi, \hold, \play],
+		["midi.stop_group", \midi, \hold, \stop],
+		["play_group", \kb, \ctrl, \f5],
+		["stop_group", \kb, \ctrl, \f6],
 		["play_selected", \kb, 0, \f5],
 		["midi.play_selected", \midi, 0, \play],
 		["stop_selected", \kb, 0, \f6],
+		["stop_selected_quant", \kb, \ctrlshift, \f6],
 		["midi.stop_selected", \midi, 0, \stop],
 		//["mute_selected", \kb, 0, \f7],
 		//["unmute_selected", \kb, \ctrl, \f7],
@@ -913,7 +918,7 @@
 		["unsolo_selected", \kb, \ctrl, \f7],
 		["toggle_solo_selected", \midi, 0, \pause],
 		["panic", \kb, 0, \f8],
-		["edit_tempo", \kb, \ctrlalt, "r"], // t open terminal
+		["edit_tempo", \kb, \ctrlalt, "e"], // t open terminal
 		["edit_quant", \kb, \ctrlalt, "q"],
 		["edit_barrecord", \kb, \ctrlalt, "b"],
 		["edit_selected_param", \kb, 0, \enter],
@@ -993,10 +998,14 @@
 	var realmod;
 	var key = binding[3];
 	var mod = binding[2];
+	var kind = binding[1];
 	if(~keycode.midi_mod.includes(mod)) {
 		mod
 	} {
 		case
+			{ kind == \midi } {
+				realmod = 0;	
+			}
 			{ ~keycode.kbarrow.keys.includes(key) } {
 				realmod = (
 					0: \arrow

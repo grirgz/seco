@@ -148,6 +148,24 @@
 	res;
 };
 
+~save_archive_data = { arg self, list, data=nil;
+	data = data ?? Dictionary.new;
+	list.do { arg key;
+		if(self[key].notNil) {
+			data[key] = self[key]
+		}
+	};
+	data
+};
+
+~load_archive_data = { arg self, list, data;
+	list.do { arg key;
+		if(data[key].notNil) {
+			self[key] = data[key]
+		}
+	};
+};
+
 // this function take a pattern and a list of Pmono pattern as effects
 ~pfx = { arg pat, effects;
 	Pspawner({ |spawner|
@@ -194,6 +212,80 @@
 	});
 };
 
+~penvcontrol = { arg pat, chain=nil;
+	var buskeydict = Dictionary.new;
+	var respat = List.new;
+	var ctlpatlist = List.new;
+	var pbindpat;
+	var makebusmap;
+
+	"pcontrol start".debug;
+	makebusmap = { arg key;
+		Pfunc { arg ev; [key, ev[key]].debug("pfunc"); ev[key].asMap }
+	};
+	
+	if(pat.class == EventPatternProxy) {
+		pbindpat = pat.source;
+	} {
+		pbindpat = pat
+	};
+
+	pbindpat.patternpairs.pairsDo { arg key,val;
+		var buskey;
+		var env;
+		var cbus;
+		var ctlpat;
+		if(val.class == Ref) {
+			buskey = "bus_" ++ key;
+			respat.add(key);
+			respat.add(makebusmap.(buskey));
+			env = val.value;
+			buskeydict[buskey] = env.levels[0];
+			cbus.set(env.levels[0]);
+			ctlpat = Pbind(
+				\instrument, \ctlPoint,
+				\value, Pseq(env.levels[1..],inf),
+				\time, Pseq(env.times,inf) / Pfunc({thisThread.clock.tempo}),
+				\group, Pkey(\busgroup),
+				\outbus, Pfunc { arg ev; ev[buskey].index },
+				\curve, env.curves,
+				\dur, Pseq(env.times,inf)
+			);
+			ctlpatlist.add(ctlpat);
+		} 
+	};
+
+	respat.debug("respat");
+
+	Pfset({
+			buskeydict.debug("penvcontrol init pfset");
+			buskeydict.keysValuesDo { arg key, val;
+				currentEnvironment[key] = Bus.control(s, 1);
+				currentEnvironment[key].set(val);
+			};
+			currentEnvironment[\busgroup] = Group.new;
+		},
+		Pfpar(
+			[
+				if(chain.notNil) {
+					chain <> Pbind(*respat) <> pat;
+				} {
+					Pbind(*respat) <> pat;
+				}
+			]
+			++ ctlpatlist
+		),
+		{
+			buskeydict.debug("penvcontrol cleanup pfset");
+			buskeydict.keysValuesDo { arg key, val;
+				currentEnvironment[key].free;
+			};
+			currentEnvironment[\busgroup].freeAll;
+			currentEnvironment[\busgroup].free;
+		}
+	)
+};
+
 // ==========================================
 // INCLUDES
 // ==========================================
@@ -205,6 +297,7 @@
 	"midi",
 	"param",
 	"samplelib",
+	"node_manager",
 	"player",
 	"matrix",
 	"hmatrix",
@@ -243,6 +336,7 @@
 	var width = 1350, height = 800;
 	var parent;
 
+	controller.window = window;
 	
 	window = GUI.window.new("seq", Rect(50, 50, width, height));
 	window.view.decorator = FlowLayout(window.view.bounds); // notice that FlowView refers to w.view, not w
@@ -257,6 +351,10 @@
 
 		title: { arg obj, msg, title;
 			window.name = title;
+		},
+
+		focus_window: { arg self, msg, title;
+			window.view.focus(true);
 		},
 
 		panel: { arg obj, msg, panel;
@@ -388,6 +486,7 @@
 
 			velocity_ratio: 0.3,
 
+			latency: 0.2,
 			nodelib: List.new,
 			presetlib: Dictionary.new,
 			presetlib_path: nil,
@@ -402,6 +501,12 @@
 		),
 
 		commands: ~shortcut,
+
+		calcveloc: { arg self, amp, veloc, ratio=nil;
+			ratio = ratio ?? self.model.velocity_ratio;
+			[amp, ratio, veloc, (amp + (amp * ratio * (veloc-0.5)))].debug("calcveloc");
+			amp + (amp * ratio * (veloc-0.5));
+		},
 
 		set_window_title: { arg self, title;
 			self.changed(\title, title);
@@ -488,11 +593,19 @@
 			pool.keysValuesDo { arg key, val;
 				switch(val.kind,
 					\player, {
-						(key -> (
-							kind: \synthnode,
-							defname: val.defname,
-							data: val.save_data
-						)).writeArchive(projpath++"/livenode_"++key);
+						if(val.subkind == \nodesampler) {
+							(key -> (
+								kind: \nodesampler,
+								data: val.save_data
+							)).writeArchive(projpath++"/samplernode_"++key);
+
+						} {
+							(key -> (
+								kind: \synthnode,
+								defname: val.defname,
+								data: val.save_data
+							)).writeArchive(projpath++"/livenode_"++key);
+						}
 					},
 					\seqnode, {
 						(key -> (
@@ -519,38 +632,50 @@
 			"FF".debug;
 			path.entries.do { arg file;
 				var fullname, name, asso;
-				file.debug("unarchive_livenodepool file");
-				fullname = file.fullPath;
-				name = file.fileName;
+				try {
+					file.debug("unarchive_livenodepool file");
+					fullname = file.fullPath;
+					name = file.fileName;
 
-				if(name.containsStringAt(0, "livenode_"), {
-					asso = Object.readArchive(fullname);
-					asso.key.debug("unarchive_livenodepool livenode");
-					if(asso.key == \voidplayer) {
-						pool[asso.key] = ~empty_player.()
-					} {
-						pool[asso.key] = ~make_player_from_synthdef.(self, asso.value.defname);
+					if(name.containsStringAt(0, "livenode_"), {
+						asso = Object.readArchive(fullname);
+						asso.key.debug("unarchive_livenodepool livenode");
+						if(asso.key == \voidplayer) {
+							pool[asso.key] = ~empty_player.()
+						} {
+							pool[asso.key] = ~make_player_from_synthdef.(self, asso.value.defname);
+							pool[asso.key].load_data( asso.value.data );
+							pool[asso.key].name = asso.key;
+							pool[asso.key].uname = asso.key;
+						}
+					});
+					if(name.containsStringAt(0, "parnode_"), {
+						asso = Object.readArchive(fullname);
+						asso.key.debug("unarchive_livenodepool parnode");
+						pool[asso.key] = ~make_parplayer.(self);
 						pool[asso.key].load_data( asso.value.data );
 						pool[asso.key].name = asso.key;
 						pool[asso.key].uname = asso.key;
-					}
-				});
-				if(name.containsStringAt(0, "parnode_"), {
-					asso = Object.readArchive(fullname);
-					asso.key.debug("unarchive_livenodepool parnode");
-					pool[asso.key] = ~make_parplayer.(self);
-					pool[asso.key].load_data( asso.value.data );
-					pool[asso.key].name = asso.key;
-					pool[asso.key].uname = asso.key;
-				});
-				if(name.containsStringAt(0, "seqnode_"), {
-					asso = Object.readArchive(fullname);
-					asso.key.debug("unarchive_livenodepool seqnode");
-					pool[asso.key] = ~make_seqplayer.(self);
-					pool[asso.key].load_data( asso.value.data );
-					pool[asso.key].name = asso.key;
-					pool[asso.key].uname = asso.key;
-				});
+					});
+					if(name.containsStringAt(0, "seqnode_"), {
+						asso = Object.readArchive(fullname);
+						asso.key.debug("unarchive_livenodepool seqnode");
+						pool[asso.key] = ~make_seqplayer.(self);
+						pool[asso.key].load_data( asso.value.data );
+						pool[asso.key].name = asso.key;
+						pool[asso.key].uname = asso.key;
+					});
+					if(name.containsStringAt(0, "samplernode_"), {
+						asso = Object.readArchive(fullname);
+						asso.key.debug("unarchive_livenodepool samplernode");
+						pool[asso.key] = ~make_nodesampler.(self);
+						pool[asso.key].load_data( asso.value.data );
+						pool[asso.key].name = asso.key;
+						pool[asso.key].uname = asso.key;
+					});
+				} { arg error;
+					[file, error].debug("Error occured when loading file");
+				}
 			};
 			"FF".debug;
 			pool;
@@ -576,6 +701,8 @@
 			proj.samplelist = self.model.samplelist;
 
 			proj.volume = s.volume.volume;
+
+			proj.play_manager = main.play_manager.save_data;
 
 			proj.panels = ();
 			proj.panels.parlive = self.panels.parlive.save_data;
@@ -610,6 +737,8 @@
 				self.model.patpool = proj.patpool.debug("patpool===============================");
 				self.model.samplelist = proj.samplelist;
 				s.volume.volume = proj.volume;
+
+				main.play_manager.load_data(proj.play_manager);
 
 				self.model.project_path = projpath;
 
@@ -829,6 +958,16 @@
 			self.panels.side.make_gui;
 		},
 
+		close_side_gui: { arg self;
+			if(self.panels.side.window.notNil) {
+				self.panels.side.window.close;
+			}
+		},
+
+		focus_window: { arg self;
+			self.changed(\focus_window);
+		},
+
 		init: { arg self;
 			self.init_synthdesclib;
 			"ijensuisla".debug;
@@ -836,6 +975,7 @@
 			"jensuisla".debug;
 			~parse_bindings.(main.commands,~bindings);
 			self.node_manager = ~make_node_manager.(self);
+			self.samplekit_manager = ~samplekit_manager;
 			self.midi_center = ~midi_center.(self);
 			self.play_manager = ~make_playmanager.(self);
 			self.context = ~make_context.(main);

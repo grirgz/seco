@@ -10,10 +10,10 @@
 	}).store;
 };
 
-~make_adsr = { arg argname;
+~make_adsr = { arg argname, default=nil;
 		var env;
 		// [attackTime, decayTime, sustainLevel, releaseTime, peakLevel, curve]
-		env = Env.adsr(0.02, 0.2, 0.25, 0.1, 1, -4);
+		env = default ?? Env.adsr(0.02, 0.2, 0.25, 0.1, 1, -4);
 		Control.names([argname]).kr( env.asArray );
 };
 

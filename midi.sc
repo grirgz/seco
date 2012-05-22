@@ -357,7 +357,13 @@
 		tc = main.play_manager.get_clock;
 
 		session = Task {
-			if (metronome) { pman.start_metronome(tc, recdur) };
+			if (metronome) { 
+				if(kind == \unlimited) {
+					pman.start_unlimited_metronome(tc)
+				} {
+					pman.start_metronome(tc, dur);
+				};
+			};
 			start_action.(tc);
 			main.play_manager.changed(\head_state, \record);
 			(recdur-0.01).wait;
@@ -370,7 +376,13 @@
 		main.play_manager.start_new_session;
 		supertc = main.play_manager.get_clock;
 		session = Task {
-			if (metronome) { pman.start_metronome(tc, recdur) };
+			if (metronome) { 
+				if(kind == \unlimited) {
+					pman.start_unlimited_metronome(tc)
+				} {
+					pman.start_metronome(tc, dur);
+				};
+			};
 			start_action.(tc);
 			main.play_manager.changed(\head_state, \record);
 			recdur.wait;
@@ -558,7 +570,7 @@
 		start_immediate_recording: { arg self;
 			var record_start_time;
 			//var latency = s.latency + 0.2;
-			var latency = s.latency ;
+			var latency = s.latency + main.model.latency;
 			var notescore;
 			var curtime;
 			livesynth = player.get_piano;

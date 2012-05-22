@@ -228,6 +228,19 @@
 
 };
 
+~concat_notescores = { arg ns1, ns2;
+	var shift = ns1.abs_end;
+	var res = ns1.deepCopy;
+	var newno;
+	ns2.get_abs_notes.collect { arg no;
+		newno = no.deepCopy;	
+		newno.time = newno.time + shift;
+		res.notes = res.notes.add(newno);
+	};
+	res.abs_end = shift + ns2.abs_end;
+	res;
+};
+
 
 ~make_notescore = { 
 	(
@@ -288,7 +301,7 @@
 			no;
 		},
 
-		get_rel_notes: { arg self, start=0, dur;
+		get_rel_notes: { arg self, start=0, dur=nil;
 			var notes, last, end;
 			start = self.abs_start + start;
 			end = if(dur.isNil) {
@@ -322,6 +335,10 @@
 			notes;
 		},
 
+		cut_exceeding_notes: { arg self, start=0, dur=nil;
+			self.notes = self.get_abs_notes(start, dur);
+		},
+
 		split_in_slices: { arg self, dur;
 			var total_dur = self.abs_end - self.abs_start;			
 			var numslices = (total_dur / dur).asInteger;
@@ -338,9 +355,28 @@
 			};
 		},
 
-		get_abs_notes: { arg self;
-			// TODO
-			self.notes;
+		filter_by_slot: { arg self, slotnum;
+			var res = self.deepCopy;
+			//[slotnum, res.notes].debug("filter_by_slot: before");
+			res.notes = res.notes.select { arg no;
+				no.slotnum == slotnum
+			};
+			//res.notes.debug("filter_by_slot: after");
+			res;
+		},
+
+		get_abs_notes: { arg self, start=0, dur=nil;
+			var notes, last, end;
+			start = self.abs_start + start;
+			end = if(dur.isNil) {
+				self.abs_end;
+			} {
+				start + dur;
+			};
+			notes = self.notes.select { arg no;
+				no.time >= start and: { no.time <= end }
+			};
+			notes;
 		}
 	)
 };
@@ -353,7 +389,7 @@
 
 		update_notes: { arg self;
 			self.notes = self.notescore.get_rel_notes(self.slice_start, self.slice_dur);
-			self.notes.debug("make_notescore.update_notes:notes");
+			//self.notes.debug("make_notescore.update_notes:notes");
 		},
 
 		set_notescore: { arg self, ns;
@@ -425,9 +461,15 @@
 
 			// quantify notes
 			notes.collect({arg no, x; no.numero = x }); // debug purpose
-			notes.debug("update_note_dur: original notes");
-			qnotes = notes.collect{ arg x; self.quantify_note(x) };
-			qnotes.debug("update_note_dur: qnotes");
+			//notes.debug("update_note_dur: original notes");
+			qnotes = notes.collect{ arg x;
+				x = self.quantify_note(x);
+				if(x.midinote.isNil) {
+					x.midinote = x.slotnum;
+				};
+				x;
+			};
+			//qnotes.debug("update_note_dur: qnotes");
 
 			// troncate too long end silence
 			normdur = self.total_dur(notes);
@@ -462,11 +504,11 @@
 				}
 			};
 
-			vnotes.debug("update_note_dur: vnotes");
+			//vnotes.debug("update_note_dur: vnotes");
 			self.notes = vnotes;
 
 			param.changed(\notes);
-			param.debug("UPDATED NOTES !!!!");
+			//param.debug("UPDATED NOTES !!!!");
 		},
 
 		quantify_note: { arg self, note;
@@ -500,6 +542,10 @@
 		set_notescore: { arg self, val;
 			self.notescore = val;
 			self.update_notes;
+		},
+
+		get_notescore: { arg self;
+			self.notescore;
 		},
 
 
@@ -542,13 +588,13 @@
 		backward_in_history: { arg self;
 			self.history_index = (self.history_index + 1).clip(0, self.history.size);
 			self.set_next_notescore(self.history[self.history_index]);
-			self.history[self.history_index].debug("backward_in_history: notescore");
+			//self.history[self.history_index].debug("backward_in_history: notescore");
 		},
 		
 		forward_in_history: { arg self;
 			self.history_index = (self.history_index - 1).clip(0, self.history.size);
 			self.set_next_notescore(self.history[self.history_index]);
-			self.history[self.history_index].debug("forward_in_history: notescore");
+			//self.history[self.history_index].debug("forward_in_history: notescore");
 		},
 
 		set_next_notescore_history: { arg self, val, dur=nil;
@@ -935,7 +981,7 @@
 
 		set_notequant: { arg self, val;
 			self.notequant = val;
-			self.update_note_dur;
+			self.update_notes;
 		}
 
 	)

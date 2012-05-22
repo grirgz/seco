@@ -35,11 +35,12 @@
 		sourcewrapper: nil,
 		playing_state: \stop,
 		muted: false,
-		archive_param_data: [\control, \stepline, \adsr, \noteline, \buf],
+		archive_param_data: [\control, \stepline, \adsr, \noteline, \nodeline, \sampleline, \buf],
 		archive_data: [\current_mode, \effects],
 		effects: List.new,
 		is_effect: false,
 		ccbus_set: IdentitySet.new,
+		env_mode: false,
 
 		init: { arg self;
 			var colpreset;
@@ -213,43 +214,66 @@
 		},
 
 
-		get_piano: { arg self;
+		get_piano: { arg self, kind=\normal;
 			var veloc_ratio = main.model.velocity_ratio;
 			var exclu, list = List[];
-			exclu = [\instrument, \noteline, \amp, \bufnum, \freq, \sampleline, \samplekit, \repeat, \stretchdur, \stepline, \type, \dur, \segdur, \legato, \sustain];
+			exclu = [\instrument, \noteline,  \sampleline, \samplekit, \repeat, \stretchdur, \stepline, \type, \dur, \segdur, \legato, \sustain,
+					\amp, \bufnum, \freq,
+			];
 			self.data.keys.difference(exclu).do { arg key;
 				var val = self.data[key].vpiano ?? self.data[key].vpattern;
 				list.add(key); list.add( val ) 
 			};
-			if(self.get_mode == \sampleline) {
-				if(self.data[\freq].notNil) {
-					list.add(\freq); list.add( self.data[\freq].vpiano ?? self.data[\freq].vpattern );
-				};
-				{ arg slotnum, veloc=1; 
-					veloc = veloc ?? 1;
-					[slotnum, self.data[\samplekit].get_val].debug("slotnum, samplekit get val");
-					~samplekit_manager.slot_to_bufnum(slotnum, self.data[\samplekit].get_val).debug("bufnum");
-					Synth(self.data[\instrument].vpiano, (
-						[\bufnum, ~samplekit_manager.slot_to_bufnum(slotnum, self.data[\samplekit].get_val),
-							\amp, self.data[\amp].vpiano.value + (veloc * veloc_ratio) ] ++
-							list.collect(_.value)).debug("sampleline arg listHHHHHHHHHHHHHHHHHHHHHHHHHHH")) 
-				}
-			} {
-				if(self.data[\bufnum].notNil) {
-					list.add(\bufnum); list.add( self.data[\bufnum].vpiano ?? self.data[\bufnum].vpattern );
-				};
-				{ arg freq, veloc=1; 
-					veloc = veloc ?? 1;
-					if(self.data[\freq].notNil) {
-						list.add(\freq); list.add( freq ?? self.data[\freq].vpiano ?? self.data[\freq].vpattern );
+			if(kind == \nsample) {
+					[\freq, \bufnum].do { arg paramname;
+						if(self.data[paramname].notNil) {
+							list.add(paramname); list.add( self.data[paramname].vpiano ?? self.data[paramname].vpattern );
+						};
 					};
-					[self.data[\amp].vpiano.value, veloc].debug("CESTLA?");
-					Synth(self.data[\instrument].vpiano, (
-						[\amp, self.data[\amp].vpiano.value + (veloc * veloc_ratio) ] ++
-							list.collect(_.value)).debug("arg listHHHHHHHHHHHHHHHHHHHHHHHHHHH")) 
-				}
+					{ arg slotnum, veloc=1; 
+						veloc = veloc ?? 1;
+						Synth(self.data[\instrument].vpiano, (
+							[\amp, main.calcveloc(self.data[\amp].vpiano.value, veloc) ] ++
+								list.collect(_.value)).debug("nsample arg listHHHHHHHHHHHHHHHHHHHHHHHHHHH")
+						) 
+					}
+			} {
+				if(self.get_mode == \sampleline) {
+					if(self.data[\freq].notNil) {
+						list.add(\freq); list.add( self.data[\freq].vpiano ?? self.data[\freq].vpattern );
+					};
+					{ arg slotnum, veloc=1; 
+						veloc = veloc ?? 1;
+						[slotnum, self.data[\samplekit].get_val].debug("slotnum, samplekit get val");
+						~samplekit_manager.slot_to_bufnum(slotnum, self.data[\samplekit].get_val).debug("bufnum");
+						Synth(self.data[\instrument].vpiano, (
+							[\bufnum, ~samplekit_manager.slot_to_bufnum(slotnum, self.data[\samplekit].get_val),
+								\amp, main.calcveloc(self.data[\amp].vpiano.value, veloc) ] ++
+								list.collect(_.value)).debug("sampleline arg listHHHHHHHHHHHHHHHHHHHHHHHHHHH")) 
+					}
+				} {
+					//FIXME: why freq could be nil ?
+					//if(self.data[\freq].notNil) {
+					//	list.add(\freq); list.add( freq ?? self.data[\freq].vpiano ?? self.data[\freq].vpattern );
+					//};
+					if(self.data[\bufnum].notNil) {
+						list.add(\bufnum); list.add( self.data[\bufnum].vpiano ?? self.data[\bufnum].vpattern );
+					};
+					{ arg freq, veloc=1; 
+						veloc = veloc ?? 1;
+						[self.data[\amp].vpiano.value, veloc].debug("CESTLA?");
+						if(freq.isNil) { "get_piano: why freq is nil ?".debug; };
+						Synth(self.data[\instrument].vpiano, (
+							[
+								\amp, main.calcveloc(self.data[\amp].vpiano.value, veloc),
+								\freq, freq,
+							] 
+							++ list.collect(_.value)).debug("arg listHHHHHHHHHHHHHHHHHHHHHHHHHHH")
+						) 
+					}
 
-			};
+				};
+			}
 
 		},
 
@@ -430,19 +454,27 @@
 			var data = ();
 			data.defname = self.defname;
 			self.data.keysValuesDo { arg key, val;
-				if([\control].includes(val.classtype) ) {
+				if([\control].includes(val.classtype) ) { 
+					data[key] = val.get_val;
+				};
+				if([\adsr].includes(val.classtype)) {
 					data[key] = val.get_val;
 				};
 			};
 			data;
 		},
 
-		load_column_preset: { arg self, data, kind=\seq;
+		load_column_preset: { arg self, data, kind=\scalar;
 			self.data.keysValuesDo { arg key, val;
 				if( data[key].notNil ) {
+					[key, val.current_kind, kind].debug("load_column_preset");
 					if( val.current_kind == kind ) {
-						[key, data[key]].debug("load_column_preset");
-						val.set_val(data[key]);
+						[key, data[key]].debug("load_column_preset vraiment");
+						if([\adsr].includes(val.classtype)) {
+							val.set_all_val( data[key] );
+						} {
+							val.set_val(data[key]);
+						};
 					}
 				};
 			};
@@ -479,8 +511,15 @@
 			}
 		},
 
+		set_env_mode: { arg self, val = true;
+			self.env_mode = val;
+			self.env_mode.debug("SET ENV MODE!!!");
+			self.build_real_sourcepat; // FIXME: already called just before setting env_mode (at init)
+		},
+
 		build_real_sourcepat: { arg self;
 			var res, list;
+			var chain;
 			"entering build_real_sourcepat".debug;
 
 			res = if(self.wrapper.notNil) {
@@ -493,20 +532,32 @@
 				//"entering build_real_sourcepat: making input pattern".debug;
 				self.input_pattern.source.postcs;
 				res.postcs;
-				res = Pfunc({ arg ev; 
+				chain = Pfunc({ arg ev; 
 					//ev.debug("EV"); 
-					if(ev.as(Dictionary).includesKey(\degree)) {
+					var evd = ev.as(Dictionary);
+					if(evd.includesKey(\degree)) {
 						ev.removeAt(\freq);
 					} {
-						if(ev.as(Dictionary).includesKey(\midinote)) {
+						if(evd.includesKey(\midinote)) {
 							ev.removeAt(\freq);
 						};
 					};
+					if(evd.includesKey(\mylegato)) { // FIXME: find a way to switch between legato and sustain
+						ev.removeAt(\sustain);
+					};
 					ev;
 					//ev.debug("EV2"); 
-				}) <> res <> self.input_pattern;
+				}) <> res;
+				self.env_mode.debug("*************************** ENV MODE ???");
+				res = if(self.env_mode) {
+					"*************************** ENV MODE ENABLED!!!".debug;
+					~penvcontrol.(self.input_pattern, chain);
+				} {
+					chain <> self.input_pattern;
+				}
 				//res = self.input_pattern; // DEBUG
 			};
+
 
 			res = if(self.effects.size > 0) {
 				~pfx.(
@@ -550,8 +601,8 @@
 			//self.node.play;
 		},
 
-		stop_node: { arg self;
-			main.play_manager.stop_node(self.uname);
+		stop_node: { arg self, use_quant;
+			main.play_manager.stop_node(self.uname, use_quant);
 			self.uname.debug("++++++++++++++++++++++++++++++++++++++++++++++++++stop");
 			//self.node.source = nil;
 			self.uname.debug("++++++++++++++++++++++++++++++++++++++++++++++++++niling source");
@@ -568,6 +619,7 @@
 		},
 
 		play_repeat_node: { arg self; 
+			// not used anymore: use vpattern_loop instead
 			var rep;
 			rep = self.data[\repeat].get_val;
 			self.data[\repeat].set_val(0);
@@ -580,12 +632,12 @@
 
 		select_param: { arg self, name;
 			var oldsel;
-			if( self.data[name].notNil ) {
+			if( self.get_arg(name).notNil ) {
 				oldsel = self.selected_param;
 				name.debug("player selected_param");
 				self.selected_param = name;
-				self.data[oldsel].changed(\selected);
-				self.data[name].changed(\selected);
+				self.get_arg(oldsel).changed(\selected);
+				self.get_arg(name).changed(\selected);
 			} {
 				[self.uname, name].debug("can't select param: not found");
 			}
@@ -593,6 +645,10 @@
 
 		get_selected_param: { arg self;
 			self.selected_param;
+		},
+
+		get_selected_param_object: { arg self;
+			self.get_arg(self.selected_param);
 		},
 
 		get_raw_arg: ~player_get_arg,
@@ -774,6 +830,7 @@
 		uname: \new,
 		data: Dictionary.new,
 		archive_data: [\children, \kind, \name, \selected_child, \selected_child_index],
+		archive_classtype: [\control, \stepline, \adsr, \noteline, \sampleline, \nodeline, \buf],
 		playlist: List.new,
 		playing_state: \stop,
 		muted: false,
@@ -808,6 +865,23 @@
 					}
 				}
 			};
+		},
+
+		select_param: { arg self, name;
+			var oldsel;
+			if( self.data[name].notNil ) {
+				oldsel = self.selected_param;
+				name.debug("player selected_param");
+				self.selected_param = name;
+				self.data[oldsel].changed(\selected);
+				self.data[name].changed(\selected);
+			} {
+				[self.uname, name].debug("can't select param: not found");
+			}
+		},
+
+		get_selected_param: { arg self;
+			self.selected_param;
 		},
 
 		set_playing_state: { arg self, state;
@@ -1026,8 +1100,8 @@
 			self.uname.debug("++++++++++++++++++++++++++++++++++++++++++++++++++play");
 		},
 
-		stop_node: { arg self;
-			main.play_manager.stop_node(self.uname);
+		stop_node: { arg self, use_quant;
+			main.play_manager.stop_node(self.uname, use_quant);
 			self.uname.debug("++++++++++++++++++++++++++++++++++++++++++++++++++stop");
 			//FIXME: must niling source ?
 			//self.get_children.do { arg n; n.stop_node };
@@ -1045,6 +1119,10 @@
 			self.data.keys;
 		},
 
+		get_ordered_args: { arg self;
+			~sort_by_template.(self.data.keys, [\nodeline, \amp, \repeat]);
+		},
+
 		get_arg: { arg self, argu;
 			self.data[argu];
 		},
@@ -1058,7 +1136,7 @@
 			data.args = ();
 			self.get_args.do { arg key;
 				argdat = self.get_arg(key);	
-				if([\control, \stepline, \adsr, \noteline].includes(argdat.classtype), {
+				if(self.archive_classtype.includes(argdat.classtype), {
 					data.args[key] = argdat.save_data
 				})
 			};
@@ -1072,7 +1150,7 @@
 			};
 			self.get_args.do { arg key;
 				argdat = self.get_arg(key);	
-				if([\control, \noteline, \stepline, \adsr].includes(argdat.classtype), {
+				if(self.archive_classtype.includes(argdat.classtype), {
 					argdat.load_data( data.args[key] )
 				})
 			};
@@ -1151,13 +1229,61 @@
 	var obj;
 	obj = ~make_parplayer.(main, children);
 	pplayer = (
-		kind: \parnode,
+		kind: \player,
 		subkind: \nodesampler,
+		samplechildren: List.new,
+		responders: List.new,
 
 		init: { arg self;
 			self.data[\repeat] = self.data[\repeat] ?? ~make_control_param.(main, self, \repeat, \scalar, 1, ~get_spec.(\repeat));
-			self.data[\nodeline] = self.data[\nodeline] ?? ~make_nodeline_param.(main, self, \nodeline);
+			self.data[\nodeline] = self.data[\nodeline] ?? ~make_nodeline_param.(\nodeline);
+			self.data[\dur] = self.data[\dur] ?? ~make_control_param.(main, self, \dur, \scalar, 0.25, ~get_spec.(\dur));
+			//self.data[\noteline] = self.data[\noteline] ?? ~make_noteline_param.(\noteline);
 			self.get_arg(\repeat).get_val.debug("init repeat.get_val");
+		},
+
+		set_samplechildren: { arg self, list;
+			var sc;
+			self.samplechildren = list;
+			self.children = List.new;
+			self.responders.do { _.remove };
+			self.responders = List.new;
+			list.do { arg child, slotnum;
+				switch(child[0],
+					\nsample, {
+						~notNildo.(main.get_node(child[1])) { arg node;
+							self.children.add(child[1]);
+							sc = SimpleController(self.data[\nodeline]);
+							node.set_mode(\noteline);
+							sc.put(\notes, { arg self, msg, val;
+								var notescore = self.scoreset.get_notescore.filter_by_slot( slotnum );
+								node.get_arg(\noteline).scoreset.set_notescore( notescore );
+								//node.get_arg(\noteline).scoreset.add_to_history( notescore );
+							});
+							self.responders.add( sc );
+						};
+					}
+				)
+			};
+		},
+
+		get_mode: { arg self;
+			\nodeline
+		},
+
+		get_piano: { arg self;
+			{ arg slotnum, veloc;
+				var child = self.samplechildren[slotnum];
+				if(child.notNil) {
+					switch(child[0],
+						\nsample, {
+							~notNildo.(main.get_node(child[1])) { arg node;
+								node.get_piano(\nsample).value(slotnum, veloc);
+							};
+						}
+					)
+				}
+			}
 		},
 
 		vpattern: { arg self, noreplay=true;
@@ -1165,7 +1291,7 @@
 			repeat = self.get_arg(\repeat).get_val.debug("vpattern repeat.get_val");
 			self.uname.debug("vpattern");
 			
-			Pn(~par_spawner.(main.play_manager, self.get_children), repeat);
+			Pn(~par_spawner.(main.play_manager, self.children.collect { arg x; main.get_node(x) }), repeat);
 		},
 
 		new_self: { arg self, main, children=List[];
@@ -1207,334 +1333,6 @@
 //a = ~make_control_param.(main, self, \repeat, \scalar, 1, ~get_spec.(\repeat))
 //a.get_val
 
-// ==========================================
-// PLAYMANAGER
-// ==========================================
-
-~find_children = { arg main, node;
-	var res = Set[];
-	node.uname.debug("find_children: entering");
-	if([\parnode, \seqnode].includes(node.kind) ) {
-		node.get_children.do { arg child;
-			child.uname.debug("processing child");
-			if(child.uname.isNil) {
-				"child is nil".debug;
-			} {
-				"aa".debug;
-				if( res.includes(child.uname) ) {
-					child.uname.debug("find_children: loop");
-				} {
-					"ba".debug;
-					res.add(child);
-					"ca".debug;
-					if([\parnode, \seqnode].includes(child.kind) ) {
-						"da".debug;
-						res.addAll(~find_children.(main, child));
-					};
-				};
-			};
-		};
-	};
-	//[node.uname, res].debug("result for");
-	res; // return real nodes (not names)
-};
-
-~make_playmanager = { arg main;
-	
-	var obj;
-	obj = (
-		top_nodes: Dictionary.new,
-		children_nodes: Set.new,
-		solomuted_nodes: Set.new,
-		recording: false,
-		tempo: TempoClock.default.tempo,
-		visual_metronome_enabled: true,
-
-		myclock: TempoClock.default,
-
-		start_pos: 0,
-		play_length: 16,
-		record_length: 8,
-		syncclap_dur: 4,
-		use_metronome: false,
-		keep_recording_session: false,
-		get_clock: { arg self; self.myclock },
-
-		refresh: { arg self;
-			self.changed(\head_state, \stop);
-			self.changed(\pos);
-			self.changed(\quant);
-			self.changed(\visual_metronome);
-			self.changed(\tempo, self.get_clock.tempo);
-		},
-
-		is_near_end: { arg self;
-			self.get_rel_beat > (self.get_record_length - 1 - self.myclock.beatsPerBar)
-		},
-
-		get_rel_beat: { arg self;
-			[self.get_clock.beats, self.start_pos, self.get_record_length,
-				((self.get_clock.beats - self.start_pos) % self.get_record_length)
-			].debug("beats, spos, reclen, relbeat");
-			((self.get_clock.beats - self.start_pos) % self.get_record_length)
-		},
-
-		is_recording: { arg self;
-			self.recording == true
-		},
-
-		set_recording: { arg self, val;
-			self.recording = val;
-			if(self.is_recording) {
-				self.changed(\head_state, \prepare);
-			} {
-				if(self.is_playing) {
-					self.changed(\head_state, \play);
-				} {
-					self.changed(\stop_counter);
-					self.changed(\head_state, \stop);
-				}
-			};
-		},
-
-		get_record_length: { arg self;
-			self.record_length;
-		},
-
-		get_record_length_in_seconds: { arg self;
-			self.get_record_length / self.myclock.tempo;
-		},
-
-		set_record_length: { arg self, val;
-			val.debug("play_manager.set_record_length");
-			self.record_length = val;
-			self.changed(\pos);
-		},
-
-		set_bpm_tempo: { arg self, val;
-			self.myclock.tempo = val/60;
-			self.tempo = val/60;
-			self.changed(\tempo);
-		},
-
-		get_bpm_tempo: { arg self;
-			self.myclock.tempo * 60;
-		},
-
-		get_tempo: { arg self;
-			self.myclock.tempo;
-		},
-
-		get_quant: { arg self;
-			EventPatternProxy.defaultQuant;
-		},
-
-		set_quant: { arg self, val;
-			EventPatternProxy.defaultQuant = val;
-			self.changed(\quant);
-		},
-
-		start_new_session: { arg self;
-			if(self.is_playing || self.keep_recording_session) {
-				"start_new_session: already playing".debug;
-				self.keep_recording_session = false;
-				self.changed(\visual_metronome);
-			} {
-				"start_new_session: new session!!".debug;
-				if(self.myclock != TempoClock.default) {
-					//self.myclock.stop // TODO: make sure there is no ressource leak
-					//FIXME: this stop cause bug, why ?
-				};
-				self.myclock = TempoClock.new(self.tempo);
-				self.myclock.permanent = true;
-				self.myclock.beats.debug("start_new_session: new clock beats");
-				self.myclock.hash.debug("hash");
-				self.start_pos = 0;
-				self.changed(\visual_metronome);
-				//self.start_visual_metronome;
-			}
-		},
-
-		start_metronome: { arg self, clock, dur;
-			// called in midi.sc: preclap
-			var oldclock;
-			//oldclock = self.myclock;
-			//self.myclock = clock;
-			self.start_pos = 0;
-			self.set_record_length(dur);
-			Task {
-				//self.changed(\visual_metronome);
-				//self.start_visual_metronome;
-				self.start_audio_metronome(clock, dur);
-				dur.wait;
-				//self.changed(\visual_metronome)
-				//self.stop_visual_metronome;
-				//self.myclock = oldclock;
-			}.play(clock, quant:1);
-		},
-
-		start_audio_metronome: { arg self, clock, dur;
-			self.audio_metronome = Pbind(\instrument, \metronome,
-				\freq, 440,
-				\sustain, 0.1,
-				\dur, Pn(1,dur)
-			).play(clock, quant:1);
-		},
-
-		stop_audio_metronome: { arg self;
-			self.audio_metronome.stop;
-		},
-
-		enable_visual_metrome: { arg self, val=true;
-			self.visual_metronome_enabled = val;
-			self.changed(\visual_metronome);
-		},
-
-		start_visual_metronome: { arg self;
-			self.get_rel_beat.debug("pm: start_visual_metronome");
-			self.visual_metronome_enabled = true;
-			self.changed(\visual_metronome);
-		},
-
-		stop_visual_metronome: { arg self;
-			self.get_rel_beat.debug("pm: stop_visual_metronome");
-			self.visual_metronome_enabled = false;
-			self.changed(\visual_metronome);
-		},
-
-		is_playing: { arg self;
-			self.top_nodes.size > 0
-		},
-
-		node_is_playing: { arg self, node;
-			self.top_nodes.keys.includes(node.uname) || self.children_nodes.includes(node.uname)
-		},
-
-		play_node: { arg self, nodename;
-			var esp, sc, children, quant;
-			nodename.debug("pm: play_node");
-			[self.top_nodes, self.children_nodes].debug("pm: state");
-			~notNildo.(main.get_node(nodename), { arg node;
-				self.start_new_session;
-				children = ~find_children.(main, node);
-				if( self.top_nodes.keys.includes(nodename) ) {
-					nodename.debug("pm: play_node: already playing, unmuting children");
-					children.do { arg child;
-						child.mute(false);
-					};
-				} {
-					if( self.children_nodes.includes(nodename) ) {
-						nodename.debug("pm: play_node: unmute");
-						node.mute(false);
-					} {
-						nodename.debug("pm: play_node: play!");
-						children.do { arg child;
-							child.mute(false);
-						};
-						node.mute(false);
-						node.node.source = node.vpattern_loop;
-						quant = if(self.is_playing) { self.get_quant } { 1 };
-						self.get_rel_beat.debug("pm: play node");
-						node.node.play(self.get_clock,quant:quant);
-						node.set_playing_state(\play);
-						esp = node.node.player;
-						//node.debug("owww!");
-						children.collect(_.uname).debug("pm: play_node: children");
-						sc = SimpleController(esp);
-						self.top_nodes[nodename] = (
-							esp: esp,
-							sc: sc
-						);
-						sc.put(\stopped, {
-							nodename.debug("pm: stop handler called");
-							self.top_nodes.removeAt(nodename);
-							node.mute(false);
-							node.set_playing_state(\stop);
-							children.do { arg child;
-								self.children_nodes.remove(child.uname);
-								child.set_playing_state(\stop);
-							};
-							children.collect(_.uname).debug("pm: stop handler: children removed");
-							if(self.is_playing.debug("isplaying").not) {
-								self.changed(\head_state, \stop);
-							};
-							sc.remove;
-							[self.top_nodes, self.children_nodes].debug("pm: end state");
-						});
-					}
-				}
-			}); 
-			if(self.is_playing.debug("is_playing---------------------------------")) { self.changed(\head_state, \play) };
-			[self.top_nodes, self.children_nodes].debug("pm: end state");
-		},
-
-		stop_node: { arg self, nodename;
-			var children;
-			nodename.debug("pm: stop_node");
-			[self.top_nodes, self.children_nodes].debug("pm: state");
-			~notNildo.(main.get_node(nodename), { arg node;
-				if( self.top_nodes.keys.includes(nodename) ) {
-					nodename.debug("pm: stop_node: stoping!");
-					self.top_nodes[nodename].esp.stop;
-				} {
-					if( self.children_nodes.includes(nodename) ) {
-						nodename.debug("pm: stop_node: mute");
-						node.mute(true);
-					} {
-						nodename.debug("pm: stop_node: not playing, individually stopping children");
-						children = ~find_children.(main, node);
-						children.do { arg child; 
-							child.node.stop;
-						};
-					}
-				}
-			}); 
-
-			[self.top_nodes, self.children_nodes].debug("pm: end state");
-		},
-
-		solo_node: { arg self, nodename;
-			var children, smn = Set[];
-			self.top_nodes.keys.union(self.children_nodes).do { arg nname;
-				if(nodename != nname) {
-					~notNildo.(main.get_node(nname), { arg node;
-						if(node.muted.not) {
-							smn.add(nname);
-							node.mute(true);
-						}
-					});
-				}
-			};
-			self.solomuted_nodes = self.solomuted_nodes.union(smn);
-			main.get_node(nodename).mute(false);
-		},
-
-		unsolo_node: { arg self;
-			self.solomuted_nodes.do { arg nname;
-				main.get_node(nname).mute(false);
-			};
-			self.solomuted_nodes = Set.new;
-		},
-
-		is_in_solo_mode: { arg self;
-			self.solomuted_nodes.size != 0
-		},
-
-
-		add_childnode: { arg self, nodename;
-			nodename.debug("add_childnode");
-			self.children_nodes.add(nodename);
-		},
-
-		remove_childnode: { arg self, nodename;
-			nodename.debug("remove_childnode");
-			self.children_nodes.remove(nodename);
-		}
-	);
-	obj;
-
-
-};
 
 ~par_spawner = { arg pm, par; //par: node list
 	par.do{ arg no; no.uname.debug("par_spawner: node"); };

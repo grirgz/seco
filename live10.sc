@@ -36,17 +36,46 @@ s.waitForBoot{
 
 
 
-
 Mdef.side_gui;
 }
 )
 
+(
+Mdef("pulsepass_l1035", Pbind(
+	\octave, 5
+
+))
+)
+~seq.save_project("belleinconnue")
+~seq.load_project("belleinconnue")
+~seq.load_project("pasla1")
+~seq.load_project("saveme2")
+
+~seq.save_project("testsaveme2")
+~seq.load_project("testsaveme2")
+
+~nn = Mdef.node("monosampler_l1011")
+~nn2 = Mdef.node("monosampler_l1002")
+~nn2.get_arg(\sampleline)
+
+~data = ~nn.get_arg(\sampleline).save_data
+~nn2.get_arg(\sampleline).load_data(~data)
+
+~nn.
+
+~nn = Mdef.node("pulsepass_l1035")
+~nn.get_arg(\sampleline).scoreset.notescore.notes.printAll
+~nn.get_arg(\sampleline).scoreset.notescore.notes.pop
+~nn.get_arg(\sampleline).scoreset.notescore.cut_exceeding_notes;
+Mdef.node("monosampler_l1027").get_arg(\sampleline).scoreset.notescore.abs_end
+Mdef.node("monosampler_l1027").get_arg(\sampleline).scoreset.notescore.get_rel_notes.printAll
+Mdef.node("monosampler_l1027").get_arg(\sampleline).scoreset.update_notes
+Mdef.node("monosampler_l1027").get_arg(\sampleline).scoreset.get_notes.printAll
+
+Mdef.node(\snare).get_arg(\freq).vpiano.value
 
 ~seq.get_node("pulsepass_l1001").get_arg(\noteline).scoreset.get_notes
 
-Mdef(\bleu, Pbind(
-	\instrument, \mysnare
-));
 Mdef(\froid, Pbind(
 	\instrument, \lead2
 ));
@@ -75,6 +104,33 @@ Mdef(\mygroup, Ppar([
 ]))
 
 )
+
+(
+
+Mdef(\snare, Pbind(
+	\instrument, \mysnare
+));
+Mdef(\kick, Pbind(
+	\instrument, \mykick2
+));
+Mdef.sampler(\smp, [ 
+	[\nsample, \kick],
+	[\nsample, \snare]
+	[\nsample, "monosampler_l1063"]
+]);
+)
+
+~seq.node_manager.add_node_to_default_group(~seq.get_node(\smp))
+~a = ~make_nodesampler.(~seq)
+~a = ~make_parplayer.(~seq)
+~a.name = "plop"
+~a.uname = ~a.name
+~seq.add_node(~a)
+~seq.node_manager.add_node_to_default_group(~a)
+
+~seq.node_manager.default_group.add_children(~a.name)
+
+~a.name = "plop"
 
 
 {SinOsc.ar}.play

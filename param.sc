@@ -49,12 +49,12 @@
 		repeat.debug("pdynarray:repeat");
 		repeat.do {
 			idx = 0;
-			val = fun.(idx);
+			val = fun.(idx, ev);
 			//[val, idx].debug("pdynarray val idx");
 			while( { val.notNil } , { 
 				ev = val.yield;
 				idx = idx + 1;
-				val = fun.(idx);
+				val = fun.(idx, ev);
 			});
 		}
 	})
@@ -487,7 +487,10 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		};
 	};
 	close_window = {
-		main.commands.bind_param(midi_cc, old_param);
+		if(old_param.notNil) {
+			old_param.debug("make_edit_number_view: old_param");
+			main.commands.bind_param(midi_cc, old_param);
+		};
 		if(old_ccpath.notNil) {
 			main.commands.bind_param(old_ccpath, param);
 		};
@@ -678,6 +681,10 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 ~make_name_button = { arg parent, label, xsize=50, ysize=50;
 	var bt;
 	bt = GUI.button.new(parent, Rect(50,50,xsize,ysize));
+	bt.action = { 
+		parent.focus(true);
+		"action!".debug;
+	};
 	bt.states = [
 		[ label, Color.black, Color.white],
 		[ label, Color.white, Color.black ],
@@ -804,7 +811,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		val: { arg self, msg, cellidx;
 			var newval;
 			newval = self.get_val;
-			//newval.debug("newval==============");
+			newval.debug("make_env_control_view: newval==============");
 			//self.val.debug("val==============");
 			//self.debug("self==============");
 			newval.keysValuesDo { arg k, v;
@@ -824,6 +831,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		~make_view_responder.(parent, param.get_param(key), (
 			val: { arg self, msg, cellidx;
 				var newval;
+				[key, self.get_val].debug("make_env_control_view: val handler");
 				txt_val[key].string = self.get_val;
 				env_cell.set_env(param.get_val);
 			},
@@ -915,10 +923,9 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		beats = 8,
 		paraspace;
 	var param_messages, midi_messages, sc_midi, sc_param;
-	var midi = param.midi;
 	var ps_bg_drawf;
 
-
+	"MM make_noteline_view".debug;
 
 	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+30),height));
 	row_layout.background = ~editplayer_color_scheme.background;
@@ -1462,6 +1469,19 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	));
 
 };
+
+~make_line_view = { arg kind, parent, display, param;
+	var fun;
+	fun = switch(kind,
+		\noteline, { ~make_noteline_view },
+		\stepline, { ~make_control_view },
+		\nodeline, { ~make_noteline_view },
+		\sampleline, { ~make_noteline_view },
+		{ kind.debug("make_line_view: line not understood"); }
+	);
+	fun.(parent, display, param);
+};
+
 // ==========================================
 // PARAM FACTORY
 // ==========================================
@@ -1513,6 +1533,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		val: ~default_adsr.deepCopy,
 		name: name,
 		classtype: \adsr,
+		current_kind: \scalar,
 		spec: ~spec_adsr,
 		sub_midi: Dictionary.new, // store midi control handler specific to each point of the adsr
 		sub_param: Dictionary.new,
@@ -1524,6 +1545,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				arg key;
 				data[key] = self[key];
 			};
+			//data[\vals] = self.get_vals;
 			data;
 		},
 
@@ -1532,6 +1554,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				arg key;
 				self[key] = data[key];
 			};
+			//self.set_vals( data[\vals] );
 		},
 
 		select_param: { arg self;
@@ -1547,8 +1570,29 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 		get_val: { arg self; self.val },
 
+		get_vals: { arg self;
+			self.get_params.collect { arg param;
+				self.get_param(param).get_val;
+			}
+		},
+
+		set_vals: { arg self, val;
+			self.get_params.do { arg param, idx;
+				self.get_param(param).set_val(val[idx] ?? 0);
+			}
+		},
+
+		set_all_val: { arg self, vals;
+			self.val = vals;
+			self.changed(\val);
+		},
+
 		get_param: { arg self, key;
 			self.sub_param[key];
+		},
+
+		get_params: { arg self;
+			~adsr_point_order;
 		},
 
 		set_val: { arg self, val;
@@ -1845,12 +1889,18 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			self.buffer.bufnum.debug("BUFNUM");	
 			Prout({ arg ev;
 				var repeat = 1000;
+				var slotnum;
 				repeat.do {
 					self.current_kind.debug("2222222222222222222222 entering bufnum vpattern loop");
 					switch(player.get_mode,
 						\sampleline, {
-							~samplekit_manager.slot_to_bufnum(ev[\sampleline].slotnum, ev[\samplekit]).debug("bufnum::::");
-							ev = ~samplekit_manager.slot_to_bufnum(ev[\sampleline].slotnum, ev[\samplekit]).yield;
+							if(ev[\slotnum].notNil) {
+								slotnum = ev[\slotnum];
+							} {
+								slotnum = ev[\sampleline].slotnum;
+							};
+							~samplekit_manager.slot_to_bufnum(slotnum, ev[\samplekit]).debug("bufnum::::");
+							ev = ~samplekit_manager.slot_to_bufnum(slotnum, ev[\samplekit]).yield;
 						},
 						// else
 						{
@@ -2392,7 +2442,11 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		},
 
 		set_notequant: { arg self, val;
-			self.scoreset.set_notequant;
+			self.scoreset.set_notequant(val);
+		},
+
+		get_notequant: { arg self;
+			self.scoreset.notequant;
 		},
 		set_notequant2: { arg self, val;
 			self.notequant = val;
@@ -2440,11 +2494,47 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 		init: { arg self;
 			self.scoreset = ~make_scoreset_hack.(self);
-			self.update_note_dur; // to take in account default_noteline
+			self.scoreset.notescore.set_notes(self.notes);
+			self.scoreset.update_notes; // to take in account default_noteline
 		}
 
 	);
 	//ret.init; //should init in subclasses
+	ret;
+};
+
+~make_line_param = { arg name, default_value=[];
+	var fun;
+	fun = switch(name,
+		\noteline, { ~make_noteline_param },
+		\stepline, { ~make_stepline_param },
+		\nodeline, { ~make_nodeline_param },
+		\sampleline, { ~make_sampleline_param },
+		{ name.debug("make_line_param: line not understood"); }
+	);
+	fun.(name, default_value);
+};
+
+~make_nodeline_param = { arg name, default_value=[];
+	var ret;
+	ret = (
+		parent: ~make_parent_recordline_param.(name, default_value),
+		classtype: \nodeline,
+		notes: ~default_sampleline.deepCopy,
+
+		trans_notes: { arg self;
+			// make sample slots compatibles with other code using midinotes
+			self.notes = self.notes.collect { arg x;
+				x.midinote = x.slotnum;
+			};
+		},
+
+		update_note_dur: { arg self;
+			self.trans_notes;
+			self.parent[\update_note_dur].(self);
+		}
+	);
+	ret.init;
 	ret;
 };
 
@@ -2578,10 +2668,14 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		},
 		vpattern: { arg self; 
 			"--------making vpattern of stepline".debug;
-			~pdynarray.( { arg idx; 
-				self.tick(idx); 
-				if(self.seq.val[idx] == 1, { [idx, TempoClock.beats, TempoClock.beatInBar].debug("----------TICK step"); });
-				self.seq.val[idx];
+			~pdynarray.( { arg idx, ev; 
+				if(ev[\stepline].notNil) {
+					ev[\stepline];
+				} {
+					self.tick(idx); 
+					if(self.seq.val[idx] == 1, { [idx, TempoClock.beats, TempoClock.beatInBar].debug("----------TICK step"); });
+					self.seq.val[idx];
+				}
 			}, \stepline );
 			//Pseq([1,1,1,1],inf);
 		};
@@ -3068,7 +3162,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				},
 				\amp, { // FIXME: handle sampleline; does pseg/bus need velocity adjusting ?
 					segf = { arg ev;
-						self.scalar.get_val + ((ev[\noteline].velocity ?? 0) * veloc_ratio);	
+						main.calcveloc(self.scalar.get_val,(ev[\noteline].velocity ?? 0));	
 					};
 					scalm = { arg ev; self.scalar.val };
 					scalf = pref = segf;
@@ -3142,6 +3236,14 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 									//segf.value(ev).debug("=========== in noteline");
 									ev = segf.value(ev).yield;
 								}, {
+									if(self.name == \stepline) {
+										if(ev[\stepline].notNil) {
+											ev[\stepline].debug("stepline not NIL 4444444444444444444444444444444444444444444444");
+											ev = ev[\stepline].yield;
+										} {
+											ev[\stepline].debug("stepline NIL-- 4444444444444444444444444444444444444444444444");
+										}
+									};
 									idx = 0;
 									val = self.seq.val[idx];
 									while( { val.notNil } , { 
