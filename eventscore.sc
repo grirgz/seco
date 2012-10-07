@@ -246,6 +246,7 @@
 	(
 		notes: List.new,
 		book: Dictionary.new,
+		notequant: nil, // used externally to quantify note time
 
 		add_note: { arg self, note, abstime, num;
 			var no = note.deepCopy;
@@ -459,11 +460,12 @@
 			var size;
 			notes = self.notescore.get_rel_notes(self.slice_start, self.slice_dur);
 
-			// quantify notes
 			notes.collect({arg no, x; no.numero = x }); // debug purpose
 			//notes.debug("update_note_dur: original notes");
 			qnotes = notes.collect{ arg x;
+				// quantify notes
 				x = self.quantify_note(x);
+				// set midinote to be compatible with noteline code
 				if(x.midinote.isNil) {
 					x.midinote = x.slotnum;
 				};
@@ -511,12 +513,13 @@
 			//param.debug("UPDATED NOTES !!!!");
 		},
 
-		quantify_note: { arg self, note;
+		quantify_note: { arg self, note, quant;
 			var res;
+			quant = quant ?? self.notescore.notequant;
 			//note.debug("quantify_note input");
 			res = note.deepCopy;
-			if(self.notequant.notNil) {
-				res.dur = res.dur.round(self.notequant);
+			if(quant.notNil) {
+				res.dur = res.dur.round(quant);
 				res;
 			} {
 				res;
@@ -979,8 +982,35 @@
 			}
 		},
 
+		strip_note: { arg self, no;
+			var resno = ();
+			[\velocity, \dur, \sustain, \midinote, \slotnum].do { arg key;
+				if(no[key].notNil) {
+					resno[key] = no[key]
+				}
+			};
+			resno;
+		},
+
+		get_notes_pattern: { arg self, notes, strip=true;
+			notes = notes ?? self.get_notes;
+			if(strip) {
+				notes = notes.collect { arg no;
+					var res;
+					res = self.strip_note(no);
+					if(res[\sustain] < 0) { 
+						res[\sustain].debug("get_notes_pattern: negative sustain, fixing it");
+						res[\sustain] = res[\sustain].abs;
+					};
+					res;
+				};
+			};
+			Pseq(notes);
+		},
+
+
 		set_notequant: { arg self, val;
-			self.notequant = val;
+			self.notescore.notequant = val;
 			self.update_notes;
 		}
 

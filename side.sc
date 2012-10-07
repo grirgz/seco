@@ -17,269 +17,6 @@
 	)
 };
 
-~make_extparam_view = { arg main, controller, parent, player, param;
-	var param_name = param.name;
-	var info_layout = parent;
-	var row_layout = parent;
-	case
-		{ [\adsr].includes(param_name) || param_name.asString.containsStringAt(0,"adsr_") } {
-			~make_env_control_view.(row_layout, player, controller.make_param_display(param), param);
-		}
-		{ [\repeat].includes(param_name) } {
-			~make_simple_control_view.(info_layout, controller.make_param_display(param), param);
-		}
-		{ [\samplekit].includes(param_name) } {
-			~make_string_param_view.(info_layout, controller.make_param_display(param), param);
-		}
-		{ [\dur].includes(param_name) } {
-			//if(player.noteline.not, {
-				~make_simple_control_view.(info_layout, controller.make_param_display(param), param);
-			//})
-		}
-		{ [\bufnum].includes(param_name)|| param_name.asString.containsStringAt(0,"bufnum_") } {
-			~make_bufnum_view.(info_layout, controller.make_param_display(param), param);
-		}
-		{ [\segdur, \stretchdur].includes(param_name) } {
-			//if(player.noteline, {
-				~make_simple_control_view.(info_layout, controller.make_param_display(param), param);
-			//});
-		}
-		{ controller.param_types.param_mode.includes(param_name) } {
-			[player.get_mode, param_name].debug("LLLLLLLLLLLL making line");
-			if(player.get_mode == param_name, {
-				param_name.debug("LLLLLLLLLLLL making line vraiment");
-				~make_line_view.(param_name, row_layout, controller.make_param_display(param), param);
-			});
-		}
-		{ [\legato, \amp, \pan, \attack, \release, \sustain].includes(param_name)} {
-			~make_control_view.(info_layout, controller.make_param_display(param), param);
-		}
-		{ true } {
-			"standard param".debug;
-			~make_control_view.(row_layout, controller.make_param_display(param).debug("il a quoi le display"), param);
-		};
-};
-
-~make_side_view = { arg main, controller;
-
-	var win, vlayout, hlayout;
-	var winsize= 700@800;
-	var paramsize= 170@26;
-	var sep;
-	var paramview_list = List.new;
-	var extparamview_list = List.new;
-	var groupview_list = List.new;
-	var extparam_layout, inner_extparam_layout;
-	var player_responder;
-	var group_responder;
-	var player_title;
-	var group_title;
-
-	win = Window.new(bounds:Rect(750,0,winsize.x,winsize.y));
-	win.view.keyDownAction = main.commands.get_kb_responder(\side);
-
-	controller.window = win;
-
-	vlayout = VLayoutView.new(win, Rect(3,0,winsize.x-13,winsize.y));
-	///// status view
-
-	~make_status_view_horizontal.(vlayout, main.play_manager, winsize.x@20);
-
-	player_title = ~make_player_title_bar_view.(vlayout, winsize.x@20);
-
-	///// mini param view
-
-	3.do {
-		sep = VLayoutView(vlayout, Rect(0,0,winsize.x-158,paramsize.y*2+35));
-		2.do {
-			hlayout = HLayoutView.new(sep, Rect(0,0,winsize.x-150,paramsize.y+15));
-			4.do {
-				paramview_list.add( ~make_mini_param_view.(hlayout, paramsize) );
-			};
-		};
-		sep.background = Color.newHex("B4C1CA");
-		sep = StaticText.new(vlayout,Rect(0,0,10,3));
-		//sep.background = ~color_scheme.control2;
-	};
-
-	///// extended param view
-
-	extparam_layout = VLayoutView.new(vlayout, Rect(0,0,winsize.x,(paramsize.y+11)*8));
-	inner_extparam_layout = VLayoutView.new(extparam_layout);
-
-	///// groupnode view
-
-	sep = StaticText.new(vlayout,Rect(0,0,10,08));
-	sep.background = Color.newHex("54516A");
-	sep.background = Color.black;
-	sep = StaticText.new(vlayout,Rect(0,0,10,3));
-
-	group_title = ~make_player_title_bar_view.(vlayout, winsize.x@20);
-
-	sep = VLayoutView(vlayout, Rect(0,0,winsize.x-158,paramsize.y*2+35));
-	2.do {
-		hlayout = HLayoutView.new(sep, Rect(0,0,winsize.x-150,paramsize.y+15));
-		4.do {
-			groupview_list.add( ~make_mini_param_view.(hlayout, paramsize) );
-		};
-	};
-
-	~make_view_responder.(vlayout, controller, (
-		player: { arg self;
-			var player;
-			player = self.get_current_player;
-			if(player.notNil) {
-
-				if(player.name != player.uname) {
-					player_title.set_name("% (%)".format(player.name, player.uname));
-				} {
-					player_title.set_name(player.name);
-				};
-				~notNildo.(player.defname) { arg name;
-					player_title.set_instrument("instr:"+name)
-				};
-
-				player.name.debug("side_view responder: player");
-				player_responder.remove;
-				player_responder = ~make_view_responder.(vlayout, player, (
-					mode: { arg self;
-						controller.changed(\paramlist);
-						controller.changed(\extparamlist);
-					},
-
-					redraw_node: { arg self;
-						player.get_arg(\amp).changed(\playingstate, player.name, player.get_playing_state);
-					}
-						
-				));
-				controller.changed(\paramlist);
-				controller.changed(\extparamlist);
-				player.get_arg(\amp).changed(\selected);
-			}
-		},
-
-		paramlist: { arg self, msg;
-			var param;
-			var args;
-			var display;
-			var player = controller.current_player;
-			var args2;
-			//player.get_ordered_args.do { arg param_name, idx;
-
-
-			args = self.get_paramlist_splited;
-			args2 = args[1] ++ args[2];
-			
-			paramview_list.do.do { arg view, idx;
-				var param_name;
-				if(idx < 8) {
-					param_name = args[0][idx];
-				} {
-					param_name = args2[idx-8];
-				};
-				if(param_name.notNil) {
-					param = player.get_arg(param_name);
-					display = controller.make_param_display(param);
-					view.set_param(param, display);
-				} {
-					view.clear_view;
-				}
-			};
-
-		},
-
-		extparamlist: { arg self, msg;
-			var param;
-			var args;
-			var display;
-			var paramview;
-			var player = controller.current_player;
-
-			inner_extparam_layout.remove;
-			debug("REMOVING!!!");
-			inner_extparam_layout = VLayoutView.new(extparam_layout, Rect(0,0,winsize.x,500));
-			extparamview_list = List.new;
-
-			args = self.get_extparamlist;
-			args.debug("make_side_view: handler: extparamlist");
-			args.do { arg param_name, idx;
-				param = player.get_arg(param_name);
-				paramview = ~make_extparam_view.(main, self, inner_extparam_layout, player, param);
-				extparamview_list.add(paramview);
-			};
-
-		},
-
-		group: { arg self, msg;
-			var group;
-			"sideview_responder: group".debug;
-			group = self.get_current_group;
-
-			if(group.name != group.uname) {
-				group_title.set_name("% (%)".format(group.name, group.uname));
-			} {
-				group_title.set_name(group.name);
-			};
-			~notNildo.(group.kind) { arg name;
-				if(group.subkind.notNil) {
-					group_title.set_instrument("kind: % (%)".format(name, group.subkind))
-				} {
-					group_title.set_instrument("kind: %".format(name))
-				}
-			};
-
-			group_responder.remove;
-			group_responder = ~make_view_responder.(vlayout, group, (
-				redraw: { arg self;
-					"group_responder: redraw".debug;
-					controller.changed(\group_items);
-				},
-
-				selected_child: { arg self, msg, idx;
-					if(idx == self.selected_child_index) {
-						groupview_list[idx].selected(true);
-					} {
-						groupview_list[idx].selected(false);
-					}
-
-				}
-					
-			));
-			controller.changed(\group_items);
-		},
-
-		group_items: { arg self;
-			var display;
-			var group, children;
-			"sideview_responder: group_items".debug;
-			group = self.get_current_group;
-			children = group.get_children_and_void;
-			children[..7].do { arg child, x; // FIXME: hardcoded
-				var amp = child.get_arg(\amp);
-				if( amp.isNil ) {
-					"group_items: amp is nil".debug;
-					amp = ~make_empty_param.(self.get_main);
-				};
-				display = controller.make_param_display(amp, child);
-				display.set_parent_group(group);
-				groupview_list[x].set_group_param(child, amp, display);
-			};
-			"FIN sideview_responder".debug;
-
-
-		}
-
-
-
-	));
-
-
-	vlayout.focus;
-	win.front;
-	win;
-
-};
-
 ~make_mini_param_view = { arg parent, size;
 	var vlayout, hlayout;
 	var bt_name, txt_midi_label, kind, txt_midi_val, paramval, slider;
@@ -302,6 +39,8 @@
 	kind = StaticText.new(hlayout, Rect(0,0,bsize,size.y/2));
 	txt_midi_val = StaticText.new(hlayout, Rect(0,0,(size.x-(bsize*2)-15)/2,size.y/2));
 	paramval = StaticText.new(hlayout, paramval_size);
+
+	slider.keyDownAction = {};
 
 	bt_name.string = "";
 	txt_midi_label.string = "";
@@ -405,11 +144,11 @@
 
 		selected: { arg self, bool;
 			if(bool) {
-				self.name.debug("je suis select");
+				self.name.debug("mini_param_group_widget: selected: je suis select");
 				bt_name.debug("bt_name");
 				bt_name.background = Color.newHex("B4B1BA");
 			} {
-				self.name.debug("je suis DEselect");
+				self.name.debug("mini_param_group_widget: selected: je suis DEselect");
 				bt_name.background = Color.newHex("54516A");
 			}
 		},
@@ -485,7 +224,552 @@
 
 	)
 
+};
 
+~make_extparam_view = { arg main, controller, parent, player, param;
+	var param_name = param.name;
+	var info_layout = parent;
+	var row_layout = parent;
+	case
+		{ [\adsr].includes(param_name) || param_name.asString.containsStringAt(0,"adsr_") } {
+			~make_env_control_view.(row_layout, player, controller.make_param_display(param), param);
+		}
+		{ [\repeat].includes(param_name) } {
+			~make_simple_control_view.(info_layout, controller.make_param_display(param), param);
+		}
+		{ [\samplekit].includes(param_name) } {
+			~make_string_param_view.(info_layout, controller.make_param_display(param), param);
+		}
+		{ [\dur].includes(param_name) } {
+			//if(player.noteline.not, {
+				~make_simple_control_view.(info_layout, controller.make_param_display(param), param);
+			//})
+		}
+		{ [\bufnum].includes(param_name)|| param_name.asString.containsStringAt(0,"bufnum_") } {
+			~make_bufnum_view.(info_layout, controller.make_param_display(param), param);
+		}
+		{ [\segdur, \stretchdur].includes(param_name) } {
+			//if(player.noteline, {
+				~make_simple_control_view.(info_layout, controller.make_param_display(param), param);
+			//});
+		}
+		{ controller.param_types.param_mode.includes(param_name) } {
+			[player.get_mode, param_name].debug("LLLLLLLLLLLL making line");
+			if(player.get_mode == param_name, {
+				param_name.debug("LLLLLLLLLLLL making line vraiment");
+				~make_line_view.(param_name, row_layout, controller.make_param_display(param), param);
+			});
+		}
+		{ [\legato, \amp, \pan, \attack, \release, \sustain].includes(param_name)} {
+			~make_control_view.(info_layout, controller.make_param_display(param), param);
+		}
+		{ true } {
+			"standard param".debug;
+			~make_control_view.(row_layout, controller.make_param_display(param).debug("il a quoi le display"), param);
+		};
+};
+
+~make_mini_param_group_widget = { arg parent, rows, display;
+	var sep, sep2;
+	var hlayout, vlayout;
+	var size;
+	var paramview_list = List.new;
+	display.winsize= display.winsize ?? (700@800);
+	display.paramsize= display.paramsize ?? (170@26);
+
+	size = rows ?? 3;
+
+	vlayout = VLayoutView.new(parent, Rect(3,0,display.winsize.x-13,display.paramsize.y+15*2*size+35)); //FIXME: scaling is wrong
+
+	size.do {
+		sep = VLayoutView(vlayout, Rect(0,0,display.winsize.x-158,display.paramsize.y*2+35));
+		2.do {
+			hlayout = HLayoutView.new(sep, Rect(0,0,display.winsize.x-150,display.paramsize.y+15));
+			4.do {
+				paramview_list.add( ~make_mini_param_view.(hlayout, display.paramsize) );
+			};
+		};
+		sep.background = Color.newHex("B4C1CA");
+		sep2 = StaticText.new(vlayout,Rect(0,0,10,3));
+		//sep.background = ~color_scheme.control2;
+	};
+
+	(
+		sep: sep,
+		sep2: sep2,
+		vlayout: vlayout,
+		hlayout: hlayout,
+		paramview_list: paramview_list,
+	)
+};
+
+~make_extparam_group_widget = { arg main, parent, display;
+	var extparam_layout;
+	var inner_extparam_layout;
+	extparam_layout = VLayoutView.new(parent, Rect(0,0,display.winsize.x,(display.paramsize.y+11)*7));
+	inner_extparam_layout = VLayoutView.new(extparam_layout);
+	(
+		extparam_layout: extparam_layout,
+		inner_extparam_layout: inner_extparam_layout,
+		extparamview_list: List.new,
+		make_extparam_view: { arg self, controller, player, param;
+			~make_extparam_view.(main, controller, self.inner_extparam_layout, player, param);
+		},
+
+	)
+};
+
+~make_stepmatrix_widget = { arg main, parent, display;
+
+	var layout;
+	var sublayout;
+	layout = VLayoutView.new(parent, Rect(0,0,display.winsize.x,(display.paramsize.y+11)*7));
+	sublayout = VLayoutView.new(layout, Rect(0,0,display.winsize.x,(display.paramsize.y+11)*7));
+	(
+		layout: layout,
+		sublayout: sublayout,
+		viewlist: List.new,
+		playerlist: List.new,
+		reset_layout: { arg self;
+			self.sublayout.remove;
+			self.sublayout = VLayoutView.new(self.layout, Rect(0,0,display.winsize.x,(display.paramsize.y+11)*7));
+			self.playerlist = List.new;
+			self.viewlist = List.new;
+		},
+		make_line: { arg self, controller, player, parent_group;
+			var param = player.get_arg(player.get_mode);
+			var pdisplay = controller.make_param_display_matrix(param, player);
+			pdisplay.name = player.name;
+			pdisplay.set_parent_group(parent_group);
+			~make_line_view2.(player.get_mode, self.sublayout, pdisplay, param);
+		},
+
+	)
+
+
+};
+
+~class_player_view = (
+	new: { arg self, main, controller, parent, display;
+		self = self.deepCopy;
+
+		self.display = display;
+		//self.main = main; // FIXME: vicious circle ?
+		self.controller = controller;
+		self.vlayout = VLayoutView.new(parent, Rect(3,0,display.winsize.x-13,display.player_view_y));
+		self.player_title = ~make_player_title_bar_view.(self.vlayout, display.winsize.x@20);
+		self.mini_param_group_widget = ~make_mini_param_group_widget.(self.vlayout, display.mini_param_row_count, display);
+		self.extparam_group_widget = ~make_extparam_group_widget.(main, self.vlayout, display);
+
+		"class_player_view: new: before making responder".debug;
+		self.main_responder = ~make_class_responder.(self, self.vlayout, controller, [
+			\player, \paramlist, \extparamlist,
+		]);
+		"class_player_view: new: after making responder".debug;
+
+		//self;
+	},
+
+	////// main responders
+
+	player: { arg self, controller;
+		var player;
+		controller = controller ?? self.controller;
+		"class_player_view: player".debug;
+		player = controller.get_current_player;
+		if(player.notNil) {
+			self.current_player = player;
+
+			if(player.name != player.uname) {
+				self.player_title.set_name("% (%)".format(player.name, player.uname));
+			} {
+				self.player_title.set_name(player.name);
+			};
+			~notNildo.(player.defname) { arg name;
+				self.player_title.set_instrument("instr:"+name)
+			};
+
+			player.name.debug("side_view responder: player");
+			self.player_responder.remove;
+			"class_player_view: player: before making responder".debug;
+			self.player_responder = ~make_class_responder.(self, self.vlayout, player, [
+				\mode, \redraw_node,
+			]);
+			"class_player_view: player: after making responder".debug;
+			self.paramlist;
+			self.extparamlist;
+			player.get_arg(\amp).changed(\selected);
+		}
+	},
+
+	paramlist: { arg self, controller;
+		var param;
+		var args;
+		var display;
+		var player = self.current_player;
+		var args2;
+
+		"class_player_view: paramlist".debug;
+		//player.get_ordered_args.do { arg param_name, idx;
+		controller = controller ?? self.controller;
+
+		args = controller.get_paramlist_splited;
+		args2 = args[1] ++ args[2];
+		
+		self.mini_param_group_widget.paramview_list.do { arg view, idx;
+			var param_name;
+			if(idx < 8) {
+				param_name = args[0][idx];
+			} {
+				param_name = args2[idx-8];
+			};
+			if(param_name.notNil) {
+				param = player.get_arg(param_name);
+				display = controller.make_param_display(param);
+				view.set_param(param, display);
+			} {
+				view.clear_view;
+			}
+		};
+	},
+
+	extparamlist: { arg self, controller;
+		var param;
+		var args;
+		var display;
+		var paramview;
+		var player = self.current_player;
+
+		"class_player_view: extparamlist".debug;
+		controller = controller ?? self.controller;
+
+		self.extparam_group_widget.inner_extparam_layout.remove;
+		debug("REMOVING!!!");
+		self.extparam_group_widget.inner_extparam_layout = VLayoutView.new(self.extparam_group_widget.extparam_layout, Rect(0,0,self.display.winsize.x,500));
+		self.extparam_group_widget.extparamview_list = List.new;
+
+		args = controller.get_extparamlist;
+		args.debug("make_side_view: handler: extparamlist");
+		args.do { arg param_name, idx;
+			param = player.get_arg(param_name);
+			paramview = self.extparam_group_widget.make_extparam_view(controller, player, param);
+			self.extparam_group_widget.extparamview_list.add(paramview);
+		};
+
+	},
+
+	/////// player responders
+
+	mode: { arg self, obj;
+		"class_player_view: player: mode".debug;
+		self.paramlist;
+		self.extparamlist;
+	},
+
+	redraw_node: { arg self, obj;
+		var player;
+		"class_player_view: player: redraw_node".debug;
+		player = self.current_player;
+		player.get_arg(\amp).changed(\playingstate, player.name, player.get_playing_state);
+	},
+);
+
+~class_groupnode_view = (
+	new: { arg self, main, controller, parent, display;
+		self = self.deepCopy;
+
+		self.display = display;
+		self.controller = controller;
+		self.vlayout = VLayoutView.new(parent, Rect(3,0,display.winsize.x-13,display.winsize.y));
+		self.group_title = ~make_player_title_bar_view.(self.vlayout, display.winsize.x@20);
+
+		self.mini_param_group_widget = ~make_mini_param_group_widget.(self.vlayout, display.groupnode_row_count, display);
+
+		"class_groupnode_view: new: before making responder".debug;
+		self.main_responder = ~make_class_responder.(self, self.vlayout, controller, [
+			\nodegroup, \group_items,
+		]);
+		"class_groupnode_view: new: after making responder".debug;
+
+		self;
+	},
+
+	////// main responders
+
+	nodegroup: { arg self, controller;
+		var group;
+		"class_groupnode_view.update_responder: group".debug;
+
+		controller = controller ?? self.controller;
+
+		group = controller.get_current_group;
+		self.current_group = group;
+
+		if(group.name != group.uname) {
+			self.group_title.set_name("% (%)".format(group.name, group.uname));
+		} {
+			self.group_title.set_name(group.name);
+		};
+		~notNildo.(group.kind) { arg name;
+			if(group.subkind.notNil) {
+				self.group_title.set_instrument("kind: % (%)".format(name, group.subkind))
+			} {
+				self.group_title.set_instrument("kind: %".format(name))
+			}
+		};
+
+		"class_groupnode_view: group: before making responder".debug;
+		self.group_responder.remove;
+		self.group_responder = ~make_class_responder.(self, self.vlayout, group, [
+			\redraw,
+			\selected_child,
+		]);
+		"class_groupnode_view: group: after making responder".debug;
+		self.group_items;
+	},
+
+	group_items: { arg self, controller;
+		var display;
+		var group, children;
+
+		controller = controller ?? self.controller;
+
+		"XXXXXXXXXXXXXXXXXXXXXXXXXXX class_groupnode_view.update_group_items".debug;
+
+		group = self.current_group;
+		children = group.get_children_and_void;
+		self.mini_param_group_widget.paramview_list.do { arg groupview, x; // FIXME: hardcoded
+			var child = children[x];
+			var is_empty = false;
+			var amp;
+			if(child.notNil) {
+				amp = child.get_arg(\amp);
+				if( amp.isNil ) {
+					"group_items: amp is nil or child is nil".debug;
+					amp = ~make_empty_param.(controller.get_main);
+				};
+				display = controller.make_param_display(amp, child);
+				display.set_parent_group(group);
+				groupview.set_group_param(child, amp, display);
+			} {
+				groupview.clear_view;
+			};
+		};
+		"FIN class_groupnode_view.update_group_items".debug;
+
+	},
+
+	///// group responders
+
+	redraw: { arg self, controller;
+		"class_groupnode_view: group: redraw".debug;
+		self.group_items;
+	},
+
+	selected_child: { arg self, controller, msg, idx;
+		var groupview_list = self.mini_param_group_widget.paramview_list;
+		"class_groupnode_view: group: selected_child".debug;
+		[idx, controller.selected_child_index].debug("idx, selected_child_index");
+		if(idx.notNil) { //FIXME: why could it be nil ?
+			if(idx == controller.selected_child_index) {
+				if(groupview_list[idx].notNil) {
+					groupview_list[idx].selected(true);
+				}
+			} {
+				if(groupview_list[idx].notNil) {
+					groupview_list[idx].selected(false);
+				}
+			}
+		}
+
+	},
+);
+
+~class_groupnode_matrix_view = (
+	parent: ~class_groupnode_view,
+	new: { arg self, main, controller, parent, display;
+		self = self.deepCopy;
+
+		self.display = display;
+		self.controller = controller;
+		self.vlayout = VLayoutView.new(parent, Rect(3,0,display.winsize.x-13,display.winsize.y));
+
+		self.stepmatrix = ~make_stepmatrix_widget.(main, self.vlayout, display);
+
+
+		"class_groupnode_view: new: before making responder".debug;
+		self.main_responder = ~make_class_responder.(self, self.vlayout, controller, [
+			\nodegroup, \group_items,
+		]);
+		"class_groupnode_view: new: after making responder".debug;
+
+		self;
+	},
+
+	////// main responders
+
+	nodegroup: { arg self, controller;
+		var group;
+		"class_groupnode_view.update_responder: group".debug;
+
+		controller = controller ?? self.controller;
+
+		group = controller.get_current_group;
+		self.current_group = group;
+
+		"class_groupnode_view: group: before making responder".debug;
+		self.group_responder.remove;
+		self.group_responder = ~make_class_responder.(self, self.vlayout, group, [
+			\redraw,
+			\selected_child,
+		]);
+		"class_groupnode_view: group: after making responder".debug;
+		self.group_items;
+	},
+
+	group_items: { arg self, controller;
+		var display;
+		var group, children;
+
+		controller = controller ?? self.controller;
+
+		"XXXXXXXXXXXXXXXXXXXXXXXXXXX class_groupnode_view.update_group_items".debug;
+
+		group = self.current_group;
+		children = group.get_children_and_void;
+		self.stepmatrix.reset_layout;
+		children.do { arg child, x; // FIXME: hardcoded
+			var view;
+			child.uname.debug("°°°°°°°°° stepmatrix: making child");
+			self.stepmatrix.make_line(controller, child, group);
+			self.stepmatrix.playerlist.add(child);
+		};
+		"FIN class_groupnode_view.update_group_items".debug;
+
+	},
+
+	///// group responders
+
+	redraw: { arg self, controller;
+		"class_groupnode_view: group: redraw".debug;
+		self.group_items;
+	},
+
+	selected_child: { arg self, controller, msg, idx;
+		var list = self.stepmatrix.playerlist;
+		"class_groupnode_view: group: selected_child".debug;
+		[idx, controller.selected_child_index].debug("idx, selected_child_index");
+		if(idx.notNil) { //FIXME: why could it be nil ?
+			if(list[idx].notNil) {
+				idx.debug("class_groupnode_matrix_view: selected_child:");
+				list[idx].get_arg(list[idx].get_mode).changed(\selected);
+			}
+		}
+
+	},
+
+);
+
+~make_switch_view = { arg parent, size, default_key, viewlist;
+	var view = (
+		viewlist: viewlist,
+		layout: VLayoutView.new(parent, Rect(0,0,size.x,size.y)),
+		current_view: nil,
+		current_key: nil,
+		switch_to_view: { arg self, key;
+			if(key != self.current_key) {
+				self.current_key = key;
+				self.sublayout.remove;
+				self.sublayout = VLayoutView.new(self.layout, Rect(0,0,size.x,size.y));
+				self.current_view = self.viewlist[key].value(self.sublayout);
+			}
+		},
+	);
+	view.switch_to_view(default_key);
+	view;
+
+};
+
+~make_side_view = { arg main, controller;
+	var win, vlayout, hlayout;
+	var sep, sep_bar;
+	var paramview_list = List.new;
+	var extparamview_list = List.new;
+	var groupview_list = List.new;
+	var extparam_layout, inner_extparam_layout;
+	var player_responder;
+	var group_responder;
+	var group_title;
+	var player_edit_view, group_node_view;
+	var display;
+	var edit_view;
+
+	var winsize= 700@800;
+	var paramsize= 170@26;
+
+	display = (
+		winsize: 700@800,
+		player_view_y: 550,
+		paramsize:170@26,
+		mini_param_row_count: 3,
+		groupnode_row_count: 1,
+	);
+
+	win = Window.new(bounds:Rect(750,0,display.winsize.x,display.winsize.y));
+	win.view.keyDownAction = main.commands.get_kb_responder(\side);
+
+	controller.window = win;
+
+	vlayout = VLayoutView.new(win, Rect(3,0,display.winsize.x-13,display.winsize.y+200));
+	///// status view
+
+	~make_status_view_horizontal.(vlayout, main.play_manager, display.winsize.x@20);
+
+	///// player edit view
+
+	//player_edit_view = ~class_player_view.new(main, controller, vlayout, display);
+
+	edit_view = ~make_switch_view.(vlayout, (display.winsize.x-13)@display.player_view_y, \params, (
+		params: { arg layout; "XOX create params".debug; ~class_player_view.new(main, controller, layout, display); },
+		matrix: { arg layout; "XOX create params".debug; ~class_groupnode_matrix_view.new(main, controller, layout, display); },
+	));
+
+	///// separator
+
+	sep_bar = StaticText.new(vlayout,Rect(0,0,10,08));
+	sep_bar.background = Color.newHex("54516A");
+	sep_bar.background = Color.black;
+	sep = StaticText.new(vlayout,Rect(0,0,10,3));
+
+	///// groupnode view
+
+	group_node_view = ~class_groupnode_view.new(main, controller, vlayout, display);
+
+	~make_view_responder.(vlayout, controller, (
+
+		mode: { arg self, msg;
+			"sideview_responder: mode".debug;
+			switch(self.model.current_mode,
+				\group, {
+					edit_view.switch_to_view(\params);
+					sep_bar.background = Color.newHex("54516A");
+				},
+				\matrix, {
+					edit_view.switch_to_view(\matrix);
+				},
+				{
+					edit_view.switch_to_view(\params);
+					sep_bar.background = Color.black;
+				}
+			)
+
+		},
+
+	));
+
+	vlayout.focus;
+	win.front;
+	win;
 };
 
 
@@ -494,15 +778,14 @@
 	var param_types;
 
 	param_types = (
-				param_field_group: List[\dur, \segdur, \stretchdur, \repeat],
-				param_slider_group: List[\amp, \legato, \pan, \attack, \sustain, \release],
-				param_status_group: List[\amp, \dur, \segdur, \stretchdur, \repeat, \bufnum, \samplekit],
-				param_order: List[\sustain, \pan, \attack, \release, \adsr, \freq],
-				param_reject: [\out, \instrument, \type, \gate, \agate, \t_trig],
-				param_mode: [\stepline, \noteline, \sampleline, \nodeline]
+		param_field_group: List[\dur, \segdur, \stretchdur, \repeat],
+		param_slider_group: List[\amp, \legato, \pan, \attack, \sustain, \release],
+		param_status_group: List[\amp, \dur, \segdur, \stretchdur, \repeat, \bufnum, \samplekit],
+		param_order: List[\sustain, \pan, \attack, \release, \adsr, \freq],
+		param_mode: [\stepline, \noteline, \sampleline, \nodeline],
+		param_no_midi: { arg self; self.param_field_group ++ [\bufnum, \samplekit] ++ self.param_mode; },
+		param_reject: { arg self; [\out, \instrument, \type, \gate, \agate, \t_trig] ++ self.param_mode; },
 	);
-	param_types.param_no_midi = param_types.param_field_group ++ [\bufnum, \samplekit] ++ param_types.param_mode;
-	param_types.param_reject = param_types.param_reject ++ param_types.param_mode;
 
 	side = (
 		archive_data: [\model],
@@ -549,9 +832,11 @@
 				},
 				get_bank: { arg self;
 					//player.get_bank.debug("display.get_bank");
+					[player.uname, player.get_bank].debug("side: make_param_display: get bank");
 					player.get_bank;
 				},
 				get_player_bank: { arg self;
+					player.get_bank.debug("side: make_param_display: get player bank");
 					player.get_bank;
 				},
 				selected: { arg self;
@@ -559,8 +844,8 @@
 						self.parent_group.name.debug("le fameux group");
 
 						[player.name, self.parent_group.selected_child].debug("group: il s'interroge s'il est selectioné");
-						//if( self.parent_group.selected_child == player.name ) { 1 } { 0 } // FIXME: name or uname ?
-						0;
+						if( self.parent_group.selected_child == player.uname ) { 1 } { 0 } // FIXME: name or uname ?
+						//0;
 					} {
 						[param.extname, param.name, player.get_selected_param].debug("il s'interroge s'il est selectioné");
 						if( player.get_selected_param_object === param ) { 1 } { 0 }
@@ -587,6 +872,14 @@
 			);
 		},
 
+		make_param_display_matrix: { arg self, param, player;
+			var display;
+			display = self.make_param_display(param, player);
+			display.max_cells = 16;
+			display.cell_width = 30;
+			display;
+		},
+
 		get_paramlist_splited: { arg self;
 			var player = self.current_player;
 			var mode;
@@ -595,7 +888,7 @@
 			var args2;
 			var args3;
 			if(player.uname == \voidplayer) {
-				[[], []]
+				[[], []];
 			} {
 				args = player.get_ordered_args;
 				args = args.reject { arg x; param_types.param_reject.includes(x) };
@@ -713,9 +1006,9 @@
 				[player.name].debug("side.assign_midi");
 
 				self.get_paramlist.do { arg param_name;
-					//player.name.debug("assign_midi player.name");
-					//offset.debug("assign_midi offset");
-					//param_name.debug("param_name");
+					player.name.debug("assign_midi player.name");
+					offset.debug("assign_midi offset");
+					param_name.debug("param_name");
 					param = player.get_arg(param_name);
 
 					if(main.midi_center.is_next_free(kind).not) {
@@ -729,6 +1022,8 @@
 						}
 						{ \amp == param_name } {
 							if(self.model.current_mode != \mixer) {
+								param.debug("midi assign: amp param");
+								param.midi.get_param.debug("verif param1");
 								main.commands.bind_param([\knob, 8], param);
 							};
 						}
@@ -754,7 +1049,12 @@
 
 		},
 
+		///// mode
 		
+		set_current_mode: { arg self, mode;
+			self.model.current_mode = mode;
+			self.changed(\mode);
+		},
 
 
 		///// param
@@ -770,32 +1070,37 @@
 			var pl;
 			var param;
 			var player = self.get_current_player;
-			//self.model.debug("c'est dingue!!!!");
-			//oldsel = self.model.selected_param;
-			pl = self.get_paramlist_splited;
-			if(index < 8) {
-				sel = pl[0][index];
-			} {
-				sel = (pl[1]++pl[2])[index-8];
-			};
-			if(sel.notNil) {
-				player.select_param(sel);
-				self.model.selected_param = player.get_arg(sel);
-
-				if(param_types.param_mode.includes(sel)) {
-					"enable change_player_mode".debug;
-					main.commands.enable_mode([\side, \change_player_mode]);
+			if(player.notNil) {
+				player.uname.debug("side: select_param: player");
+				//self.model.debug("c'est dingue!!!!");
+				//oldsel = self.model.selected_param;
+				pl = self.get_paramlist_splited;
+				if(index < 8) {
+					sel = pl[0][index];
 				} {
-					"disable change_player_mode".debug;
-					main.commands.disable_mode([\side, \change_player_mode]);
+					sel = (pl[1]++pl[2])[index-8];
 				};
+				if(sel.notNil) {
+					player.select_param(sel);
+					self.model.selected_param = player.get_arg(sel);
 
-				param = player.get_arg(sel);
-				if(param.classtype == \adsr) {
-					main.midi_center.assign_adsr(param);
+					if(param_types.param_mode.includes(sel)) {
+						"enable change_player_mode".debug;
+						main.commands.enable_mode([\side, \change_player_mode]);
+					} {
+						"disable change_player_mode".debug;
+						main.commands.disable_mode([\side, \change_player_mode]);
+					};
+
+					param = player.get_arg(sel);
+					if(param.classtype == \adsr) {
+						main.midi_center.assign_adsr(param);
+					};
+				} {
+					index.debug("no param to select here");
 				};
 			} {
-				index.debug("no param to select here");
+				debug("ERROR: side: select_param: current_player is nil");
 			};
 
 		},
@@ -815,12 +1120,27 @@
 				};
 				self.changed(\extparamlist);
 			});
+			if(param.classtype == \buf, {
+				if(kind == \pkey) {
+					param.set_pkey_mode(param.pkey_mode.not);
+					self.changed(\extparamlist);
+				};
+			});
 		},
 
-		select_cell: { arg self, idx;
+		select_cell: { arg self, idx, stepline;
 			var sel, dur;
 			var player = self.get_current_player;
-			sel = self.get_selected_param;
+			if(stepline.notNil) {
+				player.uname.debug("side: select_cell: current player");
+				sel = player.get_arg(\stepline);
+				if(sel.isNil) {
+					"ERROR: no stepline argument, should fix something in code ?"
+				};
+			} {
+				sel = self.get_selected_param;
+			};
+
 			switch( sel.classtype,
 				\stepline, {
 					sel.toggle_cell(idx);
@@ -855,9 +1175,10 @@
 					~make_edit_number_view.(main, "edit param", param, [\knob, 0]);
 				},
 				\buf, {
-					~choose_sample.(main, { arg buf; param.set_val(buf);  })
+					~choose_sample.(main, { arg buf; param.set_val(buf);  }, self.get_current_player.get_arg(\samplekit).get_val)
 				},
 				\samplekit, {
+					~class_samplekit_chooser.new(main, { arg kit; param.set_val(kit);  })
 
 				}
 			);
@@ -868,6 +1189,7 @@
 		set_current_player: { arg self, player, index;
 			// set player object
 			var oldplayer;
+			player.uname.debug("XXXXX side: set_current_player");
 			if(self.current_player != player) {
 				oldplayer = main.get_node(self.get_current_group.selected_child);
 				if(index.notNil) {
@@ -875,10 +1197,13 @@
 				} {
 					self.get_current_group.select_child(player.uname);
 				};
+				self.get_current_group.selected_child.debug("side.set_current_player: group: selected_child");
+				self.get_current_group.selected_child_index.debug("side.set_current_player: group: selected_child_index");
 				if(oldplayer.notNil) {
-					oldplayer.get_arg(\amp).changed(\selected);
+					main.freeze_do { oldplayer.get_arg(\amp).changed(\selected); };
 				};
 				self.current_player = player;
+				"fin de set_current_player".debug;
 				self.assign_midi;
 				if(param_types.param_mode.includes(player.get_selected_param)) {
 					"enable change_player_mode".debug;
@@ -887,7 +1212,7 @@
 					"disable change_player_mode".debug;
 					main.commands.disable_mode([\side, \change_player_mode]);
 				};
-				self.changed(\player);
+				main.freeze_do { self.changed(\player); };
 			}
 
 		},
@@ -895,6 +1220,20 @@
 		get_current_player: { arg self;
 			// return player object
 			self.current_player 
+		},
+
+		remove_current_player: { arg self;
+			var group = self.get_current_group;
+			var player = self.get_current_player;
+			var index;
+			var name;
+			name = player.uname;
+			if(name != \voidplayer) {
+				index = group.children.detectIndex { arg i; i == name };
+				group.set_children_name(index, \voidplayer);
+			} {
+				"can't remove voidplayer".debug;
+			};
 		},
 
 		///// group
@@ -908,19 +1247,76 @@
 		},
 
 		set_current_group: { arg self, group;
-			if(group != self.model.current_group) {
-				self.current_group = group;
-				self.changed(\group);
+			var group_types = [\parnode, \seqnode]; // TODO: define it more globally. add seqnode
+			var curplayer, curplayer_index;
+			group.uname.debug("side.set_current_group: group");
+			if(group_types.includes(group.kind)) {
+				if(group != self.model.current_group) {
+					self.current_group = group;
+					self.current_group.selected_child.debug("side:set_current_group: selected_child");
+					curplayer_index = self.current_group.selected_child_index;
+					curplayer = self.current_group.get_children_and_void[ curplayer_index ];
+					self.set_current_player(curplayer, curplayer_index);
+					main.freeze_do { self.changed(\nodegroup); };
+				};
+			} {
+				group.kind.debug("Error: node is not a kind of group");
 			};
 		},
 
 		get_current_group: { arg self; self.current_group },
 
-		refresh: { arg self;
-			self.changed(\group);
-			self.changed(\player);
-			"FIN side_panel:refresh"
 
+		////// supergroup
+
+		select_group: { arg self, index;
+			var supergroup;
+			var group;
+			supergroup = self.get_current_supergroup;
+			if(index == 0) {
+				self.set_current_group(supergroup);
+			} {
+				group = supergroup.get_children[index-1];
+				if(group.notNil) {
+					self.set_current_group(group);
+				} {
+					index.debug("side: select group: no group here");
+				}
+			}
+		},
+
+		copy_group: { arg self, index;
+			//TODO
+			var curgroup = self.get_current_group;
+			var supergroup = self.get_current_supergroup;
+			var newgroup = supergroup.children[index-1];
+			if((newgroup == \voidplayer) or: {main.get_node(newgroup).get_children_and_void.size==1}) {
+				curgroup.debug("side.copy_group: curgroup");
+				newgroup = main.node_manager.duplicate_node_recursive(curgroup.uname, (\cpar ++ index).asSymbol);
+				supergroup.set_children_name(index-1, newgroup);
+			} {
+				index.debug("side.copy_group: groupnode already exist");
+			}
+
+		},
+
+		set_current_supergroup: { arg self, group;
+			self.current_supergroup = group;
+			self.changed(\supergroup);
+		},
+
+		get_current_supergroup: { arg self;
+			self.current_supergroup;
+		},
+
+
+		//////////
+
+		refresh: { arg self;
+			self.changed(\nodegroup);
+			self.changed(\player);
+			self.changed(\mode);
+			"FIN side_panel:refresh"
 		},
 
 		add_cell_bar: { arg self;
@@ -963,12 +1359,18 @@
 			);
 		},
 
+
 		make_gui: { arg self;
 			self.window = ~make_side_view.(main, self);
+			//self.window = ~make_side_view_BACKUP.(main, self);
+			//self.window = ~make_nodegroup_view.(main, self);
 		},
 
 		init: { arg self;
 			//self.model.selected_param = \amp;
+			var supergroup;
+
+			self.song_manager = ~make_song_manager.(main);
 
 			main.model.current_panel = \side;
 			main.midi_center.install_pad_responders;
@@ -976,9 +1378,18 @@
 
 			//~panel.set_current_player(~seq.get_node(\ko));
 
-			main.node_manager.make_groupplayer(\par1, \par);
+			supergroup = main.node_manager.make_groupplayer(\superseq1, \seq);
+			supergroup.set_expset_mode(true);
+
+			8.do { arg i;
+				var parname = (\par ++ (i + 1)).asSymbol;
+				main.node_manager.make_groupplayer(parname, \par);
+				main.get_node(\superseq1).add_children(parname);
+			};
+
 			main.node_manager.set_default_group(\par1);
 			self.set_current_group(main.get_node(\par1));
+			self.set_current_supergroup(main.get_node(\superseq1));
 
 			"OU SUOSJE".debug;
 
@@ -995,12 +1406,24 @@
 					self.select_cell(i);
 				}],
 
-				[\select_player, 8, { arg i;
+				[\matrix_select_param_cell, 32, { arg i;
+					self.select_cell(i, \stepline);
+				}],
+
+				[\select_player, 32, { arg i;
+					self.select_group_item(i)
+				}],
+
+				[\matrix_select_player, 8, { arg i;
 					self.select_group_item(i)
 				}],
 
 				[\pad_select_player, 8, { arg i;
 					self.select_group_item(i)
+				}],
+
+				[\select_group, 10, { arg i;
+					self.select_group(i)
 				}],
 
 				[\increase_select_offset, {
@@ -1119,25 +1542,35 @@
 				[\forward_in_record_history, {
 					var player = self.get_current_player;
 					var nline;
-					if(player.get_mode != \stepline) {
-						nline = player.get_arg(player.get_mode);
-						nline.scoreset.forward_in_history;
-						if(main.play_manager.node_is_playing(player).not) {
-							nline.forward_to_next_notescore;
-						}
-					};
+					if(player.is_audiotrack) {
+						nline = player.get_arg(\bufnum);
+						nline.forward_in_record_history;
+					} {
+						if(player.get_mode != \stepline) {
+							nline = player.get_arg(player.get_mode);
+							nline.scoreset.forward_in_history;
+							if(main.play_manager.node_is_playing(player).not) {
+								nline.forward_to_next_notescore;
+							}
+						};
+					}
 				}],
 
 				[\backward_in_record_history, {
 					var player = self.get_current_player;
 					var nline;
-					if(player.get_mode != \stepline) {
-						nline = player.get_arg(player.get_mode);
-						nline.scoreset.backward_in_history;
-						if(main.play_manager.node_is_playing(player).not) {
-							nline.forward_to_next_notescore;
-						}
-					};
+					if(player.is_audiotrack) {
+						nline = player.get_arg(\bufnum);
+						nline.backward_in_record_history;
+					} {
+						if(player.get_mode != \stepline) {
+							nline = player.get_arg(player.get_mode);
+							nline.scoreset.backward_in_history;
+							if(main.play_manager.node_is_playing(player).not) {
+								nline.forward_to_next_notescore;
+							}
+						};
+					}
 				}],
 
 				[\edit_selected_param, {
@@ -1146,9 +1579,17 @@
 
 				///// new node
 
+				[\remove_node, { 
+					self.remove_current_player;
+				}],
+
 				[\copy_node, {
 					var player = self.get_current_player;
 					main.node_manager.copy_node(player);
+				}],
+
+				[\copy_group, 10, { arg i;
+					self.copy_group(i);
 				}],
 
 				[\paste_node, {
@@ -1231,42 +1672,66 @@
 
 				///// global modes
 
+				["set_global_mode.matrix", {
+					"matrix".debug("mode");
+					self.set_current_mode(\matrix);
+					main.commands.disable([\side, \select_player]);
+					main.commands.disable([\side, \select_param_cell]);
+					main.commands.disable([\side, \select_param]);
+					main.commands.disable([\side, \pad_select_param]);
+
+					main.commands.enable([\side, \matrix_select_player]);
+					main.commands.enable([\side, \matrix_select_param_cell]);
+				}],
+
 				["set_global_mode.liveplay", {
 					"liveplay".debug("mode");
-					self.model.current_mode = \liveplay;
+					self.set_current_mode(\liveplay);
 					main.node_manager.start_midi_liveplayer(self.get_current_player);
 					self.assign_midi;
 					//main.commands.disable([\side, 
 				}],
 				["set_global_mode.param", {
 					"param".debug("mode");
-					self.model.current_mode = \param;
+					self.set_current_mode(\param);
 					main.node_manager.stop_midi_liveplayer;
 					main.commands.disable([\side, \select_player]);
 					main.commands.disable([\side, \pad_select_player]);
+					main.commands.disable([\side, \matrix_select_player]);
+					main.commands.disable([\side, \matrix_select_param_cell]);
+
 					main.commands.enable([\side, \select_param]);
 					main.commands.enable([\side, \pad_select_param]);
+					main.commands.enable([\side, \select_param_cell]);
 					self.assign_midi;
 				}],
 				["set_global_mode.group", {
 					"group".debug("mode");
-					self.model.current_mode = \group;
+					self.set_current_mode(\group);
 					main.node_manager.stop_midi_liveplayer;
 					main.commands.disable([\side, \select_param]);
 					main.commands.disable([\side, \pad_select_param]);
+					main.commands.disable([\side, \matrix_select_player]);
+					main.commands.disable([\side, \matrix_select_param_cell]);
+
 					main.commands.enable([\side, \select_player]);
 					main.commands.enable([\side, \pad_select_player]);
+					main.commands.enable([\side, \select_param_cell]);
 					self.assign_midi;
 				}],
 
 				["set_global_mode.mixer", {
 					"group".debug("mode");
-					self.model.current_mode = \mixer;
+					self.set_current_mode(\mixer);
 					main.node_manager.stop_midi_liveplayer;
 					main.commands.disable([\side, \select_param]);
 					main.commands.disable([\side, \pad_select_param]);
+					main.commands.disable([\side, \matrix_select_player]);
+					main.commands.disable([\side, \matrix_select_param_cell]);
+
 					main.commands.enable([\side, \select_player]);
 					main.commands.enable([\side, \pad_select_player]);
+					main.commands.enable([\side, \select_param_cell]);
 					self.assign_midi;
 				}],
 			]);
@@ -1306,6 +1771,6 @@
 	);
 	side.init;
 	side;
-
 }
+
 )

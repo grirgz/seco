@@ -1,3 +1,35 @@
+
+	SynthDef(\string, { | out=0 gate=1 freq=1000 |
+		var aEnv, osc, flt;
+		aEnv = EnvGen.kr(Env.asr(0.2, 1, 0.5), gate, doneAction: 2);
+		osc = Saw.ar([LFCub.kr(0.3, Rand(0, 1), freq * 0.003, freq), freq, LFCub.kr(0.7, Rand(0, 1), freq * 0.001, freq)]);
+		flt = LPF.ar(osc, 1500, aEnv);
+		Out.ar(out, flt);
+	}).add;
+
+	SynthDef(\bass, { | out=0 gate=1 freq |
+		var aEnv, fEnv, osc, flt;
+		aEnv = EnvGen.kr(Env.asr(0, 1, 1), gate, doneAction: 2);
+		fEnv = EnvGen.kr(Env.perc(0, 3), levelScale: 6000);
+		osc = Mix([Saw.ar(freq * [1, 1.005]), Pulse.ar(freq / 2, 0.5)]);
+		flt = LPF.ar(osc, fEnv + 100, aEnv);
+		Out.ar(out, flt);
+	}).add;
+
+(
+SynthDef(\strings, { arg out, freq=440, amp=0.1, gate=1, pan, freqLag=0.2;
+					var env, in, delay, f1, f2;
+					f1 = freq.lag(freqLag);
+					f2 = freq.lag(freqLag * 0.5);
+					delay = 0.25 / f2;
+					env = Env.asr(0, 1, 0.3);
+					in = WhiteNoise.ar(180);
+					in = CombL.ar(in, delay, delay, 1);
+					in = Resonz.ar(in, f1, 0.001).abs;
+					in = in * EnvGen.kr(env, gate, doneAction:2);
+					Out.ar(out, Pan2.ar(in, pan, amp));
+}).add;
+)
 (
 SynthDef(\sax, { |out, freq=440, amp=0.1, gate=1, rq=2, frs=0.1, fre=4, frt=0.01, hdelta=0.001|
 	var num = 16;
@@ -9,7 +41,23 @@ SynthDef(\sax, { |out, freq=440, amp=0.1, gate=1, rq=2, frs=0.1, fre=4, frt=0.01
 	snd = BBandPass.ar(snd, freq * XLine.kr(frs,fre,frt), rq);
 	snd = snd * amp * EnvGen.ar(Env.adsr(0.001, 0.2, 0.7, 0.2), gate, doneAction:2);
 	Out.ar(out, snd!2);
-}).add;
+}).store;
+)
+
+(
+SynthDef('kicklank', { arg out=0, gate=1, release=0.3, pan=0, amp=0.1, distamp=20, wet=0.1, attack=0.005;
+    var freqs, ringtimes, signal, imp, distsig;
+	imp = Impulse.ar(0.2, 0, 0.1);
+    freqs = Control.names([\freqs]).kr([081,82,83,84, 85]);
+    ringtimes = Control.names([\ringtimes]).kr([1, 1, 1, 1, 1]/2);
+    signal = DynKlank.ar(`[freqs, nil, ringtimes ], imp);
+	distsig = (signal*distamp).tanh /4;
+	signal = SelectX.ar(wet, [signal, distsig]);
+	signal = signal * 2.5;
+	signal = signal * EnvGen.ar(Env.perc(attack,release),gate,doneAction:2);
+	signal = Pan2.ar(signal, pan, amp);
+    Out.ar(out, signal);
+}).store;
 )
 
 (
@@ -29,7 +77,7 @@ SynthDef(\kick1, { |out=0, amp=0.1, pan=0|
 	son = son.clip2(1);
 	
 	OffsetOut.ar(out, Pan2.ar(son * amp));
-}).add;
+}).store;
 
 SynthDef(\kick2, { |out=0, amp=0.1, pan=0, release=0.26, fratio=1.5|
 	var env0, env1, env1m, son;
@@ -55,7 +103,7 @@ SynthDef(\kick2, { |out=0, amp=0.1, pan=0, release=0.26, fratio=1.5|
 	//son = Pan2.ar(son);
 	
 	OffsetOut.ar(out, son);
-}).add;
+}).store;
 
 SynthDef(\kick3, { |out=0, amp=0.1, pan=0, release=0.26, fratio=1.5|
 	var env0, env1, env1m, son;
@@ -76,7 +124,7 @@ SynthDef(\kick3, { |out=0, amp=0.1, pan=0, release=0.26, fratio=1.5|
 	son = Pan2.ar(son, pan);
 	
 	OffsetOut.ar(out, son);
-}).add;
+}).store;
 
 SynthDef(\snare1, { |out=0, amp=0.1, pan=0, release=0.26, fratio=1.5|
 	var env0, env1, env1m, son;
@@ -94,7 +142,7 @@ SynthDef(\snare1, { |out=0, amp=0.1, pan=0, release=0.26, fratio=1.5|
 	son = son.clip2(1);
 	
 	OffsetOut.ar(out, Pan2.ar(son * amp));
-}).add;
+}).store;
 
 
 SynthDef(\kraftySnr, { |amp = 1, freq = 2000, rq = 3, decay = 0.3, pan, out|
@@ -107,7 +155,7 @@ SynthDef(\kraftySnr, { |amp = 1, freq = 2000, rq = 3, decay = 0.3, pan, out|
     sig = BPF.ar(sig, freq*[1,1.01,0.99,0.4], rq*[0.1,1.1,0.9], env).sum;
 	sig = sig * amp;
     Out.ar(out, Pan2.ar(sig, pan))
-}).add;
+}).store;
 
 SynthDef("snare1", { 
 	arg out=0, gate=1, pan=0, amp=0.1, freq=111;
@@ -127,7 +175,7 @@ SynthDef("snare1", {
 
 	Out.ar(out,ou.dup)
  
-}).add;
+}).store;
 
 SynthDef(\saxo, { |out, freq=440, amp=0.1, gate=1|
 	var num = 16;
@@ -137,7 +185,7 @@ SynthDef(\saxo, { |out, freq=440, amp=0.1, gate=1|
 	snd = BBandPass.ar(snd, freq * XLine.kr(0.1,4,0.01), 2);
 	snd = snd * amp * EnvGen.ar(Env.adsr(0.001, 0.2, 0.7, 0.2), gate, doneAction:2);
 	Out.ar(out, snd!2);
-}).add;
+}).store;
 
 // should be more like a gated synth, but this one gives the rhythmic element
 // remember to pass the bps from the language tempo!
@@ -149,7 +197,7 @@ SynthDef(\lead, { |out, freq=440, amp=0.1, gate=1, bps=2|
     snd = MoogFF.ar(snd, seq, 0.5);
     snd = snd * EnvGen.ar(Env.asr(0.01,1,0.01), gate, doneAction:2);
     OffsetOut.ar(out, snd * amp);
-}).add;
+}).store;
 
 // yep, an organ with a sub bass tone :D
 SynthDef(\organ, { |out, freq=440, amp=0.1, gate=1|
@@ -158,6 +206,61 @@ SynthDef(\organ, { |out, freq=440, amp=0.1, gate=1|
     snd = snd + SinOsc.ar(freq/2, mul:0.4)!2;
     snd = snd * EnvGen.ar(Env.asr(0.001,1,0.01), gate, doneAction:2);
     OffsetOut.ar(out, snd * amp);
-}).add;
+}).store;
+
+SynthDef(\monosampler, {| out = 0, amp=0.1, pan=0, bufnum = 0, gate = 1, pos = 0, speed = 1, loop=0|
+
+	var player,env;
+	env = EnvGen.kr(~make_adsr.(\adsr), gate, doneAction:2) * amp;
+	player = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum) * speed, 1, startPos: (pos*BufFrames.kr(bufnum)), doneAction:2, loop: loop);
+	player = Pan2.ar(player, pan, amp);
+	Out.ar(out, player * env);
+
+}, metadata:(specs:(
+	bufnum: (numchan: 1)
+))).store;
+
+SynthDef(\stereosampler, {| out = 0, amp=0.1, bufnum = 0, gate = 1, pos = 0, speed = 1, loop=0|
+
+	var player,env;
+	env =  EnvGen.kr(~make_adsr.(\adsr), gate, doneAction:2);
+	player = PlayBuf.ar(2, bufnum, BufRateScale.kr(bufnum) * speed, 1, startPos: (pos*BufFrames.kr(bufnum)), doneAction:2, loop: loop);
+	player = player * env * amp;
+	Out.ar(out, player);
+
+}, metadata:(specs:(
+	bufnum: (numchan: 2)
+))).store;
+
+SynthDef(\stereosampler_sec, {| out = 0, amp=0.1, buf = 0, gate = 1, start=0, end=1, speed = 1, loop=0|
+
+	var player,env;
+	var rate;
+	var bufnum = buf;
+	env =  EnvGen.kr(Env([0,1,1,0],[0.01,(end-start)/speed,0.1]), gate, doneAction:2);
+	BufFrames.kr(bufnum).poll;
+	rate = BufRateScale.kr(bufnum) * speed;
+	player = PlayBuf.ar(2, bufnum, rate, 1, startPos: (start*BufSampleRate.kr(bufnum)).poll, doneAction:2, loop: loop);
+	player = player * env * amp;
+	Out.ar(out, player);
+
+}, metadata:(specs:(
+	bufnum: (numchan: 2)
+))).store;
+)
+
+
+///////////////////// effects
+
+(
+SynthDef(\echo, { arg out=0, in=0, maxdtime=0.6, dtime=0.2, decay=2, wet=1, gate=1;
+        var env, ou;
+        env = Linen.kr(gate, 0.05, 1, decay, doneAction:14);
+        in = In.ar(in, 2);
+		ou = CombL.ar(in, maxdtime, dtime, decay, 1, in);
+		ou = SelectX.ar(wet, [in,ou]);
+        Out.ar(out, ou);
+}, [\ir, \ir, \ir, 0.1, 0.1, 0]).store;
+
 
 )

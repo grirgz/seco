@@ -1,0 +1,11 @@
+- les param de type bus sont pas pris en compte lors du liveplay
+- pad_select_param desactivé apres liveplay
+- au load il y a des doubles selections
+- bufferpool fait trop de warning et reagis pas au disable debug
+- effets marche plus
+- impossible de suprimer des effets
+- pas moyen de creer un autre pargroups sans passer par le code ou copier l'existant
+- pas de key_mode pour stepline
+- ralentissement quand on passe en mode matrix
+- lors du load, les buffers en key_mode (mais pas que ?) reviennent par defaut 
+- lors de la creation d'un synthdef par un mdef, le mode preset de dur reste 

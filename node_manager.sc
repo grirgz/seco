@@ -33,6 +33,7 @@
 		start_tempo_recorder: { arg self, player, kind=\limited;
 			// TODO: handle when recording finish (play recorded track along what is playing ?)
 			var finish = {
+				"node_manager: start_tempo_recorder: finish action".debug;
 				main.play_manager.set_recording(false);
 			};
 			kind = \unlimited; // DEBUG;
@@ -49,7 +50,8 @@
 						player.name.debug("start_tempo_recorder: player");
 						if(player.is_audiotrack) {
 							"start_tempo_recorder:audio recorder player!!".debug;
-							self.recorder = ~make_audio_recorder.(player, main);
+							//self.recorder = ~make_audio_recorder.(player, main);
+							self.recorder = ~make_unlimited_audio_recorder.(player, main); // TODO: use kind
 							self.recorder.player_start_tempo_recording(finish);
 						} {
 							if(player.get_mode == \stepline) {
@@ -81,10 +83,12 @@
 		},
 
 		toggle_recording: { arg self, player;
-			if(main.play_manager.is_recording == true) {
+			if(main.play_manager.is_recording) {
+				"node_manager: toggle_recording: stop_unlimited_recording".debug;
 				//self.cancel_recording;
 				self.recorder.stop_unlimited_recording;
 			} {
+				"node_manager: toggle_recording: start_tempo_recorder".debug;
 				self.start_tempo_recorder(player);
 			}
 		},
@@ -167,12 +171,33 @@
 			newplayer;
 		},
 
-		duplicate_node: { arg self, nodename;
-			var name, pl, num;
+		duplicate_node: { arg self, nodename, newname;
+			var pl;
 			pl = self.get_node(nodename).clone;
-			pl.name = name;
-			pl.uname = name;
+			pl.name = newname;
+			pl.uname = newname;
 			//TODO: clone children
+			main.add_node(pl);
+			pl.uname;
+		},
+
+		duplicate_node_recursive: { arg self, nodename, newname;
+			var pl;
+			pl = self.get_node(nodename).clone;
+			pl.name = newname;
+			pl.uname = newname;
+			//TODO: clone children
+			pl.children = pl.children.collect { arg childname;
+				var newchildname;
+				if(childname == \voidplayer) {
+					\voidplayer
+				} {
+					newchildname = main.make_newlivenodename_from_livenodename(childname);
+					self.duplicate_node_recursive(childname, newchildname);
+					newchildname
+				}
+			};
+			pl.refresh;
 			main.add_node(pl);
 			pl.uname;
 		},
@@ -323,6 +348,10 @@
 
 		},
 
+		freeze_gui: { arg self, set=true;
+			self.model.freeze_gui = set;
+		},
+
 		mpdef: { arg self, name, pat, instr=nil;
 			var node;
 
@@ -332,7 +361,7 @@
 							if(main.node_exists(name)) {
 								node = main.get_node(name);
 								node.set_input_pattern(pat);
-								main.panels.side.set_current_player(node);
+								if(self.model.freeze_gui) { main.panels.side.set_current_player(node); };
 								Pdef(name, node.vpattern);
 							} {
 								node = ~make_player_from_pbind.(main, pat);
@@ -343,6 +372,7 @@
 									main.node_manager.add_node_to_default_group(node);
 									main.panels.side.set_current_player(node);
 									//main.focus_mpdef(node);
+									node.get_arg(\repeat).set_val(0);
 									Pdef(name, node.vpattern);
 								} {
 									"ERROR: player could not be created".debug;
@@ -397,9 +427,53 @@
 								};
 							}
 						}
+						// TODO: implement method to define expsets
+						//{ pat.class == Pseq } {
+
+						//	if(main.node_exists(name)) {
+						//		node = main.get_node(name);
+						//		node.set_input_pattern(pat);
+						//		main.panels.side.set_current_group(node);
+						//		Pdef(name, node.vpattern);
+						//	} {
+						//		node = ~make_parplayer.(main);
+						//		if(node.notNil) {
+						//			node.name = name;
+						//			node.uname = name;
+						//			main.add_node(node);
+						//			node.set_input_pattern(pat);
+						//			main.panels.side.set_current_group(node);
+						//			//main.focus_mpdef(node);
+						//			Pdef(name, node.vpattern);
+						//		} {
+						//			"ERROR: player could not be created".debug;
+						//			nil;
+						//		};
+						//	}
+						//}
 						{
-							"ERROR: pat class not understood".debug;
-							Pdef(name, pat);
+							"INFO: class not understood, using direct input pattern".debug;
+							if(main.node_exists(name)) {
+								node = main.get_node(name);
+								node.set_input_pattern(pat);
+								main.panels.side.set_current_player(node);
+								Pdef(name, node.vpattern);
+							} {
+								node = ~make_player_from_pattern.(main, pat);
+								if(node.notNil) {
+									node.name = name;
+									node.uname = name;
+									main.add_node(node);
+									main.node_manager.add_node_to_default_group(node);
+									main.panels.side.set_current_player(node);
+									//main.focus_mpdef(node);
+									node.get_arg(\repeat).set_val(0);
+									Pdef(name, node.vpattern);
+								} {
+									"ERROR: player could not be created".debug;
+									nil;
+								};
+							};
 						}
 			} {
 				Pdef(name)
@@ -436,7 +510,7 @@
 
 						}
 						{
-							"ERROR: pat class not understood".debug;
+							"ERROR: class not understood".debug;
 							Pdef(name, pat);
 						}
 			} {
@@ -457,6 +531,20 @@
 				main.add_node(node);
 				main.node_manager.add_node_to_default_group(node);
 			}
+		},
+
+		mdef_scoreset: { arg self, name;
+			var node;
+			node = self.get_node(name);
+			switch(node.get_mode,
+				\noteline, { node.get_arg(\noteline).scoreset },
+				\nodeline, { node.get_arg(\nodeline).scoreset },
+				{ node.get_arg(\noteline).scoreset },
+			)
+		},
+
+		mdef_scorepat: { arg self, name, notes=nil, strip=true;
+			notes = notes ?? self.mdef_scoreset(name).get_notes_pattern(notes, strip);
 		},
 
 		add_node: main[\add_node]
@@ -507,6 +595,8 @@
 		visual_metronome_enabled: true,
 
 		myclock: TempoClock.default,
+
+		expset_manager: ~exclusive_play_set.(),
 
 		start_pos: 0,
 		play_length: 16,
@@ -567,6 +657,7 @@
 				if(self.is_playing) {
 					self.changed(\head_state, \play);
 				} {
+					"play_manager: set_recording: stop_counter".debug;
 					self.changed(\stop_counter);
 					self.changed(\head_state, \stop);
 				}
@@ -706,28 +797,60 @@
 				self.start_new_session;
 				children = ~find_children.(main, node);
 				if( self.top_nodes.keys.includes(nodename) ) {
+
+					/////==== already playing: unmuting children ====/////
+
 					nodename.debug("pm: play_node: already playing, unmuting children");
 					children.do { arg child;
 						child.mute(false);
 					};
 				} {
 					if( self.children_nodes.includes(nodename) ) {
+
+						/////==== already playing as a children: unmuting ====/////
+
 						nodename.debug("pm: play_node: unmute");
 						node.mute(false);
 					} {
+
+						/////==== not playing: play it ====/////
+
 						nodename.debug("pm: play_node: play!");
+
+						// stoping nodes in exclusive group
+						debug("6666666666666666666666666666666666666666 play_manager.play_node: expset 66666666666666");
+
+						self.expset_manager.get_nodes_to_stop(nodename, self.children_nodes.union(self.top_nodes.keys))
+								.debug("66 all nodes to stop");
+						[nodename, self.children_nodes.union(self.top_nodes.keys)].debug("66 nodename, playing nodes");
+						self.expset_manager.set_dict.debug("66 set_dict");
+
+						self.expset_manager.get_nodes_to_stop(nodename, self.children_nodes.union(self.top_nodes.keys)).do { arg node_to_stop;
+							node_to_stop.debug("66 node_to_stop");
+							self.stop_node(node_to_stop, true);
+						};
+
+						// unmuting
+
 						children.do { arg child;
 							child.mute(false);
 						};
 						node.mute(false);
+
+						// playing
+
+						self.get_rel_beat.debug("pm: play node");
+
 						node.node.source = node.vpattern_loop;
 						quant = if(self.is_playing) { self.get_quant } { 1 };
-						self.get_rel_beat.debug("pm: play node");
 						node.node.play(self.get_clock,quant:quant);
 						node.set_playing_state(\play);
-						esp = node.node.player;
-						//node.debug("owww!");
+						
+						// registering
+
 						children.collect(_.uname).debug("pm: play_node: children");
+
+						esp = node.node.player;
 						sc = SimpleController(esp);
 						self.top_nodes[nodename] = (
 							esp: esp,
@@ -831,5 +954,91 @@
 	);
 	obj;
 
+
+};
+
+~make_song_manager = { arg main;
+
+	(
+		current_song: main.node_manager.make_groupplayer(\song1, \seq),
+		name_tree: [\song, \part, \section, \variant],
+		type_tree: [\seq, \par, \seq, \par],
+
+		change_part: { arg self, num; 
+			self.get_path([num,nil,nil], true);
+		},
+
+		change_section: { arg self, num;
+			self.get_path([nil,num,nil], true);
+		},
+
+		change_variant: { arg self, num;
+			self.get_path([nil,nil,num], true);
+		},
+
+		get_current_variant: { arg self, num;
+			self.get_path([nil,nil,nil]);
+		},
+
+		unvoid_child: { arg self, group, childname, index, pathlevel;
+			var newgroup;
+			childname.debug("unvoid_child");
+			if(childname == \voidplayer) {
+				newgroup = main.node_manager.make_groupplayer((self.name_tree[pathlevel] ++ index).asSymbol, self.type_tree[pathlevel]);
+				newgroup.uname.debug("unvoid_child: newgroup uname");
+				group.set_children_name(index-1, newgroup.uname);
+				newgroup;
+			} {
+				main.get_node(childname);
+			};
+		},
+
+		get_child: { arg self, group, index, pathlevel, select=false;
+			var newgroup;
+			if(index.notNil) {
+				if(index == 0) {
+					group;
+				} {
+					if(select) {
+						group.set_selected_child_index(index-1);
+					};
+					self.unvoid_child(group, group.get_childname_by_index(index), index, pathlevel);
+				}
+			} {
+				self.unvoid_child(group, group.get_selected_childname, group.selected_child_index+1, pathlevel);
+			}
+		},
+		
+		get_path: { arg self, path, select=false;
+			var child, current_group, index, newgroup;
+			current_group = self.current_song;
+			if(path.size < 4) {
+				path.do { arg index, pathlevel;
+					pathlevel = pathlevel + 1;
+					current_group = self.get_child(current_group, index, pathlevel, select);
+				};
+				current_group;
+			} {
+				"ERROR: path array too long".debug;
+			}
+		},
+
+		get_current_path: { arg self;
+			var group, path, childname;
+			path = List.new;
+			group = self.current_song;
+			3.do {
+				childname = group.get_selected_childname;
+				childname.debug("get_current_path:selected_childname");
+				if(childname == \voidplayer) {
+					path.add(childname)
+				} {
+					group = main.get_node(childname);
+					path.add(childname);
+				};
+			};
+			path;
+		}
+	)
 
 };

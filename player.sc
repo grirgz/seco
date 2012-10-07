@@ -166,7 +166,8 @@
 				if(self.is_effect) {
 					Pmono(self.data[\instrument].vpattern, *list)
 				} {
-					Pbind(*list);
+					//DebugPbind(*list); //debug
+					Pbind(*list); //debug
 				}
 			}.value;
 			self.build_real_sourcepat;
@@ -215,7 +216,6 @@
 
 
 		get_piano: { arg self, kind=\normal;
-			var veloc_ratio = main.model.velocity_ratio;
 			var exclu, list = List[];
 			exclu = [\instrument, \noteline,  \sampleline, \samplekit, \repeat, \stretchdur, \stepline, \type, \dur, \segdur, \legato, \sustain,
 					\amp, \bufnum, \freq,
@@ -577,7 +577,8 @@
 				res = Ppar( list )
 			};
 
-			self.real_sourcepat = res.trace;
+			//self.real_sourcepat = res.postcs.trace; //DEBUG
+			self.real_sourcepat = res.postcs;
 		},
 
 		vpattern: { arg self;
@@ -659,6 +660,30 @@
 	player;
 };
 
+~make_player_from_pattern = { arg main, pat;
+	var player = ~make_player_from_synthdef.(main, \default);
+	player.sourcepat = {
+		var dict = Dictionary.new;
+		var list = List[];
+		var prio, reject;
+
+		list.add(\muted); list.add(Pfunc({ player.muted }));
+		list.add(\type); list.add(
+			Pfunc({ arg ev;
+				if(ev[\muted]) {
+					\rest
+				} {
+					ev[\type]
+				}
+			})
+		);
+		Pbind(*list);
+	}.value;
+
+	player.set_input_pattern(pat);
+	player;
+};
+
 ~make_player_from_pbind = { arg main, pat;
 	var defname, player, param;
 	if(pat.class == Pbind) {
@@ -673,8 +698,14 @@
 			nil
 		} {
 			pat.patternpairs.clump(2).do { arg elm, x;
+				elm.debug("############===================================== set pkey");
+				player.get_args.debug(">>>========== args");
 				param = player.get_arg(elm[0]);
 				if(param.notNil) {
+					param.name.debug("===================================== set pkey");
+					if(elm[1].isNumber) {
+						param.set_val(elm[1])
+					};
 					param.set_pkey_mode(true);
 				} {
 					elm[0].debug("ERROR: ~make_player_from_pbind: param not found");
@@ -698,7 +729,7 @@
 	} {
 		player = ~make_player_from_synthdef.(main, defname);
 		param = player.get_args.do { arg elm, x;
-			//if([\stretchdur, \segdur, 
+			//if[\stretchdur, \segdur, 
 			param = player.get_arg(elm);
 			if(param.notNil) {
 				param.set_pkey_mode(true);
@@ -820,7 +851,7 @@
 };
 
 ~make_groupplayer = { arg main, children=List[];
-	// changed messages: \redraw, \redraw_node, \selected_child
+	// changed messages: \redraw, \redraw_node, \selected_child, \expset_mode
 	var pplayer;
 	pplayer = (
 		//children: SparseArray.newClear(8, ~empty_player),
@@ -829,13 +860,14 @@
 		name: \new,
 		uname: \new,
 		data: Dictionary.new,
-		archive_data: [\children, \kind, \name, \selected_child, \selected_child_index],
-		archive_classtype: [\control, \stepline, \adsr, \noteline, \sampleline, \nodeline, \buf],
+		archive_data: [\children, \kind, \name, \selected_child, \selected_child_index, \expset_mode],
+		archive_classtype: [\control, \stepline, \adsr, \noteline, \sampleline, \samplekit, \nodeline, \buf],
 		playlist: List.new,
 		playing_state: \stop,
 		muted: false,
 		selected_child: \none,
 		selected_child_index: 0,
+		expset_mode: false,
 
 		init: { arg self;
 			self.data[\repeat] = self.data[\repeat] ?? ~make_control_param.(main, self, \repeat, \scalar, 1, ~get_spec.(\repeat));
@@ -867,6 +899,8 @@
 			};
 		},
 
+		///// selection
+
 		select_param: { arg self, name;
 			var oldsel;
 			if( self.data[name].notNil ) {
@@ -884,40 +918,24 @@
 			self.selected_param;
 		},
 
-		set_playing_state: { arg self, state;
-			self.playing_state = state;
-			self.changed(\redraw_node);
+		get_selected_param_object: { arg self;
+			self.get_arg(self.selected_param);
 		},
 
-		get_playing_state: { arg self;
-			switch(self.muted,
-				true, {
-					switch(self.playing_state,
-						\play, { \mute },
-						\stop, { \mutestop }
-					)
-				},
-				false, {
-					switch(self.playing_state,
-						\play, { \play },
-						\stop, { \stop }
-					)
-				}
-			)
-		},
-
-		mute: { arg self, val=true;
-			if(val != self.muted) {
-				self.muted = val;
-				self.changed(\redraw_node);
-			}
-		},
-
-		set_children_name: { arg self, index, name;
-			self.children[index] = name;
-			//self.changed(\children, index, main.get_node(name)); //TODO: use individual containers
+		set_selected_child: { arg self, name;
+			name.debug("groupnode: set_selected_child");
+			self.children[self.selected_child_index] = name;
 			self.refresh;
 		},
+
+		set_selected_child_index: { arg self, index;
+			self.selected_child_index = index;	
+		},
+
+		get_selected_childname: { arg self;
+			self.children[self.selected_child_index]
+		},
+
 
 		select_child: { arg self, name;
 			var oldidx;
@@ -928,6 +946,15 @@
 			self.changed(\selected_child, self.selected_child_index);
 		},
 
+		///// setting children
+
+		set_children_name: { arg self, index, name;
+			self.children[index] = name;
+			//self.changed(\children, index, main.get_node(name)); //TODO: use individual containers
+			self.refresh;
+		},
+
+
 		select_child_at: { arg self, index;
 			var oldidx;
 			oldidx = self.selected_child_index;
@@ -937,21 +964,16 @@
 			self.changed(\selected_child, index);
 		},
 
-		set_selected_child: { arg self, name;
-			name.debug("groupnode: set_selected_child");
-			self.children[self.selected_child_index] = name;
-			self.refresh;
-		},
-
 		add_children: { arg self, name;
 			name.debug("groupplayer.add_children");
 			self.children = self.children.add(name);
 			self.refresh;
 		},
 
-		refresh: { arg self;
-			self.changed(\redraw, self, self.get_view_children);
-			self.changed(\selected_child, self.selected_child_index);
+		///// getting children
+
+		get_childname_by_index: { arg self, index;
+			self.children[index];
 		},
 
 		get_children_nodes: { arg self;
@@ -976,6 +998,12 @@
 			res = res.reject(_.isNil); // in bankplayer, some children don't exists
 			res.collect(_.uname).debug("groupplayer: get_children");
 			res.asList;
+		},
+
+		get_children_names: { arg self;
+			var res;
+			res = self.children.reject({ arg na; [\void, \voidplayer].includes(na) });
+			res;
 		},
 
 		get_children_and_void: { arg self;
@@ -1027,6 +1055,81 @@
 			};
 			list;
 		},
+
+		get_selected_child: { arg self;
+				
+		},
+
+		////// playing
+
+		set_playing_state: { arg self, state;
+			self.playing_state = state;
+			self.changed(\redraw_node);
+		},
+
+		get_playing_state: { arg self;
+			switch(self.muted,
+				true, {
+					switch(self.playing_state,
+						\play, { \mute },
+						\stop, { \mutestop }
+					)
+				},
+				false, {
+					switch(self.playing_state,
+						\play, { \play },
+						\stop, { \stop }
+					)
+				}
+			)
+		},
+
+		mute: { arg self, val=true;
+			if(val != self.muted) {
+				self.muted = val;
+				self.changed(\redraw_node);
+			}
+		},
+
+		play_node: { arg self;
+			//TODO: don't play subpattern if already playing
+			self.uname.debug("playing groupnode");
+			self.uname.debug("++++++++++++++++++++++++++++++++++++++++++++++++++setting source(inf)");
+			main.play_manager.play_node(self.uname);
+			self.uname.debug("++++++++++++++++++++++++++++++++++++++++++++++++++play");
+		},
+
+		stop_node: { arg self, use_quant;
+			main.play_manager.stop_node(self.uname, use_quant);
+			self.uname.debug("++++++++++++++++++++++++++++++++++++++++++++++++++stop");
+			//FIXME: must niling source ?
+			//self.get_children.do { arg n; n.stop_node };
+			self.uname.debug("++++++++++++++++++++++++++++++++++++++++++++++++++stoping child nodes");
+		},
+
+		////////////
+
+		refresh: { arg self;
+			self.changed(\redraw, self, self.get_view_children);
+			self.changed(\selected_child, self.selected_child_index);
+			if(self.expset_mode) {
+				main.play_manager.expset_manager.add_expset(self.uname, self.get_children_names)
+			}
+		},
+
+		set_expset_mode: { arg self, val;
+			//TODO: remove expset when freeing node
+			if(val != self.expset_mode) {
+				self.expset_mode = val;
+				self.changed(\expset_mode);
+				if(val) {
+					main.play_manager.expset_manager.add_expset(self.uname, self.get_children_names)
+				} {
+					main.play_manager.expset_manager.del_expset(self.uname)
+				}
+			}
+		},
+
 
 		ppattern: { arg self, list, repeat=1;
 			repeat.debug("ppattern.repeat");
@@ -1090,22 +1193,6 @@
 
 		vpattern_loop: { arg self;
 			Pn(self.vpattern, ~general_sizes.safe_inf);
-		},
-
-		play_node: { arg self;
-			//TODO: don't play subpattern if already playing
-			self.uname.debug("playing groupnode");
-			self.uname.debug("++++++++++++++++++++++++++++++++++++++++++++++++++setting source(inf)");
-			main.play_manager.play_node(self.uname);
-			self.uname.debug("++++++++++++++++++++++++++++++++++++++++++++++++++play");
-		},
-
-		stop_node: { arg self, use_quant;
-			main.play_manager.stop_node(self.uname, use_quant);
-			self.uname.debug("++++++++++++++++++++++++++++++++++++++++++++++++++stop");
-			//FIXME: must niling source ?
-			//self.get_children.do { arg n; n.stop_node };
-			self.uname.debug("++++++++++++++++++++++++++++++++++++++++++++++++++stoping child nodes");
 		},
 
 		clone: { arg self;
@@ -1333,7 +1420,6 @@
 //a = ~make_control_param.(main, self, \repeat, \scalar, 1, ~get_spec.(\repeat))
 //a.get_val
 
-
 ~par_spawner = { arg pm, par; //par: node list
 	par.do{ arg no; no.uname.debug("par_spawner: node"); };
 	Pspawner({ |spawner|
@@ -1366,6 +1452,27 @@
 	});
 };
 
+// without seco libs
+~ppar = { arg par, repeat; //par: node list
+	Pn(Pspawner({ |spawner|
+		var streams = List.new;
+		par.do { |node, i|
+			var stream;
+			stream = CleanupStream(node.asStream, { // use vpattern to avoid Pn(vpattern)
+				streams.remove(stream);
+				if(streams.isEmpty) {
+					spawner.suspendAll;
+				} {
+					spawner.par(Pn(node, ~general_sizes.safe_inf))
+				};
+			});
+			streams.add(stream);
+			spawner.par(stream);
+		};
+	}),repeat);
+};
+
+
 ~seq_spawner = { arg pm, seq, repeat;
 	seq.do{ arg no; no.uname.debug("seq_spawner: node"); };
 	Pspawner({ |spawner|
@@ -1382,4 +1489,91 @@
 	});
 };
 
+
+~setDictionary = {
+	var dic;
+	dic = (
+		keyval: Dictionary.new, // key -> val set
+		valkey: Dictionary.new, // val -> key set
+
+		bind_set: { arg self, key, vals;
+			var oldvals, oldkeys;
+			self.unbind_key(key);
+			self.keyval[key] = vals;
+			vals.do { arg val;
+				if(self.valkey[val].isNil) {
+					self.valkey[val] = Set.new;
+				};
+				self.valkey[val].add(key);
+			};
+		},
+
+		unbind_key: { arg self, key;
+			var vals;
+			vals = self.keyval[key];
+			vals.do { arg val;
+				if(self.valkey[val].notNil) { self.valkey[val].remove(key) };
+			};
+			self.keyval[key] = nil;
+		},
+
+		get_vals_by_key: { arg self, key;
+			self.keyval[key]
+		},
+
+		get_keys_by_val: { arg self, val;
+			self.valkey[val]
+		}
+
+	);
+	dic;
+
+};
+
+~exclusive_play_set = {
+	(
+		set_dict: ~setDictionary.(),
+
+		add_expset: { arg self, name, list;
+			self.set_dict.bind_set(name, list);
+		},
+
+		del_expset: { arg self, name;
+			self.set_dict.unbind_key(name);
+		},
+
+		get_expsets_by_member: { arg self, mname;
+			self.set_dict.get_keys_by_val(mname);
+		},
+
+		get_nodes_to_stop: { arg self, mname, nodes;
+			var expsets, members = Set.new;
+			expsets = self.get_expsets_by_member(mname);
+			expsets.debug("expsets");
+			expsets.do { arg ex; 
+				members = members.union(self.set_dict.get_vals_by_key(ex));
+			};
+			members.debug("members");
+			if(members.notNil) {
+				members.remove(mname);
+				members.sect(nodes);
+			} {
+				Set.new
+			}
+		},
+
+	)
+};
+
+//a = ~exclusive_play_set.()
+//
+//a.add_expset(\perc, [\kick1, \snare1, \hihat])
+//a.add_expset(\perc2, [\kick2, \snare, \hihat])
+//a.add_expset(\melo, [\bass, \lead, \pad])
+//a.set_dict
+//a.set_selected_child
+//a.get_nodes_to_stop(\hihat, Set[\kick2, \snare1, \hihat, \kick, \pad])
+//a.set_dict.get_keys_by_val(\kick2)
+//a.set_dict.get_vals_by_key(\perc2)
+//
 )

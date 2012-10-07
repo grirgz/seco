@@ -121,6 +121,21 @@
 	controller;
 };
 
+~make_class_responder = { arg self, parent, model, list, auto_refresh=true;
+	var controller;
+
+	controller = SimpleController(model);
+	list.do { arg method;
+		controller.put(method, { arg ... args; self[method].(self, *args) });
+	};
+
+	parent.onClose = parent.onClose.addFunc { controller.remove };
+
+	if(auto_refresh) { model.refresh() };
+
+	controller;
+};
+
 ~sort_by_template = { arg list, template;
 	var res = List.new;
 	template.do { arg i;
@@ -212,6 +227,8 @@
 	});
 };
 
+~bsustain = { Pkey(\sustain) / Ptempo() };
+
 ~penvcontrol = { arg pat, chain=nil;
 	var buskeydict = Dictionary.new;
 	var respat = List.new;
@@ -291,8 +308,10 @@
 // ==========================================
 
 [
+	"abcparser",
 	"synth",
 	"keycode", 
+	"bindings", 
 	"eventscore",
 	"midi",
 	"param",
@@ -304,6 +323,7 @@
 	"editplayer",
 	"mixer",
 	"score",
+	"sidematrix",
 	"side",
 ].do { arg file;
 	("Loading " ++ file ++".sc...").inform;
@@ -483,8 +503,11 @@
 		model: (
 			current_panel: \parlive,
 			clipboard: nil,
+			
+			freeze_gui: false, // disable mdef gui updates
 
 			velocity_ratio: 0.3,
+			velocity_ratio_pad: 0.7,
 
 			latency: 0.2,
 			nodelib: List.new,
@@ -502,8 +525,9 @@
 
 		commands: ~shortcut,
 
-		calcveloc: { arg self, amp, veloc, ratio=nil;
-			ratio = ratio ?? self.model.velocity_ratio;
+		calcveloc: { arg self, amp, veloc, type=nil, ratio=nil;
+			type = type ?? \piano;
+			ratio = ratio ?? if(type == \pad) { self.model.velocity_ratio } { self.model.velocity_ratio_pad };
 			[amp, ratio, veloc, (amp + (amp * ratio * (veloc-0.5)))].debug("calcveloc");
 			amp + (amp * ratio * (veloc-0.5));
 		},
@@ -551,7 +575,12 @@
 
 		make_newlivenodename_from_livenodename: { arg self, name;
 			self.find_free_name( { 
-				name[ .. name.findBackwards("_l")  ] ++ "l" ++ UniqueID.next;
+				var idx= name.asString.findBackwards("_l");
+				if(idx.notNil) {
+					name[ .. name.asString.findBackwards("_l")  ] ++ "l" ++ UniqueID.next;
+				} {
+					name ++ "_l" ++ UniqueID.next;
+				}
 			})
 		},
 
@@ -878,7 +907,8 @@
 		},
 
 		append_samplelib: { arg self, samplelist;
-			self.model.samplelist = self.model.samplelist ++ samplelist;
+			self.samplekit_manager.append_samplelist_to_samplekit(\default, samplelist);
+			//self.model.samplelist = self.model.samplelist ++ samplelist;
 		},
 
 		load_samplelib_from_path: { arg self, path;
@@ -889,10 +919,11 @@
 		},
 
 		append_samplelib_from_path: { arg self, path;
-			var dir, entries;
-			dir = PathName.new(path);
-			entries = dir.files.select({arg x; ["aiff","wav","flac"].includesEqual(x.extension) }).collect(_.fullPath);
-			self.append_samplelib(entries);
+			self.samplekit_manager.append_samplelist_to_samplekit_from_path(\default, path);
+			//var dir, entries;
+			//dir = PathName.new(path);
+			//entries = dir.files.select({arg x; ["aiff","wav","flac"].includesEqual(x.extension) }).collect(_.fullPath);
+			//self.append_samplelib(entries);
 		},
 
 		show_panel: { arg self, panel;
@@ -947,6 +978,10 @@
 			self.context.set_selected_node(player);
 
 			self.main_view = ~main_view.(self);
+		},
+
+		freeze_do: { arg self, fun;
+			if(self.model.freeze_gui.not) { fun.value }
 		},
 
 

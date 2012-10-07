@@ -394,6 +394,7 @@ a.trace.play;
 ~pbc = ~pb2.trace.play
 )
 ~pbc.stop
+~pb.play
 
 thisThread.clock
 

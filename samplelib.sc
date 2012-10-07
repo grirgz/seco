@@ -156,6 +156,7 @@
 ~samplekit_manager = (
 	samplekit_part: 0,
 	samplekit_bank: ~samplekit_bank,
+	sampledict: Dictionary.new,
 
 	slot_to_bufnum: { arg self, slot, samplekit;
 		var path;
@@ -176,6 +177,20 @@
 		};
 	},
 
+	// TODO: use it
+	slot_to_path: { arg self, samplekit, slot;
+		var path;
+		if(self.samplekit_bank[samplekit].isNil or: {self.samplekit_bank[samplekit][slot].isNil}) {
+			samplekit.debug("error: samplekit_manager: slot_to_bufnum: no such samplekit or slotnum!");
+		} {
+			if(path.isString) {
+				path
+			} {
+				path[0]
+			};
+		}
+	},
+
 	slot_to_startPos: { arg self, slot, samplekit;
 		var path = self.samplekit_bank[samplekit][slot];
 		if(path.isString) {
@@ -194,6 +209,52 @@
 	
 	add_samplekit: { arg self, name, samplekit;
 		self.samplekit_bank[name] = samplekit;
+	},
+
+	get_samplekit_bank: { arg self; self.samplekit_bank },
+
+	get_samplelist_from_samplekit: { arg self, samplekit;
+		samplekit.debug("samplekit_manager.get_samplelist_from_samplekit: samplekit:");
+		self.samplekit_bank[samplekit] 
+	},
+
+	append_samplelist_to_samplekit: { arg self, samplekit, samplelist;
+		self.samplekit_bank[samplekit] = self.samplekit_bank[samplekit] ++ samplelist 
+	},
+
+	append_samplelist_to_samplekit_from_path: { arg self, samplekit, path;
+		var dir, entries;
+		dir = PathName.new(path);
+		entries = dir.files.select({arg x; ["aiff","wav","flac"].includesEqual(x.extension) }).collect(_.fullPath);
+		self.append_samplelist_to_samplekit(samplekit, entries);
+	},
+
+	add_to_sampledict: { arg self, dict, prefix=nil;
+		if(prefix.notNil) {
+			dict.keysValuesDo { arg key, val;
+				self.sampledict[key] = prefix +/+ val;
+			}
+		} {
+			self.sampledict.putAll(dict)
+		}
+	},
+
+	buffer_from_sampledict: { arg self, name;
+		if(self.sampledict[name].notNil) {
+			BufferPool.get_sample(\samplekit, self.sampledict[name]);
+		} {
+			name.debug("Error: buffer_from_sampledict: no such sample");
+			0
+		}
+	},
+
+	mono_buffer_from_sampledict: { arg self, name;
+		if(self.sampledict[name].notNil) {
+			BufferPool.get_mono_sample(\samplekit, self.sampledict[name])
+		} {
+			name.debug("Error: buffer_from_sampledict: no such sample");
+			0
+		}
 	},
 
 	midinote_to_slot: { arg self, midinote;

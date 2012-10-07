@@ -155,6 +155,7 @@
 ~get_midi_control_handler = { arg midi_center, param;
 	// param interface: name, set_norm_val, get_norm_val, changed, spec
 	// changed notifications: midi_val(number), blocked(bool), label
+	if(param.isNil) { "33333333333333333333333333333333333 param is nil!!!!!!!!!!".debug }; // DEBUG
 	(
 		blocked: \inf,
 
@@ -252,8 +253,12 @@
 		block: { arg self;
 			var midi_val, param_val;
 
+			param.name.debug("get_midi_control_handler: block:param");
 			midi_val = self.get_midi_norm_val;
+			param.get_norm_val.debug("get_midi_control_handler: block:param normaval2");
+			param.name.debug("get_midi_control_handler: block:param2");
 			param_val = param.get_norm_val;
+			param.name.debug("get_midi_control_handler: block:param3");
 
 			case 
 				{ midi_val > param_val } {
@@ -271,8 +276,10 @@
 
 		},
 
+		get_param: { arg self; param }, // DEBUG purpose
+
 		refresh: { arg self;
-			//param.name.debug("get_midi_control_handler: refresh");
+			param.name.debug("get_midi_control_handler: refresh");
 			self.block;
 			param.changed(\label);
 			param.changed(\midi_val, self.get_midi_val);
@@ -408,7 +415,7 @@
 
 // should be named make_midi_note_recorder
 ~make_midi_recorder = { arg player, main;
-	// notes interface: set_wait_note, set_next_notes, set_next_notes_as_current_notes
+	// notes interface: set_wait_note, set_next_notes, set_next_notes_as_current_notes // obsolete
 	var prec, livesynth, pman;
 	NoteOnResponder.removeAll;
 	NoteOffResponder.removeAll;
@@ -914,7 +921,7 @@
 
 						if(start_silence < 0, { "Negative dur!!".warn; start_silence = 0; });
 						firstnote = (
-							val: param.get_val,
+							val: param.get_norm_val,
 							start_silence: start_silence,
 							default_start_silence: start_silence,
 							start_offset: 0,
@@ -1128,6 +1135,127 @@
 	obj;
 };
 
+~make_unlimited_audio_recorder = { arg player, main;
+	var pman = main.play_manager;
+
+	var obj = (
+		recording: false,
+		buf: nil,
+		metronome: { arg self; { arg tempo=1; Ringz.ar(Impulse.ar(tempo), [401, 400], 1/tempo) } },
+		tclock: nil,
+
+		start_metronome: { arg self, tempo;
+			self.metro_player = self.metronome(tempo).play(args:[\tempo, tempo]);
+			self.tbclock = TempoBusClock(self.metro_player, tempo);
+		},
+
+		stop_metronome: { arg self;
+			self.metro_player.release;
+		},
+		player_start_tempo_recording: { arg self, finish_action={};
+			var nline;
+
+			"START AUDIO RECORD!!".debug; 
+			if(self.recording == true) {
+				"recorder: already recording!!!".debug;
+			} {
+				self.recording = true;
+				if(player.get_arg(\bufnum).has_custom_buffer) {
+					player.get_arg(\bufnum).buffer.debug("************************freeing buffer");
+					player.get_arg(\bufnum).buffer.free;
+				};
+				self.start_tempo_recording({ 
+					//player.get_arg(\bufnum).set_custom_buffer(self.buf, "AudioInput");
+					player.get_arg(\bufnum).set_custom_buffer_list(self.bufs, "AudioInput", self.current_recording_bufnum_position);
+					player.get_arg(\dur).change_kind(\scalar);
+					player.get_arg(\stepline).seq.change({ [1] });
+					player.get_arg(\dur).set_val(main.play_manager.get_record_length);
+					main.get_clock.debug("main.get_clock");
+					player.get_arg(\sustain).set_val(main.play_manager.get_record_length / main.play_manager.get_clock.tempo);
+					finish_action.();
+				});
+			}
+			
+		},
+
+		start_tempo_recording: { arg self, action;
+			var tc, supertc;
+			var session, supersession;
+			self.bufs = 4.collect {
+				Buffer.alloc(s, 44100 * pman.get_record_length_in_seconds, 2); 
+			};
+			self.bufs.debug("************************created buffer");
+
+			self.action_dict = (
+				preclap_action: { arg tclock;
+					"TTpreclap".debug;
+					self.tclock = tclock;
+				},
+				postclap_action: {
+					"TTpostclap".debug;
+				},
+				start_action: { arg tclock;
+					"TTstart".debug;
+					self.tclock = tclock;
+					self.start_immediate_recording(pman.get_record_length);
+				},
+				end_action: {
+					"TTend".debug;
+					self.stop_immediate_recording;
+					action.value;
+				},
+				kind:\unlimited
+			);
+
+			~do_record_session.(main,
+				self.action_dict[\preclap_action],
+				self.action_dict[\postclap_action],
+				self.action_dict[\start_action],
+				self.action_dict[\end_action],
+				kind:\unlimited
+			);
+			//[tc, self.tclock, TempoClock.new(tempo), tempo].debug("creation de cette foutue horloge");
+		},
+
+		start_immediate_recording: { arg self, dur=1;
+			"in start_immediate_recording".debug;
+			if(self.bufs.notNil) {
+				self.recnode = Pbind(
+					\instrument, \record_input, 
+					\bufnum, Proutine({ arg inval;
+						loop {
+							self.bufs.do { arg buf, pos;
+								self.current_recording_bufnum_position = pos;
+								buf.yield;
+							}
+						}
+					}),
+					\dur, dur,
+					\sustain, dur / main.play_manager.get_clock.tempo,
+					\monitor, 1
+				).trace.play;
+			} {
+				"make_audio_recorder: buf is nil".debug;
+			}
+		},
+
+		stop_unlimited_recording: { arg self;
+			"make_unlimited_audio_recorder: stop_unlimited_recording".debug;
+			self.action_dict[\end_action].();
+		},
+
+		stop_immediate_recording: { arg self;
+			"make_unlimited_audio_recorder: stop_immediate_recording".debug;
+			if(self.recnode.notNil) {
+				self.recnode.stop;
+			} {
+				"make_audio_recorder: recnode is nil".debug;
+			}
+		}
+
+	);
+	obj;
+};
 )
 
 

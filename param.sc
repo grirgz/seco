@@ -422,7 +422,71 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 };
 
-~make_edit_number_view = { arg main, name, param, midi_cc;
+~class_edit_number_view = (
+	new: { arg main, name, param, midi_cc;
+
+	},
+	// TODO
+
+);
+
+~make_tempo_tap_reader = {
+	(
+		midi_keycode: ~keycode.cakewalk[\pad][0],
+		init: { arg self, action;
+			self.make_responder;
+			self.time_list = nil;
+			self.list_size = 4;
+			self.action = action;
+		},
+
+		make_responder: { arg self;
+			self.responder = NoteOnResponder ({ arg src, chan, num, veloc;
+					self.tap_action;
+				},
+				nil,
+				nil,
+				self.midi_keycode,
+				nil
+			);
+		},
+
+		clear_responder: { arg self;
+			self.responder.remove;
+		},
+
+		get_time: { arg self;
+			Date.getDate.rawSeconds;
+		},
+
+		get_relative_time: { arg self;
+			(self.get_time - self.initial_time).clip(0, 30);
+		},
+
+		tap_action: { arg self;
+			if(self.time_list.isNil) {
+				self.initial_time = self.get_time;
+				self.time_list = 1 ! self.list_size;
+			};
+			self.time_list.addFirst(self.get_relative_time);
+			self.time_list.pop;
+			[self.get_relative_time, self.time_list,self.get_time - self.initial_time ].debug("tap_action: reltime, tempoguess, realreltime");
+			self.action;
+			self.initial_time = self.get_time;
+		},
+
+		get_tempo_bps: { arg self;
+			1 / (self.time_list.sum / self.list_size);
+		},
+
+		get_tempo_bpm: { arg self;
+			60 / (self.time_list.sum / self.list_size);
+		},
+	)
+
+};
+
+~make_edit_number_view = { arg main, name, param, midi_cc, tempo_midi; // tempo_midi is a hack waiting to be taken out of the general code
 	var win = Window.new(name,Rect(500,500,200,100));
 	var parent = win;
 	var vlayout, hlayout;
@@ -437,6 +501,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	var key_responder;
 	var old_param, old_ccpath;
 	var close_window;
+	var tempotr;
 	font = Font.default;
 	font.size = 12;
 	font.setDefault;
@@ -478,6 +543,14 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	old_param = main.commands.ccpath_to_param(midi_cc);
 	old_ccpath = main.commands.param_to_ccpath(param);
 	main.commands.bind_param(midi_cc, param);
+
+	// tempo temporary UGLY HACK
+	if(tempo_midi.notNil) {
+		tempotr = ~make_tempo_tap_reader.();
+		tempotr.init({ arg self; tf_val.value = self.get_tempo_bpm.asString });
+	};
+
+
 	win.front;
 
 	validate_action = { 
@@ -494,6 +567,9 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		if(old_ccpath.notNil) {
 			main.commands.bind_param(old_ccpath, param);
 		};
+
+		if(tempotr.notNil) { tempotr.clear_responder }; // tempo ugly hack
+
 		win.close;
 	};
 	slider.action = { param.set_norm_val(slider.value) };
@@ -567,62 +643,10 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	~make_view_responder.(vlayout, param, param_responder.((selected:1)));
 
 };
-~make_edit_number_view2 = { arg main, name, param, midi_cc;
-	var win = Window.new(name,Rect(500,500,200,100));
-	var layout = GUI.hLayoutView.new(win, Rect(0,0,400,100));
-	var ez, midi_val;
-	var validate_action;
-	var bla;
-
-	ez = EZSlider(layout, 150@42, name, param.spec ,unitWidth:0, numberWidth:60,layout:\line2, margin: 1@1);
-	ez.setColors(Color.grey,Color.white, Color.grey(0.7),Color.grey, Color.black, Color.yellow,nil,nil, Color.grey(0.7));
-	midi_val = StaticText.new(layout,Rect(0,0,200,100));
-	midi_val.string = param.midi.get_midi_val.asString;
-	ez.value = param.get_val;
-	bla = Button.new(layout,Rect(0,0,50,50));
-
-	ez.action = { arg ezs; ezs.value.debug("make_edit_number_view: action called"); param.set_val(ezs.value) };
-	// FIXME: action not called with 3.5 when hiting enter
-	// TODO: verify value is correct
-
-	~make_view_responder.(win, param, (
-		val: { arg obj, msg;
-			"make_edit_number_view: val responder".debug;
-			param.get_val.debug("val:");
-			ez.value = param.get_val;
-		},
-		midi_val: { arg obj, msg, val;
-			midi_val.string = val.asString;
-		},
-		blocked: { arg obj, msg, blocked;
-			midi_val.background = if(blocked.not, { Color.green }, { ~editplayer_color_scheme.led });
-		}
-	));
-
-	main.commands.bind_param(midi_cc, param);
-
-	validate_action = { bla.focus; ez.value.debug("con"); ez.doAction; "rah".debug; win.close };
-
-	layout.keyDownAction = { arg view, char, modifiers, u, k; 
-		["tempo", modifiers, u].debug("KEYBOARD INPUT");
-		if( u == ~keycode.kbspecial.escape ) { win.close };
-		//if( u == ~keycode.kbspecial.enter ) { "bla".debug; win.close }; // return false -> propage keydown
-		if( modifiers == ~keycode.mod.ctrl and: { u == 3 }) { validate_action.() }; // ctrl-c
-	};
-	ez.numberView.keyDownAction = { arg view, char, modifiers, u, k; 
-		["tempo", modifiers, u].debug("KEYBOARD INPUT");
-		if( u == ~keycode.kbspecial.escape ) { win.close };
-		//if( u == ~keycode.kbspecial.enter ) { ez.value.debug("con"); ez.doAction; "rah".debug; win.close };
-		//if( u == ~keycode.kbspecial.enter ) { ez.value.debug("con"); ez.doAction; "rah".debug; win.close };
-		if( modifiers == ~keycode.mod.ctrl and: { u == 3 }) { validate_action.() }; // ctrl-c
-	};
-	win.front;
-
-};
 
 ~make_tempo_edit_view = { arg main, midi_cc;
 	var param = ~make_tempo_param.(main, \tempo, main.play_manager.get_clock);
-	~make_edit_number_view.(main, "tempo", param, midi_cc);
+	~make_edit_number_view.(main, "tempo", param, midi_cc, \tap_tempo);
 };
 
 ~make_quant_edit_view = { arg main, midi_cc;
@@ -1311,7 +1335,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	));
 };
 
-// only used in score.sc for the moment, editplayer use make_control_view
+// only used in score.sc (and side) for the moment, editplayer use make_control_view
 ~make_stepline_view = { arg parent, display, param;
 	var param_messages,
 		midi_messages,
@@ -1328,11 +1352,14 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	var sc_param, sc_midi;
 	var max_cells = display.max_cells; // FIXME: already defined in editplayer
 	var inrange;
+	var multiline_layout, btl_cells2;
 
 	~make_step_cell = { arg parent, label, width, height;
 		var lb;
 		lb = StaticText.new(parent, width@height);
+		label.debug("make_step_cell");
 		if(label % 8 == 0, {
+			(label % 8).debug("label % 8");
 			lb.string = (label / 8)+1;
 		}, {
 			lb.string = "";	
@@ -1368,7 +1395,9 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		txt_midi_val = GUI.staticText.new(row_layout, Rect(0,0,30,height));
 	});
 
-	btl_cells = GUI.hLayoutView.new(row_layout, Rect(0,0,width,height));
+	multiline_layout = GUI.vLayoutView.new(row_layout, Rect(0,0,width,height-50));
+	btl_cells = GUI.hLayoutView.new(multiline_layout, Rect(0,0,width,height/2.1));
+	btl_cells2 = GUI.hLayoutView.new(multiline_layout, Rect(0,0,width,height/2.1));
 
 	"mais quoiiii".debug;
 
@@ -1401,13 +1430,21 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 		val: { arg self, msg, cellidx;
 			var newval;
+			var btl_cells_proxy;
 			cellidx.debug("val handler: cellidx");
 			self.get_cells[cellidx].debug("val handler: cellidx value");
+
+			if(cellidx <= 15) {
+				btl_cells_proxy = btl_cells;
+			} {
+				btl_cells_proxy = btl_cells2;
+			};
+
 			newval = self.get_cells[cellidx];
-			~set_step_state.(btl_cells.children[ cellidx % max_cells ], newval);
+			~set_step_state.(btl_cells_proxy.children[ cellidx % max_cells ], newval);
 			//self.debug("val changed");
 			if(self.classtype == \stepline, { 
-				~set_step_state.(btl_cells.children[ cellidx % max_cells ], newval);
+				~set_step_state.(btl_cells_proxy.children[ cellidx % max_cells ], newval);
 			},{
 				if(slider.nolNil, {
 					slider.value = self.spec.unmap(newval);
@@ -1417,7 +1454,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			//btl_cells.children[ cellidx ] = newval;
 		},
 
-		cells: { arg self; 
+		cells2: { arg self; 
 			var cells, bank, start, range, sel;
 			"cells removeAll===================".debug;
 			btl_cells.removeAll;
@@ -1435,6 +1472,45 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				~make_step_cell.(btl_cells, start+i, width:display.cell_width??60, height:height);
 				if(self.classtype== \stepline, {
 					~set_step_state.(btl_cells.children[i], cell);
+				});
+			};
+			if(self.classtype == \control, {
+				sel = display.get_selected_cell;
+				if( sel >= start && (sel < (start+max_cells)), {
+					~set_step_state.(btl_cells.children[ sel % max_cells ], 1);
+				})
+			})
+		},
+
+		cells: { arg self; 
+			var cells, bank, start, range, sel;
+			var start2, max_cells2;
+			"cells removeAll===================".debug;
+			btl_cells.removeAll;
+			btl_cells2.removeAll;
+			"END cells removeAll===================".debug;
+
+			bank = display.get_player_bank.();
+
+			cells = self.get_cells.();
+			cells.debug("cellls============");
+			start = max_cells * bank;
+			range = (start..((start+max_cells)-1));
+			range.debug("cells");
+			cells[ start..((start+max_cells)-1) ].debug("cells");
+			cells[ start..((start+max_cells)-1) ].do { arg cell, i;
+				~make_step_cell.(btl_cells, start+i, width:display.cell_width??60, height:height);
+				if(self.classtype== \stepline, {
+					~set_step_state.(btl_cells.children[i], cell);
+				});
+			};
+			start2 = max_cells;
+			max_cells2 = start2+max_cells;
+			cells[ start2..((start2+max_cells2)-1) ].do { arg cell, i;
+				(start2+i).debug("OOOOOOOOO stepline_view: start2+i make_step_cell ");
+				~make_step_cell.(btl_cells2, start2+i, width:display.cell_width??60, height:height);
+				if(self.classtype== \stepline, {
+					~set_step_state.(btl_cells2.children[i], cell);
 				});
 			};
 			if(self.classtype == \control, {
@@ -1475,6 +1551,18 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	fun = switch(kind,
 		\noteline, { ~make_noteline_view },
 		\stepline, { ~make_control_view },
+		\nodeline, { ~make_noteline_view },
+		\sampleline, { ~make_noteline_view },
+		{ kind.debug("make_line_view: line not understood"); }
+	);
+	fun.(parent, display, param);
+};
+
+~make_line_view2 = { arg kind, parent, display, param;
+	var fun;
+	fun = switch(kind,
+		\noteline, { ~make_noteline_view },
+		\stepline, { ~make_stepline_view },
 		\nodeline, { ~make_noteline_view },
 		\sampleline, { ~make_noteline_view },
 		{ kind.debug("make_line_view: line not understood"); }
@@ -1538,6 +1626,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		sub_midi: Dictionary.new, // store midi control handler specific to each point of the adsr
 		sub_param: Dictionary.new,
 		selected: 0,
+		pkey_mode: false,
 
 		save_data: { arg self;
 			var data = ();
@@ -1556,6 +1645,12 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			};
 			//self.set_vals( data[\vals] );
 		},
+
+		set_pkey_mode: { arg self, set=true;
+			self.pkey_mode = set;
+			self.changed(\kind);
+		},
+
 
 		select_param: { arg self;
 			self.selected = 1;
@@ -1618,8 +1713,16 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 		vpattern: { arg self;
 
-			Pfunc({
-				[ ~adsr_event_to_env.(self.val).asArray ]
+			Pfunc({ arg ev;
+				if(self.pkey_mode) {
+					if( ev[self.name].notNil ) {
+						ev[self.name]
+					} {
+						[ ~adsr_event_to_env.(self.val).asArray ]
+					};
+				} {
+					[ ~adsr_event_to_env.(self.val).asArray ]
+				}
 			});
 			//[ ~adsr_event_to_env.(self.val).asArray ]
 		}
@@ -1807,7 +1910,9 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		selected: 0,
 		buffer: nil,
 		audio_id: nil,
-		archive_data: [\name, \classtype, \selected, \spec, \has_custom_buffer, \audio_id],
+		pkey_mode: false,
+		buffer_list_position: 0,
+		archive_data: [\name, \classtype, \selected, \spec, \has_custom_buffer, \audio_id, \buffer_list_position, \pkey_mode],
 
 		save_data: { arg self;
 			var data = ();
@@ -1862,6 +1967,32 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			self.val = name;
 			self.has_custom_buffer = true;
 			self.buffer = buf;
+			self.changed(\val);
+		},
+
+		set_custom_buffer_list: { arg self, bufs, name, position=0;
+			//FIXME: save it
+			self.buffer_list = bufs;
+			self.buffer_list_position = position;
+			self.set_custom_buffer(bufs[position], name++position.asString); //FIXME: hardcoded
+		},
+
+		set_current_buffer_num: { arg self, num;
+			if(self.buffer_list.notNil and: { self.buffer_list[num].notNil }) {
+				self.set_custom_buffer(self.buffer_list[num], "AudioInput"++num); //FIXME: hardcoded
+			} {
+				num.debug("Buffer not found in buffer list");
+			}
+		},
+
+		forward_in_record_history: { arg self;
+			self.buffer_list_position = (self.buffer_list_position + 1).clip(0, self.buffer_list.size-1);
+			self.set_current_buffer_num(self.buffer_list_position);
+		},
+
+		backward_in_record_history: { arg self;
+			self.buffer_list_position = (self.buffer_list_position - 1).clip(0, self.buffer_list.size-1);
+			self.set_current_buffer_num(self.buffer_list_position);
 		},
 
 		set_val: { arg self, val;
@@ -1874,6 +2005,10 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			self.val.debug("set_val: val");
 		},
 
+		set_pkey_mode: { arg self, set=true;
+			self.pkey_mode = set;
+			self.changed(\kind);
+		},
 
 		refresh: { arg self;
 			self.changed(\val);
@@ -1904,7 +2039,11 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 						},
 						// else
 						{
-							ev = self.buffer.bufnum.yield;
+							if(self.pkey_mode and: { ev.includesKey(self.name) }) {
+								ev = ev[self.name].yield;
+							} {
+								ev = self.buffer.bufnum.yield;
+							}
 						}
 					);
 				};
@@ -1931,10 +2070,11 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		spec: nil,
 		selected: 0,
 		buffer: nil,
+		archive_data: [\name, \classtype, \selected, \spec, \val],
 
 		save_data: { arg self;
 			var data = ();
-			[\name, \classtype, \selected, \spec, \val].do {
+			self.archive_data.do {
 				arg key;
 				data[key] = self[key];
 			};
@@ -1943,11 +2083,11 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		},
 
 		load_data: { arg self, data;
-			[\name, \classtype, \selected, \spec].do {
+			self.archive_data.do {
 				arg key;
 				self[key] = data[key];
 			};
-			self.set_val(data[\val]);
+			//self.set_val(data[\val]);
 		},
 
 		select_param: { arg self;
@@ -1964,6 +2104,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 		set_val: { arg self, val;
 			self.val = val;
+			self.changed(\val);
 		},
 
 		refresh: { arg self;
@@ -2776,6 +2917,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 					}
 				}
 			};
+			data[\seq][\initialized] = self.seq.initialized;
 			data;
 		},
 
@@ -2791,6 +2933,8 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 					}
 				}
 			};
+			self[\seq][\initialized] = data.seq.initialized;
+			self.current_kind = nil; self.change_kind(data[\current_kind]);
 		},
 
 		seq: (
@@ -3065,6 +3209,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		},
 
 		get_norm_val: { arg self;
+			self.current_kind.debug("control_param.get_norm_val: self.current_kind");
 			self[self.current_kind].get_norm_val
 		},
 

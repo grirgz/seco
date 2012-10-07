@@ -82,6 +82,165 @@
 };
 
 
+~class_matrix_chooser = (
+	new: { arg self, action, winname="Matrix";
+		var parent;
+		self = self.deepCopy;
+		"zarb".debug("oui");
+		self.window = parent = Window.new(winname, Rect(100,Window.screenBounds.height-400, 1320,300));
+		
+		self.action = action;
+		self.model.patlist.debug("patlist");
+		
+		parent.view.keyDownAction = { arg view, char, modifiers, u, k; 
+			u.debug("slooooooooooooo u");
+			modifiers.debug("slooooooooooooo modifiers");
+			//self.kb_handler.debug("kb");
+			self.kb_handler[[modifiers,u]].value
+		};
+		"zarb".debug("oui2");
+
+		self.set_bindings;
+
+		self;
+	},
+
+	model: (
+		datalist: [],
+		selection: nil,
+		bank: 0
+	),
+
+	kb_handler: Dictionary.new,
+
+	address_to_index: { arg self, ad;
+		(ad.bank * 32) + (ad.x * 4) + ad.y;
+	},
+
+	refresh: { arg self;
+		self.changed(\redraw);
+	},
+
+	set_bank: { arg self, idx;
+		self.model.bank = idx;
+		self.changed(\redraw);
+	},
+
+	set_datalist: { arg self, datalist;
+		self.model.datalist = datalist;
+		self.model.selection = nil;
+		self.changed(\redraw);
+	},
+
+	get_cell_xy: { arg self, x, y;
+		self.model.datalist[ (self.model.bank * 32) + (x * 4) + y ];
+	},
+
+	get_cell_by_address: { arg self, ad;
+		self.model.datalist[ (ad.bank * 32) + (ad.x * 4) + ad.y ];
+	},
+
+	get_selected_cell: { arg self;
+		self.get_cell_by_address(self.model.selection)	
+	},
+
+	set_selection: { arg self, x, y;
+		var sel, oldsel;
+		sel =  (
+			x: x,
+			y: y,
+			bank: self.model.bank
+		);
+		if(~in_range.(self.model.datalist, sel), {
+			oldsel = self.model.selection;
+			self.model.selection = sel;
+			self.changed(\selection, oldsel);
+			self.selected(self.get_cell_by_address(sel), self.window, sel);
+		});
+	},
+
+	set_cell: { arg self, address, val;
+		self.model.datalist[ self.address_to_index(address) ] = val;
+		self.changed(\cell, address, val)
+	},
+
+	set_bindings: { arg self;
+		~kbpad8x4.do { arg line, iy;
+			line.do { arg key, ix;
+				self.kb_handler[[0, key]] = { 
+					self.set_selection(ix, iy);
+				};
+			}
+		};
+
+		~kbnumpad.do { arg keycode, idx;
+			self.kb_handler[[0, keycode]] = { self.set_bank(idx) };
+		};
+
+		self.kb_handler[[~keycode.mod.alt, ~keycode.kbaalphanum["r"]]] = { 
+			if( self.model.selection.notNil ) {
+				self.edit_value;
+			}
+		};
+
+		self.kb_handler[[~keycode.mod.fx, ~keycode.kbfx[4]]] = { 
+			var sel = self.model.selection;
+			if( sel.notNil ) {
+				self.play_selection(self.get_cell_by_address(sel), self.window, sel);
+			}
+		};
+		self.kb_handler[[~keycode.mod.fx, ~keycode.kbfx[5]]] = { 
+			var sel = self.model.selection;
+			if( sel.notNil ) {
+				self.stop_selection(self.get_cell_by_address(sel), self.window, sel);
+			}
+		};
+
+		self.kb_handler[[0, ~kbspecial.escape]] = { 
+			self.stop_selection;
+			self.window.close;
+		};
+		self.kb_handler[[~modifiers.fx, ~kbfx[0]]] = { 
+			if(self.model.selection.isNil, {
+				"No selection to load".error;
+			}, {
+				self.load(self.get_selected_cell, self.window)
+			});
+		};
+	},
+
+	show_window: { arg self;
+
+		~matrix_view.(self.window, self);
+		self.window.front;
+
+	},
+
+	// to be overloaded
+
+	selected: { arg self, sel, win, address;
+		sel.debug("selected");
+		if(self.oldsel == sel, {
+			self[\action].(sel);
+			win.close;
+		}, {
+			self.oldsel = sel;	
+		});
+	},
+);
+
+~class_samplekit_chooser = (
+	parent: ~class_matrix_chooser,
+	new: { arg self, main, action;
+		self = self.parent[\new].(self, action, "Choose samplekit");
+
+		self.set_datalist( main.samplekit_manager.get_samplekit_bank.keys.asArray );
+		self.show_window;
+		self;
+	},
+);
+
+
 
 ~make_matrix = { arg main, callbacks, winname="Matrix";
 
@@ -352,11 +511,12 @@
 	sl.show_window;
 };
 
-~choose_sample = { arg main, action;
+~choose_sample = { arg main, action, samplekit;
 	var sl;
 	var callbacks;
 	var oldsel = nil;
 	var samples = Dictionary.new;
+	var samplelist = List.new;
 
 	callbacks = (
 		selected: { arg self, sel, win;
@@ -392,10 +552,12 @@
 	sl = ~make_matrix.(main,callbacks,winname:"choose sample");
 	sl.choose_cell(action);
 	//sl.set_datalist( {arg i;"sounds/bla.wav"++i}!10 );
-	main.model.samplelist.do { arg sam;
+	samplekit = samplekit ?? \default;
+	main.samplekit_manager.get_samplelist_from_samplekit(samplekit).do { arg sam;
 		samples[PathName.new(sam).fileName] = sam;
+		samplelist.add(PathName.new(sam).fileName);
 	};
-	sl.set_datalist(samples.keys.asList);
+	sl.set_datalist(samplelist);
 	sl.show_window;
 };
 

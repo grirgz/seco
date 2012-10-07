@@ -1,4 +1,5 @@
 
+
 s.meter
 (
 s.waitForBoot{
@@ -102,6 +103,17 @@ SynthDef(\awi, { arg out=0, amp=0.1, gate=1, pan=0, freq=200, imp_ratio=1, saw_r
 )
 
 (
+Pdef(\awi2, Pbind(
+	\instrument, \awi,
+	\degree, Pseq([0],inf),
+	\dur, 1,
+	\imp_ratio, 0.2,
+	\legato, 0.8,
+	\amp, 0.1
+)).play;
+);
+
+(
 Pdef(\awi, Pbind(
 	\instrument, \awi,
 	\adsr_imp, Pseq([
@@ -186,10 +198,38 @@ SynthDef(\rabi2, { arg out=0, amp=0.1, gate=1, pan=0, freq=200, rq=0.4, timeScal
 	Out.ar(out, ou);
 }).add;
 )
+
+(
+SynthDef(\rabi3, { arg out=0, amp=0.1, gate=1, pan=0, freq=200, rq=0.4, timeScale=1, modfratio=1, modcar=0.01, modindex=0.1;
+	var ou, adsr_delay, delaymod;
+	//ou = LFSaw.ar(freq*[1,1.01,0.99],LFSaw.ar(2).range(0,2));
+	//ou = LFSaw.ar(freq,LFSaw.ar(2).range(0,2));
+	//adsr_delay = EnvGen.kr(~make_adsr.(\adsr_delay, Env.adsr(0.21,0.6,0.15,1.21,0.01)),gate);
+	adsr_delay = EnvGen.kr(Env([0.01,0.05,0.101,0.01],[0.5,0.5,0.5]),gate,timeScale:1);
+	ou = 0;
+	delaymod = SinOsc.ar(freq*modfratio) * modindex*modcar + modcar;
+	//ou = ou + DelayL.ar(ou,0.01,[0.02,0.001,LFSaw.ar(freq).range(0,0.02)]);
+	//ou = ou.sum;
+	//ou = RLPF.ar(ou,freq*2,rq*6);
+	ou = SinOsc.ar(freq) + ou;
+	ou = LFSaw.ar(freq);
+	//ou = EnvGen.kr(Env.perc(0.0001,0.0001),gate)*ou + DelayL.ar(ou, 2.91,delaymod);
+	ou = DelayL.ar(ou, 2.91,delaymod * Line.ar(0,1,modcar + modindex*modcar));
+	//ou = LPF.ar(ou, freq*16);
+	//ou = LPF.ar(ou, freq*16);
+	//ou = BPF.ar(ou, freq*Array.geom(4,0.25,2), adsr_delay*4).sum;
+	//ou = BPF.ar(ou, freq*Array.geom(4,0.25,2), rq).sum;
+	ou = BPF.ar(ou, freq, rq);
+	//ou = Limiter.ar(ou, amp);
+	ou = ou * EnvGen.ar(Env.adsr(0.1,0.4,0.8,0.1),gate,doneAction:2);
+	ou = Pan2.ar(ou, pan, amp);
+	Out.ar(out, ou);
+}).add;
+)
 Ptempo
 (
-Pdef(\rabi, Pbind(
-	\instrument, \rabi,
+Mdef(\rabi, Pbind(
+	\instrument, \rabi2,
 	\degree, Pseq([[0,2,4]],inf)+Pseg(Pseq([3,0,3,4],inf),4,\step),
 	\octave, 4,
 	\dur, 4,
@@ -202,7 +242,12 @@ Pdef(\rabi, Pbind(
 (
 Mdef(\jacob, Pbind(
 	\instrument, \rabi2,
-)).play;
+));
+);
+(
+Mdef(\jacob3, Pbind(
+	\instrument, \rabi3,
+));
 );
 
 (
@@ -214,189 +259,86 @@ Pdef(\par, Ppar([
 
 s.meter
 
-
-Help("instr").gui
-Help.gui
-
-Instr
-
-(
-	Instr(\saw, { arg freq=200,amp=0.5;
-		LFSaw.ar(freq,0.0, amp)
-	});
-
-	Instr(\rlpf, { arg in,freq=200,rq=0.1;
-		RLPF.ar(in, freq, rq);
-	});
-
-	Instr(\ppp, { arg freq=200;
-		var ou;
-		ou = Instr.ar(\saw,[freq,0.5]);
-		Instr.ar(\rlpf, [ou, freq, 0.1]) ! 2
-	});
-)
-
-SynthDescLib.global.at(\rabi2).def.inspect
+Scale.directory
 
 
-~dn = Instr(\ppp).asDefName
-~dn = Instr(\ppp).asSynthDef.add
-~dn.name
-(
-Pdef(\pam, Pbind(
-	\instrument, ~dn.name,
-	\degree, Pseq([0],inf),
-	\dur, 1,
-	\amp, 0.1
-)).play;
-);
-
-Patch(\ppp).play
-
-(
-a = SynthDef(\joe, { arg out=0, amp=0.1, gate=1, pan=0, freq=200;
-	var ou;
-	ou = LFSaw.ar(freq*[1,1.01,0.99],LFSaw.ar(2).range(0,2));
-	ou = ou + DelayL.ar(ou,0.01,[0.02,0.001,LFSaw.ar(freq).range(0,0.02)]);
-	ou = ou.sum;
-	ou = RLPF.ar(ou,freq*2,0.4);
-	ou = ou * EnvGen.ar(Env.adsr(0.7,0.4,0.8,1.7),gate,doneAction:2);
-	ou = Pan2.ar(ou, pan, amp);
-	Out.ar(out, ou);
-}).add;
-)
-a.dump
-
-Instr(\saw).func.postcs
-
-
-(
-a = { arg out=0, amp=0.1, gate=1, pan=0, freq=200;
-	var ou;
-	ou = \bla.kr(1);
-	ou = LFSaw.ar(freq*[1,1.01,0.99],LFSaw.ar(2).range(0,2));
-	ou = ou + DelayL.ar(ou,0.01,[0.02,0.001,LFSaw.ar(freq).range(0,0.02)]);
-	ou = ou.sum;
-	ou = RLPF.ar(ou,freq*2,0.4);
-	ou = ou * EnvGen.ar(Env.adsr(0.7,0.4,0.8,1.7),gate,doneAction:2);
-	ou = Pan2.ar(ou, pan, amp);
-	Out.ar(out, ou);
-}
-)
-
-a.def.argNames
-
-
-{ arg out=0, amp=0.1, gate=1, pan=0, freq=200;
-	var ou;
-	ou = LFSaw.ar(freq*[1,1.01,0.99],LFSaw.ar(2).range(0,2));
-	ou = ou + DelayL.ar(ou,0.01,[0.02,0.001,LFSaw.ar(freq).range(0,0.02)]);
-	ou = ou.sum;
-	ou = RLPF.ar(ou,freq*2,0.4);
-	ou = ou * EnvGen.ar(Env.adsr(0.7,0.4,0.8,1.7),gate,doneAction:2);
-	ou = Pan2.ar(ou, pan, amp);
-	Out.ar(out, ou);
-}
-
-Help.gui
-AudioSpec()
-(
-	Instr(\saw, { arg freq=200,amp=0.5;
-		LFSaw.ar(freq,0.0, amp);
-	}).add;
-
-	Instr(\rlpf, { arg in,freq=200,rq=0.1;
-		RLPF.ar(in, freq, rq);
-	},[AudioSpec()]).add;
-
-	SynthDef(\ppp, { arg out=0, freq=200;
-		var ou;
-		ou = Instr(\saw).ar(freq, 0.5);
-		ou = Instr(\rlpf).ar(ou, freq) ! 2;
-		Out.ar(out, ou);
-	}).add;
-
-)
-Control
-Pbind(\instrument, \ppp,\freq,400,\rq, 0.04,\ffratio, 1).play;
-{ SinOsc.ar }.play
-s.boot
-a = { arg bla, rah; bla + rah }
-a.valueWithEnvir((bla:2,rah:4));
-
-(
-	Instr(\saw, { arg freq=400,amp=0.1;
-		LFSaw.ar(freq,0.0, amp);
-	}).add;
-
-	Instr(\rlpf, { arg in,freq=400,rq=0.1;
-		RLPF.ar(in, freq, rq);
-	},[\audio]).add;
-
-    SynthDef(\ppp, { arg out=0, freq=200, rq=0.1, gate=1, ffratio=1;
-        var ou;
-        //ou = Instr(\saw).value((freq:freq, amp:0.5));
-        ou = Instr(\saw).value(freq, 0.5);
-        //ou = Instr(\rlpf).value((in:ou, freq:freq*ffratio,rq:rq)) ! 2;
-        ou = Instr(\rlpf).ar(ou, freq*ffratio,rq) ! 2;
-		ou = ou * EnvGen.ar(Env.adsr(0.1,0.1,1,0.1),gate,doneAction:2);
-        Out.ar(out, ou);
-    }).add;
-
-)
-Main.version
-\plop.asDefName
-s.boot
-
-
-(
-SynthDef(\pulse, { arg out=0, amp=0.1, gate=1, pan=0, freq=200;
-	var ou, width, ffreq, rq;
-	width = LFSaw.ar(freq/8).range(0,1);
-	width = EnvGen.ar(Env.asr(0.3,1,0.3),gate).range(0.2,0.8);
-	ffreq = EnvGen.ar(Env.asr(0.1,1,0.3),gate).range(freq/2,freq*8);
-	//rq = EnvGen.ar(Env.asr(0.5,1,0.3),gate) * 1.1 + 5;
-	rq = EnvGen.ar(Env.asr(0.5,1,0.3),gate).range(0.51,0.15);
-	ou = LFTri.ar(freq*[1,1.0001,0.99], width).sum;
-	//ou = RLPF.ar(ou, ffreq*[1,1.0001,0.99], rq*[1,1.0001,0.99]).sum;
-	//rq = 0.01;
-	ou = RLPF.ar(ou, ffreq*[1,1.0001,0.99], rq*[1,1.0001,0.99]).sum;
-	ou = ou * EnvGen.ar(Env.adsr(0.01,0.1,0.8,0.1),gate,doneAction:2);
-	ou = ou / 2;
-	ou = Pan2.ar(ou, pan, amp);
-	Out.ar(out, ou);
-}).add;
-)
-
-(
-Mdef(\pulse, Pbind(
-	\instrument, \pulse,
-	\octave, 3,
-	\degree, Pseq([1,3,5, 4,6b,8],inf),
-	\dur, Pxrand([1/4,1/8],inf),
-	\amp, 0.1
-)).play;
-);
-
-s.boot
 
 (
 {
-	i=WhiteNoise.ar(mul: 0.5);
-	4.do{
-		i=MoogFF.ar(i, MouseX.kr(50, 15000, 1), MouseY.kr(2, 0))
-	};
-	i;
-}.play;
+    e = Env.perc(0.01,0.5,1);
+    t = Dust.kr(200,1,10);
+    a = EnvGen.kr(e,t);
+    b = Blip.ar(a);
+    f = MouseX.kr(0, 400.76765);
+    SinOsc.ar(f, b, mul:t);
+   
+   
+}.scope
 )
 
-4.do { "plop" }
+
+
 
 (
-SynthDef(\moogstack, {
-var sig=WhiteNoise.ar(mul: 0.5);
-4.do{sig=MoogFF.ar(sig, MouseX.kr(50, 15000, 1), MouseY.kr(2, 0))};
-Out.ar([0,1],sig)
-}).add;
+
+SynthDef(\DistKlangBlip, {
+
+| out = 0, release = 1, freq1 = 1, freq2 = 5, freq3 = 8,  freqMult = 4 |
+
+var env = Linen.kr(Impulse.kr(0), 0.01, 1, release, doneAction:2);
+
+var freqs = ([freq1, freq2, freq3] * freqMult).midicps;
+
+var klang = Klang.ar(`[freqs, nil, nil ], 1, 0);
+
+Out.ar(out, klang.tanh!2 * env * 0.5)
+
+}).add
+
 )
-Synth(\moogstack);
+
+(
+
+Pbind(*[
+
+instrument: \DistKlangBlip,
+
+dur: Pxrand([0.25, 0.5], inf) * 0.5,
+
+release: Pkey(\dur),
+
+freqMult: Pxrand((3..12), inf),
+
+freq2: Prand([4,5], inf),
+
+freq3: Prand([8,12], inf)
+
+]).play;
+
+)      
+
+
+
+(
+{
+	var r, sig, mod;
+	//Control rate sinwave modulator (1Hz)
+	r = SinOsc.kr(1);
+	//Create sin(t) and cos(t) both modulated by r
+	sig = SinOsc.ar(440, mul: r, phase:[0,pi/2]);
+	//Calculate r
+	mod = sqrt(Mix(sig.squared));
+	//Test it out with a new carrier
+	SinOsc.ar(880+(400*mod),mul:mod);
+}.play
+)
+
+
+s.boot
+a = SynthDef(\bla, { arg freq; SinOsc.ar(freq) }).build
+a.storeArgs
+a.myfuncv
+
+a = Instr(\blia, { arg freq; SinOsc.ar(freq) }).add
+
+p = Pmono(\blia, \type, \instr, \dur, 0.2, \freq, Pwhite(1,8) * 100 ).play
