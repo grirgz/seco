@@ -56,7 +56,7 @@
 
 		["copy_node", \kb, \ctrl, "c"],
 		["paste_node", \kb, \ctrl, "v"],
-		["copy_group", \kb, \ctrl, \kbnumpad],
+		//["copy_group", \kb, \ctrl, \kbnumpad],
 		["remove_node", \kb, \ctrlshift, \f4],
 
 		["load_node_from_lib", \kb, 0, \f1],
@@ -74,17 +74,20 @@
 		["select_param_cell", \kb, \alt, \kbnumline],
 		["matrix_select_param_cell", \kb, 0, \kbpad8x4_flat],
 
-		["select_player", \kb, 0, \kbpad8x4_flat],
+		["select_player", \kb, 0, \kbnumpad],
 		["pad_select_player", \midi, 0, \midipads],
 		["matrix_select_player", \kb, \alt, \kbnumline],
 
 
-		["select_group", \kb, 0, \kbnumpad],
+		["select_variant", \kb, \ctrl, \kbnumpad],
+		["select_section", \kb, \alt, \kbnumpad],
+		["select_part", \kb, \ctrlalt, \kbnumpad],
 
 		["forward_in_record_history", \kb, 0, \right],
 		["backward_in_record_history", \kb, 0, \left],
 
-		["set_global_mode.matrix", \kb, \ctrl,  \f10],
+		["set_edit_mode.matrix", \kb, \ctrl,  \f10],
+		["set_edit_mode.params", \kb, \ctrl,  \f9],
 
 		["set_global_mode.param", \kb, 0, \f9],
 		["set_global_mode.group", \kb, 0, \f10],

@@ -433,3 +433,15 @@ t
 ~sm.get_current_path;
 
 ~sm.current_song.get_childname_by_index(1)
+
+
+
+(
+p = Pbind(
+	\instrument, \default,
+	\freq, 200,
+	\dur, 1,
+	\amp, 0.1
+).play;
+)
+p.originalStream.get_receiver

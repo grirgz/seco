@@ -1024,7 +1024,7 @@
 					main.get_node(na)
 				}
 			};
-			res.collect(_.uname).debug("groupplayer: get_view_children");
+			[self.uname, self.identityHash, res.collect(_.uname)].debug("groupplayer: get_view_children: name, hash, children");
 			res.asList;
 		},
 
@@ -1192,7 +1192,7 @@
 		},
 
 		vpattern_loop: { arg self;
-			Pn(self.vpattern, ~general_sizes.safe_inf);
+			PnNilSafe(self.vpattern, ~general_sizes.safe_inf,3);
 		},
 
 		clone: { arg self;

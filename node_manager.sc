@@ -961,7 +961,7 @@
 
 	(
 		current_song: main.node_manager.make_groupplayer(\song1, \seq),
-		name_tree: [\song, \part, \section, \variant],
+		name_tree: [\s, \part, \sect, \var],
 		type_tree: [\seq, \par, \seq, \par],
 
 		change_part: { arg self, num; 
@@ -976,24 +976,26 @@
 			self.get_path([nil,nil,num], true);
 		},
 
-		get_current_variant: { arg self, num;
+		get_current_group: { arg self, num;
+			self.print_tree;
 			self.get_path([nil,nil,nil]);
 		},
 
-		unvoid_child: { arg self, group, childname, index, pathlevel;
+		unvoid_child: { arg self, group, childname, index, pathlevel, prefix;
 			var newgroup;
 			childname.debug("unvoid_child");
 			if(childname == \voidplayer) {
-				newgroup = main.node_manager.make_groupplayer((self.name_tree[pathlevel] ++ index).asSymbol, self.type_tree[pathlevel]);
-				newgroup.uname.debug("unvoid_child: newgroup uname");
+				newgroup = main.node_manager.make_groupplayer((prefix ++ index).asSymbol, self.type_tree[pathlevel]);
+				newgroup.uname.debug("---------- unvoid_child: CREATING new group uname");
 				group.set_children_name(index-1, newgroup.uname);
+				[group.uname, group.children, index].debug("unvoid_child: group, children, index");
 				newgroup;
 			} {
 				main.get_node(childname);
 			};
 		},
 
-		get_child: { arg self, group, index, pathlevel, select=false;
+		get_child: { arg self, group, index, pathlevel, prefix, select=false;
 			var newgroup;
 			if(index.notNil) {
 				if(index == 0) {
@@ -1002,25 +1004,46 @@
 					if(select) {
 						group.set_selected_child_index(index-1);
 					};
-					self.unvoid_child(group, group.get_childname_by_index(index), index, pathlevel);
+					self.unvoid_child(group, group.get_childname_by_index(index-1), index, pathlevel, prefix);
 				}
 			} {
-				self.unvoid_child(group, group.get_selected_childname, group.selected_child_index+1, pathlevel);
+				self.unvoid_child(group, group.get_selected_childname, group.selected_child_index+1, pathlevel, prefix);
 			}
 		},
 		
 		get_path: { arg self, path, select=false;
-			var child, current_group, index, newgroup;
+			var child, current_group, index, newgroup, old_group;
+			var prefix;
+			path.debug("song_manager: get_path: path");
 			current_group = self.current_song;
+			prefix = "s1";
 			if(path.size < 4) {
-				path.do { arg index, pathlevel;
-					pathlevel = pathlevel + 1;
-					current_group = self.get_child(current_group, index, pathlevel, select);
+				block { arg break;
+					path.do { arg index, pathlevel;
+						if(index == 0) {
+							break.value;
+						} {
+							pathlevel = pathlevel + 1;
+							prefix = prefix ++ "_" ++ self.name_tree[pathlevel];
+							old_group = current_group;
+							current_group = self.get_child(current_group, index, pathlevel, prefix, select);
+							prefix = prefix ++ (old_group.selected_child_index + 1);
+						}
+					};
 				};
+				current_group.uname.debug("song_manager: get_path: returned group");
 				current_group;
 			} {
 				"ERROR: path array too long".debug;
 			}
+		},
+
+		get_selected_section: { arg self;
+			self.get_path([nil,nil])	
+		},
+
+		get_selected_part: { arg self;
+			self.get_path([nil])	
 		},
 
 		get_current_path: { arg self;
@@ -1038,6 +1061,26 @@
 				};
 			};
 			path;
+		},
+
+		print_tree: { arg self;
+			"========== print_tree =========================".postln;
+			self.print_tree_helper;
+		},
+
+		print_tree_helper: { arg self, root, level=1;
+			root = root ?? self.current_song;
+			level.do{post("   ")};
+			"% (%)".format(root.uname, root.identityHash).postln;
+			level = level+1;
+			root.children.do { arg childname;
+				if(childname == \voidplayer) {
+					level.do{post("   ")};
+					childname.postln; 
+				} {
+					self.print_tree_helper(main.get_node(childname), level);
+				}
+			}
 		}
 	)
 

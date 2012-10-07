@@ -359,11 +359,15 @@
 		self.vlayout = VLayoutView.new(parent, Rect(3,0,display.winsize.x-13,display.player_view_y));
 		self.player_title = ~make_player_title_bar_view.(self.vlayout, display.winsize.x@20);
 		self.mini_param_group_widget = ~make_mini_param_group_widget.(self.vlayout, display.mini_param_row_count, display);
-		self.extparam_group_widget = ~make_extparam_group_widget.(main, self.vlayout, display);
+		//self.extparam_group_widget = ~make_extparam_group_widget.(main, self.vlayout, display);
+		self.ext_view = ~make_switch_view.(self.vlayout, (display.winsize.x-13)@display.player_view_y, \params, (
+			params: { arg layout; "XOX create params".debug; ~make_extparam_group_widget.(main, layout, display); },
+			matrix: { arg layout; "XOX create params".debug; ~class_groupnode_matrix_view.new(main, controller, layout, display); },
+		));
 
 		"class_player_view: new: before making responder".debug;
 		self.main_responder = ~make_class_responder.(self, self.vlayout, controller, [
-			\player, \paramlist, \extparamlist,
+			\player, \paramlist, \extparamlist, \edit_mode,
 		]);
 		"class_player_view: new: after making responder".debug;
 
@@ -439,23 +443,50 @@
 		var display;
 		var paramview;
 		var player = self.current_player;
+		var extparam_group_widget;
 
-		"class_player_view: extparamlist".debug;
-		controller = controller ?? self.controller;
+		if(self.ext_view.current_key == \params) {
+			extparam_group_widget = self.ext_view.current_view;	
 
-		self.extparam_group_widget.inner_extparam_layout.remove;
-		debug("REMOVING!!!");
-		self.extparam_group_widget.inner_extparam_layout = VLayoutView.new(self.extparam_group_widget.extparam_layout, Rect(0,0,self.display.winsize.x,500));
-		self.extparam_group_widget.extparamview_list = List.new;
+			"class_player_view: extparamlist".debug;
+			controller = controller ?? self.controller;
 
-		args = controller.get_extparamlist;
-		args.debug("make_side_view: handler: extparamlist");
-		args.do { arg param_name, idx;
-			param = player.get_arg(param_name);
-			paramview = self.extparam_group_widget.make_extparam_view(controller, player, param);
-			self.extparam_group_widget.extparamview_list.add(paramview);
-		};
+			extparam_group_widget.inner_extparam_layout.remove;
+			debug("REMOVING!!!");
+			extparam_group_widget.inner_extparam_layout = VLayoutView.new(extparam_group_widget.extparam_layout, Rect(0,0,self.display.winsize.x,500));
+			extparam_group_widget.extparamview_list = List.new;
 
+			args = controller.get_extparamlist;
+			args.debug("make_side_view: handler: extparamlist");
+			args.do { arg param_name, idx;
+				param = player.get_arg(param_name);
+				paramview = extparam_group_widget.make_extparam_view(controller, player, param);
+				extparam_group_widget.extparamview_list.add(paramview);
+			};
+		}
+
+
+	},
+
+	edit_mode: { arg self, obj;
+		"class_player_view: controller: edit_mode".debug;
+		//self.paramlist;
+		//self.extparamlist;
+		switch(self.controller.model.current_edit_mode,
+			\params, {
+				self.ext_view.switch_to_view(\params);
+				self.extparamlist;
+				//sep_bar.background = Color.newHex("54516A");
+			},
+			\matrix, {
+				self.ext_view.switch_to_view(\matrix);
+			},
+			{
+				self.ext_view.switch_to_view(\params);
+				self.extparamlist;
+				//sep_bar.background = Color.black;
+			}
+		)
 	},
 
 	/////// player responders
@@ -506,9 +537,11 @@
 		self.current_group = group;
 
 		if(group.name != group.uname) {
+			//self.group_title.set_name("%/%/% (%)".format(controller.get_part_name, controller.get_section_name, group.name, group.uname));
 			self.group_title.set_name("% (%)".format(group.name, group.uname));
 		} {
-			self.group_title.set_name(group.name);
+			//self.group_title.set_name("%/%/%".format(controller.get_part_name, controller.get_section_name, group.name));
+			self.group_title.set_name("%".format(group.name));
 		};
 		~notNildo.(group.kind) { arg name;
 			if(group.subkind.notNil) {
@@ -727,12 +760,12 @@
 
 	///// player edit view
 
-	//player_edit_view = ~class_player_view.new(main, controller, vlayout, display);
+	player_edit_view = ~class_player_view.new(main, controller, vlayout, display);
 
-	edit_view = ~make_switch_view.(vlayout, (display.winsize.x-13)@display.player_view_y, \params, (
-		params: { arg layout; "XOX create params".debug; ~class_player_view.new(main, controller, layout, display); },
-		matrix: { arg layout; "XOX create params".debug; ~class_groupnode_matrix_view.new(main, controller, layout, display); },
-	));
+	//edit_view = ~make_switch_view.(vlayout, (display.winsize.x-13)@display.player_view_y, \params, (
+	//	params: { arg layout; "XOX create params".debug; ~class_player_view.new(main, controller, layout, display); },
+	//	matrix: { arg layout; "XOX create params".debug; ~class_groupnode_matrix_view.new(main, controller, layout, display); },
+	//));
 
 	///// separator
 
@@ -747,23 +780,23 @@
 
 	~make_view_responder.(vlayout, controller, (
 
-		mode: { arg self, msg;
-			"sideview_responder: mode".debug;
-			switch(self.model.current_mode,
-				\group, {
-					edit_view.switch_to_view(\params);
-					sep_bar.background = Color.newHex("54516A");
-				},
-				\matrix, {
-					edit_view.switch_to_view(\matrix);
-				},
-				{
-					edit_view.switch_to_view(\params);
-					sep_bar.background = Color.black;
-				}
-			)
+		//mode: { arg self, msg;
+		//	"sideview_responder: mode".debug;
+		//	switch(self.model.current_mode,
+		//		\group, {
+		//			edit_view.switch_to_view(\params);
+		//			sep_bar.background = Color.newHex("54516A");
+		//		},
+		//		\matrix, {
+		//			edit_view.switch_to_view(\matrix);
+		//		},
+		//		{
+		//			edit_view.switch_to_view(\params);
+		//			sep_bar.background = Color.black;
+		//		}
+		//	)
 
-		},
+		//},
 
 	));
 
@@ -798,6 +831,7 @@
 			select_offset: 0,
 			max_cells: 8,
 			current_mode: \param,
+			current_edit_mode: \param,
 			colselect_mode: true,
 			midi_knob_offset: 0
 		),
@@ -1052,8 +1086,17 @@
 		///// mode
 		
 		set_current_mode: { arg self, mode;
-			self.model.current_mode = mode;
-			self.changed(\mode);
+			if(mode != self.model.current_mode) {
+				self.model.current_mode = mode;
+				self.changed(\mode);
+			}
+		},
+
+		set_edit_mode: { arg self, mode;
+			if(mode != self.model.current_edit_mode) {
+				self.model.current_edit_mode = mode;
+				self.changed(\edit_mode);
+			}
 		},
 
 
@@ -1175,7 +1218,16 @@
 					~make_edit_number_view.(main, "edit param", param, [\knob, 0]);
 				},
 				\buf, {
-					~choose_sample.(main, { arg buf; param.set_val(buf);  }, self.get_current_player.get_arg(\samplekit).get_val)
+					var pl = self.get_current_player;
+					//~choose_sample.(main, { arg buf; param.set_val(buf);  }, pl.get_arg(\samplekit).get_val)
+					self.get_current_group.identityHash.debug("edit_selected_param: nodegroup: identityHash");
+					~class_sample_chooser.new(main, 
+						{ arg buf; param.set_val(buf);  },
+						pl.get_arg(\samplekit).get_val,
+						pl,
+						self.get_current_group,
+						param.name
+					)
 				},
 				\samplekit, {
 					~class_samplekit_chooser.new(main, { arg kit; param.set_val(kit);  })
@@ -1243,6 +1295,8 @@
 			player = self.get_current_group.get_children_and_void[index];
 			if(player.notNil) {
 				self.set_current_player(player, index);
+			} {
+				"ERROR: side: select_group_item: selected player is nil"
 			}
 		},
 
@@ -1268,6 +1322,18 @@
 
 
 		////// supergroup
+
+		refresh_group: { arg self;
+			self.set_current_group(self.song_manager.get_current_group);
+		},
+
+		get_part_name: { arg self;
+			self.song_manager.get_selected_part.name;	
+		},
+
+		get_section_name: { arg self;
+			self.song_manager.get_selected_section.name;	
+		},
 
 		select_group: { arg self, index;
 			var supergroup;
@@ -1309,13 +1375,21 @@
 			self.current_supergroup;
 		},
 
+		/////////// macro
+
+		add_sample_batch: { arg self;
+			var player = self.get_current_player;	
+
+		
+		},
+
 
 		//////////
 
 		refresh: { arg self;
 			self.changed(\nodegroup);
 			self.changed(\player);
-			self.changed(\mode);
+			self.changed(\edit_mode);
 			"FIN side_panel:refresh"
 		},
 
@@ -1369,8 +1443,10 @@
 		init: { arg self;
 			//self.model.selected_param = \amp;
 			var supergroup;
+			var current_group;
 
 			self.song_manager = ~make_song_manager.(main);
+			current_group = self.song_manager.get_current_group;
 
 			main.model.current_panel = \side;
 			main.midi_center.install_pad_responders;
@@ -1378,22 +1454,31 @@
 
 			//~panel.set_current_player(~seq.get_node(\ko));
 
-			supergroup = main.node_manager.make_groupplayer(\superseq1, \seq);
-			supergroup.set_expset_mode(true);
+			//supergroup = main.node_manager.make_groupplayer(\superseq1, \seq);
+			//supergroup.set_expset_mode(true);
 
-			8.do { arg i;
-				var parname = (\par ++ (i + 1)).asSymbol;
-				main.node_manager.make_groupplayer(parname, \par);
-				main.get_node(\superseq1).add_children(parname);
-			};
+			//8.do { arg i;
+			//	var parname = (\par ++ (i + 1)).asSymbol;
+			//	main.node_manager.make_groupplayer(parname, \par);
+			//	main.get_node(\superseq1).add_children(parname);
+			//};
 
-			main.node_manager.set_default_group(\par1);
-			self.set_current_group(main.get_node(\par1));
-			self.set_current_supergroup(main.get_node(\superseq1));
+			main.node_manager.set_default_group(current_group.uname);
+			self.set_current_group(current_group);
+			//self.set_current_supergroup(main.get_node(\superseq1));
 
 			"OU SUOSJE".debug;
 
 			main.commands.parse_action_bindings(\side, [
+
+				///////// macro
+
+				[\add_sample_batch, {
+					self.add_sample_batch;
+				}],
+
+				//////////////
+
 				[\select_param, 32, { arg i;
 					self.select_param(i)
 				}],
@@ -1410,8 +1495,8 @@
 					self.select_cell(i, \stepline);
 				}],
 
-				[\select_player, 32, { arg i;
-					self.select_group_item(i)
+				[\select_player, 10, { arg i;
+					self.select_group_item(i-1)
 				}],
 
 				[\matrix_select_player, 8, { arg i;
@@ -1424,6 +1509,18 @@
 
 				[\select_group, 10, { arg i;
 					self.select_group(i)
+				}],
+
+				[\select_variant, 10, { arg i;
+					self.set_current_group(self.song_manager.change_variant(i));
+				}],
+
+				[\select_section, 10, { arg i;
+					self.set_current_group(self.song_manager.change_section(i));
+				}],
+
+				[\select_part, 10, { arg i;
+					self.set_current_group(self.song_manager.change_part(i));
 				}],
 
 				[\increase_select_offset, {
@@ -1672,16 +1769,28 @@
 
 				///// global modes
 
-				["set_global_mode.matrix", {
+				["set_edit_mode.matrix", {
 					"matrix".debug("mode");
-					self.set_current_mode(\matrix);
-					main.commands.disable([\side, \select_player]);
+					self.set_edit_mode(\matrix);
+					//main.commands.disable([\side, \select_player]);
 					main.commands.disable([\side, \select_param_cell]);
 					main.commands.disable([\side, \select_param]);
 					main.commands.disable([\side, \pad_select_param]);
 
-					main.commands.enable([\side, \matrix_select_player]);
+					//main.commands.enable([\side, \matrix_select_player]);
 					main.commands.enable([\side, \matrix_select_param_cell]);
+				}],
+
+				["set_edit_mode.params", {
+					"matrix".debug("mode");
+					self.set_edit_mode(\params);
+					//main.commands.disable([\side, \select_player]);
+					main.commands.enable([\side, \select_param_cell]);
+					main.commands.enable([\side, \select_param]);
+					main.commands.enable([\side, \pad_select_param]);
+
+					//main.commands.enable([\side, \matrix_select_player]);
+					main.commands.disable([\side, \matrix_select_param_cell]);
 				}],
 
 				["set_global_mode.liveplay", {
@@ -1695,9 +1804,9 @@
 					"param".debug("mode");
 					self.set_current_mode(\param);
 					main.node_manager.stop_midi_liveplayer;
-					main.commands.disable([\side, \select_player]);
+					//main.commands.disable([\side, \select_player]);
 					main.commands.disable([\side, \pad_select_player]);
-					main.commands.disable([\side, \matrix_select_player]);
+					//main.commands.disable([\side, \matrix_select_player]);
 					main.commands.disable([\side, \matrix_select_param_cell]);
 
 					main.commands.enable([\side, \select_param]);
@@ -1709,14 +1818,14 @@
 					"group".debug("mode");
 					self.set_current_mode(\group);
 					main.node_manager.stop_midi_liveplayer;
-					main.commands.disable([\side, \select_param]);
+					//main.commands.disable([\side, \select_param]);
 					main.commands.disable([\side, \pad_select_param]);
-					main.commands.disable([\side, \matrix_select_player]);
-					main.commands.disable([\side, \matrix_select_param_cell]);
+					//main.commands.disable([\side, \matrix_select_player]);
 
+					main.commands.enable([\side, \matrix_select_param_cell]);
 					main.commands.enable([\side, \select_player]);
 					main.commands.enable([\side, \pad_select_player]);
-					main.commands.enable([\side, \select_param_cell]);
+					//main.commands.enable([\side, \select_param_cell]);
 					self.assign_midi;
 				}],
 

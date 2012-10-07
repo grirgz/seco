@@ -183,6 +183,12 @@
 			}
 		};
 
+		self.kb_handler[[~keycode.mod.alt, ~keycode.kbaalphanum["c"]]] = { 
+			if( self.model.selection.notNil ) {
+				self.create_batch;
+			}
+		};
+
 		self.kb_handler[[~keycode.mod.fx, ~keycode.kbfx[4]]] = { 
 			var sel = self.model.selection;
 			if( sel.notNil ) {
@@ -510,6 +516,65 @@
 	sl.set_datalist( main.model.effectlist );
 	sl.show_window;
 };
+
+~class_sample_chooser = (
+	parent: ~class_matrix_chooser,
+	new: { arg self, main, action, samplekit=\default, player, group, param_name=\bufnum;
+		var samplelist = List.new;
+		self = self.parent[\new].(self, action, "Choose sample");
+
+		self.samples = Dictionary.new;
+		self.get_main = { arg self; main };
+		self.player = player;
+		self.nodegroup = group;
+		self.nodegroup.identityHash.debug("class_sample_chooser: init: nodegroup: identityHash");
+		self.param_name = param_name;
+
+		main.samplekit_manager.get_samplelist_from_samplekit(samplekit).do { arg sam;
+			self.samples[PathName.new(sam).fileName] = sam;
+			samplelist.add(PathName.new(sam).fileName);
+		};
+		self.set_datalist( samplelist );
+		self.show_window;
+		self;
+	},
+
+	selected: { arg self, sel, win, address;
+		sel.debug("selected");
+		if(self.oldsel == sel, {
+			self[\action].(self.samples[sel]);
+			win.close;
+		}, {
+			self.oldsel = sel;	
+		});
+	},
+
+	play_selection: { arg self, sel, win, ad;
+		var pl;
+		//pl = main.get_node(main.model.presetlib[defname][sl.address_to_index(ad)]);
+		[self.samples[sel], sel].debug("play_selection: sel");
+		{
+			var buf;
+			buf = Buffer.read(s, self.samples[sel]);
+			s.sync;
+			//TODO: use player.vpiano
+			Synth(\monosampler, [\bufnum, buf, \amp, self.player.get_arg(\amp).get_val]).onFree {
+				buf.free;
+			};
+		}.fork;
+	},
+
+	create_batch: { arg self;
+		var sel = self.get_selected_cell;
+		var newnode;
+		self.nodegroup.identityHash.debug("class_sample_chooser: nodegroup: identityHash");
+		newnode = self.get_main.node_manager.duplicate_livenode(self.player.uname);
+		self.get_main.get_node(newnode).get_arg(self.param_name).set_val(self.samples[sel]);
+		self.nodegroup.add_children(newnode);
+		self.nodegroup.uname.debug("class_sample_chooser: create_batch: nodegroup");
+	}
+
+);
 
 ~choose_sample = { arg main, action, samplekit;
 	var sl;
