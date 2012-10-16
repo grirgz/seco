@@ -132,7 +132,7 @@ Ndef(\noiseenvir).set(\low, 1000, \high, 3000); // rain
 Ndef(\noiseenvir).set(\low, 500, \high, 1000); // river
 Ndef(\noiseenvir).set(\low, 250, \high, 500); // train cabin
 Ndef(\noiseenvir).set(\low, 50, \high, 250); // thunder
-Ndef(\noiseenvir).set(\low, 0, \high, 50); // explosion rumble
+Ndef(\noiseenvir).set(\low, 1, \high, 50); // explosion rumble
 
 
 // effect idea: process higher frequency differently than lower ones
@@ -416,3 +416,26 @@ Pdef(\saaa, Pbind(
 	\amp, 0.1
 )).play;
 )
+
+
+(
+Instr(\noiseman, { arg amp=0.1, gate=1, pan=0, freq=200;
+	var ou;
+	ou = WhiteNoise.ar(1);
+	ou = DynKlank.ar(`[[100,200,300,400,500],{1.0.rand}!5,{1.0.rand+0.001}!5],ou, LFNoise1.ar(5).range(0.9,1.1), LFNoise1.ar(5).range(1,101)) /8;
+	ou = LPF.ar(ou, 1500);
+	ou = HPF.ar(ou, 150);
+	ou = ou * EnvGen.ar(\adsr.kr(Env.adsr(0.01,0.1,0.8,0.1)),gate,doneAction:2);
+	ou = Pan2.ar(ou, pan, amp);
+}).addSynthDef;
+)
+
+
+(
+Pdef(\plop, Pbind(
+	\instrument, \noiseman,
+	\degree, Pseq([0],inf),
+	\dur, 1,
+	\amp, 0.1
+)).play;
+);

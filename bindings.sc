@@ -26,7 +26,14 @@
 		["show_panel.editplayer",							\kb, 0, \f12],
 		["create_new_livenode", \kb, \alt, "c"],
 	],
+	timeline: [
+		["play_timeline", \kb, 0, \f5],
+		["stop_timeline", \kb, 0, \f6],
+		["close_timeline", \kb, 0, \escape],
+	],
 	side: [
+		["open_timeline", \kb, \ctrlalt, "l"],
+
 		["decrease_select_offset", \midi, 0, \begin],
 		["increase_select_offset", \midi, 0, \end],
 		["increase_samplekit_part", \midi, 0, \right],
@@ -55,6 +62,7 @@
 		["edit_wrapper", \kb, \alt, "w"],
 
 		["copy_node", \kb, \ctrl, "c"],
+		["cut_node", \kb, \ctrl, "x"],
 		["paste_node", \kb, \ctrl, "v"],
 		//["copy_group", \kb, \ctrl, \kbnumpad],
 		["remove_node", \kb, \ctrlshift, \f4],

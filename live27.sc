@@ -43,7 +43,7 @@ Mdef.side_gui;
 ~tf = Pfunc({ arg ev; if(ev[\stepline] == 1) { \note } { \rest } });
 ~ff = Pfunc({ arg ev; if(ev[\stepline1] == 1) { 1 } { \rest } });
 
-Debug.enableDebug = true;
+Debug.enableDebug = false;
 Mdef.sampledict((
 		kick0: "0.wav",
 		kick1: "1.wav",

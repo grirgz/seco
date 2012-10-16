@@ -247,6 +247,11 @@
 		notes: List.new,
 		book: Dictionary.new,
 		notequant: nil, // used externally to quantify note time
+		abs_start: 0,
+
+		sort_func: { arg a, b;
+			a.time < b.time;
+		},
 
 		add_note: { arg self, note, abstime, num;
 			var no = note.deepCopy;
@@ -264,9 +269,31 @@
 			self.book.removeAt(num);
 		},
 
+		remove_note: { arg self, num;
+			// warning: old note id returned by add_note will be corrupted
+			self.notes.removeAt(num);
+		},
+
 		set_start: { arg self, abstime;
 			self.abs_start = abstime;
 		},
+
+		compute_end: { arg self, set=false;
+			var end = 0, tmpno = (sustain:1);
+			self.notes.do { arg no;
+				if(no.time.isNil) {
+					no.debug("ERROR: make_notescore: compute_end: note with time == nil");
+				} {
+					if(end < no.time) {
+						end = no.time;
+						tmpno = no;
+					}
+				}
+			};
+			end = end + tmpno.sustain;
+			if(set) {  self.set_end(end); };
+			end;
+		};,
 
 		set_end: { arg self, abstime;
 			self.abs_end = abstime;
@@ -306,12 +333,17 @@
 			var notes, last, end;
 			start = self.abs_start + start;
 			end = if(dur.isNil) {
-				self.abs_end;
+				if(self.abs_end.isNil) {
+					self.compute_end(false);
+				} {
+					self.abs_end;
+				}
 			} {
 				start + dur;
 			};
 			// add offset and last dur
-			notes = self.notes.select { arg no;
+			notes = self.notes.copy.sort(self[\sort_func]);
+			notes = notes.select { arg no;
 				no.time >= start and: { no.time <= end }
 			};
 			notes = [(
@@ -370,11 +402,17 @@
 			var notes, last, end;
 			start = self.abs_start + start;
 			end = if(dur.isNil) {
-				self.abs_end;
+				if(self.abs_end.isNil) {
+					self.compute_end(false);
+				} {
+					self.abs_end;
+				}
 			} {
 				start + dur;
 			};
-			notes = self.notes.select { arg no;
+
+			notes = self.notes.copy.sort(self[\sort_func]);
+			notes = notes.select { arg no;
 				no.time >= start and: { no.time <= end }
 			};
 			notes;

@@ -445,3 +445,13 @@ p = Pbind(
 ).play;
 )
 p.originalStream.get_receiver
+
+
+Mdef.node(\s1_part1_sect1_var1).song_path
+Mdef.node("s1_part1_sect1_var1").children
+~newln = Mdef.main.node_manager.duplicate_livenode(Mdef.node("monosampler_l1084").uname)
+
+Mdef.node(\s1_part1_sect1_var1).add_children(~newln)
+
+
+

@@ -32,10 +32,12 @@
 	})
 };
 
-~matrix_view = { arg parent, controller;
+~matrix_view = { arg parent, controller, matrix_size;
 
 	var sl_layout, ps_col_layout, curbank, address;
 	var width = 1350;
+
+	matrix_size = matrix_size ?? 8@4;
 
 	sl_layout = GUI.hLayoutView.new(parent, Rect(0,0,width,60*6));
 
@@ -46,7 +48,7 @@
 			controller.model.debug("rederaw");
 			sl_layout.removeAll;
 			sl_layout.focus(true);
-			controller.model.datalist.clump(4).clump(8)[controller.model.bank].do { arg col;
+			controller.model.datalist.clump(matrix_size.y).clump(matrix_size.x)[controller.model.bank].do { arg col;
 				ps_col_layout = GUI.vLayoutView.new(sl_layout, Rect(0,0,(160),60*6));
 				ps_col_layout.background = ~editplayer_color_scheme.control;
 
@@ -108,13 +110,18 @@
 	model: (
 		datalist: [],
 		selection: nil,
-		bank: 0
+		bank: 0,
+		matrix_size: 8@4,
 	),
 
 	kb_handler: Dictionary.new,
 
 	address_to_index: { arg self, ad;
-		(ad.bank * 32) + (ad.x * 4) + ad.y;
+		self.coor_to_index(ad.x, ad.y, ad.bank);
+	},
+
+	coor_to_index: { arg self, x, y, bank;
+		(bank * self.model.matrix_size.x * self.model.matrix_size.y) + (x * self.model.matrix_size.y) + y;
 	},
 
 	refresh: { arg self;
@@ -133,11 +140,11 @@
 	},
 
 	get_cell_xy: { arg self, x, y;
-		self.model.datalist[ (self.model.bank * 32) + (x * 4) + y ];
+		self.model.datalist[ self.coor_to_index(x, y, self.model.bank) ];
 	},
 
 	get_cell_by_address: { arg self, ad;
-		self.model.datalist[ (ad.bank * 32) + (ad.x * 4) + ad.y ];
+		self.model.datalist[ self.address_to_index(ad) ];
 	},
 
 	get_selected_cell: { arg self;
@@ -217,7 +224,7 @@
 
 	show_window: { arg self;
 
-		~matrix_view.(self.window, self);
+		~matrix_view.(self.window, self, self.model.matrix_size);
 		self.window.front;
 
 	},
@@ -247,6 +254,105 @@
 );
 
 
+~class_sample_chooser = (
+	parent: ~class_matrix_chooser,
+	new: { arg self, main, action, samplekit=\default, player, group, param_name=\bufnum;
+		var samplelist = List.new;
+		self = self.parent[\new].(self, action, "Choose sample");
+
+		self.samples = Dictionary.new;
+		self.get_main = { arg self; main };
+		self.player = player;
+		self.nodegroup = group;
+		self.nodegroup.identityHash.debug("class_sample_chooser: init: nodegroup: identityHash");
+		self.param_name = param_name;
+
+		main.samplekit_manager.get_samplelist_from_samplekit(samplekit).do { arg sam;
+			self.samples[PathName.new(sam).fileName] = sam;
+			samplelist.add(PathName.new(sam).fileName);
+		};
+		self.set_datalist( samplelist );
+		self.show_window;
+		self;
+	},
+
+	selected: { arg self, sel, win, address;
+		sel.debug("selected");
+		if(self.oldsel == sel, {
+			self[\action].(self.samples[sel]);
+			win.close;
+		}, {
+			self.oldsel = sel;	
+		});
+	},
+
+	play_selection: { arg self, sel, win, ad;
+		var pl;
+		//pl = main.get_node(main.model.presetlib[defname][sl.address_to_index(ad)]);
+		[self.samples[sel], sel].debug("play_selection: sel");
+		{
+			var buf;
+			buf = Buffer.read(s, self.samples[sel]);
+			s.sync;
+			//TODO: use player.vpiano
+			Synth(\monosampler, [\bufnum, buf, \amp, self.player.get_arg(\amp).get_val]).onFree {
+				buf.free;
+			};
+		}.fork;
+	},
+
+	create_batch: { arg self;
+		var sel = self.get_selected_cell;
+		var newnode;
+		self.nodegroup.identityHash.debug("class_sample_chooser: nodegroup: identityHash");
+		newnode = self.get_main.node_manager.duplicate_livenode(self.player.uname);
+		self.get_main.get_node(newnode).get_arg(self.param_name).set_val(self.samples[sel]);
+		self.nodegroup.add_children(newnode);
+		self.nodegroup.uname.debug("class_sample_chooser: create_batch: nodegroup");
+	}
+
+);
+
+~class_node_chooser = (
+	parent: ~class_matrix_chooser,
+
+	new: { arg self, main, action;
+		self = self.parent[\new].(self, action, "Choose samplekit");
+
+		self.model.part_bank = 0;
+		self.model.section_bank = 0;
+		self.model.matrix_size = 8@8;
+		self.get_main = { arg self; main };
+		self.update_datalist;
+		self.show_window;
+		self;
+	},
+
+	selected: { arg self, sel, win, address;
+		sel.dump.debug("selected");
+		if(sel != "" and: {self.oldsel == sel}) {
+			self[\action].(sel);
+			win.close;
+		} {
+			self.oldsel = sel;	
+		};
+	},
+
+	set_bank: { arg self, idx;
+		self.model.section_bank = idx;
+		self.update_datalist;
+		self.changed(\redraw);
+	},
+
+	update_datalist: { arg self;
+		self.set_datalist( 
+			self.get_main.panels.side.song_manager.get_section_matrix(self.model.part_bank,self.model.section_bank)
+				.collect{ arg name; if(name == \voidplayer) { "" } {name} }
+		);
+	},
+);
+
+/////////////////////// old matrix code
 
 ~make_matrix = { arg main, callbacks, winname="Matrix";
 
@@ -516,65 +622,6 @@
 	sl.set_datalist( main.model.effectlist );
 	sl.show_window;
 };
-
-~class_sample_chooser = (
-	parent: ~class_matrix_chooser,
-	new: { arg self, main, action, samplekit=\default, player, group, param_name=\bufnum;
-		var samplelist = List.new;
-		self = self.parent[\new].(self, action, "Choose sample");
-
-		self.samples = Dictionary.new;
-		self.get_main = { arg self; main };
-		self.player = player;
-		self.nodegroup = group;
-		self.nodegroup.identityHash.debug("class_sample_chooser: init: nodegroup: identityHash");
-		self.param_name = param_name;
-
-		main.samplekit_manager.get_samplelist_from_samplekit(samplekit).do { arg sam;
-			self.samples[PathName.new(sam).fileName] = sam;
-			samplelist.add(PathName.new(sam).fileName);
-		};
-		self.set_datalist( samplelist );
-		self.show_window;
-		self;
-	},
-
-	selected: { arg self, sel, win, address;
-		sel.debug("selected");
-		if(self.oldsel == sel, {
-			self[\action].(self.samples[sel]);
-			win.close;
-		}, {
-			self.oldsel = sel;	
-		});
-	},
-
-	play_selection: { arg self, sel, win, ad;
-		var pl;
-		//pl = main.get_node(main.model.presetlib[defname][sl.address_to_index(ad)]);
-		[self.samples[sel], sel].debug("play_selection: sel");
-		{
-			var buf;
-			buf = Buffer.read(s, self.samples[sel]);
-			s.sync;
-			//TODO: use player.vpiano
-			Synth(\monosampler, [\bufnum, buf, \amp, self.player.get_arg(\amp).get_val]).onFree {
-				buf.free;
-			};
-		}.fork;
-	},
-
-	create_batch: { arg self;
-		var sel = self.get_selected_cell;
-		var newnode;
-		self.nodegroup.identityHash.debug("class_sample_chooser: nodegroup: identityHash");
-		newnode = self.get_main.node_manager.duplicate_livenode(self.player.uname);
-		self.get_main.get_node(newnode).get_arg(self.param_name).set_val(self.samples[sel]);
-		self.nodegroup.add_children(newnode);
-		self.nodegroup.uname.debug("class_sample_chooser: create_batch: nodegroup");
-	}
-
-);
 
 ~choose_sample = { arg main, action, samplekit;
 	var sl;

@@ -177,6 +177,22 @@
 			main
 		},
 
+		destructor: { arg self;
+			// FIXME: implement it correctly
+			self.to_destruct.do { arg i;
+				i.destructor;
+			}
+		},
+
+		clone: { arg self;
+			var pl;
+			pl = ~make_player_from_synthdef.(main,defname);
+			pl.load_data( self.save_data.deepCopy );
+			pl;
+		},
+
+		////////////////// effects
+
 		set_effects: { arg self, fxlist;
 			self.effects = fxlist.reject({arg fx; main.node_exists(fx).not }).asList;
 			self.build_real_sourcepat;
@@ -192,7 +208,10 @@
 			self.effects;
 		},
 
+		////////////////// playing state
+
 		set_playing_state: { arg self, state;
+			[self.uname, state].debug("player: set_playing_state");
 			self.playing_state = state;
 			self.changed(\redraw_node);
 		},
@@ -214,6 +233,7 @@
 			)
 		},
 
+		////////////////// live playing
 
 		get_piano: { arg self, kind=\normal;
 			var exclu, list = List[];
@@ -277,12 +297,7 @@
 
 		},
 
-		destructor: { arg self;
-			// FIXME: implement it correctly
-			self.to_destruct.do { arg i;
-				i.destructor;
-			}
-		},
+		////////////////// wrapper
 
 		edit_wrapper: { arg self;
 			var tmp, file;
@@ -329,6 +344,8 @@
 			};
 		},
 
+		////////////////// mode
+
 		set_mode: { arg self, val;
 			if(self.current_mode != val) {
 				if(val == \sampleline && (self.get_arg(\sampleline).isNil)) {
@@ -351,16 +368,43 @@
 			self.defname.asString.beginsWith("audiotrack")
 		},
 
-		clone: { arg self;
-			var pl;
-			pl = ~make_player_from_synthdef.(main,defname);
-			pl.load_data( self.save_data.deepCopy );
-			pl;
+		set_env_mode: { arg self, val = true;
+			self.env_mode = val;
+			self.env_mode.debug("SET ENV MODE!!!");
+			self.build_real_sourcepat; // FIXME: already called just before setting env_mode (at init)
 		},
+
+		////////////////// params
+
+		select_param: { arg self, name;
+			var oldsel;
+			if( self.get_arg(name).notNil ) {
+				oldsel = self.selected_param;
+				name.debug("player selected_param");
+				self.selected_param = name;
+				self.get_arg(oldsel).changed(\selected);
+				self.get_arg(name).changed(\selected);
+			} {
+				[self.uname, name].debug("can't select param: not found");
+			}
+		},
+
+		get_selected_param: { arg self;
+			self.selected_param;
+		},
+
+		get_selected_param_object: { arg self;
+			self.get_arg(self.selected_param);
+		},
+
+		get_raw_arg: ~player_get_arg,
+		set_arg: ~player_set_arg,
+
 		map_arg: { arg self, argName, val;
 			argName.debug("mapping hidden!!!");
 			~get_spec.(argName, defname).map(val);
 		},
+
 		unmap_arg: { arg self, argName, val;
 			~get_spec.(argName, defname).unmap(val);
 		},
@@ -405,6 +449,13 @@
 		get_bank: { arg self;
 			self.bank;
 		},
+
+		get_duration: { arg self;
+			// TODO: return correct value for others modes
+			self.get_arg(\stepline).get_cells.size * self.get_arg(\dur).get_val
+		},
+
+		////////////////// save/load
 
 		save_data: { arg self;
 			var argdat;
@@ -488,6 +539,8 @@
 			ev;
 		},
 
+		////////////////// automation
+
 		add_ccbus: { arg self, param;
 			// a param is on recordbus mode, so include a pattern to set the bus while playing
 			var vpat;
@@ -501,6 +554,8 @@
 			self.build_real_sourcepat;
 		},
 
+		////////////////// pattern
+
 		set_input_pattern: { arg self, pat;
 			if(self.input_pattern.isNil) {
 				self.input_pattern = EventPatternProxy.new;
@@ -509,12 +564,6 @@
 			} {
 				self.input_pattern.source = pat;
 			}
-		},
-
-		set_env_mode: { arg self, val = true;
-			self.env_mode = val;
-			self.env_mode.debug("SET ENV MODE!!!");
-			self.build_real_sourcepat; // FIXME: already called just before setting env_mode (at init)
 		},
 
 		build_real_sourcepat: { arg self;
@@ -631,29 +680,6 @@
 			};
 		},
 
-		select_param: { arg self, name;
-			var oldsel;
-			if( self.get_arg(name).notNil ) {
-				oldsel = self.selected_param;
-				name.debug("player selected_param");
-				self.selected_param = name;
-				self.get_arg(oldsel).changed(\selected);
-				self.get_arg(name).changed(\selected);
-			} {
-				[self.uname, name].debug("can't select param: not found");
-			}
-		},
-
-		get_selected_param: { arg self;
-			self.selected_param;
-		},
-
-		get_selected_param_object: { arg self;
-			self.get_arg(self.selected_param);
-		},
-
-		get_raw_arg: ~player_get_arg,
-		set_arg: ~player_set_arg
 
 	);
 	player.init;
@@ -1528,41 +1554,6 @@
 	);
 	dic;
 
-};
-
-~exclusive_play_set = {
-	(
-		set_dict: ~setDictionary.(),
-
-		add_expset: { arg self, name, list;
-			self.set_dict.bind_set(name, list);
-		},
-
-		del_expset: { arg self, name;
-			self.set_dict.unbind_key(name);
-		},
-
-		get_expsets_by_member: { arg self, mname;
-			self.set_dict.get_keys_by_val(mname);
-		},
-
-		get_nodes_to_stop: { arg self, mname, nodes;
-			var expsets, members = Set.new;
-			expsets = self.get_expsets_by_member(mname);
-			expsets.debug("expsets");
-			expsets.do { arg ex; 
-				members = members.union(self.set_dict.get_vals_by_key(ex));
-			};
-			members.debug("members");
-			if(members.notNil) {
-				members.remove(mname);
-				members.sect(nodes);
-			} {
-				Set.new
-			}
-		},
-
-	)
 };
 
 //a = ~exclusive_play_set.()

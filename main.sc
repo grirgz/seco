@@ -219,6 +219,7 @@
 		pgroup.addDependant( { arg grp, status;
 			if(status == \n_end) {
 				"fin!!".debug;
+				pgroup.releaseDependants;
 				blist.do(_.free)
 			}
 		});
@@ -324,6 +325,7 @@
 	"mixer",
 	"score",
 	"sidematrix",
+	"timeline",
 	"side",
 ].do { arg file;
 	("Loading " ++ file ++".sc...").inform;

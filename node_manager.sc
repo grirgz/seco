@@ -319,10 +319,25 @@
 			});
 		},
 
+		cut_node: { arg self, node;
+			var uname, address;
+			uname = node.uname;
+			uname.debug("cuted node1");
+			main.model.clipboard_action_kind = \cut;
+			if(uname == \void || (uname == \voidplayer)) {
+				"Can't cut empty player".error;
+			} {
+				uname.debug("cuted node2");
+				main.model.clipboard = uname;
+				main.model.clipboard.debug("cuted node");
+			};
+		},
+
 		copy_node: { arg self, node;
 			var uname, address;
 			uname = node.uname;
 			uname.debug("copied node1");
+			main.model.clipboard_action_kind = \copy;
 			if(uname == \void || (uname == \voidplayer)) {
 				"Can't copy empty player".error;
 			} {
@@ -338,12 +353,18 @@
 				"Can't paste: clipboard is empty".error;
 			} {
 				node = main.get_node(main.model.clipboard);
-				if( node.kind == \player ) {
-					self.duplicate_livenode(main.model.clipboard);
+				if(main.model.clipboard_action_kind == \copy) {
+				
+					if( node.kind == \player ) {
+						self.duplicate_livenode(main.model.clipboard);
+					} {
+						"paste_node: paste groupnode: not implemented".debug;
+						nil;
+					};
 				} {
-					"paste_node: paste groupnode: not implemented".debug;
-					nil;
-				};
+					// cut paste
+					main.model.clipboard
+				}
 			};
 
 		},
@@ -582,6 +603,42 @@
 	//[node.uname, res].debug("result for");
 	res; // return real nodes (not names)
 };
+
+~exclusive_play_set = {
+	(
+		set_dict: ~setDictionary.(),
+
+		add_expset: { arg self, name, list;
+			self.set_dict.bind_set(name, list);
+		},
+
+		del_expset: { arg self, name;
+			self.set_dict.unbind_key(name);
+		},
+
+		get_expsets_by_member: { arg self, mname;
+			self.set_dict.get_keys_by_val(mname);
+		},
+
+		get_nodes_to_stop: { arg self, mname, nodes;
+			var expsets, members = Set.new;
+			expsets = self.get_expsets_by_member(mname);
+			expsets.debug("expsets");
+			expsets.do { arg ex; 
+				members = members.union(self.set_dict.get_vals_by_key(ex));
+			};
+			members.debug("members");
+			if(members.notNil) {
+				members.remove(mname);
+				members.sect(nodes);
+			} {
+				Set.new
+			}
+		},
+
+	)
+};
+
 
 ~make_playmanager = { arg main;
 	
@@ -844,7 +901,12 @@
 						node.node.source = node.vpattern_loop;
 						quant = if(self.is_playing) { self.get_quant } { 1 };
 						node.node.play(self.get_clock,quant:quant);
+
 						node.set_playing_state(\play);
+						children.do { arg child;
+							child.set_playing_state(\play);
+						};
+						
 						
 						// registering
 
@@ -981,12 +1043,13 @@
 			self.get_path([nil,nil,nil]);
 		},
 
-		unvoid_child: { arg self, group, childname, index, pathlevel, prefix;
+		unvoid_child: { arg self, group, childname, index, pathlevel, prefix, path;
 			var newgroup;
 			childname.debug("unvoid_child");
 			if(childname == \voidplayer) {
 				newgroup = main.node_manager.make_groupplayer((prefix ++ index).asSymbol, self.type_tree[pathlevel]);
 				newgroup.uname.debug("---------- unvoid_child: CREATING new group uname");
+				newgroup.song_path = path[..pathlevel];
 				group.set_children_name(index-1, newgroup.uname);
 				[group.uname, group.children, index].debug("unvoid_child: group, children, index");
 				newgroup;
@@ -995,7 +1058,7 @@
 			};
 		},
 
-		get_child: { arg self, group, index, pathlevel, prefix, select=false;
+		get_child: { arg self, group, index, pathlevel, prefix, select=false, path;
 			var newgroup;
 			if(index.notNil) {
 				if(index == 0) {
@@ -1004,10 +1067,34 @@
 					if(select) {
 						group.set_selected_child_index(index-1);
 					};
-					self.unvoid_child(group, group.get_childname_by_index(index-1), index, pathlevel, prefix);
+					self.unvoid_child(group, group.get_childname_by_index(index-1), index, pathlevel, prefix, path);
 				}
 			} {
-				self.unvoid_child(group, group.get_selected_childname, group.selected_child_index+1, pathlevel, prefix);
+				self.unvoid_child(group, group.get_selected_childname, group.selected_child_index+1, pathlevel, prefix, path);
+			}
+		},
+
+		get_section_matrix: { arg self, part_index, section_index;
+			var part, section;
+			var res;
+			part = self.current_song.get_childname_by_index(part_index);
+			if(part == \voidplayer) {
+				res = \voidplayer!8
+			} {
+				section = main.get_node(part).get_childname_by_index(section_index);
+				if(section == \voidplayer) {
+					res = \voidplayer!8
+				} {
+					res = List.new;
+					main.get_node(section).children.atSeries(0,1,7).do { arg variant;
+						if(variant != \voidplayer and: {main.node_exists(variant)}){
+							res.add(main.get_node(variant).debug("variant").children.atSeries(0,1,7))
+						} {
+							res.add(\voidplayer!8) // FIXME: hardcoded
+						}
+					};
+					res.flop.flatNoString;
+				}
 			}
 		},
 		
@@ -1026,7 +1113,7 @@
 							pathlevel = pathlevel + 1;
 							prefix = prefix ++ "_" ++ self.name_tree[pathlevel];
 							old_group = current_group;
-							current_group = self.get_child(current_group, index, pathlevel, prefix, select);
+							current_group = self.get_child(current_group, index, pathlevel, prefix, select, path);
 							prefix = prefix ++ (old_group.selected_child_index + 1);
 						}
 					};
@@ -1081,6 +1168,26 @@
 					self.print_tree_helper(main.get_node(childname), level);
 				}
 			}
+		},
+
+		/////// expset
+
+		update_expset: { arg self, index;
+			var section;
+			var name;
+			var list = List.new;
+			section = self.get_path([nil, nil, 0]);
+			name = (section.uname ++ "_expset" ++ index).asSymbol;
+			section.children.do { arg child;
+				var nodename;
+				if(child != \voidplayer) {
+					nodename = main.get_node(child).get_childname_by_index(index);
+					if(nodename.notNil and: {nodename != \voidplayer}) {
+						list.add(nodename);
+					}
+				}
+			};
+			main.play_manager.expset_manager.add_expset(name, list);
 		}
 	)
 

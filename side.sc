@@ -371,7 +371,7 @@
 		]);
 		"class_player_view: new: after making responder".debug;
 
-		//self;
+		self;
 	},
 
 	////// main responders
@@ -397,7 +397,7 @@
 			self.player_responder.remove;
 			"class_player_view: player: before making responder".debug;
 			self.player_responder = ~make_class_responder.(self, self.vlayout, player, [
-				\mode, \redraw_node,
+				\mode, 
 			]);
 			"class_player_view: player: after making responder".debug;
 			self.paramlist;
@@ -497,12 +497,6 @@
 		self.extparamlist;
 	},
 
-	redraw_node: { arg self, obj;
-		var player;
-		"class_player_view: player: redraw_node".debug;
-		player = self.current_player;
-		player.get_arg(\amp).changed(\playingstate, player.name, player.get_playing_state);
-	},
 );
 
 ~class_groupnode_view = (
@@ -571,6 +565,7 @@
 
 		group = self.current_group;
 		children = group.get_children_and_void;
+		self.children_responder.do{_.remove};
 		self.mini_param_group_widget.paramview_list.do { arg groupview, x; // FIXME: hardcoded
 			var child = children[x];
 			var is_empty = false;
@@ -584,6 +579,10 @@
 				display = controller.make_param_display(amp, child);
 				display.set_parent_group(group);
 				groupview.set_group_param(child, amp, display);
+
+				self.children_responder.add(~make_class_responder.(self, self.vlayout, child, [
+					\redraw_node,
+				]));
 			} {
 				groupview.clear_view;
 			};
@@ -615,6 +614,15 @@
 			}
 		}
 
+	},
+
+	///// children responders
+
+	redraw_node: { arg self, obj;
+		var player;
+		player = obj;
+		player.uname.debug("class_player_view: player: redraw_node");
+		player.get_arg(\amp).changed(\playingstate, player.name, player.get_playing_state);
 	},
 );
 
@@ -1445,6 +1453,9 @@
 			var supergroup;
 			var current_group;
 
+			self.timeline = ~class_timeline.new(main);
+			8.do { arg i; self.timeline.add_track("Track "++i);};
+
 			self.song_manager = ~make_song_manager.(main);
 			current_group = self.song_manager.get_current_group;
 
@@ -1470,6 +1481,11 @@
 			"OU SUOSJE".debug;
 
 			main.commands.parse_action_bindings(\side, [
+
+
+				[\open_timeline, {
+					self.timeline.make_gui;
+				}],
 
 				///////// macro
 
@@ -1553,6 +1569,7 @@
 				}], 
 
 				[\play_selected, {
+					self.song_manager.update_expset(self.get_current_group.selected_child_index);
 					self.get_current_player.play_node;
 				}], 
 
@@ -1680,6 +1697,12 @@
 					self.remove_current_player;
 				}],
 
+				[\cut_node, {
+					var player = self.get_current_player;
+					main.node_manager.cut_node(player);
+					self.remove_current_player;
+				}],
+
 				[\copy_node, {
 					var player = self.get_current_player;
 					main.node_manager.copy_node(player);
@@ -1694,8 +1717,10 @@
 					var group = self.get_current_group;
 					var nodename;
 					nodename = main.node_manager.paste_node(player);
-					group.set_selected_child(nodename);
-					self.set_current_player(main.get_node(nodename));
+					if(nodename.notNil) {
+						group.set_selected_child(nodename);
+						self.set_current_player(main.get_node(nodename));
+					};
 				}],
 
 				[\load_node_from_lib, {
