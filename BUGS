@@ -9,3 +9,11 @@
 - ralentissement quand on passe en mode matrix
 - lors du load, les buffers en key_mode (mais pas que ?) reviennent par defaut 
 - lors de la creation d'un synthdef par un mdef, le mode preset de dur reste 
+
+
+
+- les variant sont innacessible: cause inconnue
+- copier des nodes avec input_pattern bug
+- le play_manager state est corrompu, des nodes s'enlevent pas: cause inconnue
+- apres un record, il passe les anciennes notes au lieu des nouvelles
+- jouer une section entiere bouffe les premiers notes

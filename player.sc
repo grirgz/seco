@@ -626,8 +626,8 @@
 				res = Ppar( list )
 			};
 
-			//self.real_sourcepat = res.postcs.trace; //DEBUG
-			self.real_sourcepat = res.postcs;
+			self.real_sourcepat = res.postcs.trace; //DEBUG
+			//self.real_sourcepat = res.postcs;
 		},
 
 		vpattern: { arg self;
@@ -948,18 +948,33 @@
 			self.get_arg(self.selected_param);
 		},
 
-		set_selected_child: { arg self, name;
+		set_name_of_selected_child: { arg self, name;
 			name.debug("groupnode: set_selected_child");
 			self.children[self.selected_child_index] = name;
 			self.refresh;
 		},
-
-		set_selected_child_index: { arg self, index;
-			self.selected_child_index = index;	
-		},
+		set_selected_child: { arg self, name; self.set_name_of_selected_child(name); },
 
 		get_selected_childname: { arg self;
 			self.children[self.selected_child_index]
+		},
+
+		select_child_index: { arg self, index;
+			self.selected_child_index = index;	
+		},
+
+		select_child_at: { arg self, index;
+			//var oldidx;
+			//oldidx = self.selected_child_index;
+			if(self.children[index].notNil and: {self.selected_child_index != index}) {
+				self.selected_child_index = index;
+				self.selected_child = self.children[index]; // pas besoin normalement
+				//self.changed(\selected_child, oldidx);
+				self.changed(\selected_child, index);
+				true;
+			} {
+				false;
+			}
 		},
 
 
@@ -974,26 +989,28 @@
 
 		///// setting children
 
-		set_children_name: { arg self, index, name;
+		set_children_name: { arg self, index, name, refresh=true;
 			self.children[index] = name;
 			//self.changed(\children, index, main.get_node(name)); //TODO: use individual containers
-			self.refresh;
-		},
-
-
-		select_child_at: { arg self, index;
-			var oldidx;
-			oldidx = self.selected_child_index;
-			self.selected_child_index = index;
-			self.selected_child = self.children[index];
-			self.changed(\selected_child, oldidx);
-			self.changed(\selected_child, index);
+			if(refresh) { self.refresh };
 		},
 
 		add_children: { arg self, name;
 			name.debug("groupplayer.add_children");
 			self.children = self.children.add(name);
 			self.refresh;
+		},
+
+		add_child_replace_void: { arg self, name;
+			block { arg break;
+				self.children.do { arg childname, i;
+					if(childname == \voidplayer) {
+						self.set_children_name(i, name);
+						break.value;
+					}
+				
+				}
+			}
 		},
 
 		///// getting children
@@ -1292,6 +1309,7 @@
 
 		init: { arg self;
 			self.data[\repeat] = self.data[\repeat] ?? ~make_control_param.(main, self, \repeat, \scalar, 1, ~get_spec.(\repeat));
+			self.data[\amp] = self.data[\amp] ?? ~make_control_param.(main, self, \amp, \scalar, 1, ~get_spec.(\amp)); // dummy param FTM
 			self.get_arg(\repeat).get_val.debug("init repeat.get_val");
 		},
 

@@ -62,6 +62,7 @@
 		["edit_wrapper", \kb, \alt, "w"],
 
 		["copy_node", \kb, \ctrl, "c"],
+		["copy_node_children", \kb, \ctrlalt, "c"],
 		["cut_node", \kb, \ctrl, "x"],
 		["paste_node", \kb, \ctrl, "v"],
 		//["copy_group", \kb, \ctrl, \kbnumpad],

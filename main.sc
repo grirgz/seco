@@ -937,6 +937,7 @@
 
 		panic: { arg self;
 			thisProcess.stop;
+			self.play_manager.reset_state;
 		},
 
 

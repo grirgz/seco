@@ -1050,7 +1050,11 @@
 		set_notequant: { arg self, val;
 			self.notescore.notequant = val;
 			self.update_notes;
-		}
+		},
+
+		get_notequant: { arg self, val;
+			self.notescore.notequant;
+		},
 
 	)
 };

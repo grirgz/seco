@@ -159,7 +159,7 @@
 		},
 
 		add_node_to_default_group: { arg self, node;
-			self.default_group.add_children(node.name);
+			self.default_group.add_child_replace_void(node.uname);
 
 		},
 
@@ -347,24 +347,63 @@
 			};
 		},
 
+		copy_node_children: { arg self, node;
+			var uname, address;
+			uname = node.uname;
+			uname.debug("copied node1");
+			if(uname == \void || (uname == \voidplayer)) {
+				"Can't copy empty player".error;
+			} {
+				// FIXME: what about other groupnodes ?
+				if( [\seqnode, \parnode].includes(node.kind) ) {
+					if(node.get_children_names.size == 0) {
+						uname.debug("copy_node_children: node has no child, copy aborted");
+					} {
+						main.model.clipboard_action_kind = \copy_children;
+						uname.debug("copied node2");
+						main.model.clipboard = uname;
+						main.model.clipboard.debug("copied node");
+					};
+				} {
+					[uname, node.kind].debug("copy_node_children: node is not good kind, copy aborted");
+				}
+
+			};
+		},
+
 		paste_node: { arg self;
 			var node;
 			if( main.model.clipboard.isNil ) {
 				"Can't paste: clipboard is empty".error;
 			} {
 				node = main.get_node(main.model.clipboard);
-				if(main.model.clipboard_action_kind == \copy) {
-				
-					if( node.kind == \player ) {
-						self.duplicate_livenode(main.model.clipboard);
-					} {
-						"paste_node: paste groupnode: not implemented".debug;
-						nil;
-					};
-				} {
-					// cut paste
-					main.model.clipboard
-				}
+				switch(main.model.clipboard_action_kind,
+					\copy, {
+						if( node.kind == \player ) {
+							self.duplicate_livenode(main.model.clipboard);
+						} {
+							// TODO: use available implementation
+							"paste_node: paste groupnode: not implemented".debug;
+							nil;
+						};
+					},
+					\copy_children, {
+						// FIXME: what about other groupnodes ?
+						if( [\seqnode, \parnode].includes(node.kind) ) {
+							node.get_children_names.collect { arg name;
+								self.duplicate_livenode(name);
+							};
+						} {
+							// TODO: use available implementation
+							node.kind.debug("paste_node: node kind not implemented");
+							nil;
+						};
+					
+					},
+					{
+						main.model.clipboard_action_kind.debug("paste_node: paste kind not implemented");
+					}
+				);
 			};
 
 		},
@@ -382,7 +421,7 @@
 							if(main.node_exists(name)) {
 								node = main.get_node(name);
 								node.set_input_pattern(pat);
-								if(self.model.freeze_gui) { main.panels.side.set_current_player(node); };
+								//if(self.model.freeze_gui) { main.panels.side.set_current_player(node); };
 								Pdef(name, node.vpattern);
 							} {
 								node = ~make_player_from_pbind.(main, pat);
@@ -391,7 +430,7 @@
 									node.uname = name;
 									main.add_node(node);
 									main.node_manager.add_node_to_default_group(node);
-									main.panels.side.set_current_player(node);
+									main.panels.side.select_slot_by_name(node.uname);
 									//main.focus_mpdef(node);
 									node.get_arg(\repeat).set_val(0);
 									Pdef(name, node.vpattern);
@@ -406,7 +445,7 @@
 							if(main.node_exists(name)) {
 								node = main.get_node(name);
 								node.set_input_pattern(pat);
-								main.panels.side.set_current_player(node);
+								//main.panels.side.set_current_player(node);
 								Pdef(name, node.vpattern);
 							} {
 								node = ~make_player_from_pchain.(main, pat, instr);
@@ -415,7 +454,8 @@
 									node.uname = name;
 									main.add_node(node);
 									main.node_manager.add_node_to_default_group(node);
-									main.panels.side.set_current_player(node);
+									main.panels.side.select_slot_by_name(node.uname);
+									//main.panels.side.set_current_player(node);
 									//main.focus_mpdef(node);
 									Pdef(name, node.vpattern);
 								} {
@@ -477,7 +517,7 @@
 							if(main.node_exists(name)) {
 								node = main.get_node(name);
 								node.set_input_pattern(pat);
-								main.panels.side.set_current_player(node);
+								//main.panels.side.set_current_player(node);
 								Pdef(name, node.vpattern);
 							} {
 								node = ~make_player_from_pattern.(main, pat);
@@ -486,7 +526,8 @@
 									node.uname = name;
 									main.add_node(node);
 									main.node_manager.add_node_to_default_group(node);
-									main.panels.side.set_current_player(node);
+									//main.panels.side.set_current_player(node);
+									main.panels.side.select_slot_by_name(node.uname);
 									//main.focus_mpdef(node);
 									node.get_arg(\repeat).set_val(0);
 									Pdef(name, node.vpattern);
@@ -510,7 +551,7 @@
 								node = main.get_node(name);
 								node.set_input_pattern(pat);
 								node.set_env_mode(true);
-								main.panels.side.set_current_player(node);
+								//main.panels.side.set_current_player(node);
 								Pdef(name, node.vpattern);
 							} {
 								node = ~make_player_from_pbind.(main, pat);
@@ -520,7 +561,8 @@
 									node.uname = name;
 									main.add_node(node);
 									main.node_manager.add_node_to_default_group(node);
-									main.panels.side.set_current_player(node);
+									main.panels.side.select_slot_by_name(node.uname);
+									//main.panels.side.set_current_player(node);
 									//main.focus_mpdef(node);
 									Pdef(name, node.vpattern);
 								} {
@@ -847,7 +889,7 @@
 		},
 
 		play_node: { arg self, nodename;
-			var esp, sc, children, quant;
+			var esp, sc, children, quant, play_action;
 			nodename.debug("pm: play_node");
 			[self.top_nodes, self.children_nodes].debug("pm: state");
 			~notNildo.(main.get_node(nodename), { arg node;
@@ -867,7 +909,13 @@
 						/////==== already playing as a children: unmuting ====/////
 
 						nodename.debug("pm: play_node: unmute");
-						node.mute(false);
+						play_action = { node.mute(false); };
+						self.get_clock.play(play_action, self.get_quant);
+
+						self.expset_manager.get_nodes_to_stop(nodename, self.children_nodes.union(self.top_nodes.keys)).do { arg node_to_stop;
+							node_to_stop.debug("66 node_to_stop");
+							self.stop_node(node_to_stop, true);
+						};
 					} {
 
 						/////==== not playing: play it ====/////
@@ -1048,6 +1096,9 @@
 			childname.debug("unvoid_child");
 			if(childname == \voidplayer) {
 				newgroup = main.node_manager.make_groupplayer((prefix ++ index).asSymbol, self.type_tree[pathlevel]);
+				if(self.type_tree[pathlevel] == \seq) {
+					newgroup.set_expset_mode(true)
+				};
 				newgroup.uname.debug("---------- unvoid_child: CREATING new group uname");
 				newgroup.song_path = path[..pathlevel];
 				group.set_children_name(index-1, newgroup.uname);
@@ -1065,7 +1116,7 @@
 					group;
 				} {
 					if(select) {
-						group.set_selected_child_index(index-1);
+						group.select_child_index(index-1);
 					};
 					self.unvoid_child(group, group.get_childname_by_index(index-1), index, pathlevel, prefix, path);
 				}

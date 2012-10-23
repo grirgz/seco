@@ -185,7 +185,7 @@
 		set_group_param: { arg self, player, param, display;
 			var resp;
 			self.kind = \player;
-			bt_name.string = player.name;
+			//bt_name.string = player.name;
 			
 			if( self.responder.notNil ) {
 				self.responder.remove
@@ -210,12 +210,17 @@
 						{ "? " }
 					);
 
+					if(name == \voidplayer) {
+						name = " ";
+					};
+
 
 					bt_name.string = state ++ " " ++ name;
 				}
 
 			));
 			resp[\selected] = nil;
+			resp[\playingstate].(self, nil, player.name, player.get_playing_state);
 
 			slider.action = slider_action.(param);
 
@@ -500,6 +505,9 @@
 );
 
 ~class_groupnode_view = (
+	
+	old_selected_child_index: 0,
+
 	new: { arg self, main, controller, parent, display;
 		self = self.deepCopy;
 
@@ -564,13 +572,14 @@
 		"XXXXXXXXXXXXXXXXXXXXXXXXXXX class_groupnode_view.update_group_items".debug;
 
 		group = self.current_group;
-		children = group.get_children_and_void;
-		self.children_responder.do{_.remove};
+		children = group.get_view_children;
+		self.children_responder.do { arg resp; resp.remove };
+		self.children_responder = List.new;
 		self.mini_param_group_widget.paramview_list.do { arg groupview, x; // FIXME: hardcoded
 			var child = children[x];
 			var is_empty = false;
 			var amp;
-			if(child.notNil) {
+			if(child.notNil and: { child.uname != \voidplayer  }) {
 				amp = child.get_arg(\amp);
 				if( amp.isNil ) {
 					"group_items: amp is nil or child is nil".debug;
@@ -605,7 +614,9 @@
 		if(idx.notNil) { //FIXME: why could it be nil ?
 			if(idx == controller.selected_child_index) {
 				if(groupview_list[idx].notNil) {
+					groupview_list[self.old_selected_child_index].selected(false);
 					groupview_list[idx].selected(true);
+					self.old_selected_child_index = idx;
 				}
 			} {
 				if(groupview_list[idx].notNil) {
@@ -677,7 +688,7 @@
 		"XXXXXXXXXXXXXXXXXXXXXXXXXXX class_groupnode_view.update_group_items".debug;
 
 		group = self.current_group;
-		children = group.get_children_and_void;
+		children = group.get_view_children;
 		self.stepmatrix.reset_layout;
 		children.do { arg child, x; // FIXME: hardcoded
 			var view;
@@ -703,7 +714,9 @@
 		if(idx.notNil) { //FIXME: why could it be nil ?
 			if(list[idx].notNil) {
 				idx.debug("class_groupnode_matrix_view: selected_child:");
+				list[self.old_selected_child_index].get_arg(list[self.old_selected_child_index].get_mode).changed(\selected);
 				list[idx].get_arg(list[idx].get_mode).changed(\selected);
+				self.old_selected_child_index = idx;
 			}
 		}
 
@@ -861,7 +874,8 @@
 			};
 			group = main.get_node(data[\current_group]);
 			self.set_current_group( group );
-			self.set_current_player( main.get_node(group.selected_child), group.selected_child_index );
+			self.reload_selected_slot;
+			//self.set_current_player( main.get_node(group.selected_child), group.selected_child_index );
 			self.refresh;
 		},
 
@@ -1246,12 +1260,45 @@
 
 		///// player
 
+		reload_selected_slot: { arg self;
+			var group = self.get_current_group;
+			var player = main.get_node(group.get_selected_childname);
+			self.current_player = player;
+			self.assign_midi;
+			if(param_types.param_mode.includes(player.get_selected_param)) {
+				"enable change_player_mode".debug;
+				main.commands.enable_mode([\side, \change_player_mode]);
+			} {
+				"disable change_player_mode".debug;
+				main.commands.disable_mode([\side, \change_player_mode]);
+			};
+			main.freeze_do { self.changed(\player); };
+		},
+
+		select_slot: { arg self, slot_index;
+			var group = self.get_current_group;
+			var player;
+			if(group.select_child_at(slot_index)) {
+				self.reload_selected_slot;
+			}
+		},
+
+		select_slot_by_name: { arg self, name;
+			var group = self.get_current_group;
+			var idx = group.children.indexOf(name);
+			if(idx.notNil) {
+				self.select_slot(idx);
+			} {
+				name.debug("ERROR: side: select_slot_by_name: name not found");
+			}
+		},
+
 		set_current_player: { arg self, player, index;
 			// set player object
 			var oldplayer;
 			player.uname.debug("XXXXX side: set_current_player");
 			if(self.current_player != player) {
-				oldplayer = main.get_node(self.get_current_group.selected_child);
+				//oldplayer = main.get_node(self.get_current_group.selected_child);
 				if(index.notNil) {
 					self.get_current_group.select_child_at(index);
 				} {
@@ -1289,8 +1336,10 @@
 			var name;
 			name = player.uname;
 			if(name != \voidplayer) {
-				index = group.children.detectIndex { arg i; i == name };
-				group.set_children_name(index, \voidplayer);
+				
+				group.set_name_of_selected_child(\voidplayer);
+				//index = group.children.detectIndex { arg i; i == name };
+				//group.set_children_name(index, \voidplayer);
 			} {
 				"can't remove voidplayer".debug;
 			};
@@ -1299,10 +1348,11 @@
 		///// group
 
 		select_group_item: { arg self, index;
+			// not used anymore: use select_slot
 			var player, oldplayer;
-			player = self.get_current_group.get_children_and_void[index];
+			player = self.get_current_group.get_view_children[index];
 			if(player.notNil) {
-				self.set_current_player(player, index);
+				self.set_current_player(player, index); // not used
 			} {
 				"ERROR: side: select_group_item: selected player is nil"
 			}
@@ -1312,17 +1362,18 @@
 			var group_types = [\parnode, \seqnode]; // TODO: define it more globally. add seqnode
 			var curplayer, curplayer_index;
 			group.uname.debug("side.set_current_group: group");
-			if(group_types.includes(group.kind)) {
-				if(group != self.model.current_group) {
-					self.current_group = group;
-					self.current_group.selected_child.debug("side:set_current_group: selected_child");
-					curplayer_index = self.current_group.selected_child_index;
-					curplayer = self.current_group.get_children_and_void[ curplayer_index ];
-					self.set_current_player(curplayer, curplayer_index);
-					main.freeze_do { self.changed(\nodegroup); };
+			if(group != self.current_group) {
+				if(group_types.includes(group.kind)) {
+						self.current_group = group;
+						self.reload_selected_slot;
+						//self.current_group.selected_child.debug("side:set_current_group: selected_child");
+						//curplayer_index = self.current_group.selected_child_index;
+						//curplayer = self.current_group.get_view_children[ curplayer_index ];
+						//self.set_current_player(curplayer, curplayer_index);
+						main.freeze_do { self.changed(\nodegroup); };
+				} {
+					group.kind.debug("Error: node is not a kind of group");
 				};
-			} {
-				group.kind.debug("Error: node is not a kind of group");
 			};
 		},
 
@@ -1344,6 +1395,7 @@
 		},
 
 		select_group: { arg self, index;
+			// not used anymore
 			var supergroup;
 			var group;
 			supergroup = self.get_current_supergroup;
@@ -1360,7 +1412,7 @@
 		},
 
 		copy_group: { arg self, index;
-			//TODO
+			// not used anymore
 			var curgroup = self.get_current_group;
 			var supergroup = self.get_current_supergroup;
 			var newgroup = supergroup.children[index-1];
@@ -1373,6 +1425,7 @@
 			}
 
 		},
+
 
 		set_current_supergroup: { arg self, group;
 			self.current_supergroup = group;
@@ -1512,7 +1565,7 @@
 				}],
 
 				[\select_player, 10, { arg i;
-					self.select_group_item(i-1)
+					self.select_slot(i-1)
 				}],
 
 				[\matrix_select_player, 8, { arg i;
@@ -1708,26 +1761,50 @@
 					main.node_manager.copy_node(player);
 				}],
 
-				[\copy_group, 10, { arg i;
-					self.copy_group(i);
+				[\copy_node_children, { 
+					var player = self.get_current_group;
+					main.node_manager.copy_node_children(player);
 				}],
 
 				[\paste_node, {
 					var player = self.get_current_player;
 					var group = self.get_current_group;
-					var nodename;
-					nodename = main.node_manager.paste_node(player);
-					if(nodename.notNil) {
-						group.set_selected_child(nodename);
-						self.set_current_player(main.get_node(nodename));
-					};
+					var nodename, nodenames;
+					switch(main.model.clipboard_action_kind,
+						\copy, {
+							nodename = main.node_manager.paste_node;
+							if(nodename.notNil) {
+								group.set_name_of_selected_child(nodename);
+								self.reload_selected_slot;
+								//self.set_current_player(main.get_node(nodename));
+							};
+						},
+						\copy_children, {
+							if(group.get_children_names.size == 0) {
+								nodenames = main.node_manager.paste_node;
+								if(nodenames.notNil) {
+									nodenames.do { arg name, i;
+										group.set_children_name(i, name, false);
+									};
+									self.reload_selected_slot;
+									group.refresh;
+									//group.set_name_of_selected_child(nodenames[0]);
+									//self.set_current_player(main.get_node(nodenames[0]));
+								};
+							} {
+								group.uname.debug("side: paste_node: can't paste, group already has children");
+							}
+
+						},
+					);
 				}],
 
 				[\load_node_from_lib, {
 					var group = self.get_current_group;
 					main.node_manager.load_libnode { arg nodename;
-						group.set_selected_child(nodename);
-						self.set_current_player(main.get_node(nodename));
+						group.set_name_of_selected_child(nodename);
+						self.reload_selected_slot;
+						//self.set_current_player(main.get_node(nodename));
 					};
 				}],
 
@@ -1735,15 +1812,17 @@
 					var nodename;
 					var group = self.get_current_group;
 					nodename = main.node_manager.create_default_livenode;
-					group.set_selected_child(nodename);
-					self.set_current_player(main.get_node(nodename));
+					group.set_name_of_selected_child(nodename);
+					self.reload_selected_slot;
+					//self.set_current_player(main.get_node(nodename));
 				}],
 
 				[\reload_player, {
 					var player = self.get_current_player;
 					var newplayer;
 					newplayer = main.node_manager.reload_player(player);
-					self.set_current_player(newplayer);
+					self.reload_selected_slot;
+					//self.set_current_player(newplayer);
 
 				}],
 

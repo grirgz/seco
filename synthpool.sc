@@ -199,6 +199,36 @@ SynthDef(\lead, { |out, freq=440, amp=0.1, gate=1, bps=2|
     OffsetOut.ar(out, snd * amp);
 }).store;
 
+SynthDef(\lead2, {	arg out=0, freq = 100, pan=0, amp=0.1, mdetune=1.004, gate=1, rq=0.1, fratio = 1, fbase=400, wet=1, fbfreq=100, fbamp=0.8, fbpamp=1; 
+	var fb, ou, filtenv;
+	ou = LFSaw.ar(freq * [1, mdetune]).sum;
+	filtenv = EnvGen.ar(Env.adsr(0.01,0.25,0.07,0.3), gate, 1, fbase, doneAction:0) * freq * Lag.kr(fratio,0.1);
+	ou = RLPF.ar(ou, filtenv, rq);
+	fb = LocalIn.ar(1) + ou;
+	fb = HPF.ar(fb, fbfreq);
+	LocalOut.ar(fb * fbamp);
+	fb = Limiter.ar(fb, amp);
+	fb = SelectX.ar(wet, [ou, fb*fbpamp]);
+	fb = fb * EnvGen.ar(\adsr.kr(Env.adsr(0.001,0.4,0.9,0.1)), gate, doneAction:2);
+	fb = Pan2.ar(fb, pan, amp);
+	Out.ar(out, fb);
+}).store;
+
+SynthDef(\lead3, {	arg out=0, freq = 100, pan=0, amp=0.1, mdetune=1.004, gate=1, rq=0.1, fratio = 1, fbase=400, wet=1, fbfreq=100, fbamp=0.8, fbpamp=1; 
+	var fb, ou, filtenv;
+	ou = LFSaw.ar(freq * [1, mdetune]).sum;
+	filtenv = EnvGen.ar(\adsr_filter.kr(Env.adsr(0.01,0.25,0.07,0.3)), gate, 1, fbase, doneAction:0) * freq * Lag.kr(fratio,0.1);
+	ou = RLPF.ar(ou, filtenv, rq);
+	fb = LocalIn.ar(1) + ou;
+	fb = HPF.ar(fb, fbfreq);
+	LocalOut.ar(fb * fbamp);
+	fb = Limiter.ar(fb, amp);
+	fb = SelectX.ar(wet, [ou, fb*fbpamp]);
+	fb = fb * EnvGen.ar(\adsr.kr(Env.adsr(0.001,0.4,0.9,0.1)), gate, doneAction:2);
+	fb = Pan2.ar(fb, pan, amp);
+	Out.ar(out, fb);
+}).store;
+
 // yep, an organ with a sub bass tone :D
 SynthDef(\organ, { |out, freq=440, amp=0.1, gate=1|
     var snd;

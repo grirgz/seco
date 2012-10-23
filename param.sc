@@ -2587,7 +2587,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		},
 
 		get_notequant: { arg self;
-			self.scoreset.notequant;
+			self.scoreset.get_notequant;
 		},
 		set_notequant2: { arg self, val;
 			self.notequant = val;
@@ -3137,6 +3137,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			},
 
 			set_val: { arg self, val, idx=nil;
+				//[val, self.bus.index].debug(">>>>>>>>>> make_control_param: Setting val");
 				self.bus.set(val);
 				self.val = val;
 				param.changed(\val, 0);
@@ -3157,9 +3158,9 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			get_val: { arg self; self.val },
 
 			set_norm_val: { arg self, norm_val;
-				self.val = param.spec.map(norm_val);
-				self.bus.set(self.val);
-				param.changed(\val, 0);
+				self.set_val(param.spec.map(norm_val));
+				//self.bus.set(self.val);
+				//param.changed(\val, 0);
 			},
 			get_norm_val: { arg self;
 				param.spec.unmap(self.val);
@@ -3274,6 +3275,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			{
 				switch(self.current_kind,
 					\preset, { self.preset.val[self.preset.selected_cell] },
+					\bus, { self.bus.get_bus.asMap },
 					//default
 					{ self.scalar.val }
 				);
