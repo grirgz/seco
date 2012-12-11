@@ -3469,3 +3469,37 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	// return object
 	param;
 };
+
+~make_macro_control_param = { arg main, macro_ctrl, player, name, kind, default_value, spec;
+	var param = ~make_control_param.(main, player, name, kind, default_value, spec);
+	param.external_control = macro_ctrl;
+	param.scalar = (
+			//quoi: { "QUOI".debug; }.value,
+			selected_cell: 0, // always 0
+			val: macro_ctrl.get_val,
+
+			set_val: { arg self, val, idx=nil;
+				macro_ctrl.set_val(val);
+				param.changed(\val, 0);
+			},
+			get_val: { arg self;
+				macro_ctrl.get_val 
+			},
+
+			set_norm_val: { arg self, norm_val;
+				macro_ctrl.set_val(norm_val);
+				param.changed(\val, 0);
+			},
+			get_norm_val: { arg self;
+				macro_ctrl.get_val 
+			},
+
+			get_cells: { arg self; [self.get_val] },
+
+			select_cell: { arg self, idx; param.seq.selected_cell = idx }, // when changing kind, correct cell is selected in colselect mode
+			get_selected_cell: { arg self; 0 },
+			add_cells: {},
+			remove_cells: {}
+	);
+	param;
+};
