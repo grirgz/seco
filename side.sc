@@ -5,7 +5,7 @@
 	var txt_name, txt_instr;
 	layout = HLayoutView.new(parent, Rect(0,0,size.x,size.y));
 	txt_name = StaticText(layout, Rect(0,0,250,size.y));
-	txt_instr = StaticText(layout, Rect(0,0,150,size.y));
+	txt_instr = StaticText(layout, Rect(0,0,250,size.y));
 	(
 		set_name: { arg self, name;
 			txt_name.string = name;
@@ -179,6 +179,9 @@
 
 			slider.action = slider_action.(param);
 
+
+			param[\make_responder_translator].debug("before making translator");
+			param.make_responder_translator(vlayout);
 			self.responder = ~make_view_responder.(vlayout, param, param_responder.(display));
 		},
 
@@ -215,7 +218,9 @@
 					};
 
 
-					bt_name.string = state ++ " " ++ name;
+					{
+						bt_name.string = state ++ " " ++ name;
+					}.defer;
 				}
 
 			));
@@ -417,21 +422,28 @@
 		var display;
 		var player = self.current_player;
 		var args2;
+		var args3;
 
 		"class_player_view: paramlist".debug;
 		//player.get_ordered_args.do { arg param_name, idx;
 		controller = controller ?? self.controller;
 
-		args = controller.get_paramlist_splited;
-		args2 = args[1] ++ args[2];
+		//args = controller.get_paramlist_splited;
+		//args2 = args[1] ++ args[2];
+		//args3 = controller.get_paramlist_macros;
 		
 		self.mini_param_group_widget.paramview_list.do { arg view, idx;
 			var param_name;
-			if(idx < 8) {
-				param_name = args[0][idx];
-			} {
-				param_name = args2[idx-8];
-			};
+			param_name = controller.get_param_name_by_display_idx(idx);
+			//if(idx < 8) {
+			//	param_name = args[0][idx];
+			//} {
+			//	if(idx < 16) {
+			//		param_name = args2[idx-8];
+			//	} {
+			//		param_name = args3[idx-16];
+			//	}
+			//};
 			if(param_name.notNil) {
 				param = player.get_arg(param_name);
 				display = controller.make_param_display(param);
@@ -692,9 +704,11 @@
 		self.stepmatrix.reset_layout;
 		children.do { arg child, x; // FIXME: hardcoded
 			var view;
-			child.uname.debug("°°°°°°°°° stepmatrix: making child");
-			self.stepmatrix.make_line(controller, child, group);
-			self.stepmatrix.playerlist.add(child);
+			if(child.uname != \voidplayer) {
+				child.uname.debug("°°°°°°°°° stepmatrix: making child");
+				self.stepmatrix.make_line(controller, child, group);
+				self.stepmatrix.playerlist.add(child);
+			}
 		};
 		"FIN class_groupnode_view.update_group_items".debug;
 
@@ -948,6 +962,7 @@
 			} {
 				args = player.get_ordered_args;
 				args = args.reject { arg x; param_types.param_reject.includes(x) };
+				args = args.reject { arg x; x.asString.beginsWith("macro") };
 				mode = player.get_mode;
 				args = ~sort_by_template.(args, param_types.param_status_group ++ param_types.param_order);
 
@@ -964,6 +979,48 @@
 
 				[args1, args2, args3];
 			}
+		},
+
+		get_paramlist_macros: { arg self;
+			var player = self.current_player;
+			var mode;
+			var args;
+			var args1;
+			var args2;
+			var args3;
+			if(player.uname == \voidplayer) {
+				[];
+			} {
+				args = player.get_ordered_args;
+				args = args.select { arg x; x.asString.beginsWith("macro") };
+			}
+		},
+
+		get_param_name_by_display_idx: { arg self, idx;
+			var args, args2, args3;
+			var param_name;
+			args = self.get_paramlist_splited;
+			args2 = args[1] ++ args[2];
+			args3 = self.get_paramlist_macros;
+
+			if(idx < 8) {
+				param_name = args[0][idx];
+			} {
+				if(idx < 16) {
+					if(args3[idx-8].notNil) {
+						param_name = args3[idx-8];
+					} {
+						param_name = args2[idx-8];
+					}
+				} {
+					if(args3[idx-16].notNil) {
+						param_name = args2[idx-16];
+					} {
+						param_name = args2[idx-8];
+					}
+				}
+			};
+			param_name;
 		},
 
 		get_effects_paramlist: { arg self, num;
@@ -991,7 +1048,8 @@
 			var mode;
 			var args;
 			
-			self.get_paramlist_splited.flat;
+			args = self.get_paramlist_splited;
+			args[0] ++ self.get_paramlist_macros ++ args[1] ++ args[2];
 		},
 
 		get_extparamlist: { arg self;
@@ -1139,12 +1197,13 @@
 				player.uname.debug("side: select_param: player");
 				//self.model.debug("c'est dingue!!!!");
 				//oldsel = self.model.selected_param;
-				pl = self.get_paramlist_splited;
-				if(index < 8) {
-					sel = pl[0][index];
-				} {
-					sel = (pl[1]++pl[2])[index-8];
-				};
+				sel = self.get_param_name_by_display_idx(index);
+				//pl = self.get_paramlist_splited;
+				//if(index < 8) {
+				//	sel = pl[0][index];
+				//} {
+				//	sel = (pl[1]++pl[2])[index-8];
+				//};
 				if(sel.notNil) {
 					player.select_param(sel);
 					self.model.selected_param = player.get_arg(sel);
@@ -1329,7 +1388,7 @@
 			self.current_player 
 		},
 
-		remove_current_player: { arg self;
+		remove_current_player: { arg self, free=false;
 			var group = self.get_current_group;
 			var player = self.get_current_player;
 			var index;
@@ -1340,6 +1399,9 @@
 				group.set_name_of_selected_child(\voidplayer);
 				//index = group.children.detectIndex { arg i; i == name };
 				//group.set_children_name(index, \voidplayer);
+				if(free) {
+					player.destructor;
+				};
 			} {
 				"can't remove voidplayer".debug;
 			};
@@ -1538,6 +1600,13 @@
 
 				[\open_timeline, {
 					self.timeline.make_gui;
+				}],
+
+				[\edit_external_player, {
+					var player = self.get_current_player;
+					if(player.external_player.notNil) {
+						player.external_player.make_gui;
+					}
 				}],
 
 				///////// macro
@@ -1748,6 +1817,10 @@
 
 				[\remove_node, { 
 					self.remove_current_player;
+				}],
+
+				[\remove_and_free_node, { 
+					self.remove_current_player(true);
 				}],
 
 				[\cut_node, {

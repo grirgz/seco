@@ -70,7 +70,9 @@
 
 	play_cursor: { arg self, controller;
 		controller = controller ?? self.controller;
-		self.view.refresh;
+		{
+			self.view.refresh;
+		}.defer;
 	
 	}
 

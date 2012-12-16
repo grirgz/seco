@@ -7,6 +7,9 @@ s.waitForBoot{
 ~seq = Mdef.force_init(true);
 ~synthlib = [
 	\audiotrack_expander,
+	"passive default",
+	"passive alien indus",
+	"passive lancinant",
 	\lead2,
 	\lead3,
 	\pulsepass,
@@ -129,6 +132,7 @@ if(~p.notNil) {~p.external_player.destructor; };
 
 ~p
 
+~p.uname = "plop"
 ~p.vpattern.play
 ~p.external_player.make_gui
 ~p.external_player.rebu
@@ -136,3 +140,11 @@ if(~p.notNil) {~p.external_player.destructor; };
 ~p.data[\dur].get_val
 
 Bus.audio(s,1)
+
+
+Mdef.node("passive default_l1008").vpattern.play
+Mdef.node("passive default_l1008").build_sourcepat
+Mdef.node("passive default_l1008").external_player.make_gui
+Mdef.node("passive default_l1002").external_player.make_gui
+Mdef.node("passive default_l1002").external_player.synthdef_name.dump
+Mdef.node("passive default_l1002").get_arg(\instrument)

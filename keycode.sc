@@ -290,6 +290,7 @@
 		ctrlshift: 393216,
 		ctrlshiftfx: 8781824,
 		ctrlaltshift: 917504,
+		ctrlaltshiftfx: 9306112,
 		numpad: 2097152,
 		alt: 524288
 
@@ -643,7 +644,9 @@
 	},
 	
 	set_shortcut: { arg self, path, shortcut;
-		self.config.put(*path++[shortcut]);
+		//self.config.put(*path++[shortcut]);
+		[path, shortcut.asCompileString].debug("set_shortcut");
+		self.config.put(*path++[shortcut.deepCopy]);
 	},
 
 	array_set_shortcut: { arg self, path, prefix, array;
@@ -658,23 +661,28 @@
 
 	get_kb_responder: { arg self, name;
 		name.debug("giving panel responder");
-		{ arg view, char, modifiers, u, k; 
-			[name, modifiers, u].debug("KEYBOARD INPUT");
-			self.handle_key(name, [\kb, modifiers,u]);
-		};
+
+		if(GUI.current == QtGUI) {
+			self.qt_get_kb_responder(name);
+		} {
+			{ arg view, char, modifiers, u, k; 
+				[name, modifiers, u, k].debug("KEYBOARD INPUT (name, mod, unicode, keycode(not used))");
+				self.handle_key(name, [\kb, modifiers,u]);
+			};
+		}
 	},
 
 	qt_get_kb_responder: { arg self, name;
-		name.debug("giving panel responder");
+		name.debug("giving panel responder (qt)");
 		{ arg view, char, modifiers, u, k; 
 			var res;
-			[name, modifiers, u].debug("KEYBOARD INPUT");
+			[name, modifiers, u, k].debug("KEYBOARD INPUT");
 
-			res = ~keycode_to_keysymbol.(view, char, modifiers, u, k);
+			res = ~qt_keycode_to_keysymbol.(view, char, modifiers, u, k);
 			if( res.notNil ) {
 				self.handle_key(name, [\kb] ++ res);
 			} {
-				"~keycode_to_keysymbol yielded no result".debug;
+				"~qt_keycode_to_keysymbol yielded no result".debug;
 			}
 		};
 	},
@@ -754,8 +762,10 @@
 	handle_key: { arg self, panel, shortcut;
 		var fun;
 		//self.kb_handler.debug("handle_key: kb_handler");
-		panel.debug("current shortcut panel");
+		[panel, shortcut.asCompileString].debug("current shortcut panel");
+		shortcut = shortcut.deepCopy;
 		self.commands[panel][shortcut].debug("shortcut of path called");
+		//self.commands[panel].debug("commands[panel]");
 		fun = self.kb_handler[panel][shortcut];
 		
 		//[fun, fun.def, fun.def.sourceCode].debug("function");
@@ -765,113 +775,6 @@
 
 );
 
-~keycode_to_keysymbol = { arg view, char, modifiers, unicode, keycode;
-	var fxtest, fxsymbol, modsymbol, keysymbol;
-	var onlymodifer;
-	[char, modifiers, unicode, keycode].postcs;
-
-	onlymodifer = [
-		16777249, 16777251, 16777248
-	];
-
-	if(onlymodifer.includes(keycode)) {
-		"Modifier only".debug;
-	} {
-
-		if(GUI.scheme == QtGUI) {
-			"qtgui".debug;
-			fxtest = {  ~keycode.kbqtfx.includes(keycode) };
-			fxsymbol = { ("f" ++ (~keycode.kbqtfx.indexOf(keycode) + 1)).asSymbol; }
-		} {
-			fxtest = { ~keycode.kbfx.includes(unicode) };
-			fxsymbol = { ("f" ++ (~keycode.kbfx.indexOf(unicode) + 1)).asSymbol; }
-		};
-
-		keysymbol = case 
-			{ ~keycode.kbrqtspecial.includesKey(keycode) }
-				{
-					"MATCH".debug;	
-					~keycode.kbrqtspecial[keycode].postcs
-				}
-			{ ~keycode.kbspecial.values.includes(unicode) }
-				{
-					"MATCH".debug;	
-					~keycode.kbspecial.invert[unicode].postcs
-				}
-			{ fxtest.() }
-				{
-					"MATCH".debug;	
-					fxsymbol.().postcs;
-				}
-			{ ~keycode.kbnumpad.includes(unicode) }
-				{
-					"MATCH".debug;	
-					(\np ++ ~keycode.kbnumpad.indexOf(unicode)).asSymbol.postcs;
-				}
-			{ ~keycode.kbnumline.includes(unicode) }
-				{
-					"MATCH".debug;	
-					~keycode.kbrnumline[~keycode.kbnumline.indexOf(unicode)].asString.postcs;
-				}
-			{
-				~keycode.kbsaalphanum.values.includes(keycode); 
-				//or: { ~keycode.kbsaalphanum.values.includes(unicode) 
-				//or: { ~keycode.kbcalphanum.values.includes(unicode) }}
-			} 
-				{
-					"MATCH saa".debug;	
-					~keycode.kbrsaalphanum[keycode].asString.toLower.postcs;
-				}
-			{
-				~keycode.kbaalphanum.values.includes(unicode) 
-				//or: { ~keycode.kbsaalphanum.values.includes(unicode) 
-				//or: { ~keycode.kbcalphanum.values.includes(unicode) }}
-			} 
-				{
-					"MATCH aa".debug;	
-					~keycode.kbraalphanum[unicode].asString.toLower.postcs;
-				}
-			// else	
-				{
-					"NO MATCH".debug;	
-				};
-
-		modsymbol = case
-			{
-				~keycode.rmod.includesKey(modifiers)
-			}
-				{
-					var m;
-					"MOD MATCH".debug;
-					m = ~keycode.rmod[modifiers].postcs;
-					if(m == \numpad) {
-						m = 0
-					};
-					if(m == \fx) {
-						0
-					};
-					m
-				}
-			// else
-			{
-				"MOD NO MATCH".debug;
-			};
-
-		if(modsymbol == \numpad) {
-			if(~keycode.kbqtnumpad.values.includes(keycode)) {
-				keysymbol = ~keycode.kbqtnumpad.invert[keycode]
-			}
-		};
-
-		"--END:".debug;
-		keysymbol.postln;
-		[modsymbol, keysymbol].postcs;
-
-	};
-	nil;
-};
-
-
 
 ~string_to_symbol_list = { arg str;
 	if(str.class == Symbol) {
@@ -879,13 +782,6 @@
 	} {
 		str.split($.).collect(_.asSymbol);
 	}
-};
-
-~qt_get_modifer = { arg binding;
-	var realmod;
-	var key = binding[3];
-	var mod = binding[2];
-	mod;
 };
 
 ~get_modifer = { arg binding;
@@ -915,7 +811,8 @@
 					0: \fx,
 					//shift: \fxshift,
 					ctrl: \ctrlfx,
-					ctrlshift: \ctrlshiftfx
+					ctrlshift: \ctrlshiftfx,
+					ctrlaltshift: \ctrlaltshiftfx,
 				)[mod];
 				if(realmod.isNil) {
 					[mod,key].debug("ERROR: modifier fx not found");
@@ -959,16 +856,6 @@
 	realkey;
 };
 
-~qt_get_keycode = { arg binding;
-	var realkey;
-	var key = binding[3];
-	var mod = binding[2];
-	if( ~keygroups[key].notNil ) {
-		~keygroups[key]
-	} {
-		key;
-	};
-};
 
 ~parse_bindings = { arg commands, bindings;
 	"**begin parsing bindings".debug;
@@ -986,6 +873,35 @@
 
 	};
 	"**end parsing bindings".debug;
+};
+
+~qt_parse_bindings = { arg commands, bindings;
+	"**begin parsing bindings".debug;
+	bindings.keysValuesDo { arg panel, blist;
+		blist.do { arg binding;
+			var kc = ~get_keycode.(binding);
+			if(~qt_symbol_to_keygroup.(binding[3]).notNil) {
+				[binding[3], ~qt_symbol_to_keygroup.(binding[3])].debug("qt_parse_bindings: array");
+				commands.array_set_shortcut(
+					[panel] ++ ~string_to_symbol_list.(binding[0]), 
+					[ binding[1], binding[2] ],
+					~qt_symbol_to_keygroup.(binding[3])
+				)
+			} {
+				commands.set_shortcut(
+					[panel] ++ ~string_to_symbol_list.(binding[0]),
+					[ binding[1], binding[2], binding[3] ]
+				)
+			}
+		}
+
+	};
+	"**end parsing bindings".debug;
+
+};
+
+if(GUI.current == QtGUI) {
+	~parse_bindings = ~qt_parse_bindings;
 };
 
 ~parse_action_bindings = { arg commands, panel, actions;
@@ -1028,21 +944,148 @@
 	};
 };
 
-~bladebug = {
-	GUI.scheme;
-	~keycode.kbqtfx.indexOf(16777264);
-	~keycode.kbqtfx.includes(16777264);
-	w = Window.new;
-	UserView.new(w);
-	w.view.keyDownAction = ~keycode_to_keysymbol;
-	w.front;
-	~keycode.mod.invert;
-	GUI.swing;
-	s.boot;
-	GUI.qt;
-	//~keycode.kbsaalphanum.values.includes(36);
-	//~keycode.kbaalphanum.values.includes(36);
-	//~keycode.kbsaalphanum.values;
-	//~keycode.kbraalphanum.keys;
-	//~keycode.kbraalphanum[36].asString.toLower.postcs;
+////////////////////////////////////// Qt keycodes ///////////////////////////////////////
+
+~string_to_string_list = { arg str;
+	str.asList.collect(_.asString);
+};
+
+~keygroups = (
+	kbnumline: ~string_to_string_list.("1234567890)="),
+	kbnumpad: "0123456789".asList.collect{ arg ch; "np" ++ ch.asString },
+	kbpad8x4_flat: ~string_to_string_list.("12345678azertyuiqsdfghjkwxcvbn,;"),
+	midipads: ~string_to_symbol_list.("56781234"),
+);
+
+~qt_symbol_to_keygroup = { arg symbol;
+	~keygroups[symbol];
+};
+
+
+~modifier_to_symbol = { arg mod;
+	var ret = "";
+	if(mod.isCtrl) {
+		ret = "ctrl";
+	};
+	if(mod.isAlt) {
+		ret = ret ++ "alt";
+	};
+	if(mod.isShift) {
+		ret = ret ++ "shift";
+	};
+	if(ret == "") {
+		ret = 0;
+	} {
+		ret.asSymbol;
+	};
+};
+
+~qt_keycodes = {
+	var dict = Dictionary.new;
+	var kc = (
+		fx: [67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 95, 96],
+		numline: [ 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21 ],
+		numpad: [90, 87, 88, 89, 83, 84, 85, 79, 80, 81],
+		punctuation: [34, 35, 48, 51, 94, 58, 59, 60, 61],
+		alpha: [
+			24, 25, 26, 27, 28, 29, 30, 31, 32, 33,
+			38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+			52, 53, 54, 55, 56, 57
+		]
+	);
+	var special = (
+		left: [9, 49, 22, 23, 36, 66, 50, 62, 37, 133, 64, 65, 92, 135, 105],
+		center: [78, 127, 118, 110, 112, 119, 115, 117, 111, 113, 116, 114],
+		right: [77, 106, 63, 82, 86, 91, 104],
+	);
+
+	12.do { arg x;
+		dict[kc.fx[x]] = "f%".format(x+1).asSymbol;
+	};
+	"1234567890)=".do { arg ch, x;
+		dict[kc.numline[x]] = ch.asString;
+	};
+	"01234567890".do { arg ch, x;
+		dict[kc.numpad[x]] = "np"++ch.asString;
+	};
+	"^$%*<,;:!".do { arg ch, x;
+		dict[kc.punctuation[x]] = ch.asString;
+	};
+
+	"azertyuiopqsdfghjklmwxcvbn".do { arg ch, x;
+		dict[kc.alpha[x]] = ch.asString;
+	};
+
+	[
+		\scrolllock, \pause,
+		\insert, \home, \pageup,
+		\delete, \end, \pagedown,
+		\up, \left, \down, \right
+	].do { arg sy, x;
+		dict[special.center[x]] = sy;
+	};
+
+	[
+		\escape,
+		\square, \backscape,
+		\tab, \enter,
+		\capslock, \leftshift, \rightshift,
+		\leftctrl, \meta, \alt, \space, \altgr, \menu, \rightctrl
+	].do { arg sy, x;
+		dict[special.left[x]] = sy;
+	};
+
+	[
+		\numlock, \div, \mul, \minus,
+		\plus, \nppoint, \npenter
+	].do { arg sy, x;
+		dict[special.right[x]] = sy;
+	};
+
+	dict
+}.value;
+
+~qt_altgr_unicode = {
+	var ret = Dictionary.new;
+	var uc = [
+		711, 126, 35, 123, 91, 124, 96, 92, 94, 64, 93, 125, 
+		230, 226, 8364, 234, 254, 255, 251, 238, 339, 244, 126, 248, 
+		228, 223, 235, 8216, 8217, 240, 252, 239, 320, 246, 180, 96,
+		8804, 171, 187, 169, 8239, 8595, 172, 191, 215, 247, 161,
+	];
+
+	ret[185] = \square;
+	"1234567890)=azertyuiop^$qsdfghjklm%*<wxcvbn,;:!".do { arg ch, x;
+		ret[uc[x]] = ch.asString;
+	};
+	ret;
+
+}.value;
+
+~qt_keycode_to_keysymbol = { arg view, char, modifiers, unicode, keycode;
+	var fxtest, fxsymbol, modsymbol, keysymbol;
+	var onlymodifer;
+	[char, modifiers, unicode, keycode].postcs;
+	onlymodifer = [
+		\leftshift, \rightshift,
+		\leftctrl, \meta, \alt, \altgr, \rightctrl
+	];
+
+
+	if(GUI.scheme == QtGUI) {
+		
+		modsymbol = ~modifier_to_symbol.(modifiers);
+		keysymbol = ~qt_keycodes[keycode];
+		if(~qt_altgr_unicode[unicode].notNil) {
+			keysymbol = ~qt_altgr_unicode[unicode];
+			modsymbol = \altgr;
+		};
+		if(onlymodifer.includes(keysymbol)) {
+			modsymbol = \mod;
+		}
+
+	};
+	[modsymbol, keysymbol].postcs;
+	//"%, ".format(unicode).postln;
+
 };

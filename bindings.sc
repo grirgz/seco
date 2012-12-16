@@ -32,6 +32,7 @@
 		["close_timeline", \kb, 0, \escape],
 	],
 	side: [
+		["edit_external_player", \kb, \alt, "e"],
 		["open_timeline", \kb, \ctrlalt, "l"],
 
 		["decrease_select_offset", \midi, 0, \begin],
@@ -67,6 +68,7 @@
 		["paste_node", \kb, \ctrl, "v"],
 		//["copy_group", \kb, \ctrl, \kbnumpad],
 		["remove_node", \kb, \ctrlshift, \f4],
+		["remove_and_free_node", \kb, \ctrlaltshift, \f4],
 
 		["load_node_from_lib", \kb, 0, \f1],
 		["create_default_node", \kb, \alt, "c"],

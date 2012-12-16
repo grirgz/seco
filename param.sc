@@ -149,7 +149,7 @@ Spec.add(\mdetune, ControlSpec(0.1, 2, \lin, 0, 0));
 Spec.add(\pwidth, ControlSpec(0, 1, \lin, 0, 0.5));
 Spec.add(\pwdetune, ControlSpec(-1, 1, \lin, 0, 0));
 Spec.add(\vibratio, ControlSpec(0, 1, \lin, 0, 0));
-Spec.add(\attack, ControlSpec(0.001, 1, \exp, 0.0001, 0));
+//Spec.add(\attack, ControlSpec(0.001, 1, \exp, 0.0001, 0));
 Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 //SynthDescLib.global.synthDescs[\pulsepass].metadata;
@@ -272,7 +272,9 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 	~make_view_responder.(parent, play_manager, (
 		tempo: { arg obj, msg, tempo;
-			temp.string = "Tempo: " ++ play_manager.get_bpm_tempo.asString;
+			{
+				temp.string = "Tempo: " ++ play_manager.get_bpm_tempo.asString;
+			}.defer;
 		},
 		pos: { arg obj, msg, position;
 			refresh_pos.(play_manager.get_clock);
@@ -290,13 +292,15 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			}
 		},
 		head_state: { arg obj, msg, state;
-			switch(state,
-				\prepare, { hstatetxt.string = "Prepare"; hstatetxt.background = Color.new255(255, 165, 0) },
-				\record, { hstatetxt.string = "Rec"; hstatetxt.background = Color.red },
-				\overdub, { hstatetxt.string = "Dub"; hstatetxt.background = Color.new255(205, 92, 92) },
-				\play, { hstatetxt.string = "Play"; hstatetxt.background = Color.green },
-				\stop, { hstatetxt.string = "Stop"; hstatetxt.background = Color.clear }
-			);
+			{
+				switch(state,
+					\prepare, { hstatetxt.string = "Prepare"; hstatetxt.background = Color.new255(255, 165, 0) },
+					\record, { hstatetxt.string = "Rec"; hstatetxt.background = Color.red },
+					\overdub, { hstatetxt.string = "Dub"; hstatetxt.background = Color.new255(205, 92, 92) },
+					\play, { hstatetxt.string = "Play"; hstatetxt.background = Color.green },
+					\stop, { hstatetxt.string = "Stop"; hstatetxt.background = Color.clear }
+				);
+			}.defer;
 		}
 
 	));
@@ -388,13 +392,17 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 	~make_view_responder.(parent, play_manager, (
 		tempo: { arg obj, msg, tempo;
-			temp.string = "Tempo: " ++ play_manager.get_bpm_tempo.asString;
+			{
+				temp.string = "Tempo: " ++ play_manager.get_bpm_tempo.asString;
+			}.defer
 		},
 		pos: { arg obj, msg, position;
 			refresh_pos.(play_manager.get_clock);
 		},
 		quant: { arg obj;
-			quanttxt.string = "Quant: "++EventPatternProxy.defaultQuant;
+			{
+				quanttxt.string = "Quant: "++EventPatternProxy.defaultQuant;
+			}.defer;
 		},
 		visual_metronome: { arg self;
 			if(self.visual_metronome_enabled) {
@@ -409,13 +417,16 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			}
 		},
 		head_state: { arg obj, msg, state;
-			switch(state,
-				\prepare, { hstatetxt.string = "Prepare"; hstatetxt.background = Color.new255(255, 165, 0) },
-				\record, { hstatetxt.string = "Rec"; hstatetxt.background = Color.red },
-				\overdub, { hstatetxt.string = "Dub"; hstatetxt.background = Color.new255(205, 92, 92) },
-				\play, { hstatetxt.string = "Play"; hstatetxt.background = Color.green },
-				\stop, { hstatetxt.string = "Stop"; hstatetxt.background = Color.clear }
-			);
+			{
+				switch(state,
+					\prepare, { hstatetxt.string = "Prepare"; hstatetxt.background = Color.new255(255, 165, 0) },
+					\record, { hstatetxt.string = "Rec"; hstatetxt.background = Color.red },
+					\overdub, { hstatetxt.string = "Dub"; hstatetxt.background = Color.new255(205, 92, 92) },
+					\play, { hstatetxt.string = "Play"; hstatetxt.background = Color.green },
+					\stop, { hstatetxt.string = "Stop"; hstatetxt.background = Color.clear }
+				);
+
+			}.defer
 		}
 
 	));
@@ -1169,7 +1180,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		(sel >= start && (sel < (start+max_cells)))
 	};
 
-	~make_view_responder.(parent, param, (
+	~make_view_responder.(content_view, param, (
 		selected: { arg self;
 			bt_name.value = display.selected;
 		},
@@ -1217,6 +1228,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 		cells: { arg self; 
 			var cells, bank, start, range, sel;
+			param_name.debug("make_control_view: cells");
 			if(btl_cells.notNil) {
 				"cells removeAll===================".debug;
 				btl_cells.removeAll;
@@ -1313,6 +1325,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 	txtval = StaticText.new(row_layout, Rect(15,0,width, height));
 
+
 	~make_view_responder.(parent, param, (
 		selected: { arg self;
 			bt_name.value = display.selected;
@@ -1356,19 +1369,40 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 	~make_step_cell = { arg parent, label, width, height;
 		var lb;
-		lb = StaticText.new(parent, width@height);
+		var str;
+		lb = Button.new(parent, width@height);
 		label.debug("make_step_cell");
 		if(label % 8 == 0, {
 			(label % 8).debug("label % 8");
-			lb.string = (label / 8)+1;
+			str = (label / 8)+1;
 		}, {
-			lb.string = "";	
+			str = "";	
 		});
-		lb.align = \center;
+		lb.states = [["x"++str]];
+		//lb.align = \center;
 		//lb.stringColor = ~editplayer_color_scheme.control;
-		lb.stringColor = Color.white;
+		//lb.stringColor = Color.white;
+		//lb.string ="X";
+
 		lb;
 	};
+	//~make_step_cell = { arg parent, label, width, height;
+	//	var lb;
+	//	lb = StaticText.new(parent, width@height);
+	//	label.debug("make_step_cell");
+	//	if(label % 8 == 0, {
+	//		(label % 8).debug("label % 8");
+	//		lb.string = (label / 8)+1;
+	//	}, {
+	//		lb.string = "";	
+	//	});
+	//	lb.align = \center;
+	//	//lb.stringColor = ~editplayer_color_scheme.control;
+	//	lb.stringColor = Color.white;
+	//	//lb.string ="X";
+
+	//	lb;
+	//};
 	~set_step_state = { arg cell, state;
 		if(state == 1, { 
 			cell.background = Color.black;
@@ -1392,7 +1426,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		slider = GUI.slider.new(midibloc, Rect(0,0,30,height));
 	},{
 		// spacer
-		txt_midi_val = GUI.staticText.new(row_layout, Rect(0,0,30,height));
+		//txt_midi_val = GUI.staticText.new(row_layout, Rect(0,0,30,height));
 	});
 
 	multiline_layout = GUI.vLayoutView.new(row_layout, Rect(0,0,width,height-50));
@@ -1456,6 +1490,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 		cells2: { arg self; 
 			var cells, bank, start, range, sel;
+			param.name.debug("make_stepline_view: cells2");
 			"cells removeAll===================".debug;
 			btl_cells.removeAll;
 			"END cells removeAll===================".debug;
@@ -1485,6 +1520,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		cells: { arg self; 
 			var cells, bank, start, range, sel;
 			var start2, max_cells2;
+			param.name.debug("make_stepline_view: cells");
 			"cells removeAll===================".debug;
 			btl_cells.removeAll;
 			btl_cells2.removeAll;
@@ -2625,10 +2661,10 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				self.tick;
 				//self.classtype.debug("classtype!!!!!!!!");
 				no = self.get_note(idx);
-				"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".debug;
-				self.classtype.debug("classtype");
-				idx.debug("note number");
-				no.debug("note");
+				//"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".debug;
+				//self.classtype.debug("classtype");
+				//idx.debug("note number");
+				//no.debug("note");
 				no;
 			}, self.classtype );
 		},
@@ -2803,9 +2839,11 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			})
 		},
 		refresh: { arg self;
+			"make_stepline_param:refresh".debug;
 			self.changed(\kind);
 			//self.changed(\cells);
 			self.changed(\selected);
+			"END make_stepline_param:refresh".debug;
 		},
 		vpattern: { arg self; 
 			"--------making vpattern of stepline".debug;
@@ -3473,6 +3511,20 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 ~make_macro_control_param = { arg main, macro_ctrl, player, name, kind, default_value, spec;
 	var param = ~make_control_param.(main, player, name, kind, default_value, spec);
 	param.external_control = macro_ctrl;
+	param.make_responder_translator = { arg self, parent;
+		debug("make_responder_translator: init");
+		~make_view_responder.(parent, self.external_control, (
+			set_property: { arg obj, msg, key, val;
+				[msg, key, val].debug("make_responder_translator");
+				switch(key,
+					\value, {
+						self.changed(\val, 0);
+					}
+				)
+			}
+
+		), false)
+	};
 	param.scalar = (
 			//quoi: { "QUOI".debug; }.value,
 			selected_cell: 0, // always 0
@@ -3487,11 +3539,11 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			},
 
 			set_norm_val: { arg self, norm_val;
-				macro_ctrl.set_val(norm_val);
+				macro_ctrl.set_property(\value, norm_val);
 				param.changed(\val, 0);
 			},
 			get_norm_val: { arg self;
-				macro_ctrl.get_val 
+				macro_ctrl.get_norm_val 
 			},
 
 			get_cells: { arg self; [self.get_val] },
@@ -3502,4 +3554,25 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			remove_cells: {}
 	);
 	param;
+};
+
+~make_dynamic_literal_param = { arg name, external_get;
+	(
+		name: name,
+		classtype: \dynamic_literal,
+		get_val: { arg self;
+			self.val = external_get.();
+			self.val
+		},
+
+		refresh: { arg self;
+			self.changed(\selected);
+		},
+		vpiano: { arg self;
+			Pfunc { self.get_val };
+		},
+		vpattern: { arg self;
+			Pfunc { self.get_val };
+		},
+	);
 };

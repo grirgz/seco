@@ -156,7 +156,7 @@
 		self.data[\instrument] = self.data[\instrument] ?? ~make_literal_param.(\instrument, self.defname);
 	},
 
-	build_sourcepat: { arg self, additional;
+	build_sourcepat: { arg self;
 	
 		var dict = Dictionary.new;
 		var list = List[];
@@ -183,8 +183,8 @@
 				list.add(key); list.add( self.data[key].vpattern );
 			}
 		};
-		if(additional.notNil) {
-			additional.keysValuesDo { arg key, val;
+		if(self.additional_data.notNil) {
+			self.additional_data.keysValuesDo { arg key, val;
 				list.add(key); list.add(val);
 			};
 		};
@@ -204,7 +204,9 @@
 		// FIXME: implement it correctly
 		self.to_destruct.do { arg i;
 			i.destructor;
-		}
+		};
+		self.name = "FREED";
+		self.to_destruct = [];
 	},
 
 	clone: { arg self;
@@ -717,23 +719,25 @@
 		self = self.deepCopy;
 
 		"ion est la".debug;
+		//self.external_player = ~class_passive_controller.new(UniqueID.next.asString);
 		self.external_player = ~class_passive_controller.new;
+		self.to_destruct.add(self.external_player);
 		"on est la".debug;
+		self.external_player.load_preset_by_uname(defname.replace("passive ", ""));
 		self.defname = self.external_player.synthdef_name;
 		self.get_main = { arg self; main };
 
-		self.external_player.build_synthdef;
+		//self.external_player.build_synthdef;
 		self.init(data);
 
 		self;
 	},
 
 	uname_: { arg self, uname;
-		self.external_player.synthdef_name_suffix = "_"++uname;
-		self.build_synthdef;
+		self.external_player.synthdef_name_suffix = "_"++uname.replace("passive ", "");
+		self.external_player.build_synthdef;
 		self.defname = self.external_player.synthdef_name;
 		self[\uname] = uname;
-		self.data[\instrument] = ~make_literal_param.(\instrument, self.defname);
 		self.build_sourcepat;
 		self.build_real_sourcepat;
 	},
@@ -743,8 +747,8 @@
 		var reject;
 		var dict = Dictionary.new;
 		var name;
+		var macro_ctrl;
 		8.do { arg idx;
-			var macro_ctrl;
 			name = "macro%_control".format(idx+1).asSymbol;
 			macro_ctrl = self.external_player.get_arg(name);
 			dict[name] = ~make_macro_control_param.(
@@ -754,10 +758,22 @@
 				name,
 				\scalar,
 				macro_ctrl.get_val,
-				\unipolar.asSpec
+				macro_ctrl.model.spec
 			)
 
 		};
+
+		name = \amp;
+		macro_ctrl = self.external_player.get_arg(name);
+		dict[name] = ~make_macro_control_param.(
+			self.get_main,
+			macro_ctrl,
+			self,
+			name,
+			\scalar,
+			macro_ctrl.get_val,
+			macro_ctrl.model.spec
+		);
 
 		name = \freq;
 		dict[name] = ~make_control_param.(
@@ -772,6 +788,8 @@
 		self.data = dict;
 
 		self.build_standard_args;
+		self.data[\instrument] = ~make_dynamic_literal_param.(\instrument, { self.external_player.synthdef_name });
+		self.data[\dur].set_val(2);
 
 		reject = Set[\freq, \velocity, \instrument];
 
@@ -790,37 +808,36 @@
 			1;
 		};
 
-		self.build_sourcepat(additional);
+		self.additional_data = additional;
+
+		self.build_sourcepat;
 		self.build_real_sourcepat;
 	
 	},
 
+
+	get_ordered_args: { arg self;
+		var macros;
+		macros = 8.collect { arg x;
+			"macro%_control".format(x+1).asSymbol;
+		};
+		~sort_by_template.(self.data.keys, macros);
+	},
+
 	external_wrap: { arg self, pat;
-		var fxpat;
-		fxpat = PmonoArtic(*(
-			[
-				self.external_player.synthdef_fx_name, 
-				\doneAction, 14,
-				\legato, Pfunc { 
-					if(self.external_player.rebuild_synthdef) {
-						self.external_player.rebuild_synthdef = false;
-						0.999;
-					} {
-						1
-					} 
-				}
-			] ++ self.external_player.synthdef_args.getPairs
-		));
 		Pspawner({ |spawner|
 			var str, pbus, pgroup, leffect;
+			var fxpat;
 			var mpat;
-			var note_group, fx_group;
+			var note_group;
+			var make_fx_group;
+			var current_fx_group;
 			var blist = List.new;
 
 			note_group = Group.new(s);
-			fx_group = Group.after(note_group).register;
 
 			self.external_player.rebuild_synthdef = false;
+			self.free_note_group = true;
 
 			mpat = Pset(\modulation_bus, Pfunc{ arg ev;
 				var group = Group.new(note_group);
@@ -851,16 +868,45 @@
 				//glist.do(_.free);
 			});
 
-			fxpat = Pset(\group, fx_group, fxpat);
-			fxpat = Pset(\doneAction, 14,fxpat);
-			fx_group.addDependant( { arg grp, status;
-				[grp, status].debug("pourquoi ?");
-				if(status == \n_end) {
-					"fin des groupes fx et notes".debug;
-					fx_group.releaseDependants;
-					note_group.free;
-				}
-			});
+			make_fx_group = {
+				var fx_group;
+				fx_group = Group.after(note_group).register;
+				fx_group.addDependant( { arg grp, status;
+					[grp, status].debug("pourquoi ?");
+					if(status == \n_end) {
+						"fin des groupes fx et notes".debug;
+						fx_group.releaseDependants;
+						if(self.free_note_group) {
+							note_group.free;
+						} {
+							self.free_note_group = true;
+						};
+					}
+				});
+				fx_group;
+			};
+
+			current_fx_group = make_fx_group.();
+
+			fxpat = PmonoArtic(*(
+				[
+					self.external_player.synthdef_fx_name, 
+					\doneAction, 14,
+					\group, Pfunc { current_fx_group },
+					\legato, Pfunc { arg ev;
+						if(self.external_player.rebuild_synthdef) {
+							"fx_pat: rebuild synthdef".debug;
+							self.external_player.rebuild_synthdef = false;
+							current_fx_group = make_fx_group.();
+							self.free_note_group = false;
+							0.999;
+						} {
+							"fx_pat: no rebuild".debug;
+							1
+						};
+					},
+				] ++ self.external_player.synthdef_args.getPairs
+			));
 
 			spawner.par(fxpat);
 			spawner.par(str);
@@ -1009,11 +1055,10 @@
 	player;
 };
 
-
 ~make_player = { arg main, instr, data=nil;
 	var player = nil;
 	case
-		{ instr.isString and: {instr.beginWith("passive ")}} {
+		{ instr.isString and: {instr.beginsWith("passive ")}} {
 			player = ~class_passive_player.new(main, instr.replace("passive ", ""), data)
 		}
 		{ instr.isSymbolWS || instr.isString } {

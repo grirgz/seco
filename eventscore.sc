@@ -256,7 +256,9 @@
 		add_note: { arg self, note, abstime, num;
 			var no = note.deepCopy;
 			var id;
-			self.book[num] = no;
+			if(num.notNil) {
+				self.book[num] = no;
+			};
 			no.time = abstime;
 			self.notes.add(no);
 			id = self.notes.size-1;
@@ -272,6 +274,26 @@
 		remove_note: { arg self, num;
 			// warning: old note id returned by add_note will be corrupted
 			self.notes.removeAt(num);
+		},
+
+		remove_notes_at_abstime: { arg self, abstime;
+			self.notes = self.notes.reject { arg no; no.time == abstime }.asList;
+		},
+
+		remove_notes_playing_at_abstime: { arg self, abstime;
+			self.notes = self.notes.reject { arg no;
+				(abstime >= no.time) and: {
+					abstime < (no.time + no.sustain)
+				}
+			}.asList;
+		},
+
+		is_note_playing_at_abstime: { arg self, abstime;
+			self.notes.any { arg no;
+				(abstime >= no.time) and: {
+					abstime < (no.time + no.sustain)
+				}
+			};
 		},
 
 		set_start: { arg self, abstime;
