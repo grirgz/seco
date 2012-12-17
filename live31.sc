@@ -1,0 +1,79 @@
+(
+s.waitForBoot{
+//"/home/ggz/code/sc/abcparser.sc".load;
+~seq = Mdef.force_init(true);
+"/home/ggz/code/sc/seco/tracks.sc".load;
+~synthlib = [
+	\audiotrack_expander,
+	\lead2,
+	\pulsepass,
+	\flute1,
+	\miaou1,
+	\ringbpf1,
+	\piano2,
+	\pmosc,
+	\monosampler,
+	\stereosampler,
+	\ss_comb,
+	\ss_combfreq,
+].collect({ arg i; i -> i });
+
+~effectlib = [
+	\echo
+].collect({arg i; i -> i });
+
+~samplelib = [
+	"sounds/perc1.wav",
+	"sounds/pok1.wav",
+	"sounds/amen-break.wav",
+	"sounds/default.wav"
+];
+~seq.load_patlib( ~synthlib );
+~seq.load_effectlib( ~effectlib );
+~seq.set_presetlib_path("mypresets2");
+~seq.append_samplelib_from_path("sounds/" );
+~seq.append_samplelib_from_path("sounds/hydrogen/GMkit" );
+~seq.append_samplelib_from_path("sounds/hydrogen/HardElectro1" );
+
+Mdef.side_gui;
+
+
+
+~tf = Pfunc({ arg ev; if(ev[\stepline] == 1) { \note } { \rest } });
+~ff = Pfunc({ arg ev; if(ev[\stepline1] == 1) { 1 } { \rest } });
+
+//Debug.enableDebug = false;
+
+}
+)
+
+
+Mdef.main.save_project("live20");
+Mdef.main.load_project("live20");
+
+Debug.enableDebug = true;
+Debug.enableDebug = false;
+
+if(~t.notNil) {~t.window.close};
+~t = ~class_group_tracks_controller.new(Mdef.main, Mdef.node(\s1_part1_sect1_var1));
+~t.make_gui;
+
+Mdef.node(\s1_part1_sect1_var1)
+
+
+if(~t.notNil) {~t.window.close};
+~t = ~class_step_track_controller.new;
+~t.make_gui;
+
+~t.notes.get_rel_notes
+~t.notes.get_abs_notes(2,3)
+~t.notes
+~t.notes.set_notes(~default_step_scoreline)
+~t.notes.abs_start
+~t.notes.abs_end
+~event_rel_to_abs.(~default_step_scoreline)
+~t.notes.notes.reject{ arg no; no.time == 5 }
+~t.notes.notes.class
+~t.notes.get_rel_notes
+
+~notes = ~make_notescore

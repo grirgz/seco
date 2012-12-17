@@ -1,7 +1,4 @@
 
-(
-
-
 ~class_step_track_view = (
 	
 	block_top_padding: {arg self; self.track_size_y/10},
@@ -39,6 +36,7 @@
 		self.notes;
 		//self.timeline.keyDownAction = self.controller.get_main.commands.get_kb_responder(\step_track);
 		self.timeline;
+		//self.vlayout;
 	
 	},
 
@@ -46,7 +44,11 @@
 		var tl;
 		var move_list;
 	
-		self.timeline = ParaTimeline.new(self.parent_view, bounds: Rect(20, 20, self.track_size_x, self.track_size_y));
+		//self.vlayout = VLayoutView.new(self.parent_view, Rect(0,0,self.track_size_x*2, self.track_size_y*2));
+		//self.vlayout.background = Color.red;
+		//self.timeline = ParaTimeline.new(self.vlayout, bounds: Rect(0, 0, self.track_size_x, self.track_size_y));
+		self.timeline = ParaTimeline.new(self.parent_view, bounds: Rect(0, 0, self.track_size_x, self.track_size_y));
+		//self.timeline.maxHeight = 30;
 		self.timeline.mouseDownAction = { arg view, x, y, modifiers, buttonNumber, clickCount;
 			var pos_x = (x/self.beat_size_x);
 			buttonNumber.debug("class_timeline_view: tracks: buttonNumber");
@@ -151,16 +153,19 @@
 		self.timeline.clearSpace;
 
 		controller.get_notes.do { arg note;
+			var pos;
 			//note.debug("class_step_track_view: notes: note");
-		
-			var pos = Point(note.time*self.beat_size_x, self.block_top_padding);
-			self.timeline.createNode(pos.x, pos.y);
-			self.timeline.setNodeSize_(spritenum, self.block_size_y);
-			self.timeline.paraNodes[spritenum].setLen = note.sustain * self.beat_size_x;
-			self.timeline.paraNodes[spritenum].temp = pos;
+			if(note.type != \rest) {
+				pos = Point(note.time*self.beat_size_x, self.block_top_padding);
 
-			//self.block_dict[spritenum] = block;
-			spritenum = spritenum + 1;
+				self.timeline.createNode(pos.x, pos.y);
+				self.timeline.setNodeSize_(spritenum, self.block_size_y);
+				self.timeline.paraNodes[spritenum].setLen = note.sustain * self.beat_size_x;
+				self.timeline.paraNodes[spritenum].temp = pos;
+
+				//self.block_dict[spritenum] = block;
+				spritenum = spritenum + 1;
+			}
 
 		};
 
@@ -202,7 +207,7 @@
 
 ~class_step_track_controller = (
 
-	new: { arg self;
+	new: { arg self, node;
 		self = self.deepCopy;
 
 		self.display = (
@@ -210,15 +215,20 @@
 			gridstep: 1/4,
 		);
 		
-		self.notes = ~make_notescore.();
-		self.notes.set_notes(~default_step_scoreline);
-		self.notes.set_end(16);
+		//self.notes = ~make_notescore.();
+		self.scoreset = node.get_arg(\scoreline).get_scoreset;
+		//self.notes.set_notes(~default_step_scoreline);
+		//self.notes.set_end(16);
 	
 		self;
 	},
 
+	get_notescore: { arg self;
+		self.scoreset.get_notescore;
+	},
+
 	get_notes: { arg self;
-		self.notes.get_abs_notes;
+		self.get_notescore.get_abs_notes;
 	},
 
 	add_note: { arg self, abstime, sustain=0.5;
@@ -227,14 +237,15 @@
 		note = (
 			sustain: self.display.gridstep,
 		);
-		self.notes.add_note(note, abstime);
-		self.get_notes.debug("add_note: get_notes");
-		self.notes.notes.debug("add_note: notes.notes");
+		self.get_notescore.add_note(note, abstime);
+		self.get_notescore.debug("add_note: get_notes");
+		self.get_notescore.notes.debug("add_note: notescore.notes");
+		self.scoreset.update_notes;
 		self.changed(\notes);
 	},
 
 	add_note_if_empty: { arg self, abstime, sustain=0.5;
-		if(self.notes.is_note_playing_at_abstime(abstime).not) {
+		if(self.get_notescore.is_note_playing_at_abstime(abstime).not) {
 			self.add_note(abstime.trunc(self.display.gridstep), sustain);
 		}
 	},
@@ -243,7 +254,7 @@
 		var iabstime;
 		[abstime].debug("class_step_track_controller: toggle_note");
 		iabstime = abstime.trunc(self.display.gridstep);
-		 if(self.notes.is_note_playing_at_abstime(abstime)) {
+		 if(self.get_notescore.is_note_playing_at_abstime(abstime)) {
 			self.remove_note(abstime); 
 		 } {
 			self.add_note(iabstime); 
@@ -253,7 +264,7 @@
 
 	remove_note: { arg self, abstime;
 		[abstime].debug("class_step_track_controller: remove_note");
-		self.notes.remove_notes_playing_at_abstime(abstime);
+		self.get_notescore.remove_notes_playing_at_abstime(abstime);
 		self.changed(\notes);
 	},
 
@@ -264,12 +275,33 @@
 
 );
 
+~class_note_tracks_controller = (
+	
+	new: { arg self, node, display;
+		self = self.deepCopy;
+
+		self.ctrl_node = node;
+		self.display = display;
+		self.display.show_name_bloc = false;
+
+		self;
+	},
+
+	make_gui: { arg self, parent;
+		self.track_view = ~make_noteline_view.(parent, self.display, self.ctrl_node.get_arg(\noteline));
+		self.track_view;
+	},
+
+
+);
+
 ~class_group_tracks_controller = (
-	new: { arg self, main, group;
+	new: { arg self, main, group, display;
 		self = self.deepCopy;
 
 		self.get_main = { main };
 		self.get_group = group;
+		self.display = display;
 	
 		self;
 	},
@@ -281,8 +313,14 @@
 			if(name != \voidplayer) {
 				node = self.get_main.get_node(name);
 				ctrl = switch(node.get_mode,
-					\stepline, {
-						~class_step_track_controller.new;
+					\scoreline, {
+						~class_step_track_controller.new(node);
+					},
+					\noteline, {
+						~class_note_tracks_controller.new(node, self.display);
+					},
+					\sampleline, {
+						~class_note_tracks_controller.new(node, self.display);
 					}
 				);
 				if(ctrl.notNil) {
@@ -298,35 +336,11 @@
 		self.vlayout = VLayout.new;
 		self.window.view.layout = self.vlayout;
 		self.get_tracks.do { arg track;
-			self.vlayout.add(track.make_gui(self.window))
+			//self.vlayout.add(track.make_gui(self.window), 0, \topLeft)
+			self.vlayout.add(track.make_gui(self.window), 2, \topLeft)
 		};
 
 		self.window.front;
 	},
 
 );
-
-if(~t.notNil) {~t.window.close};
-~t = ~class_group_tracks_controller.new(Mdef.main, Mdef.node(\s1_part1_sect1_var1));
-~t.make_gui;
-
-)
-Mdef.node(\s1_part1_sect1_var1)
-
-
-if(~t.notNil) {~t.window.close};
-~t = ~class_step_track_controller.new;
-~t.make_gui;
-
-~t.notes.get_rel_notes
-~t.notes.get_abs_notes(2,3)
-~t.notes
-~t.notes.set_notes(~default_step_scoreline)
-~t.notes.abs_start
-~t.notes.abs_end
-~event_rel_to_abs.(~default_step_scoreline)
-~t.notes.notes.reject{ arg no; no.time == 5 }
-~t.notes.notes.class
-~t.notes.get_rel_notes
-
-~notes = ~make_notescore

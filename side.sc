@@ -1609,6 +1609,13 @@
 					}
 				}],
 
+				[\edit_group_tracks, {
+					var group = self.get_current_group;
+					var display = self.make_param_display(self.get_selected_param);
+					self.group_tracks_controller = ~class_group_tracks_controller.new(self.get_main, group, display);
+					self.group_tracks_controller.make_gui;
+				}],
+
 				///////// macro
 
 				[\add_sample_batch, {
@@ -1944,6 +1951,22 @@
 					self.changed(\paramlist);
 				}],
 
+				///// player modes
+
+				[\change_player_mode, {
+					~class_player_mode_chooser.new(self.get_main, { arg sel;
+						self.get_current_player.set_mode(sel);
+					})
+				}],
+
+				[\change_param_kind, {
+					if(self.param_types.param_mode.includes(self.get_selected_param.name).not) {
+						~class_param_kind_chooser.new(self.get_main, { arg sel;
+							self.change_param_kind(sel);
+						})
+					}
+				}],
+
 				///// global modes
 
 				["set_edit_mode.matrix", {
@@ -2022,21 +2045,23 @@
 				}],
 			]);
 
-			main.commands.parse_action_bindings(\side, 
-				[\scalar, \seq, \seg, \bus, \recordbus, \pkey].collect { arg kind;
-					["change_param_kind."++kind.asString, {
-						self.change_param_kind(kind);
-					}]
-				}
-			);
 
-			main.commands.parse_action_bindings(\side, 
-				[\stepline, \sampleline, \noteline].collect { arg kind;
-					["change_player_mode."++kind.asString, {
-						self.get_current_player.set_mode(kind);
-					}, \disabled]
-				}
-			);
+
+			//main.commands.parse_action_bindings(\side, 
+			//	[\scalar, \seq, \seg, \bus, \recordbus, \pkey].collect { arg kind;
+			//		["change_param_kind."++kind.asString, {
+			//			self.change_param_kind(kind);
+			//		}]
+			//	}
+			//);
+
+			//main.commands.parse_action_bindings(\side, 
+			//	[\stepline, \sampleline, \noteline].collect { arg kind;
+			//		["change_player_mode."++kind.asString, {
+			//			self.get_current_player.set_mode(kind);
+			//		}, \disabled]
+			//	}
+			//);
 
 			main.commands.copy_action_list(\side, \midi, [
 				\play_selected,

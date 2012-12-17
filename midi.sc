@@ -722,6 +722,7 @@
 						start_silence = note.curtime - (TempoClock.nextTimeOnGrid(EventPatternProxy.defaultQuant,0) - EventPatternProxy.defaultQuant);
 						firstnote = (
 							midinote: \rest,
+							type: \rest,
 							velocity: 0,
 							sustain: 0.1,
 							start_silence: start_silence,

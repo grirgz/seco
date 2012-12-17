@@ -34,6 +34,7 @@
 	side: [
 		["edit_external_player", \kb, \alt, "e"],
 		["open_timeline", \kb, \ctrlalt, "l"],
+		["edit_group_tracks", \kb, \alt, "g"],
 
 		["decrease_select_offset", \midi, 0, \begin],
 		["increase_select_offset", \midi, 0, \end],
@@ -119,15 +120,17 @@
 		["toggle_param_recording", \midi, \hold, \record],
 		["toggle_metronome", \kb, \alt, "m"],
 
-		["change_param_kind.seq",			\kb, \altshift, "q"],
-		["change_param_kind.scalar",			\kb, \altshift, "s"],
-		["change_param_kind.recordbus",			\kb, \altshift, "d"],
-		["change_param_kind.bus",			\kb, \altshift, "f"],
-		["change_param_kind.seg",			\kb, \altshift, "g"],
-		["change_param_kind.pkey",			\kb, \altshift, "h"],
+		//["change_param_kind.seq",			\kb, \altshift, "q"],
+		//["change_param_kind.scalar",			\kb, \altshift, "s"],
+		//["change_param_kind.recordbus",			\kb, \altshift, "d"],
+		//["change_param_kind.bus",			\kb, \altshift, "f"],
+		//["change_param_kind.seg",			\kb, \altshift, "g"],
+		//["change_param_kind.pkey",			\kb, \altshift, "h"],
 
-		["change_player_mode.stepline",			\kb, \altshift, "q"],
-		["change_player_mode.noteline",			\kb, \altshift, "s"],
-		["change_player_mode.sampleline",			\kb, \altshift, "d"],
+		["change_param_kind",			\kb, \altshift, "s"],
+		["change_player_mode",			\kb, \altshift, "q"],
+		//["change_player_mode.stepline",			\kb, \altshift, "q"],
+		//["change_player_mode.noteline",			\kb, \altshift, "s"],
+		//["change_player_mode.sampleline",			\kb, \altshift, "d"],
 	]
 );

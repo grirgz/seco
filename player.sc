@@ -22,6 +22,7 @@
 	sourcewrapper: nil,
 	playing_state: \stop,
 	muted: false,
+	available_modes: [\stepline, \noteline, \scoreline, \sampleline],
 	archive_param_data: [\control, \stepline, \adsr, \noteline, \nodeline, \sampleline, \buf],
 	archive_data: [\current_mode, \effects],
 	effects: List.new,
@@ -136,6 +137,7 @@
 	build_standard_args: { arg self;
 		if(self.is_effect.not) {
 			self.data[\noteline] = self.data[\noteline] ?? ~make_noteline_param.(\noteline);
+			self.data[\scoreline] = self.data[\scoreline] ?? ~make_scoreline_param.(\scoreline);
 
 			self.data[\dur] = self.data[\dur] ?? 
 				~make_control_param.(self.get_main, self, \dur, \scalar, 0.5, ~get_spec.(\dur, self.defname));
@@ -161,8 +163,7 @@
 		var dict = Dictionary.new;
 		var list = List[];
 		var prio, reject;
-		prio = [
-			\repeat, \instrument, \stretchdur, \sampleline, \noteline, \stepline, 
+		prio = [\repeat, \instrument, \stretchdur] ++ self.available_modes ++ [
 			\type, \samplekit, \bufnum, \dur, \segdur, \legato, \sustain
 		];
 		reject = [];

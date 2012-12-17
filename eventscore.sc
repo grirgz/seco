@@ -2,6 +2,7 @@
 
 ~empty_note = (
 	midinote: \rest,
+	type: \rest,
 	slotnum: \rest,
 	sustain: 0.1,
 	velocity: 0.8,
@@ -13,6 +14,7 @@
 ~default_noteline3 = [ // FIXME: crash when no notes
 	(
 		midinote: \rest,
+		type: \rest,
 		sustain: 0.1,
 		start_silence: 0.5,
 		default_start_silence: 0.5,
@@ -39,6 +41,7 @@
 ~default_noteline = [ // FIXME: crash when no notes
 	(
 		midinote: \rest,
+		type: \rest,
 		sustain: 0.1,
 		start_silence: 0.5,
 		default_start_silence: 0.5,
@@ -122,6 +125,7 @@
 ~default_sampleline = [ // FIXME: crash when no notes
 	(
 		slotnum: \rest,
+		type: \rest,
 		sustain: 0.1,
 		start_silence: 0.5,
 		default_start_silence: 0.5,
@@ -370,6 +374,7 @@
 			};
 			notes = [(
 				midinote: \rest,
+				type: \rest,
 				slotnum: \rest,
 				sustain: 0,
 				time: start

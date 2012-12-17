@@ -352,6 +352,62 @@
 	},
 );
 
+~class_symbol_chooser = (
+
+	parent: ~class_matrix_chooser,
+	my_datalist: [
+		\stepline,
+		\noteline,
+		\scoreline,
+		\sampleline,
+	],
+
+	new: { arg self, main, action;
+		self = self.parent[\new].(self, action, "Choose kind");
+
+		self.get_main = { arg self; main };
+		self.set_datalist(self.my_datalist);
+		self.show_window;
+		self;
+	},
+
+);
+
+~class_player_mode_chooser = (
+
+	parent: ~class_matrix_chooser,
+	my_datalist: [
+		\stepline,
+		\noteline,
+		\scoreline,
+		\sampleline,
+	],
+	new: { arg self, main, action;
+		self = self.parent[\new].(self, action, "Choose kind");
+
+		self.get_main = { arg self; main };
+		self.set_datalist(self.my_datalist);
+		self.show_window;
+		self;
+	},
+
+);
+
+~class_param_kind_chooser = (
+
+	parent: ~class_matrix_chooser,
+	my_datalist: [\scalar, \seq, \seg, \bus, \recordbus, \pkey],
+
+	new: { arg self, main, action;
+		self = self.parent[\new].(self, action, "Choose kind");
+
+		self.get_main = { arg self; main };
+		self.set_datalist(self.my_datalist);
+		self.show_window;
+		self;
+	},
+);
+
 /////////////////////// old matrix code
 
 ~make_matrix = { arg main, callbacks, winname="Matrix";

@@ -1,8 +1,9 @@
 s.meter
 (
 s.waitForBoot{
-"/home/ggz/code/sc/abcparser.sc".load;
+//"/home/ggz/code/sc/abcparser.sc".load;
 ~seq = Mdef.force_init(true);
+"/home/ggz/code/sc/seco/tracks.sc".load;
 ~synthlib = [
 	\audiotrack_expander,
 	\lead2,

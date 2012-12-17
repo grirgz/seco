@@ -37,6 +37,14 @@
 					repeat = ~general_sizes.safe_inf;
 				};
 			},
+			\scoreline, {
+				if( ev[\current_mode] == \scoreline ) {
+					repeat = ev[\repeat];
+					if(repeat == 0) { repeat = ~general_sizes.safe_inf };
+				} {
+					repeat = ~general_sizes.safe_inf;
+				};
+			},
 			\sampleline, {
 				if( ev[\current_mode] == \sampleline ) {
 					repeat = ev[\repeat];
@@ -67,7 +75,7 @@
 			~pdynarray.( { arg idx; self.self.get_arg(argName)[idx] } );
 		},
 		\type, {
-			Pif( Pkey(\stepline) > 0 , \note, \rest) // WTF with == ?????
+			Pif( Pkey(\stepline) > 0 , \note, \rest) // WTF with == ????? // use Pbinop
 		},
 		//default:
 		{
@@ -621,7 +629,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			kind.string = if(self.pkey_mode.notNil and: {self.pkey_mode}) {
 				"KEY"
 			} {
-				if([\stepline,\sampleline,\noteline].includes(self.classtype)) {
+				if([\stepline,\scoreline,\sampleline,\noteline].includes(self.classtype)) { // FIXME: modes
 					""
 				} {
 					switch(self.current_kind,
@@ -966,10 +974,11 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	row_layout.background = ~editplayer_color_scheme.background;
 
 
-	bt_name = ~make_name_button.(row_layout, display.name, xsize:display.name_width, ysize:height);
-	txt_rec = GUI.staticText.new(row_layout, Rect(0,0,30,height));
-	txt_rec.string = "Stop";
-
+	if(display.show_name_bloc != false ) {
+		bt_name = ~make_name_button.(row_layout, display.name, xsize:display.name_width, ysize:height);
+		txt_rec = GUI.staticText.new(row_layout, Rect(0,0,30,height));
+		txt_rec.string = "Stop";
+	};
 
 	paraspace = ParaSpace.new(row_layout, bounds: Rect(15, 15, width, height));
 
@@ -1022,7 +1031,9 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 	~make_view_responder.(row_layout, param, (
 		selected: { arg self;
-			bt_name.value = display.selected;
+			if(bt_name.notNil) {
+				bt_name.value = display.selected;
+			}
 		},
 		notes: { arg self;
 
@@ -1067,16 +1078,20 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		},
 
 		recording: { arg self, msg, recording;
-			if( recording, {
-				txt_rec.string = "Rec";
-				txt_rec.background = ~editplayer_color_scheme.led;
-			}, {
-				txt_rec.string = "Stop";
-				txt_rec.background = Color.clear;
-			});
+		   if(txt_rec.notNil) {
+
+				if( recording, {
+					txt_rec.string = "Rec";
+					txt_rec.background = ~editplayer_color_scheme.led;
+				}, {
+					txt_rec.string = "Stop";
+					txt_rec.background = Color.clear;
+				});
+		   }
 		}
 
 	));
+	row_layout;
 };
 
 
@@ -1310,6 +1325,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			param_messages.val(param, msg); //TODO
 		}
 	));
+	row_layout;
 };
 
 ~make_simple_control_view = { arg parent, display, param;
@@ -1584,8 +1600,10 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 ~make_line_view = { arg kind, parent, display, param;
 	var fun;
+	// FIXME: modes
 	fun = switch(kind,
 		\noteline, { ~make_noteline_view },
+		\scoreline, { ~make_noteline_view },
 		\stepline, { ~make_control_view },
 		\nodeline, { ~make_noteline_view },
 		\sampleline, { ~make_noteline_view },
@@ -1596,8 +1614,10 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 ~make_line_view2 = { arg kind, parent, display, param;
 	var fun;
+	// FIXME: modes
 	fun = switch(kind,
 		\noteline, { ~make_noteline_view },
+		\scoreline, { ~make_noteline_view },
 		\stepline, { ~make_stepline_view },
 		\nodeline, { ~make_noteline_view },
 		\sampleline, { ~make_noteline_view },
@@ -2259,6 +2279,11 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		get_notes: { arg self;
 			self.scoreset.get_notes;
 		},
+
+		get_scoreset: { arg self;
+			self.scoreset;
+		},
+
 		get_notes2: { arg self;
 			var no;
 			no = self.vnotes.deepCopy;
@@ -2682,8 +2707,10 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 ~make_line_param = { arg name, default_value=[];
 	var fun;
+	// FIXME: modes
 	fun = switch(name,
 		\noteline, { ~make_noteline_param },
+		\scoreline, { ~make_noteline_param },
 		\stepline, { ~make_stepline_param },
 		\nodeline, { ~make_nodeline_param },
 		\sampleline, { ~make_sampleline_param },
@@ -2743,6 +2770,17 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	ret = (
 		parent: ~make_parent_recordline_param.(name, default_value),
 		classtype: \noteline,
+		notes: ~default_noteline3.deepCopy
+	);
+	ret.init;
+	ret;
+};
+
+~make_scoreline_param = { arg name, default_value=[];
+	var ret;
+	ret = (
+		parent: ~make_parent_recordline_param.(name, default_value),
+		classtype: \scoreline,
 		notes: ~default_noteline3.deepCopy
 	);
 	ret.init;
@@ -3321,10 +3359,153 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		},
 
 		vpattern: { arg self; 
+			var score_val;
+			var pat_val;
+			var get_val;
+			var veloc_ratio = main.model.velocity_ratio;
+			score_val = switch(self.name,
+				\dur, {
+					{ arg ev, mode;
+						if(ev[mode].dur.notNil) {
+							ev[mode].dur * ev[\stretchdur];
+						}
+					}
+				},
+				\freq, {
+					{ arg ev, mode;
+						ev.debug("vpattern: freq");
+						if(ev[mode].midinote.notNil) {
+							ev[mode].midinote.midicps
+						}
+					};
+				},
+				\amp, { // FIXME: handle sampleline; does pseg/bus need velocity adjusting ?
+					{ arg ev, mode;
+						if(ev[mode].velocity.notNil) {
+							main.calcveloc(self.scalar.get_val,(ev[\noteline].velocity));	
+						}
+					};
+				},
+				\sustain, {
+					{ arg ev, mode;
+						if(ev[mode].sustain.notNil) {
+							ev[mode].sustain
+						} 
+					}
+				},
+				// else
+				{
+					nil
+				}
+			);
+			pat_val = { arg ev, mode, kind;
+				var idx, val;
+				if(self.pkey_mode and: { ev.includesKey(self.name) }) {
+					ev = ev[self.name].yield;
+				} {
+					switch(kind, 
+						\scalar, {
+							ev = self.scalar.get_val.yield;
+						},
+						\seq, {
+							idx = 0;
+							val = self.seq.val[idx];
+							while( { val.notNil } , { 
+								//ev.debug("seQ: ev");
+								ev = val.yield;
+								idx = idx + 1;
+								val = self.seq.val[idx];
+							});
+						},
+						\seg, {
+							//[
+							//	ev[\elapsed], ev[\segdur], 
+							//	(self.seq.val.size),
+							//	ev[\elapsed]/ev[\segdur], 
+							//	(ev[\elapsed]/ev[\segdur]) % (self.seq.val.size),
+							//	self.seq.val.blendAt((ev[\elapsed]/ev[\segdur]) % (self.seq.val.size))
+							//].debug("seggggggggggggggggg: elapsed, segdur, size, el/dur, el/dur%size, res");
+							//self.seq.debug("seg: seq");
+							//self.seq.val.debug("seg: seq.val");
+							//ev.debug("seg: ev");
+							//self.seg.debug("seg: seg");
+							//ev = (self.seq.val++[self.seq.val[0]]).blendAt((ev[\elapsed]/ev[\segdur]) % (self.seq.val.size)).yield;
+							//ev = 500.yield;
+							//[
+							//	ev[\elapsed], ev[\segdur], 
+							//	ev[\elapsed]/ev[\segdur], 
+							//	(self.seg.val.size),
+							//	(ev[\elapsed]/ev[\segdur]) % (self.seg.val.size),
+							//	self.seg.val.blendAt((ev[\elapsed]/ev[\segdur]) % (self.seg.val.size))
+							//].debug("seggggggggggggggggg: elapsed, segdur, size, el/dur, el/dur%size, res");
+							ev = (self.seg.val++[self.seg.val[0]]).blendAt((ev[\elapsed]/ev[\segdur]) % (self.seg.val.size)).yield;
+						},
+						\preset, {
+							ev = self.preset.val[self.preset.selected_cell].yield
+						},
+						\bus, {
+							ev = self.bus.get_bus.asMap.yield;
+						},
+						\recordbus, {
+							ev = self.bus.get_bus.asMap.yield;
+						},
+						// else
+						{
+							[param.name, self.current_kind].debug("ERROR: param kind dont match");
+							ev = 0.yield;
+						}
+					)
+				}
+			};
+			get_val = if(score_val.isNil) {
+				pat_val;
+			} {
+				{ arg ev, mode, kind;
+					var val;
+					if(mode == \stepline) {
+						ev = pat_val.(ev, mode, kind);
+					} {
+						val = score_val.(ev, mode);
+						if(val.isNil) {
+							ev = pat_val.(ev, mode, kind);
+						} {
+							ev = val.yield;
+						};
+					}
+
+				}
+			};
+
+			Prout({ arg ev;
+				var repeat = ~general_sizes.safe_inf;
+				var idx, val=0;
+				var kind, mode;
+				repeat.do { arg x;
+					kind = self.current_kind;
+					mode = player.get_mode;
+					[self.name, x, ev].debug("============== ev");
+					ev = get_val.(ev, mode, kind);
+				}
+			});
+		},
+
+		vpattern2: { arg self; 
 			var segf, scalf, pref, scalm;
+			// segf: noteline seg
+			// scalf: noteline scalar
+			// scalm: sampleline scalar
+			// pref: noteline preset
+			var score_val;
 			var veloc_ratio = main.model.velocity_ratio;
 			switch(self.name,
 				\dur, {
+					score_val = { arg ev, mode;
+						if(ev[mode].dur.notNil) {
+							ev[mode].dur * ev[\stretchdur];
+						} {
+							self.scalar.val
+						}
+					};
 					segf = { arg ev;
 						
 						//[ev[\noteline].dur, ev[\stretchdur]].debug("vpattern: dur: segf");
@@ -3339,6 +3520,13 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 					scalf = pref = segf;
 				},
 				\freq, {
+					score_val = { arg ev, mode;
+						if(ev[mode].midinote.notNil) {
+							ev[mode].midinote.midicps
+						} {
+							self.scalar.val
+						}
+					};
 					segf = { arg ev;
 						ev[\noteline].midinote.midicps;	
 					};
@@ -3346,6 +3534,13 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 					scalf = pref = segf;
 				},
 				\amp, { // FIXME: handle sampleline; does pseg/bus need velocity adjusting ?
+					score_val = { arg ev, mode;
+						if(ev[mode].velocity.notNil) {
+							main.calcveloc(self.scalar.get_val,(ev[\noteline].velocity));	
+						} {
+							self.scalar.val
+						}
+					};
 					segf = { arg ev;
 						main.calcveloc(self.scalar.get_val,(ev[\noteline].velocity ?? 0));	
 					};
@@ -3353,6 +3548,13 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 					scalf = pref = segf;
 				},
 				\sustain, {
+					score_val = { arg ev, mode;
+						if(ev[mode].sustain.notNil) {
+							ev[mode].sustain
+						} {
+							self.scalar.val
+						}
+					};
 					segf = { arg ev;
 						ev[\noteline].sustain;	
 					};
@@ -3388,6 +3590,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 							\scalar, {
 								//ev.debug("=========== in scalar ev");
 								8.do {		// hack to be in phase when changing kind (should be the size of stepline)
+									// FIXME: modes
 									switch(player.get_mode,
 										\sampleline, {
 											[name, scalm.value(ev)].debug("############# scalm!!");
@@ -3397,6 +3600,9 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 										\noteline, {
 											ev = scalf.value(ev).yield;
 										},
+										\scoreline, {
+											ev = score_val.value(ev).yield;
+										},
 										\stepline, {
 											ev = self.scalar.val.yield;
 										}
@@ -3405,14 +3611,22 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 								//ev.debug("=========== in scalar ev END");
 							},
 							\seg, {
+								//[
+								//	ev[\elapsed], ev[\segdur], 
+								//	ev[\elapsed]/ev[\segdur], 
+								//	(self.seg.val.size),
+								//	(ev[\elapsed]/ev[\segdur]) % (self.seg.val.size),
+								//	self.seg.val.blendAt((ev[\elapsed]/ev[\segdur]) % (self.seg.val.size))
+								//].debug("seggggggggggggggggg: elapsed, segdur, size, el/dur, el/dur%size, res");
+								//ev = (self.seg.val++[self.seg.val[0]]).blendAt((ev[\elapsed]/ev[\segdur]) % (self.seg.val.size)).yield;
 								[
 									ev[\elapsed], ev[\segdur], 
 									ev[\elapsed]/ev[\segdur], 
-									(self.seg.val.size),
-									(ev[\elapsed]/ev[\segdur]) % (self.seg.val.size),
-									self.seg.val.blendAt((ev[\elapsed]/ev[\segdur]) % (self.seg.val.size))
+									(self.seq.val.size),
+									(ev[\elapsed]/ev[\segdur]) % (self.seq.val.size),
+									self.seq.val.blendAt((ev[\elapsed]/ev[\segdur]) % (self.seq.val.size))
 								].debug("seggggggggggggggggg: elapsed, segdur, size, el/dur, el/dur%size, res");
-								ev = (self.seg.val++[self.seg.val[0]]).blendAt((ev[\elapsed]/ev[\segdur]) % (self.seg.val.size)).yield;
+								ev = (self.seq.val++[self.seq.val[0]]).blendAt((ev[\elapsed]/ev[\segdur]) % (self.seq.val.size)).yield;
 							},
 							\seq, {
 								if(player.get_mode == \noteline, {

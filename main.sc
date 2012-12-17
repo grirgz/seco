@@ -326,6 +326,7 @@
 	"score",
 	"sidematrix",
 	"timeline",
+	"tracks",
 	"side",
 ].do { arg file;
 	("Loading " ++ file ++".sc...").inform;
