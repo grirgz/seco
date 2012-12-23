@@ -37,7 +37,7 @@
 	var sl_layout, ps_col_layout, curbank, address;
 	var width = 1350;
 
-	matrix_size = matrix_size ?? 8@4;
+	matrix_size = matrix_size ?? (8@4);
 
 	sl_layout = GUI.hLayoutView.new(parent, Rect(0,0,width,60*6));
 

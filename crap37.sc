@@ -61,10 +61,46 @@ w.layout = VLayout.new(*[
 			3.collect { arg j;
 				StaticText.new.string_("blay"++i++j);
 			}
-		).background_(Color.red);
-	}
+		);
+	},
+	nil
 
 ].flat);
 
 )
 
+
+
+
+(
+w  = Window.new();
+w.front;
+a = UserView.new;
+b = UserView.new;
+a.background = Color.red;
+b.background = Color.red;
+a.maxSize = 800@30;
+b.maxSize = 800@30;
+w.layout = VLayout.new(
+	[
+		HLayout.new(
+				[StaticText.new.string_("plop1"), stretch:0, align: \top],
+				//StaticText.new.string_("plop2")
+				[a, stretch:1]
+		),
+		stretch: 0,
+		align: \topLeft,
+	],
+	[
+		HLayout.new(
+				[StaticText.new.string_("plop2"), stretch:0, align: \top],
+				//StaticText.new.string_("plop2")
+				b
+		),
+		stretch: 0,
+		align: \topLeft,
+	],
+	nil
+);
+
+)

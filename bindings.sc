@@ -31,6 +31,9 @@
 		["stop_timeline", \kb, 0, \f6],
 		["close_timeline", \kb, 0, \escape],
 	],
+	group_tracks: [
+		["close_window", \kb, 0, \escape],
+	],
 	side: [
 		["edit_external_player", \kb, \alt, "e"],
 		["open_timeline", \kb, \ctrlalt, "l"],

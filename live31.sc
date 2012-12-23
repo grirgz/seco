@@ -1,8 +1,19 @@
+~seco_dir_path
+Quarks.gui
 (
+~seco_dir_path = if( thisProcess.nowExecutingPath.notNil) {
+	thisProcess.nowExecutingPath.dirname
+} {
+	"~/code/sc/seco/".standardizePath
+};
+)
+Ptempo
+(
+~seco_dir_path = "~/code/sc/seco/".standardizePath;
 s.waitForBoot{
 //"/home/ggz/code/sc/abcparser.sc".load;
 ~seq = Mdef.force_init(true);
-"/home/ggz/code/sc/seco/tracks.sc".load;
+//"/home/ggz/code/sc/seco/tracks.sc".load;
 ~synthlib = [
 	\audiotrack_expander,
 	\lead2,
@@ -77,3 +88,33 @@ if(~t.notNil) {~t.window.close};
 ~t.notes.get_rel_notes
 
 ~notes = ~make_notescore
+
+
+
+
+"~/code/sc/seko/crap38.sc".standardizePath.load
+
+Mdef.node("piano2_l1061").get_arg(\stepline).seq.get_val(3)
+Mdef.node("piano2_l1089").get_arg(\stepline).get_val(3)
+Mdef.node("piano2_l1089").get_arg(\stepline).get_val(gtgt1)
+Mdef.node("piano2_l1089").get_arg(\stepline).seq
+
+nil !? 4
+
+
+(
+"/home/tytel/code/sc/seco/tracks.sc".load;
+a = ~class_blabla.new;
+a.make_gui;
+
+)
+
+a.notescore.notes
+
+
+a = ObjectTable.new
+i = a.add("plop")
+a.at(i)
+i = ObjectTable.add("plop")
+ObjectTable.at(i)
+

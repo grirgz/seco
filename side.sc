@@ -1616,6 +1616,10 @@
 					self.group_tracks_controller.make_gui;
 				}],
 
+				[\edit_noteline, {
+					var player = self.get_current_player;
+				}],
+
 				///////// macro
 
 				[\add_sample_batch, {

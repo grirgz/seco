@@ -971,6 +971,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	"MM make_noteline_view".debug;
 
 	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+30),height));
+	row_layout.minSize = (width+30)@height;
 	row_layout.background = ~editplayer_color_scheme.background;
 
 
@@ -980,7 +981,9 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		txt_rec.string = "Stop";
 	};
 
-	paraspace = ParaSpace.new(row_layout, bounds: Rect(15, 15, width, height));
+	//paraspace = ParaSpace.new(row_layout, bounds: Rect(15, 15, width, height));
+	paraspace = ParaTimeline.new(row_layout, bounds: Rect(15, 15, width, height));
+	paraspace.userView.minSize = width@height;
 
 	ps_bg_drawf = { arg wid, he, dur, numsep;
 		var vdur = dur - param.get_start_silence - param.get_end_silence;
@@ -1122,9 +1125,12 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	display.name.debug("il a quoiiii.name2");
 
 	row_layout = GUI.hLayoutView.new(parent, Rect(0,0,(width+10),height));
+	row_layout.minSize = (width+10)@height;
 	row_layout.background = ~editplayer_color_scheme.control;
 
-	bt_name = ~make_name_button.(row_layout, display.name, display.name_width ?? btnamesize, height);
+	if(display.show_name_bloc != false) {
+		bt_name = ~make_name_button.(row_layout, display.name, display.name_width ?? btnamesize, height);
+	};
 
 	if(display.show_midibloc, {
 		midibloc = GUI.hLayoutView.new(row_layout, Rect(0,0,15+75+5+display.slider_width,height));
@@ -1197,7 +1203,9 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 	~make_view_responder.(content_view, param, (
 		selected: { arg self;
-			bt_name.value = display.selected;
+			if(bt_name.notNil) {
+				bt_name.value = display.selected;
+			};
 		},
 
 		selected_cell: { arg self, msg, oldsel;
@@ -2855,10 +2863,16 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			self.changed(\cells);
 		},
 
-		set_val: { arg self, val;
-			self.seq.val[ self.get_selected_cell.() ] = if(val > 1, { 1 },{ 0 });
+		set_val: { arg self, val, idx;
+			idx = idx ?? self.get_selected_cell.();
+			self.seq.val[ idx  ] = if(val >= 1, { 1 },{ 0 });
+			self.changed(\val, idx);
 		},
 
+		get_val: { arg self, idx;
+			idx = idx ?? self.get_selected_cell.();
+			self.seq.val[ idx  ];
+		},
 
 
 		tick: { arg idx;

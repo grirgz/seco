@@ -78,6 +78,7 @@
 
 );
 
+// FIXME: moving blocks doesnt work anymore because get_abs_notes copy notes
 ~class_timeline_view = (
 	
 	block_top_padding: {arg self; self.track_size_y/10},
@@ -89,7 +90,7 @@
 	timerule_size: 1234@1234,
 
 	block_dict: Dictionary.new, // spritenum -> block_index
-	track_dict: Dictionary.new, // spritenum -> track_index
+	//track_dict: Dictionary.new, // spritenum -> track_index
 
 	current_selected_track: 0,
 

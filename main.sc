@@ -6,6 +6,12 @@
 "	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////".postln;
 "=============================================================================================================================================".postln;
 
+~seco_dir_path = if( thisProcess.nowExecutingPath.notNil) {
+	thisProcess.nowExecutingPath.dirname
+} {
+	"~/code/sc/seco/".standardizePath
+};
+
 
 ~toggle_value = { arg value;
 	if( value.isNil, { value = 0 });
@@ -330,7 +336,7 @@
 	"side",
 ].do { arg file;
 	("Loading " ++ file ++".sc...").inform;
-	("/home/ggz/code/sc/seco/"++file++".sc").load;
+	(~seco_dir_path +/+ file++".sc").load;
 };
 "Done loading.".inform;
 
