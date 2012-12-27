@@ -552,9 +552,19 @@
 	
 	},
 
-
 	get_notes: { arg self;
-		self.notescore.get_rel_notes;
+		self.current_notes = self.notescore.get_abs_notes;
+		self.current_notes.debug("get_notes");
+	},
+
+	move_note: { arg self, note, time, midinote;
+		note.time = time;
+		note.midinote = midinote;
+		self.notescore.set_abs_notes(self.current_notes);
+	},
+
+	get_end: { arg self;
+		self.notescore.get_end.debug("get_end");
 	},
 
 );
@@ -565,7 +575,7 @@
 	beat_size_x: 50,
 	block_size_y: { arg self; self.roll_size.y/128 },
 	track_size_y: { arg self; self.block_size_y },
-	block_dict: Dictionary.new;
+	block_dict: Dictionary.new,
 	//roll_size: 400@400,
 
 	new: { arg self, parent, controller;
@@ -589,6 +599,14 @@
 		//self.main_responder = ~make_class_responder.(self, self.parent_view, controller.display, [
 		//	\gridstep, \gridlen
 		//]);
+	},
+
+	midinote_to_notename: { arg self, midinote;
+		var notenames = [ "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" ];
+		var octave = ((midinote / 12)).asInteger;
+		var name = notenames[ midinote % 12 ];
+		name ++ octave.asString;
+	
 	},
 
 	note_to_point: { arg self, note;
@@ -625,8 +643,7 @@
 			new_midinote = ( current_pos[1].trunc(self.track_size_y)/self.track_size_y ).asInteger;
 
 			block = self.block_dict[node.spritenum];
-			block.midinote = new_midinote;
-			block.time = new_time;
+			self.controller.move_note(block, new_time, new_midinote);
 			tl.setNodeLoc_( node.spritenum, newx, newy );
 		}
 	},
@@ -635,6 +652,14 @@
 		self.piano_roll = UserView.new(nil, Rect(0,0,self.piano_band_size_x, self.roll_size.y));
 		self.piano_roll.minSize = self.piano_band_size_x@ self.roll_size.y;
 		self.piano_roll.background = Color.yellow;
+		self.piano_roll.drawFunc_({
+			
+			128.do { arg y;
+				var yy = self.block_size_y * y;
+				Pen.stringInRect(self.midinote_to_notename(y), Rect(0,yy,self.piano_band_size_x,yy+self.block_size_y))
+			};
+
+		});
 		self.piano_roll;
 	},
 
@@ -651,15 +676,29 @@
 		timeline.nodeTrackAction = self.node_track_action;
 		"1".debug;
 		timeline.setBackgrDrawFunc_({
+			var i;
 			Pen.color = Color.gray(0.5);
 			128.do { arg y;
-				y = self.block_size_y * y;
-				Pen.line(0@y, self.roll_size.x@y);
+				var yy = self.block_size_y * y;
+				if(y % 12 == 0) {
+					y.debug("y 12");
+					Pen.color = Color.gray(0.4);
+				} {
+					y.debug("y");
+					Pen.color = Color.gray(0.8);
+				};
+				Pen.line(0@yy, self.roll_size.x@yy);
+				Pen.stroke;
 			};
-			Pen.stroke;
+			//Pen.stroke;
 			Pen.use {
 				~draw_beat_grid.((self.roll_size.x-self.piano_band_size_x)@self.roll_size.y, self.beat_size_x)
-			}
+			};
+			i = self.controller.get_end;
+			if(i.notNil) {
+				Pen.color = Color.red;
+				Pen.line((i*self.beat_size_x)@0, (i*self.beat_size_x)@( self.roll_size.y )); Pen.stroke
+			};
 		});
 	},
 

@@ -100,7 +100,7 @@ w.layout = VLayout.new(
 		stretch: 0,
 		align: \topLeft,
 	],
-	nil
 );
+w.layout.add(nil)
 
 )

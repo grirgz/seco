@@ -306,7 +306,9 @@
 
 		compute_end: { arg self, set=false;
 			var end = 0, tmpno = (sustain:1);
-			self.notes.do { arg no;
+			var notes;
+			notes = self.notes.copy.sort(self[\sort_func]);
+			notes.do { arg no;
 				if(no.time.isNil) {
 					no.debug("ERROR: make_notescore: compute_end: note with time == nil");
 				} {
@@ -330,10 +332,24 @@
 			};
 		},
 
+		get_end: { arg self;
+			if(self.abs_end.isNil) {
+				self.compute_end(false);
+			} {
+				self.abs_end;
+			}
+		},
+
 		set_notes: { arg self, notes;
 			self.notes = ~event_rel_to_abs.(notes);
 			self.abs_start = 0;
-			self.abs_end = self.notes.last.dur + self.notes.last.time;
+			//self.abs_end = self.notes.last.dur + self.notes.last.time; //FIXME: why set abs_end ? does it break thing to not set it ?
+		},
+
+		set_abs_notes: { arg self, notes;
+			self.notes = notes;
+			self.abs_start = 0;
+			//self.abs_end = self.notes.last.dur + self.notes.last.time;
 		},
 
 		get_note: { arg self, note_id;

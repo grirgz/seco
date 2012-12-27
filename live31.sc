@@ -102,6 +102,7 @@ Mdef.node("piano2_l1089").get_arg(\stepline).seq
 nil !? 4
 
 
+~seq = Mdef.force_init(true);
 (
 "/home/tytel/code/sc/seco/tracks.sc".load;
 a = ~class_blabla.new;
@@ -110,6 +111,9 @@ a.make_gui;
 )
 
 a.notescore.notes
+a.notescore.abs_end
+a.notescore.set_end(8)
+a.notescore.get_rel_notes.do(_.postln)
 
 
 a = ObjectTable.new
@@ -118,3 +122,14 @@ a.at(i)
 i = ObjectTable.add("plop")
 ObjectTable.at(i)
 
+(
+	(
+	midinote_to_notename: { arg self, midinote;
+		var notenames = [ "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" ];
+		var octave = ((midinote / 12) - 1).asInteger;
+		var name = notenames[ midinote % 12 ];
+		name ++ octave.asString;
+	
+	},
+	).midinote_to_notename(2)
+)
