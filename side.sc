@@ -308,6 +308,7 @@
 		sep: sep,
 		sep2: sep2,
 		vlayout: vlayout,
+		layout: vlayout,
 		hlayout: hlayout,
 		paramview_list: paramview_list,
 	)
@@ -1618,6 +1619,12 @@
 
 				[\edit_noteline, {
 					var player = self.get_current_player;
+				}],
+
+				[\edit_modulator, {
+					var player = self.get_current_player;
+					var param = self.get_selected_param;
+					~class_modulation_controller.new(player, param);
 				}],
 
 				///////// macro

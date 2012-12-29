@@ -38,6 +38,7 @@
 		["edit_external_player", \kb, \alt, "e"],
 		["open_timeline", \kb, \ctrlalt, "l"],
 		["edit_group_tracks", \kb, \alt, "g"],
+		["edit_modulator", \kb, \alt, "m"],
 
 		["decrease_select_offset", \midi, 0, \begin],
 		["increase_select_offset", \midi, 0, \end],
@@ -121,7 +122,7 @@
 		//["toggle_player_recording", \midi, 0, \record],
 		["toggle_player_recording", \midi, 0, \record],
 		["toggle_param_recording", \midi, \hold, \record],
-		["toggle_metronome", \kb, \alt, "m"],
+		["toggle_metronome", \kb, \ctrlalt, "m"],
 
 		//["change_param_kind.seq",			\kb, \altshift, "q"],
 		//["change_param_kind.scalar",			\kb, \altshift, "s"],

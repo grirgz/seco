@@ -133,3 +133,24 @@ ObjectTable.at(i)
 	},
 	).midinote_to_notename(2)
 )
+
+(
+"/home/tytel/code/sc/seco/modulation.sc".load;
+a = ~class_modulated_param_view.new;
+~windowize.(a.make_gui);
+
+)
+
+(
+"/home/tytel/code/sc/seco/modulation.sc".load;
+a = ~class_modulator_body_basic.new;
+~windowize.(a.make_gui);
+
+)
+
+(
+"/home/tytel/code/sc/seco/modulation.sc".load;
+a = ~class_modulation_view.new;
+~windowize.(a.make_gui);
+
+)
