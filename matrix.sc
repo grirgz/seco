@@ -356,16 +356,14 @@
 
 	parent: ~class_matrix_chooser,
 	my_datalist: [
-		\stepline,
-		\noteline,
-		\scoreline,
-		\sampleline,
+		\void
 	],
 
-	new: { arg self, main, action;
+	new: { arg self, main, list, action;
 		self = self.parent[\new].(self, action, "Choose kind");
 
 		self.get_main = { arg self; main };
+		self.my_datalist = list ?? self.my_datalist;
 		self.set_datalist(self.my_datalist);
 		self.show_window;
 		self;

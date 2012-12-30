@@ -1,7 +1,7 @@
 s.quit
 
 (
-SynthDef(\lfo1, { arg out, freq;
+SynthDef(\lfo1, { arg out=0, freq=1;
 	var sig = SinOsc.kr(freq);
 	Out.kr(out, sig);
 }).add;

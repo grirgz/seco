@@ -34,6 +34,11 @@
 	group_tracks: [
 		["close_window", \kb, 0, \escape],
 	],
+	modulator: [
+		["close_window", \kb, 0, \escape],
+		["load_modulator", \kb, 0, \f1],
+		["select_param", \kb, 0, \kbpad8x4_flat],
+	],
 	side: [
 		["edit_external_player", \kb, \alt, "e"],
 		["open_timeline", \kb, \ctrlalt, "l"],

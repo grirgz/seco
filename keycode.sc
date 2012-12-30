@@ -764,12 +764,16 @@
 		//self.kb_handler.debug("handle_key: kb_handler");
 		[panel, shortcut.asCompileString].debug("current shortcut panel");
 		shortcut = shortcut.deepCopy;
-		self.commands[panel][shortcut].debug("shortcut of path called");
-		//self.commands[panel].debug("commands[panel]");
-		fun = self.kb_handler[panel][shortcut];
-		
-		//[fun, fun.def, fun.def.sourceCode].debug("function");
-		if(fun.isNil, { "handle_key: nil function".warn; nil }, { fun.value; 1 })
+		if(self.commands[panel].notNil) {
+			self.commands[panel][shortcut].debug("shortcut of path called");
+			//self.commands[panel].debug("commands[panel]");
+			fun = self.kb_handler[panel][shortcut];
+			
+			//[fun, fun.def, fun.def.sourceCode].debug("function");
+			if(fun.isNil, { "handle_key: nil function".warn; nil }, { fun.value; 1 })
+		} {
+			panel.debug("ERROR: bindings of panel are not defined");
+		};
 	}
 
 
@@ -925,7 +929,7 @@ if(GUI.current == QtGUI) {
 			}
 		}
 	};
-	"CCCCC parse_action_bindings".debug;
+	panel.debug("CCCCC parse_action_bindings");
 	actions.do { arg action;
 		if(action[0].class == Array) {
 			action[0].do { arg path;

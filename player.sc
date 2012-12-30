@@ -1,4 +1,4 @@
-(
+
 
 
 // ==========================================
@@ -11,6 +11,7 @@
 	modulator: 0,
 	slots_number: 3,
 	slots: nil,
+	selected_slot: 0,
 
 
 	new: { arg self, name, player;
@@ -20,6 +21,15 @@
 
 		self.slots = Dictionary.new;
 	
+	},
+
+	get_slots: { arg self;
+		self.slots
+	},
+
+	refresh: { arg self;
+		self.changed(\selected_slot);
+		self.changed(\connection);
 	},
 
 	get_param: { arg self;
@@ -35,6 +45,8 @@
 	},
 
 	set_range: { arg self, idx, range;
+		
+		[idx, range, self.slots[idx]].debug("modulation_mixer_controller: idx, range");
 		if(self.slots[idx].notNil) {
 			self.slots[idx].range = range;
 			self.changed(\range);
@@ -58,11 +70,18 @@
 		self.changed(\connection);
 	},
 
-	get_modulator_name: { arg self, slot;
+	get_modulator_name: { arg self, idx;
+		// the name is the key in the modulator dictionnary
 		if(self.slots[idx].notNil) {
 			self.slots[idx].name
 		} {
 			nil
+		}
+	},
+
+	get_modulator_node_name: { arg self, idx;
+		if(self.slots[idx].notNil) {
+			self.player.modulation.get_modulator_name(self.slots[idx].name)
 		}
 	},
 
@@ -75,9 +94,10 @@
 
 ~modulation_manager = (
 
-	modulators = Dictionary.new,
+	modulators: Dictionary.new,
 	modulation_mixers: Dictionary.new,
 	mod_kind: \note,
+	selected_slot: 0,
 
 	new: { arg self, player;
 		self = self.deepCopy;
@@ -86,25 +106,63 @@
 		self;
 	},
 
-	get_modulators: { arg self;
-		self.modulators;
+	refresh: { arg self;
+		self.changed(\selected_slot);
 	},
 
 	connect_modulator: { arg self, modname, target, index;
 		if(self.modulation_mixers[target].isNil) {
-			self.modulator_target[target] = ~modulation_mixer_controller.new(target, self.player);
+			self.modulation_mixers[target] = ~modulation_mixer_controller.new(target, self.player);
 		};
-		self.modulator_target[target].connect_slot(index, modname);
+		self.modulation_mixers[target].connect_slot(index, modname);
 	},
 
-	disconnect_modulator: { arg self, index;
+	disconnect_modulator: { arg self, target, index;
 		if(self.modulation_mixers[target].notNil) {
-			self.modulator_target[target].disconnect_slot(index);
+			self.modulation_mixers[target].disconnect_slot(index);
 		};
 	},
 
-	add_modulator: { arg self, name, mod;
-		self.modulators[name] = mod;
+
+	get_modulators: { arg self;
+		self.modulators;
+	},
+
+	get_modulation_mixer: { arg self, name;
+		// FIXME: what if there is no param with this name ?
+		if(self.modulation_mixers[name].isNil) {
+			self.modulation_mixers[name] = ~modulation_mixer_controller.new(name, self.player);
+		};
+		self.modulation_mixers[name];
+	
+	},
+
+	get_modulation_mixers: { arg self;
+		self.modulation_mixers
+	},
+
+	get_modulator_name: { arg self, idx;
+		self.modulators[idx];
+	},
+
+	get_modulator_node: { arg self, idx;
+		var nodename;
+		if(idx.isNil) {
+			nodename = \voidplayer;
+		} {
+			nodename = self.modulators[idx] ?? \voidplayer;
+		};
+		self.player.get_main.get_node(nodename);
+	},
+
+	set_modulator_name: { arg self, idx, mod_name;
+		self.modulators[idx] = mod_name;
+		self.changed(\modulator, idx);
+	},
+
+	select_slot: { arg self, slotidx;
+		self.selected_slot = slotidx;
+		self.changed(\selected_slot);
 	},
 
 	make_modulation_pattern: { arg modself;
@@ -204,34 +262,38 @@
 							\ppatch, ppatch,
 							\group, Pfunc{ arg ev; ppatch.global_group[\modulator] },
 							\out, Pfunc{ arg ev; ppatch.global_bus[out_bus_name] }
-						) <> mod.get_dur
+						) <> mod.get_dur_pattern
 					);
 				} {
 					modpat = mod.sourcepat(
 						Pbind(
 							\ppatch, ppatch,
 							\out, make_note_out_bus.(out_bus_name, \modulator)
-						) <> player.get_dur
+						) <> player.get_dur_pattern
 					);
 				};
 				modpat;
 
 			};
 
-			make_mixer_pattern = { arg player, key, mods, kind=\normal;
+			make_mixer_pattern = { arg player, key, modmixer, kind=\normal;
 				// key is pattern key name which is modulated
 				var mixer;
 				var mixer_synthdef_name;
 				var mixerarglist = List.new;
 				var mixer_group_name;
 				var out_bus_name;
+				var spec;
 
 				if(kind == \normal) {
 					mixer_group_name = \mixer;
 				} {
 					mixer_group_name = \fbmixer;
 				};
-				mixer_synthdef_name = ~make_modmixer.(key, rate, key.asSpec, kind);
+
+				spec = player.get_arg(key).spec;
+
+				mixer_synthdef_name = ~make_modmixer.(key, rate, spec, kind);
 				out_bus_name = "mixer_%_%".format(player.uname, key).asSymbol;
 
 				mixerarglist = List[
@@ -241,13 +303,13 @@
 					\out, make_note_out_bus.(out_bus_name, mixer_group_name),
 				];
 
-				mods.keysValuesDo { arg slotidx, modstruct, idx;
-					var in_bus_name = "mod_%_%".format(player.name, player.modulators[modstruct.mod].uname).asSymbol;
+				modmixer.get_slots.keysValuesDo { arg slotidx, modstruct, idx;
+					var in_bus_name = "mod_%_%".format(player.name, player.modulation.get_modulator_name(modstruct.name)).asSymbol;
 					idx = idx + 1;
 					mixerarglist = (mixerarglist ++ [
 						(\in++idx).asSymbol, Pfunc{ arg ev;
 							[in_bus_name, modstruct, idx].debug("mixer: in");
-							if(player.modulators[modstruct.mod].mod_kind == \pattern) {
+							if(player.modulation.get_modulator_node(modstruct.name).mod_kind == \pattern) {
 								ev[\ppatch].global_bus[in_bus_name];
 							} {
 								ev[\ppatch].note_bus[in_bus_name];
@@ -257,7 +319,7 @@
 					]).asList;
 				};
 				if(mods.size > 0) {
-					mixer = Pbind(*mixerarglist) <> player.get_dur;
+					mixer = Pbind(*mixerarglist) <> player.get_dur_pattern;
 					mixer_list.add(mixer);
 				};
 			};
@@ -265,16 +327,17 @@
 			///////// building modulators and mixer patterns
 
 			walk_modulators = { arg player, kind=\feedback;
-				player.modulators.keysValuesDo { arg key, mod;
-					if(mod.mod_kind == \pattern) {
-						pattern_modulator_list.add( make_modulator_pattern.(self, mod, key) )
+				player.modulation.get_modulators.keysValuesDo { arg key, modname;
+					var modnode = player.get_main.get_node(modname);
+					if(modnode.mod_kind == \pattern) {
+						pattern_modulator_list.add( make_modulator_pattern.(self, modnode, key) )
 					} {
-						note_modulator_list.add( make_modulator_pattern.(self, mod, key) )
+						note_modulator_list.add( make_modulator_pattern.(self, modnode, key) )
 					};
-					walk_modulators.( mod );
+					walk_modulators.( modnode );
 				};
 
-				player.modulator_target.keysValuesDo { arg key, mods;
+				player.modulation.get_modulation_mixers.keysValuesDo { arg key, modmixer;
 					make_mixer_pattern.( player, key, mods, kind )
 				}
 			};
@@ -325,7 +388,7 @@
 						});
 						group;
 					}
-				) <> self.get_dur
+				) <> self.get_dur_pattern
 			);
 		
 
@@ -570,6 +633,15 @@
 			//DebugPbind(*list); //debug
 			Pbind(*list); //debug
 		}
+	},
+
+	get_dur_pattern: { arg self;
+		var arglist;
+		arglist = (self.available_modes ++ [\dur]).collect { arg key;
+			[key, self.get_arg(key)]
+		};
+
+		Pbind(* arglist.flat )
 	},
 
 	destructor: { arg self;
@@ -2198,4 +2270,4 @@
 //a.set_dict.get_keys_by_val(\kick2)
 //a.set_dict.get_vals_by_key(\perc2)
 //
-)
+

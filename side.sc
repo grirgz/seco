@@ -1624,7 +1624,7 @@
 				[\edit_modulator, {
 					var player = self.get_current_player;
 					var param = self.get_selected_param;
-					~class_modulation_controller.new(player, param);
+					~class_modulation_controller.new(self.get_main, player, param);
 				}],
 
 				///////// macro

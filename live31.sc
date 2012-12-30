@@ -154,3 +154,16 @@ a = ~class_modulation_view.new;
 ~windowize.(a.make_gui);
 
 )
+
+
+(
+~seq = Mdef.force_init(true);
+Mdef(\rouge, Pbind(
+	\instrument, \piano2
+));
+~pl = Mdef.node(\rouge);
+~pa = ~pl.get_arg(\freq);
+~class_modulation_controller.new(Mdef.main, ~pl, ~pa);
+)
+
+Mdef.node(\rouge).modulation.get_modulator_node(0)
