@@ -394,7 +394,7 @@
 ~class_param_kind_chooser = (
 
 	parent: ~class_matrix_chooser,
-	my_datalist: [\scalar, \seq, \seg, \bus, \recordbus, \pkey],
+	my_datalist: [\scalar, \seq, \seg, \modulation, \bus, \recordbus, \pkey],
 
 	new: { arg self, main, action;
 		self = self.parent[\new].(self, action, "Choose kind");

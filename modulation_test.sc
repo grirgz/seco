@@ -4,16 +4,19 @@ s.quit
 SynthDef(\lfo1, { arg out=0, freq=1;
 	var sig = SinOsc.kr(freq);
 	Out.kr(out, sig);
-}).add;
+}, metadata:(specs:(
+	freq: \lofreq.asSpec
+))).store;
+
 
 SynthDef(\adsr1, { arg out, attack, gate=1, doneAction=0;
 	var sig = EnvGen.kr(Env.adsr(attack,0.1,1,0.1), gate, doneAction:doneAction);
 	Out.kr(out, sig);
 }).add;
 
-SynthDef(\osc1, { arg out, gate=1, freq, amp=0.1, ffreq=200, rq=0.1, attack=0.1, doneAction=2;
+SynthDef(\osc1, { arg out, gate=1, freq=300, amp=0.1, ffreq=200, rq=0.1, attack=0.1, release=0.1, doneAction=2;
 	var sig = LFSaw.ar(freq);
-	var env = EnvGen.kr(Env.adsr(attack,0.1,1,0.1), gate, doneAction:doneAction);
+	var env = EnvGen.kr(Env.adsr(attack,0.1,1,release), gate, doneAction:doneAction);
 	sig = RLPF.ar(sig, ffreq, rq);
 	//sig = sig + SinOsc.ar(ffreq);
 	//ffreq.poll;
@@ -22,7 +25,7 @@ SynthDef(\osc1, { arg out, gate=1, freq, amp=0.1, ffreq=200, rq=0.1, attack=0.1,
 	sig = sig ! 2;
 	sig = sig * amp;
 	Out.ar(out, sig);
-}).add;
+}).store;
 
 SynthDef(\comb1, { arg in, out, attack, maxdelaytime=0.4, delaytime=0.4, decaytime=2, gate=1, doneAction=2;
 	//var sig = EnvGen.kr(Env.adsr(attack,0.1,1,0.1), gate, doneAction:doneAction);

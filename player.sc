@@ -5,6 +5,71 @@
 // MODULATION
 // ==========================================
 
+~make_modmixer = { arg name, rate=\kr, spec, kind=\normal;
+	var sdname = (\modulation_mixer_ ++ name).asSymbol;
+	sdname.debug("make_modmixer");
+
+	SynthDef(sdname, { arg carrier, out, in1=0, range1=0, in2=0, range2=0, in3=0, range3=0;
+		var sig1, sig2, sig3;
+		var sig;
+		var inrate;
+		"bla".debug;
+		if(kind == \normal) {
+			inrate = { arg ... args; In.performList(rate, args) };
+		} {
+			//inrate = { arg ... args; InFeedback.performList(rate, args) };
+			inrate = { arg ... args; In.performList(rate, args) };
+		};
+		"blai".debug;
+		sig1 = inrate.(in1);
+		"blaii".debug;
+		sig2 = inrate.(in2);
+		sig3 = inrate.(in3);
+		"blauii".debug;
+		
+		sig = [
+			spec.unmap(carrier),
+			sig1 * range1,
+			sig2 * range2,
+			sig3 * range3,
+		].sum;
+		sig = spec.map(sig);
+		//sig.poll;
+		Out.perform(rate, out, sig);
+
+	}).add;
+	sdname;
+};
+
+~class_effect_manager = (
+	effect_list: List.newClear(5),
+	new: { arg self, player;
+		self = self.deepCopy;
+		self.get_player = { arg self; player };
+
+		self;	
+	},
+
+	set_effect: { arg self, idx, effect_node;
+		self.effect_list[idx] = effect_node;
+	},
+
+	get_effect: { arg self, idx;
+		self.effect_list[idx]
+	},
+
+	swap_effect: { arg self, idx_source, idx_dest;
+		var tmp = self.effect_list.removeAt(idx_source);
+		self.effect_list.insert(idx_dest, tmp);
+	},
+
+	vpattern: { arg self;
+		
+	
+	}
+
+);
+
 ~modulation_mixer_controller = (
 	range: 0,
 	offset: 0,
@@ -16,6 +81,7 @@
 
 	new: { arg self, name, player;
 		
+		[name, player.uname].debug("******************* modulation_mixer_controller: name, playeruname");
 		self.player = { player };
 		self.name = name;
 
@@ -30,6 +96,7 @@
 	refresh: { arg self;
 		self.changed(\selected_slot);
 		self.changed(\connection);
+		self.changed(\range);
 	},
 
 	get_param: { arg self;
@@ -165,11 +232,11 @@
 		self.changed(\selected_slot);
 	},
 
-	make_modulation_pattern: { arg modself;
+	make_modulation_pattern: { arg modself, source_pattern;
 		// self is player object
 		var free_defer_time = 3; // FIXME: hardcoded
 		var out_bus = 0;
-		var self = self.player;
+		var self = modself.player;
 		Pspawner({ arg spawner;
 			var str;
 			var main_note_pat;
@@ -186,16 +253,22 @@
 			var make_note_out_bus;
 			var make_modulator_pattern, make_mixer_pattern;
 			var walk_modulators;
-			"vpattern".debug;
+			"$$$$$$$$$$$$$$$$$$$$ make_modulator_pattern: START".debug;
 
 			ppatch = (
 				note_bus: Dictionary.new,
 				note_group: Dictionary.new,
 				global_bus: Dictionary.new,
 				global_group: Dictionary.new,
-				noteon: List.new,
 				get_mod_bus: { arg self, prefix, name;
-					self.note_bus["mixer_%_%".format(prefix, name).asSymbol];
+					var bus;
+					bus = self.note_bus["mixer_%_%".format(prefix, name).asSymbol];
+					if(bus.notNil) {
+						bus;
+					} {
+						"mixer_%_%".format(prefix, name).asSymbol.debug("error: modulation bus not found");
+						nil
+					}
 				},
 
 			);
@@ -221,7 +294,7 @@
 
 			effect_list.do { arg effect, idx;
 				effect_pat_list.add( effect.vpattern <> Pbind(
-					\ppatch, ppatch,
+					\ppatch, Pfunc{ppatch},
 					\group, Pfunc{ arg ev; ev[\ppatch].global_group[\effects] },
 					\addAction, \addToTail,
 					\in, effect_inbus_list[idx],
@@ -240,6 +313,7 @@
 					var pp = ev[\ppatch];
 					//var pp = ppatch;
 					var group;
+					[key, group_name].debug("make_note_out_bus: key, group_name");
 					pp.note_bus[key] = bus;
 					group = Group.new(pp.global_group[group_name]);
 					ev[\group] = group;
@@ -257,20 +331,16 @@
 
 				if(mod.mod_kind == \pattern) {
 					ppatch.global_bus[out_bus_name] = Bus.alloc(brate, s, 1);
-					modpat = mod.sourcepat(
-						Pbind(
-							\ppatch, ppatch,
+					modpat = Pbind(
+							\ppatch, Pfunc{ppatch},
 							\group, Pfunc{ arg ev; ppatch.global_group[\modulator] },
 							\out, Pfunc{ arg ev; ppatch.global_bus[out_bus_name] }
-						) <> mod.get_dur_pattern
-					);
+						) <> player.get_dur_pattern <> mod.sourcepat;
 				} {
-					modpat = mod.sourcepat(
-						Pbind(
-							\ppatch, ppatch,
+					modpat = Pbind(
+							\ppatch, Pfunc{ppatch},
 							\out, make_note_out_bus.(out_bus_name, \modulator)
-						) <> player.get_dur_pattern
-					);
+						) <> player.get_dur_pattern <> mod.sourcepat;
 				};
 				modpat;
 
@@ -298,8 +368,8 @@
 
 				mixerarglist = List[
 					\instrument, mixer_synthdef_name,
-					\ppatch, ppatch,
-					\carrier, player.get_val(key),
+					\ppatch, Pfunc{ppatch},
+					\carrier, Pfunc{ player.get_arg(key).get_val },
 					\out, make_note_out_bus.(out_bus_name, mixer_group_name),
 				];
 
@@ -318,7 +388,8 @@
 						(\range++idx).asSymbol, modstruct.range
 					]).asList;
 				};
-				if(mods.size > 0) {
+				mixerarglist.debug("make_mixer_pattern: mixerarglist");
+				if(modmixer.get_slots.size > 0) {
 					mixer = Pbind(*mixerarglist) <> player.get_dur_pattern;
 					mixer_list.add(mixer);
 				};
@@ -338,7 +409,7 @@
 				};
 
 				player.modulation.get_modulation_mixers.keysValuesDo { arg key, modmixer;
-					make_mixer_pattern.( player, key, mods, kind )
+					make_mixer_pattern.( player, key, modmixer, kind )
 				}
 			};
 
@@ -353,9 +424,8 @@
 
 			///////// building main pattern
 
-			main_note_pat = self.sourcepat(
-				Pbind(
-					\ppatch, ppatch,
+			main_note_pat = Pbind(
+					\ppatch, Pfunc{ppatch},
 					\doneAction, 14,
 					\out, Pfunc { arg ev; synth_out_bus },
 					\group, Pfunc { arg ev;
@@ -388,11 +458,11 @@
 						});
 						group;
 					}
-				) <> self.get_dur_pattern
-			);
+				) <> source_pattern;
 		
 
-			"blai0".debug;
+			[pattern_modulator_list, note_modulator_list, mixer_list, effect_pat_list].debug("pat, not, mix, eff");
+
 			pattern_modulator_list.do { arg pat;
 				spawner.par(pat);
 			};
@@ -428,6 +498,7 @@
 
 			spawner.par(str);
 			"bla3".debug;
+			"$$$$$$$$$$$$$$$$$$$$ make_modulator_pattern: END".debug;
 		});
 	}
 
@@ -487,6 +558,7 @@
 		self.sourcewrapper = "Pbind(\n\t\\freq, Pkey(\\freq)\n) <> ~pat;\nfalse";
 
 		self.modulation = ~modulation_manager.new(self);
+		self.effects = ~class_effect_manager.new(self);
 
 		self.data = {
 				// use args and defaults values from synthdef to build data dict
@@ -636,12 +708,18 @@
 	},
 
 	get_dur_pattern: { arg self;
-		var arglist;
-		arglist = (self.available_modes ++ [\dur]).collect { arg key;
-			[key, self.get_arg(key)]
+		var arglist = List.new;
+		var val;
+		(self.available_modes ++ [\dur]).do { arg key;
+			val = self.get_arg(key);
+			if(val.notNil) {
+				arglist.add(key);
+				arglist.add(val.vpattern);
+			}
 		};
+		arglist.debug("++++++++++++++++++++++++++++ ARGLIST");
 
-		Pbind(* arglist.flat )
+		Pbind(* arglist )
 	},
 
 	destructor: { arg self;
@@ -664,20 +742,20 @@
 
 	////////////////// effects
 
-	set_effects: { arg self, fxlist;
-		self.effects = fxlist.reject({arg fx; self.get_main.node_exists(fx).not }).asList;
-		self.build_real_sourcepat;
-	},
+	//set_effects: { arg self, fxlist;
+	//	self.effects = fxlist.reject({arg fx; self.get_main.node_exists(fx).not }).asList;
+	//	self.build_real_sourcepat;
+	//},
 
-	add_effect: { arg self, fx;
-		self.effects.add(fx);
-		self.build_real_sourcepat;
-	},
+	//add_effect: { arg self, fx;
+	//	self.effects.add(fx);
+	//	self.build_real_sourcepat;
+	//},
 
 
-	get_effects: { arg self;
-		self.effects;
-	},
+	//get_effects: { arg self;
+	//	self.effects;
+	//},
 
 	////////////////// playing state
 
@@ -1041,6 +1119,17 @@
 		var res, list;
 		var chain;
 		"entering build_real_sourcepat".debug;
+		// stages of building pattern:
+		// - wrapping in wrapper code
+		// - apply input pattern
+		// - wrapping in external wrapper (external player like Passive)
+		// - modulation pspawner, compose with ppatch and put in a kind of Ppar with:
+		//	- modulations patterns
+		//	- effects patterns
+		//	- recorded automation patterns (TO BE DONE)
+
+		// FIXME: currently, modulation and effect patterns don't use input, wrapper and external wrapper patterns
+
 
 		res = if(self.wrapper.notNil) {
 			self.wrapper;
@@ -1079,28 +1168,30 @@
 		};
 
 
-		res = if(self.effects.size > 0) {
-			~pfx.(
-				res,
-				self.effects.collect { arg fx;
-					//fx.debug("effect");
-					self.get_main.get_node(fx).vpattern.postcs;
-				}
-			)
-		} {
-			res;
-		};
+		//res = if(self.effects.size > 0) {
+		//	~pfx.(
+		//		res,
+		//		self.effects.collect { arg fx;
+		//			//fx.debug("effect");
+		//			self.get_main.get_node(fx).vpattern.postcs;
+		//		}
+		//	)
+		//} {
+		//	res;
+		//};
 
 		if(self.external_player.notNil) {
 			res = self.external_wrap(res);
 		};
 
+		res = self.modulation.make_modulation_pattern(res);
+
 		// add bus setting
-		if(self.ccbus_set.size > 0) {
-			list = self.ccbus_set.as(Array).collect({ arg x; x.recordbus.vpattern }).reject(_.isNil) ++ [res];
-			//list.debug("******** build_real_sourcepat: ppar list");
-			res = Ppar( list )
-		};
+		//if(self.ccbus_set.size > 0) {
+		//	list = self.ccbus_set.as(Array).collect({ arg x; x.recordbus.vpattern }).reject(_.isNil) ++ [res];
+		//	//list.debug("******** build_real_sourcepat: ppar list");
+		//	res = Ppar( list )
+		//};
 
 		self.real_sourcepat = res.postcs.trace; //DEBUG
 		//self.real_sourcepat = res.postcs;

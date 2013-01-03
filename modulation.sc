@@ -11,6 +11,11 @@
 
 		self.label.string = "%: %".format(player_ctrl.name, param_ctrl.name);
 
+		
+		self.label.string.debug("class_modulated_param_view: label");
+		modmixer_ctrl.debug("class_modulated_param_view: modmixer_ctrl");
+		modmixer_ctrl.name.debug("class_modulated_param_view: modmixer_ctrl.name");
+
 		~make_class_responder.(self, self.label, modmixer_ctrl.get_param, [
 			\val
 		]);
@@ -40,14 +45,20 @@
 
 	range: { arg self;
 		var range, norm_val;
+		var val, midval;
 		range = self.modmixer_ctrl.get_range(self.modmixer_ctrl.selected_slot);
 		norm_val = self.param_ctrl.get_norm_val;
 		
 		debug("class_modulated_param_view");
 		self.modknob.set_range(self.modmixer_ctrl.selected_slot, range);
 		self.modknob.refresh;
-		self.range_low.string = (if(range < 0) { range  } { 0.0 }).asStringPrec(6);
-		self.range_high.string = (if(range > 0) { range  } { 0.0 }).asStringPrec(6);
+		self.range_slider.value = range/2 + 0.5;
+		val = self.param_ctrl.spec.map(norm_val + range);
+		midval = self.param_ctrl.spec.map(norm_val);
+		//self.range_low.string = (if(range < 0) { range  } { 0.0 }).asStringPrec(6);
+		self.range_low.string = (if(range < 0) { val  } { midval }).asStringPrec(6);
+		//self.range_high.string = (if(range > 0) { val  } { 0.0 }).asStringPrec(6);
+		self.range_high.string = (if(range > 0) { val  } { midval }).asStringPrec(6);
 	},
 
 	connection: { arg self, obj; self.selected_slot(obj) },
@@ -72,7 +83,7 @@
 									self.modulation.select_slot(self.modmixer_ctrl.get_modulator_name(idx));
 								})
 								.receiveDragHandler_({
-									self.modulation.connect_modulator(View.currentDrag, self.param_ctrl.uname, idx);
+									self.modulation.connect_modulator(View.currentDrag, self.param_ctrl.name, idx);
 									View.currentDrag.debug("CURRENTFRAF");
 
 								})
@@ -122,7 +133,7 @@
 		self.player_display = { player_display };
 		self.make_gui;
 		self.modulation_ctrl = { modulation_ctrl };
-		player_display.get_current_player.debug("class_modulator_header_view: player");
+		player_display.get_current_player.uname.debug("class_modulator_header_view: player uname");
 		~make_class_responder.(self, self.label, self.modulation_ctrl, [
 			\selected_slot, \modulator
 		]);
@@ -165,7 +176,7 @@
 		self.make_gui;
 		self.player_display = { player_display };
 
-		~make_class_responder.(self, self.param_group, modulation_ctrl, [
+		~make_class_responder.(self, self.param_group.layout, modulation_ctrl, [
 			\selected_slot, \modulator
 		]);
 		self;
@@ -180,7 +191,7 @@
 
 	modulator: { arg self;
 		self.modulation_ctrl.selected_slot.debug("modulator: selected_slot");
-		self.modulation_ctrl.get_modulator_node(self.modulation_ctrl.selected_slot).debug("modulator: modnode");
+		self.modulation_ctrl.get_modulator_node(self.modulation_ctrl.selected_slot).uname.debug("modulator: modnode name");
 		self.set_controller(self.modulation_ctrl.get_modulator_node(self.modulation_ctrl.selected_slot));
 	},
 
@@ -220,19 +231,24 @@
 		self.modmixer_ctrl = { modmixer_ctrl };
 		self.modulation_ctrl = { player_ctrl.modulation };
 
-		self.make_gui;
+		debug("class_modulation_view.new");
+
+		//self.make_gui;
+		self.make_window;
 		
 		//self.tab_buttons[0].children.debug("=======================================");
 
 		~make_class_responder.(self, self.tab_buttons[0][0], self.modulation_ctrl, [
 			\selected_slot, \modulator
 		]);
+		debug("class_modulation_view.new: fin");
 	
 		self;
 	},
 
 	selected_slot: { arg self;
 		self.tab_buttons.do { arg butlay, idx;
+			idx.debug("class_modulation_view: selected_slot");
 			butlay[1].states_([
 				[self.modulation_ctrl.get_modulator_name(idx) ?? "-", Color.black, if(self.modulation_ctrl.selected_slot == idx) { Color.gray } { Color.white }]
 			])
@@ -281,7 +297,7 @@
 	},
 
 	make_window: { arg self;
-		self.window = Window.new;
+		self.window = Window.new("Modulation");
 		self.window.layout = self.make_gui;
 		self.window.front;
 		self.window;
@@ -529,7 +545,7 @@
 
 	make_gui: { arg self;
 		self.main_view = ~class_modulation_view.new(self, self.modmixer_ctrl, self.player_ctrl, self.param_ctrl);
-		self.window = self.main_view.make_window;
+		self.window = self.main_view.window;
 		self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\modulator);
 	},
 

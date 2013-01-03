@@ -16,6 +16,7 @@ s.waitForBoot{
 //"/home/ggz/code/sc/seco/tracks.sc".load;
 ~synthlib = [
 	\audiotrack_expander,
+	\osc1,
 	\lead2,
 	\pulsepass,
 	\flute1,

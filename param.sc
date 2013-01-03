@@ -2974,6 +2974,12 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 ~make_control_param = { arg main, player, name, kind, default_value, spec;
 	// changed messages: \selected, \selected_cell, \val, \cells, \record
+	
+	// modify this to add param kind:
+	// - side.sc: side.get_extparamlist
+	// - side.sc: make_mini_param_view: player_responder.kind
+	// - matrix.sc: class_param_kind_chooser
+	
 	var param;
 	var bar_length = 4;
 
@@ -3112,6 +3118,35 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			get_selected_cell: { arg self; 0 },
 			add_cells: {},
 			remove_cells: {}
+		),
+
+		modulation: (
+			selected_cell: 0, // always 0
+			val: if(default_value.isArray, { default_value[0] }, { default_value }),
+
+			set_val: { arg self, val, idx=nil;
+				param.scalar.set_val(val, idx);
+			},
+			get_val: { arg self; 
+				param.scalar.get_val;
+			},
+
+			set_norm_val: { arg self, norm_val;
+				param.scalar.set_norm_val(norm_val);
+			},
+			get_norm_val: { arg self;
+				param.scalar.get_norm_val;
+			},
+
+			get_cells: { arg self; 
+				param.scalar.get_cells;
+			},
+
+			select_cell: { arg self, idx; param.seq.selected_cell = idx }, // when changing kind, correct cell is selected in colselect mode
+			get_selected_cell: { arg self; 0 },
+			add_cells: {},
+			remove_cells: {}
+		
 		),
 
 		recordbus: (
@@ -3457,6 +3492,15 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 						\preset, {
 							ev = self.preset.val[self.preset.selected_cell].yield
 						},
+						\modulation, {
+							var bus;
+							if(ev[\ppatch].notNil) {
+								ev = ev[\ppatch].get_mod_bus(player.uname, self.name).asMap.yield;
+							} {
+								[player.uname, self.name].debug("param modulation: ppatch not found");
+								ev = 0.yield;
+							};
+						},
 						\bus, {
 							ev = self.bus.get_bus.asMap.yield;
 						},
@@ -3497,7 +3541,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				repeat.do { arg x;
 					kind = self.current_kind;
 					mode = player.get_mode;
-					[self.name, x, ev].debug("============== ev");
+					//[self.name, x, ev].debug("============== ev");
 					ev = get_val.(ev, mode, kind);
 				}
 			});

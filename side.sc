@@ -93,6 +93,7 @@
 						\seg, { "sg" },
 						\scalar, { "sca" },
 						\bus, { "bus" },
+						\modulation, { "mod" },
 						\recordbus, { "rbu" },
 						\preset, { "pre" },
 						{ "???" }
@@ -851,9 +852,9 @@
 		param_slider_group: List[\amp, \legato, \pan, \attack, \sustain, \release],
 		param_status_group: List[\amp, \dur, \segdur, \stretchdur, \repeat, \bufnum, \samplekit],
 		param_order: List[\sustain, \pan, \attack, \release, \adsr, \freq],
-		param_mode: [\stepline, \noteline, \sampleline, \nodeline],
+		param_mode: [\stepline, \noteline, \sampleline, \nodeline, \scoreline],
 		param_no_midi: { arg self; self.param_field_group ++ [\bufnum, \samplekit] ++ self.param_mode; },
-		param_reject: { arg self; [\out, \instrument, \type, \gate, \agate, \t_trig] ++ self.param_mode; },
+		param_reject: { arg self; [\out, \instrument, \type, \gate, \agate, \t_trig, \doneAction] ++ self.param_mode; },
 	);
 
 	side = (
@@ -1066,6 +1067,7 @@
 						\scalar, { false },
 						\bus, { false },
 						\preset, { false },
+						\modulation, { false }, // TODO: add a representation for modulated params
 						// else
 						{ true }
 					);

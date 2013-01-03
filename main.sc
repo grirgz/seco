@@ -42,7 +42,7 @@
 		knob: 8,
 		slider: 8
 	),
-	safe_inf: 10000,
+	safe_inf: 10,
 	bank: 10,
 	children_per_groupnode: 16,
 	children_part_per_groupnode: 4, // keyboard can access to only 4 children at the same time
@@ -120,7 +120,10 @@
 		controller.put(key, val)
 	};
 
-	parent.onClose = parent.onClose.addFunc { controller.remove };
+	parent.onClose = parent.onClose.addFunc { 
+		parent.debug("make_view_responder: close parent");
+		controller.remove
+	};
 
 	if(auto_refresh) { model.refresh() };
 
