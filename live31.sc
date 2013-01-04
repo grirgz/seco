@@ -168,3 +168,9 @@ Mdef(\rouge, Pbind(
 )
 
 Mdef.node(\rouge).modulation.get_modulator_node(0)
+
+
+
+Mdef.node("osc1_l1045").modulation.get_modulation_mixers[\ffreq].dump
+Mdef.node("lfo1_l1046").modulation.get_modulation_mixers[\freq].dump
+

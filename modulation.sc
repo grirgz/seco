@@ -1,28 +1,32 @@
 
+// ==========================================
+// MODULATION VIEW
+// ==========================================
+
 ~class_modulated_param_view = (
-	new: { arg self, modmixer_ctrl, player_ctrl, param_ctrl;
+	new: { arg self, controller;
 		self = self.deepCopy;
-		self.modmixer_ctrl = { modmixer_ctrl };
-		self.player_ctrl = { player_ctrl };
-		self.param_ctrl = { param_ctrl };
-		self.modulation = { player_ctrl.modulation };
+		self.modmixer_ctrl = { controller.modmixer_ctrl };
+		self.player_ctrl = { controller.player_ctrl };
+		self.param_ctrl = { controller.param_ctrl };
+		self.modulation_ctrl = { controller.modulation_ctrl };
+		self.controller = { controller };
 
 		self.make_gui;
 
-		self.label.string = "%: %".format(player_ctrl.name, param_ctrl.name);
+		self.label.string = "%: %".format(controller.parent_player_ctrl.name, controller.param_ctrl.name);
 
+		debug("class_modulated_param_view.new");
 		
-		self.label.string.debug("class_modulated_param_view: label");
-		modmixer_ctrl.debug("class_modulated_param_view: modmixer_ctrl");
-		modmixer_ctrl.name.debug("class_modulated_param_view: modmixer_ctrl.name");
-
-		~make_class_responder.(self, self.label, modmixer_ctrl.get_param, [
+		~make_class_responder.(self, self.label, controller.param_ctrl, [
 			\val
 		]);
 
-		~make_class_responder.(self, self.label, modmixer_ctrl, [
+		~make_class_responder.(self, self.label, controller.modmixer_ctrl, [
 			\selected_slot, \connection, \range,
 		]);
+
+		debug("class_modulated_param_view.new: fin");
 
 		self;
 	},
@@ -37,7 +41,7 @@
 	selected_slot: { arg self, obj;
 		self.slots.do { arg but, idx;
 			but.states = [
-				[obj.get_modulator_node_name(idx) ?? "-", Color.black, if(obj.selected_slot == idx) { Color.gray } { Color.white }]
+				[self.controller.get_modulator_name_from_target_slot(idx) ?? "-", Color.black, if(obj.selected_slot == idx) { Color.gray } { Color.white }]
 			]
 		};
 	
@@ -80,10 +84,10 @@
 								])
 								.action_({
 									self.modmixer_ctrl.select_slot(idx);
-									self.modulation.select_slot(self.modmixer_ctrl.get_modulator_name(idx));
+									self.modulation_ctrl.select_slot(self.modmixer_ctrl.get_modulator_name(idx));
 								})
 								.receiveDragHandler_({
-									self.modulation.connect_modulator(View.currentDrag, self.param_ctrl.name, idx);
+									self.controller.connect_modulator(View.currentDrag, idx);
 									View.currentDrag.debug("CURRENTFRAF");
 
 								})
@@ -128,37 +132,65 @@
 );
 
 ~class_modulator_header_view = (
-	new: { arg self, player_display, modulation_ctrl;
+	new: { arg self, player_display;
 		self = self.deepCopy;
 		self.player_display = { player_display };
 		self.make_gui;
-		self.modulation_ctrl = { modulation_ctrl };
+		self.modulation_ctrl = { player_display.parent_modulation_ctrl };
 		player_display.get_current_player.uname.debug("class_modulator_header_view: player uname");
+		// FIXME: same modulation_ctrl
 		~make_class_responder.(self, self.label, self.modulation_ctrl, [
-			\selected_slot, \modulator
+			\modulator
 		]);
+		~make_class_responder.(self, self.label, self.player_display.parent_modulation_ctrl, [
+			\selected_slot
+		]);
+
 
 		self;
 	},
 
 	modulator: { arg self;
-		self.label.string = self.player_display.get_current_player.uname;
-		//TODO: mod_kind
+		//self.label.string = self.player_display.get_current_player.uname;
+		self.selected_slot;
 	},
 
 	selected_slot: { arg self;
-		self.label.string = self.player_display.get_current_player.uname;
-		//TODO: mod_kind
+		var player;
+		player = self.player_display.get_current_player;
+		if(player.notNil) {
+			self.label.string = player.uname;
+			if(player.modulation.notNil) {
+				if(self.modresponder.notNil) {
+					self.modresponder.remove;
+				};
+				self.modresponder = ~make_class_responder.(self, self.label, player.modulation, [
+					\mod_kind
+				], false);
+				self.kind_label.string = player.modulation.mod_kind;
+			}
+		};
+	},
+
+	mod_kind: { arg self;
+		var player;
+		debug("handler: mod_kind");
+		player = self.player_display.get_current_player;
+		if(player.notNil) {
+			if(player.modulation.notNil) {
+				self.kind_label.string = player.modulation.mod_kind;
+			}
+		}
 	},
 
 	make_gui: { arg self;
 		self.layout = HLayout(
 			self.label = StaticText.new
-				.string_("LFO1");
+				.string_("-");
 				self.label,
 
 			self.kind_label = StaticText.new
-				.string_("Note");
+				.string_("-");
 				self.kind_label,
 
 		);
@@ -168,31 +200,34 @@
 );
 
 ~class_modulator_body_basic = (
-	new: { arg self, player_display, modulation_ctrl;
+	new: { arg self, player_display;
 		self = self.deepCopy;
 		//self.make_gui;
-		self.modulation_ctrl = { modulation_ctrl };
+		self.modulation_ctrl = { player_display.modulation_ctrl };
 
 		self.make_gui;
 		self.player_display = { player_display };
 
-		~make_class_responder.(self, self.param_group.layout, modulation_ctrl, [
-			\selected_slot, \modulator
+		~make_class_responder.(self, self.param_group.layout, self.modulation_ctrl, [
+			\modulator
+		]);
+		~make_class_responder.(self, self.param_group.layout, self.player_display.parent_modulation_ctrl, [
+			\selected_slot
 		]);
 		self;
 	},
 
 	selected_slot: { arg self;
 		var nodename;
-		self.modulation_ctrl.selected_slot.debug("selected_slot: mod: selected_slot");
-		self.modulation_ctrl.get_modulator_node(self.modulation_ctrl.selected_slot).uname.debug("selected_slot: modnode name");
-		self.set_controller(self.modulation_ctrl.get_modulator_node(self.modulation_ctrl.selected_slot));
+		//self.modulation_ctrl.selected_slot.debug("selected_slot: mod: selected_slot");
+		//self.modulation_ctrl.get_modulator_node(self.modulation_ctrl.selected_slot).uname.debug("selected_slot: modnode name");
+		self.set_controller(self.modulation_ctrl.get_modulator_node(self.player_display.selected_slot));
 	},
 
 	modulator: { arg self;
-		self.modulation_ctrl.selected_slot.debug("modulator: selected_slot");
-		self.modulation_ctrl.get_modulator_node(self.modulation_ctrl.selected_slot).uname.debug("modulator: modnode name");
-		self.set_controller(self.modulation_ctrl.get_modulator_node(self.modulation_ctrl.selected_slot));
+		//self.modulation_ctrl.selected_slot.debug("modulator: selected_slot");
+		//self.modulation_ctrl.get_modulator_node(self.modulation_ctrl.selected_slot).uname.debug("modulator: modnode name");
+		self.set_controller(self.modulation_ctrl.get_modulator_node(self.player_display.selected_slot));
 	},
 
 	set_controller: { arg self, player;
@@ -223,13 +258,15 @@
 );
 
 ~class_modulation_view = (
-	new: { arg self, player_display, modmixer_ctrl, player_ctrl, param_ctrl;
+	new: { arg self, controller;
 		self = self.deepCopy;
-		self.player_display = { player_display };
-		self.player_ctrl = { player_ctrl };
-		self.param_ctrl = { param_ctrl };
-		self.modmixer_ctrl = { modmixer_ctrl };
-		self.modulation_ctrl = { player_ctrl.modulation };
+		self.player_display = { controller };
+		self.player_ctrl = { controller.player_ctrl };
+		self.param_ctrl = { controller.param_ctrl };
+		self.modmixer_ctrl = { controller.modmixer_ctrl };
+		self.modulation_ctrl = { controller.modulation_ctrl };
+		self.parent_modulation_ctrl = { controller.parent_modulation_ctrl };
+		self.controller = { controller };
 
 		debug("class_modulation_view.new");
 
@@ -238,8 +275,11 @@
 		
 		//self.tab_buttons[0].children.debug("=======================================");
 
-		~make_class_responder.(self, self.tab_buttons[0][0], self.modulation_ctrl, [
-			\selected_slot, \modulator
+		~make_class_responder.(self, self.tab_buttons[0][0], self.controller.modulation_ctrl, [
+			\modulator
+		]);
+		~make_class_responder.(self, self.tab_buttons[0][0], self.controller.parent_modulation_ctrl, [
+			\selected_slot
 		]);
 		debug("class_modulation_view.new: fin");
 	
@@ -250,7 +290,7 @@
 		self.tab_buttons.do { arg butlay, idx;
 			idx.debug("class_modulation_view: selected_slot");
 			butlay[1].states_([
-				[self.modulation_ctrl.get_modulator_name(idx) ?? "-", Color.black, if(self.modulation_ctrl.selected_slot == idx) { Color.gray } { Color.white }]
+				[self.controller.get_modulator_name_from_source_slot(idx) ?? "-", Color.black, if(self.controller.is_slot_selected(idx)) { Color.gray } { Color.white }]
 			])
 		};
 	},
@@ -268,7 +308,7 @@
 						["-"]
 					])
 					.action_({
-						self.modulation_ctrl.select_slot(idx);
+						self.parent_modulation_ctrl.select_slot(idx);
 					}),
 			];
 			lay;
@@ -286,10 +326,10 @@
 		self.layout = VLayout(
 			self.make_tabs,
 			HLayout(
-				self.mod_param = ~class_modulated_param_view.new(self.modmixer_ctrl, self.player_ctrl, self.param_ctrl); self.mod_param.layout,
+				self.mod_param = ~class_modulated_param_view.new(self.controller); self.mod_param.layout,
 				[VLayout(
-					self.mod_header = ~class_modulator_header_view.new(self.player_display, self.modulation_ctrl); self.mod_header.layout,
-					self.mod_body = ~class_modulator_body_basic.new(self.player_display, self.modulation_ctrl); self.mod_body.layout,
+					self.mod_header = ~class_modulator_header_view.new(self.controller); self.mod_header.layout,
+					self.mod_body = ~class_modulator_body_basic.new(self.controller); self.mod_body.layout,
 				), stretch:1]
 			)
 		);
@@ -305,7 +345,9 @@
 );
 
 
-/////////////////////////////// controllers
+// ==========================================
+// MODULATION CONTROLLERS
+// ==========================================
 
 
 ~class_player_display = (
@@ -353,6 +395,12 @@
 
 	},
 
+	get_selected_param: { arg self; 
+		var player = self.get_current_player;
+		var param_name = player.get_selected_param;
+		player.get_arg(param_name);
+	},
+
 	select_param: { arg self, index;
 		var oldsel, sel;
 		var pl;
@@ -393,6 +441,24 @@
 			debug("ERROR: side: select_param: current_player is nil");
 		};
 
+	},
+
+	change_param_kind: { arg self, kind;
+		var param = self.get_selected_param;
+		if(param.classtype == \control, {
+			if(kind == \pkey) {
+				param.set_pkey_mode(param.pkey_mode.not);
+			} {
+				param.change_kind(kind);
+			};
+			self.changed(\extparamlist);
+		});
+		if(param.classtype == \buf, {
+			if(kind == \pkey) {
+				param.set_pkey_mode(param.pkey_mode.not);
+				self.changed(\extparamlist);
+			};
+		});
 	},
 
 	make_param_display: { arg editplayer, param, player=nil;
@@ -521,17 +587,26 @@
 
 ~class_modulation_controller = (
 	parent: ~class_player_display,
-	new: { arg self, main, player_ctrl, param_ctrl;
+	selected_slot: 0,
+
+	new: { arg self, main, player_ctrl, parent_player_ctrl, param_ctrl;
 		var modmixer;
 		self = self.deepCopy;
+
+		//self.parent_player = { parent_player };
+		//self.mod_player = { mod_player };
+
+		self.parent_player_ctrl = { parent_player_ctrl ?? player_ctrl };
 
 		self.get_main = { main };
 		self.player_ctrl = { player_ctrl };
 		self.param_ctrl = { param_ctrl };
+		self.modulation_ctrl = { player_ctrl.modulation };
+		self.parent_modulation_ctrl = { self.parent_player_ctrl.modulation };
 
 		self.param_ctrl.name.debug("class_modulation_controller param name");
 
-		modmixer = player_ctrl.modulation.get_modulation_mixer(self.param_ctrl.name);
+		modmixer = self.parent_player_ctrl.modulation.get_modulation_mixer(self.param_ctrl.name);
 		self.modmixer_ctrl = { modmixer };
 
 		self.model.param_no_midi = self.param_types.param_no_midi;
@@ -543,9 +618,38 @@
 		self;
 	},
 
+	is_slot_selected: { arg self, idx;
+		self.parent_modulation_ctrl.selected_slot == idx;
+	},
+
+	select_slot: { arg self, idx;
+		self.parent_modulation_ctrl.select_slot(idx);
+	},
+
+	selected_slot: { arg self, idx;
+		self.parent_modulation_ctrl.selected_slot
+	},
+
+	connect_modulator: { arg self, source, target;
+		var param_name = self.param_ctrl.name;
+		self.parent_modulation_ctrl.connect_modulator(source, param_name, target);
+	},
+
+	get_modulator_name_from_source_slot: { arg self, slot;
+		self.modulation_ctrl.get_modulator_name(slot)
+	},
+
+	get_modulator_name_from_target_slot: { arg self, slot;
+		var source;
+		source = self.modmixer_ctrl.get_source_slot_from_target_slot(slot);
+		source.debug("get_modulator_name_from_target_slot: source");
+		self.modulation_ctrl.get_modulator_name(source)
+	},
+
 	make_gui: { arg self;
-		self.main_view = ~class_modulation_view.new(self, self.modmixer_ctrl, self.player_ctrl, self.param_ctrl);
+		self.main_view = ~class_modulation_view.new(self);
 		self.window = self.main_view.window;
+		self.window.view.toFrontAction = { self.make_bindings };
 		self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\modulator);
 	},
 
@@ -558,17 +662,45 @@
 			}],
 
 			[\load_modulator, {
-				~class_symbol_chooser.new(self.get_main, [\lfo1], { arg libmodnodename;
+				~class_symbol_chooser.new(self.get_main, [\lfo1,\line1], { arg libmodnodename;
 					var nodename;
 					var mod = self.player_ctrl.modulation;
 					nodename = self.get_main.node_manager.make_livenode_from_libmodnode(libmodnodename);
-					mod.set_modulator_name(mod.selected_slot, nodename);
+					mod.set_modulator_name(self.selected_slot, nodename);
 				})
+			}],
+
+			[\edit_modulator, {
+				var player = self.get_current_player;
+				var param = self.get_selected_param;
+				~class_modulation_controller.new(self.get_main, self.player_ctrl, player, param);
+			}],
+
+			[\select_player, 10, { arg i;
+				self.parent_modulation_ctrl.select_slot((i-1).clip(0,8));
 			}],
 
 			[\select_param, 32, { arg i;
 				self.select_param(i)
 			}],
+
+			[\change_param_kind, {
+				if(self.param_types.param_mode.includes(self.get_selected_param.name).not) {
+					~class_param_kind_chooser.new(self.get_main, { arg sel;
+						self.change_param_kind(sel);
+					})
+				}
+			}],
+
+			[\change_mod_kind, {
+				var player = self.get_current_player;
+				if(player.notNil) {
+					~class_symbol_chooser.new(self.get_main, [\note,\pattern], { arg kind;
+						player.modulation.set_mod_kind(kind);
+					}, player.modulation.mod_kind)
+				}
+			}],
+
 		]);
 	
 	},
@@ -582,4 +714,587 @@
 	win.front;
 };
 
-////////////////////////////////
+// ===========================================
+// MODULATION MANAGERS (associated to players)
+// ===========================================
+
+~make_modmixer = { arg name, rate=\kr, spec, kind=\normal;
+	var sdname = "modmixer_%_%".format(name, spec.asCompileString.hash).asSymbol;
+	sdname.debug("make_modmixer");
+
+	SynthDef(sdname, { arg carrier, out, in1=0, range1=0, in2=0, range2=0, in3=0, range3=0;
+		var sig1, sig2, sig3;
+		var sig;
+		var inrate;
+		"bla".debug;
+		if(kind == \normal) {
+			inrate = { arg ... args; In.performList(rate, args) };
+		} {
+			//inrate = { arg ... args; InFeedback.performList(rate, args) };
+			inrate = { arg ... args; In.performList(rate, args) };
+		};
+		"blai".debug;
+		sig1 = inrate.(in1);
+		"blaii".debug;
+		sig2 = inrate.(in2);
+		sig3 = inrate.(in3);
+		"blauii".debug;
+		
+		sig = [
+			spec.unmap(carrier),
+			sig1 * range1,
+			sig2 * range2,
+			sig3 * range3,
+		].sum;
+		sig = spec.map(sig);
+		//sig.poll;
+		Out.perform(rate, out, sig);
+
+	}).add;
+	sdname;
+};
+
+~class_effect_manager = (
+	effect_list: List.newClear(5),
+	new: { arg self, player;
+		self = self.deepCopy;
+		self.get_player = { arg self; player };
+
+		self;	
+	},
+
+	set_effect: { arg self, idx, effect_node;
+		self.effect_list[idx] = effect_node;
+	},
+
+	get_effect: { arg self, idx;
+		self.effect_list[idx]
+	},
+
+	swap_effect: { arg self, idx_source, idx_dest;
+		var tmp = self.effect_list.removeAt(idx_source);
+		self.effect_list.insert(idx_dest, tmp);
+	},
+
+	vpattern: { arg self;
+		
+	
+	}
+
+);
+
+~class_modulation_mixer_controller = (
+	offset: 0,
+	modulator: 0,
+	slots_number: 3,
+	slots: nil,
+	selected_slot: 0,
+
+
+	new: { arg self, name, player;
+		self = self.deepCopy;
+		
+		[name, player.uname].debug("******************* class_modulation_mixer_controller: name, playeruname");
+		self.player = { player };
+		self.name = name;
+
+		self.slots = Dictionary.new;
+
+		self;
+	},
+
+	get_slots: { arg self;
+		self.slots
+	},
+
+	refresh: { arg self;
+		self.changed(\selected_slot);
+		self.changed(\connection);
+		self.changed(\range);
+	},
+
+	get_param: { arg self;
+		self.player.get_arg(self.name);
+	},
+
+	get_range: { arg self, idx;
+		if(self.slots[idx].notNil) {
+			self.slots[idx].range
+		} {
+			0
+		}
+	},
+
+	set_range: { arg self, idx, range;
+		
+		[idx, range, self.slots[idx]].debug("class_modulation_mixer_controller: idx, range");
+		if(self.slots[idx].notNil) {
+			self.slots[idx].range = range;
+			self.changed(\range);
+		} {
+			nil
+		}
+	},
+
+	connect_slot: { arg self, source_slot, target_slot;
+		if(self.slots[target_slot].isNil) {
+			self.slots[target_slot] = (range:0)
+		};
+		self.slots[target_slot].name = source_slot;
+		self.changed(\connection);
+	},
+
+	disconnect_slot: { arg self, target_slot;
+		if(self.slots[target_slot].notNil) {
+			self.slots[target_slot].name = nil;
+		};
+		self.changed(\connection);
+	},
+
+	get_modulator_name: { arg self, idx;
+		// the name is the key in the modulator dictionnary
+		if(self.slots[idx].notNil) {
+			self.slots[idx].name
+		} {
+			nil
+		}
+	},
+
+	get_source_slot_from_target_slot: { arg self, idx;
+		// the name is the key in the modulator dictionnary
+		if(self.slots[idx].notNil) {
+			self.slots[idx].name
+		} {
+			nil
+		}
+	},
+
+	get_modulator_node_name: { arg self, idx;
+		if(self.slots[idx].notNil) {
+			self.player.modulation.get_modulator_name(self.slots[idx].name)
+		}
+	},
+
+	select_slot: { arg self, slotidx;
+		self.selected_slot = slotidx;
+		self.changed(\selected_slot);
+	}
+
+);
+
+~class_modulation_manager = (
+
+	modulators: Dictionary.new,
+	modulation_mixers: Dictionary.new,
+	mod_kind: \note,
+	selected_slot: 0,
+
+	new: { arg self, player;
+		self = self.deepCopy;
+		self.player = { player };
+	
+		self;
+	},
+
+	refresh: { arg self;
+		self.changed(\selected_slot);
+		self.changed(\mod_kind);
+	},
+
+	set_mod_kind: { arg self, kind;
+		if(kind != self.mod_kind) {
+			self.mod_kind = kind;
+			self.changed(\mod_kind)
+		}
+	},
+
+	connect_modulator: { arg self, source_slot, param_name, target_slot;
+		// target: param key name
+		// index: target_slot
+		// modname: source_slot
+		if(self.modulation_mixers[param_name].isNil) {
+			self.modulation_mixers[param_name] = ~class_modulation_mixer_controller.new(param_name, self.player);
+		};
+		self.modulation_mixers[param_name].connect_slot(source_slot, target_slot);
+	},
+
+	disconnect_modulator: { arg self, target, index;
+		if(self.modulation_mixers[target].notNil) {
+			self.modulation_mixers[target].disconnect_slot(index);
+		};
+	},
+
+
+	get_modulators: { arg self;
+		self.modulators;
+	},
+
+	get_modulation_mixer: { arg self, name;
+		// FIXME: what if there is no param with this name ?
+		if(self.modulation_mixers[name].isNil) {
+			self.modulation_mixers[name] = ~class_modulation_mixer_controller.new(name, self.player);
+		};
+		self.modulation_mixers[name];
+	
+	},
+
+	get_modulation_mixers: { arg self;
+		self.modulation_mixers
+	},
+
+	get_modulator_name: { arg self, idx;
+		self.modulators[idx];
+	},
+
+	get_modulator_node: { arg self, idx;
+		var nodename;
+		if(idx.isNil) {
+			nodename = \voidplayer;
+		} {
+			nodename = self.modulators[idx] ?? \voidplayer;
+		};
+		self.player.get_main.get_node(nodename);
+	},
+
+	set_modulator_name: { arg self, idx, mod_name;
+		self.modulators[idx] = mod_name;
+		self.changed(\modulator, idx);
+	},
+
+	select_slot: { arg self, slotidx;
+		self.selected_slot = slotidx;
+		self.changed(\selected_slot);
+	},
+
+	make_modulation_pattern: { arg self, source_pattern;
+		var free_defer_time = 3; // FIXME: hardcoded
+		var out_bus = 0;
+		var mainplayer = self.player;
+		Pspawner({ arg spawner;
+			var str;
+			var main_note_pat;
+			var mixer_list = List.new;
+			var note_modulator_list = List.new;
+			var pattern_modulator_list = List.new;
+			var effect_list = List.new;
+			var effect_pat_list = List.new;
+			var effect_inbus_list = List.new;
+			var effect_outbus_list = List.new;
+			var synth_out_bus;
+			var ppatch;
+			var rate = \kr;
+			var make_note_out_bus;
+			var make_modulator_pattern, make_mixer_pattern;
+			var walk_modulators;
+			var done_modulators = Set.new;
+			var allocator_note_pattern;
+			var note_bus_alloc_list = List.new;
+			"$$$$$$$$$$$$$$$$$$$$ make_modulator_pattern: START".debug;
+
+			ppatch = (
+				note_bus: Dictionary.new,
+				note_group: Dictionary.new,
+				global_bus: Dictionary.new,
+				global_group: Dictionary.new,
+				get_mod_bus: { arg ppself, prefix, name;
+					var bus;
+					bus = ppself.note_bus["mixer_%_%".format(prefix, name).asSymbol];
+					if(bus.notNil) {
+						bus;
+					} {
+						"mixer_%_%".format(prefix, name).asSymbol.debug("error: modulation bus not found");
+						nil
+					}
+				},
+
+			);
+
+			///////// building effects patterns
+
+			effect_list = mainplayer.effects.effect_list.reject({ arg ef; ef.isNil or:{ ef.disabled == true } });
+
+			if(effect_list.size == 0) {
+				synth_out_bus = out_bus;
+			} {
+				ppatch.global_bus[\synth] = Bus.audio(s, 2);
+				synth_out_bus = ppatch.global_bus[\synth];
+				effect_inbus_list.add(ppatch.global_bus[\synth]);
+				(effect_list.size - 1).do { arg idx;
+					var bus = Bus.audio(s, 2);
+					ppatch.global_bus["effect_%".format(idx).asSymbol] = bus;
+					effect_outbus_list.add(bus);
+					effect_inbus_list.add(bus);
+				};
+				effect_outbus_list.add(out_bus);
+			};
+
+			effect_list.do { arg effect, idx;
+				effect_pat_list.add( effect.vpattern <> Pbind(
+					\ppatch, Pfunc{ppatch},
+					\group, Pfunc{ arg ev; ev[\ppatch].global_group[\effects] },
+					\addAction, \addToTail,
+					\in, effect_inbus_list[idx],
+					\out, effect_outbus_list[idx],
+				))
+			};
+
+			///////// functions
+
+
+			//make_note_out_bus = { arg key, group_name;
+			//	note_bus_alloc_list = 
+			//	Pfunc{ arg ev;
+			//		//var brate = if(rate == \kr) { \control } { \audio };
+			//		var brate = \control;
+			//		var bus = Bus.alloc(brate, s, 1);
+			//		var pp = ev[\ppatch];
+			//		//var pp = ppatch;
+			//		var group;
+			//		[key, group_name].debug("make_note_out_bus: key, group_name");
+			//		pp.note_bus[key] = bus;
+			//		group = Group.new(pp.global_group[group_name]);
+			//		ev[\group] = group;
+			//		pp.note_group[key] = group;
+			//		bus;
+			//	}
+			//};
+
+			make_note_out_bus = { arg key, group_name;
+				note_bus_alloc_list.add(key);
+				Pfunc{ arg ev;
+					var brate = \control;
+					//var bus = Bus.alloc(brate, s, 1);
+					var pp = ev[\ppatch];
+					var group;
+					[key, group_name].debug("make_note_out_bus: key, group_name");
+					group = Group.new(pp.global_group[group_name]);
+					ev[\group] = group;
+					pp.note_group[key] = group;
+					pp.note_bus[key];
+				}
+			};
+
+			make_modulator_pattern = { arg player, mod, key;
+				var modpat;
+				var out_bus_name;
+				var brate = if(rate == \kr) { \control } { \audio };
+				// key is modulator source slot index
+				out_bus_name = "mod_%_%".format(player.uname, mod.uname).asSymbol;
+
+				if(mod.modulation.mod_kind == \pattern) {
+					ppatch.global_bus[out_bus_name] = Bus.alloc(brate, s, 1);
+					modpat = Pmono(mod.get_arg(\instrument).get_val,
+							//\ppatch, Pfunc{ppatch},
+							\group, Pfunc{ arg ev; ppatch.global_group[\modulator] },
+							\out, Pfunc{ arg ev; ppatch.global_bus[out_bus_name] }
+						) <> mod.sourcepat <> Pbind(\ppatch, Pfunc{ppatch});
+				} {
+					modpat = Pbind(
+							//\ppatch, Pfunc{ppatch},
+							\out, make_note_out_bus.(out_bus_name, \modulator)
+						) <> player.get_dur_pattern <> mod.sourcepat <> Pbind(\ppatch, Pfunc{ppatch});
+				};
+				modpat;
+
+			};
+
+			make_mixer_pattern = { arg player, key, modmixer, kind=\normal;
+				// key is pattern key name which is modulated
+				var mixer;
+				var mixer_synthdef_name;
+				var mixerarglist = List.new;
+				var mixer_group_name;
+				var out_bus_name;
+				var spec;
+
+				//if(kind == \normal) {
+				//	mixer_group_name = \mixer;
+				//} {
+				//	mixer_group_name = \fbmixer;
+				//};
+				mixer_group_name = \mixer;
+
+				spec = player.get_arg(key).spec;
+
+				mixer_synthdef_name = ~make_modmixer.(key, rate, spec, kind);
+				out_bus_name = "mixer_%_%".format(player.uname, key).asSymbol;
+
+				mixerarglist = List[
+					\instrument, mixer_synthdef_name,
+					\ppatch, Pfunc{ppatch},
+					\carrier, Pfunc{ player.get_arg(key).get_val },
+					\out, make_note_out_bus.(out_bus_name, mixer_group_name),
+				];
+
+				modmixer.get_slots.keysValuesDo { arg slotidx, modstruct, idx;
+					var in_bus_name = "mod_%_%".format(mainplayer.uname, mainplayer.modulation.get_modulator_name(modstruct.name)).asSymbol;
+					idx = idx + 1;
+					mixerarglist = (mixerarglist ++ [
+						(\in++idx).asSymbol, Pfunc{ arg ev;
+							[in_bus_name, modstruct, idx].debug("mixer: in");
+							if(mainplayer.modulation.get_modulator_node(modstruct.name).modulation.mod_kind == \pattern) {
+								ev[\ppatch].global_bus[in_bus_name];
+							} {
+								ev[\ppatch].note_bus[in_bus_name];
+							}
+						},
+						(\range++idx).asSymbol, Pfunc{modstruct.range}
+					]).asList;
+				};
+				mixerarglist.debug("make_mixer_pattern: mixerarglist");
+				mixer = Pbind(*mixerarglist) <> mainplayer.get_dur_pattern;
+				mixer_list.add(mixer);
+			};
+
+			///////// building modulators and mixer patterns
+
+			walk_modulators = { arg player, kind=\feedback;
+				player.modulation.get_modulation_mixers.keysValuesDo { arg key, modmixer;
+					if(modmixer.get_slots.size > 0) {
+						modmixer.get_slots.keysValuesDo { arg slotidx, modstruct, idx;
+							var modname = mainplayer.modulation.get_modulators[modstruct.name];
+							var modnode = mainplayer.get_main.get_node(modname);
+							if(done_modulators.includesEqual(modname).not) {
+								done_modulators = done_modulators.add(modname);
+								if(modnode.modulation.mod_kind == \pattern) {
+									pattern_modulator_list.add( make_modulator_pattern.(mainplayer, modnode) )
+								} {
+									note_modulator_list.add( make_modulator_pattern.(mainplayer, modnode) )
+								};
+								walk_modulators.(modnode);
+							}
+						};
+						make_mixer_pattern.( player, key, modmixer, kind );
+					};
+				};
+			};
+
+			walk_modulators.( mainplayer, \normal );
+
+
+
+
+			//walk_modulators = { arg player, kind=\feedback;
+			//	player.modulation.get_modulators.keysValuesDo { arg key, modname;
+			//		var modnode = player.get_main.get_node(modname);
+			//		if(modnode.mod_kind == \pattern) {
+			//			pattern_modulator_list.add( make_modulator_pattern.(mainplayer, modnode, key) )
+			//		} {
+			//			note_modulator_list.add( make_modulator_pattern.(mainplayer, modnode, key) )
+			//		};
+			//		walk_modulators.( modnode );
+			//	};
+
+			//	player.modulation.get_modulation_mixers.keysValuesDo { arg key, modmixer;
+			//		make_mixer_pattern.( player, key, modmixer, kind )
+			//	}
+			//};
+
+
+			///////// creating global groups
+
+			ppatch.global_group[\modulator] = Group.new(s);
+			ppatch.global_group[\mixer] = Group.after(ppatch.global_group[\modulator]);
+			ppatch.global_group[\synth] = Group.after(ppatch.global_group[\mixer]);
+			ppatch.global_group[\effects] = Group.after(ppatch.global_group[\synth]);
+
+			///////// building main pattern
+
+			main_note_pat = Pbind(
+					//\ppatch, Pfunc{ppatch},
+					\doneAction, 14,
+					\out, Pfunc { arg ev; synth_out_bus },
+					\group, Pfunc { arg ev;
+						var pp = ev[\ppatch];
+						var group;
+						var note_group;
+						var note_bus;
+						//var freq = ev[\freq].value(ev);
+						debug("synth: group");
+						group = Group.new(pp.global_group[\synth]);
+						group.register;
+						pp.note_group[mainplayer.name] = group;
+						note_group = pp.note_group.copy;
+						note_bus = pp.note_bus.copy;
+						group.addDependant({ arg grp, status;
+							[grp, status].debug("dependant");
+							if(status == \n_end) {
+								"freeing".debug;
+								note_group.keysValuesDo { arg gname, gobj;
+									gname.debug("free group");
+									if(gname != mainplayer.name) {
+										gobj.free
+									}
+								};
+								note_bus.keysValuesDo { arg bname, bobj;
+									bname.debug("free bus");
+									bobj.free;
+								};
+							}
+						});
+						group;
+					}
+				) <> source_pattern <> Pbind(\ppatch, Pfunc{ppatch});
+		
+			allocator_note_pattern = mainplayer.get_dur_pattern <> Pbind(
+				\type, \rest,
+				\ppatch, Pfunc{ppatch},
+				\alloc, Pfunc{ arg ev;
+					note_bus_alloc_list.do { arg key;
+						key.debug("alloc note bus");
+						ev[\ppatch].note_bus[key] = Bus.control(s, 1);
+					}
+				}
+			);
+
+			[pattern_modulator_list, note_modulator_list, mixer_list, effect_pat_list].debug("pat, not, mix, eff");
+
+			spawner.par(allocator_note_pattern);
+
+			pattern_modulator_list.do { arg pat;
+				spawner.par(pat);
+			};
+			note_modulator_list.do { arg pat;
+				spawner.par(pat);
+			};
+			"bla0".debug;
+			mixer_list.do { arg pat;
+				spawner.par(pat);
+			};
+			effect_pat_list.do { arg pat;
+				spawner.par(pat);
+			};
+			//spawner.par(Ppar(note_modulator_list));
+			//spawner.par(Ppar(mixer_list));
+
+			"bla1".debug;
+			str = CleanupStream(main_note_pat.asStream, {
+				"cleanup".debug;
+				spawner.suspendAll;
+				{
+					"defered cleanup".debug;
+					ppatch.note_bus.keysValuesDo { arg bname, bobj;
+						bname.debug("free bus");
+						bobj.free;
+					};
+					ppatch.global_group.keysValuesDo { arg gname, gobj;
+						gname.debug("pattern group free");
+						gobj.free;
+					};
+					ppatch.global_bus.keysValuesDo { arg bname, bobj;
+						bname.debug("pattern bus free");
+						bobj.free;
+					};
+					"fin cleanup".debug;
+				}.defer(free_defer_time); 
+			});
+			"bla2".debug;
+
+			spawner.par(str);
+			"bla3".debug;
+			"$$$$$$$$$$$$$$$$$$$$ make_modulator_pattern: END".debug;
+		});
+	}
+
+
+);

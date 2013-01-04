@@ -8,6 +8,13 @@ SynthDef(\lfo1, { arg out=0, freq=1;
 	freq: \lofreq.asSpec
 ))).store;
 
+SynthDef(\line1, { arg out=0, duration=0.5;
+	var sig = Line.kr(0, 1, duration);
+	Out.kr(out, sig);
+}, metadata:(specs:(
+	duration: ControlSpec(0.001,4,\lin, 0, 1)
+))).store;
+
 
 SynthDef(\adsr1, { arg out, attack, gate=1, doneAction=0;
 	var sig = EnvGen.kr(Env.adsr(attack,0.1,1,0.1), gate, doneAction:doneAction);

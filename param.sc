@@ -3495,9 +3495,15 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 						\modulation, {
 							var bus;
 							if(ev[\ppatch].notNil) {
-								ev = ev[\ppatch].get_mod_bus(player.uname, self.name).asMap.yield;
+								bus = ev[\ppatch].get_mod_bus(player.uname, self.name);
+								if(bus.isNil) {
+									[player.uname, self.name, ev].debug("============== bus is nil: ev");
+									ev = 0.yield;
+								} {
+									ev = bus.asMap.yield;
+								}
 							} {
-								[player.uname, self.name].debug("param modulation: ppatch not found");
+								[ev, player.uname, self.name].debug("param modulation: ppatch not found");
 								ev = 0.yield;
 							};
 						},

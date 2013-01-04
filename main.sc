@@ -44,6 +44,7 @@
 	),
 	safe_inf: 10,
 	bank: 10,
+	float_precision: 6,
 	children_per_groupnode: 16,
 	children_part_per_groupnode: 4, // keyboard can access to only 4 children at the same time
 	groupnode_per_bank: 8

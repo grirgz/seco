@@ -359,14 +359,25 @@
 		\void
 	],
 
-	new: { arg self, main, list, action;
+	new: { arg self, main, list, action, current;
 		self = self.parent[\new].(self, action, "Choose kind");
 
 		self.get_main = { arg self; main };
-		self.my_datalist = list ?? self.my_datalist;
-		self.set_datalist(self.my_datalist);
-		self.show_window;
+
+		// skip chooser and just toggle
+		if(current.notNil and: {list.size == 2}) {
+			if(current == list[0]) {
+				action.(list[1])
+			} {
+				action.(list[0])
+			}
+		} {
+			self.my_datalist = list ?? self.my_datalist;
+			self.set_datalist(self.my_datalist);
+			self.show_window;
+		};
 		self;
+
 	},
 
 );

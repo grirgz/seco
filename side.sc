@@ -70,7 +70,12 @@
 
 		val: { arg self, msg, cellidx;
 			var newval;
-			paramval.string = self.get_val(cellidx);
+			newval = self.get_val(cellidx);
+			paramval.string = if(newval.isNumber) {
+				newval.asFloat.asStringPrec(~general_sizes.float_precision);
+			} {
+				newval
+			};
 
 			if(slider.notNil, {
 				slider.value = self.get_norm_val(cellidx) ?? 0;
@@ -1140,7 +1145,7 @@
 						{ \amp == param_name } {
 							if(self.model.current_mode != \mixer) {
 								param.debug("midi assign: amp param");
-								param.midi.get_param.debug("verif param1");
+								//param.midi.get_param.debug("verif param1");
 								main.commands.bind_param([\knob, 8], param);
 							};
 						}
@@ -1626,7 +1631,7 @@
 				[\edit_modulator, {
 					var player = self.get_current_player;
 					var param = self.get_selected_param;
-					~class_modulation_controller.new(self.get_main, player, param);
+					~class_modulation_controller.new(self.get_main, player, nil, param);
 				}],
 
 				///////// macro

@@ -38,6 +38,10 @@
 		["close_window", \kb, 0, \escape],
 		["load_modulator", \kb, 0, \f1],
 		["select_param", \kb, 0, \kbpad8x4_flat],
+		["select_player", \kb, 0, \kbnumpad],
+		["edit_modulator", \kb, \alt, "m"],
+		["change_param_kind", \kb, \altshift, "s"],
+		["change_mod_kind", \kb, \altshift, "d"],
 	],
 	side: [
 		["edit_external_player", \kb, \alt, "e"],
