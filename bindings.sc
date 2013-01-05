@@ -34,6 +34,14 @@
 	group_tracks: [
 		["close_window", \kb, 0, \escape],
 	],
+	effects: [
+		["close_window", \kb, 0, \escape],
+		["load_effect", \kb, 0, \f1],
+		["select_param", \kb, 0, \kbpad8x4_flat],
+		["select_player", \kb, 0, \kbnumpad],
+		["edit_modulator", \kb, \alt, "m"],
+		["change_param_kind", \kb, \altshift, "s"],
+	],
 	modulator: [
 		["close_window", \kb, 0, \escape],
 		["load_modulator", \kb, 0, \f1],
@@ -41,6 +49,7 @@
 		["select_player", \kb, 0, \kbnumpad],
 		["edit_modulator", \kb, \alt, "m"],
 		["change_param_kind", \kb, \altshift, "s"],
+		["change_modulated_param_kind", \kb, \shift, "s"],
 		["change_mod_kind", \kb, \altshift, "d"],
 	],
 	side: [
@@ -48,6 +57,7 @@
 		["open_timeline", \kb, \ctrlalt, "l"],
 		["edit_group_tracks", \kb, \alt, "g"],
 		["edit_modulator", \kb, \alt, "m"],
+		["edit_effects", \kb, \alt, "f"],
 
 		["decrease_select_offset", \midi, 0, \begin],
 		["increase_select_offset", \midi, 0, \end],

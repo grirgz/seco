@@ -182,6 +182,17 @@
 			player.uname;
 		},
 
+		make_livenode_from_libfxnode: { arg self, libnodename;
+			var livenodename;
+			var player;
+			livenodename = self.make_livenodename_from_libnodename(libnodename);
+			player = ~make_player.(main, libnodename);
+			player.name = livenodename;
+			player.uname = livenodename;
+			self.add_node(player);
+			player.uname;
+		},
+
 
 		duplicate_node: { arg self, nodename, newname;
 			var pl;

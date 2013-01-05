@@ -138,7 +138,6 @@
 	},
 
 	build_standard_args: { arg self;
-		if(self.is_effect.not) {
 			self.data[\noteline] = self.data[\noteline] ?? ~make_noteline_param.(\noteline);
 			self.data[\scoreline] = self.data[\scoreline] ?? ~make_scoreline_param.(\scoreline);
 
@@ -156,6 +155,7 @@
 				~make_control_param.(self.get_main, self, \repeat, \scalar, 1, ~get_spec.(\repeat, self.defname));
 
 			self.data[\stepline] = self.data[\stepline] ?? ~make_stepline_param.(\stepline, 1 ! 8 );
+		if(self.is_effect.not) {
 			self.data[\type] = ~make_type_param.(\type);
 		};
 		self.data[\instrument] = self.data[\instrument] ?? ~make_literal_param.(\instrument, self.defname);

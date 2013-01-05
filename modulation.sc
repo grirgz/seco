@@ -1,4 +1,5 @@
 
+
 // ==========================================
 // MODULATION VIEW
 // ==========================================
@@ -19,7 +20,7 @@
 		debug("class_modulated_param_view.new");
 		
 		~make_class_responder.(self, self.label, controller.param_ctrl, [
-			\val
+			\val, \kind
 		]);
 
 		~make_class_responder.(self, self.label, controller.modmixer_ctrl, [
@@ -36,6 +37,10 @@
 	val: { arg self, obj;
 		self.modknob.value = obj.get_norm_val;
 		self.val_label.string = obj.get_val.asStringPrec(6);
+	},
+
+	kind: { arg self, obj;
+		self.kind_label.string = "(%)".format(self.controller.param_ctrl.current_kind);
 	},
 
 	selected_slot: { arg self, obj;
@@ -71,10 +76,16 @@
 
 	make_gui: { arg self;
 		self.layout = VLayout(
-			self.label = StaticText.new
-				//.string_("%: %".format(self.player_ctrl.name, param_ctrl.name))
-				.string_("player: param");
-				self.label,
+			HLayout(
+				self.label = StaticText.new
+					//.string_("%: %".format(self.player_ctrl.name, param_ctrl.name))
+					.string_("player: param");
+					self.label,
+				self.kind_label = StaticText.new
+					//.string_("%: %".format(self.player_ctrl.name, param_ctrl.name))
+					.string_("(scalar)");
+					self.kind_label,
+			),
 
 			self.bt_layout = HLayout(*
 					self.slots = 3.collect { arg idx;
@@ -232,7 +243,7 @@
 
 	set_controller: { arg self, player;
 		self.get_controller = { player };
-		self.player_display.set_current_player(player);
+		self.player_display.set_current_player(player); // FIXME: inversion of control
 		self.param_group.paramview_list.do { arg view, idx;
 			var param_name;
 			var param, display;
@@ -302,7 +313,7 @@
 		var make_tab_button = { arg idx;
 			var lay;
 			lay = [
-				DragSource.new.object_(idx),
+				DragSource.new.object_(idx).maxWidth_(15),
 				Button.new
 					.states_([
 						["-"]
@@ -317,7 +328,12 @@
 			make_tab_button.(idx)
 		};
 		self.tab_layout = HLayout(*
-			self.tab_buttons.flat
+			self.tab_buttons.collect { arg lay;
+				[
+					[lay[0], stretch:0],
+					[lay[1], stretch:1]
+				]
+			}.flatten(1)
 		);
 		self.tab_layout;
 	},
@@ -391,6 +407,7 @@
 			self.current_player = player;
 			//self.assign_midi;
 			//main.freeze_do { self.changed(\player); };
+			self.changed(\player)
 		}
 
 	},
@@ -692,6 +709,15 @@
 				}
 			}],
 
+			[\change_modulated_param_kind, {
+				var param = self.param_ctrl;
+				if(param.notNil) {
+					~class_symbol_chooser.new(self.get_main, [\scalar,\modulation], { arg kind;
+						param.change_kind(kind);
+					}, param.current_kind)
+				}
+			}],
+
 			[\change_mod_kind, {
 				var player = self.get_current_player;
 				if(player.notNil) {
@@ -755,16 +781,25 @@
 };
 
 ~class_effect_manager = (
-	effect_list: List.newClear(5),
+	effect_list: nil,
+	effects_number: 5,
+	selected_slot: 0,
+
 	new: { arg self, player;
 		self = self.deepCopy;
 		self.get_player = { arg self; player };
+		self.effect_list = List.newClear(self.effects_number);
 
 		self;	
 	},
 
-	set_effect: { arg self, idx, effect_node;
-		self.effect_list[idx] = effect_node;
+	select_slot: { arg self, slotidx;
+		self.selected_slot = slotidx;
+		self.changed(\selected_slot);
+	},
+
+	set_effect: { arg self, idx, effect_node_name;
+		self.effect_list[idx] = effect_node_name;
 	},
 
 	get_effect: { arg self, idx;
@@ -772,8 +807,9 @@
 	},
 
 	swap_effect: { arg self, idx_source, idx_dest;
-		var tmp = self.effect_list.removeAt(idx_source);
-		self.effect_list.insert(idx_dest, tmp);
+		//var tmp = self.effect_list.removeAt(idx_source);
+		//self.effect_list.insert(idx_dest, tmp);
+		self.effect_list.swap(idx_source, idx_dest);
 	},
 
 	vpattern: { arg self;
@@ -826,7 +862,7 @@
 	},
 
 	set_range: { arg self, idx, range;
-		
+	
 		[idx, range, self.slots[idx]].debug("class_modulation_mixer_controller: idx, range");
 		if(self.slots[idx].notNil) {
 			self.slots[idx].range = range;
@@ -1011,7 +1047,7 @@
 
 			///////// building effects patterns
 
-			effect_list = mainplayer.effects.effect_list.reject({ arg ef; ef.isNil or:{ ef.disabled == true } });
+			effect_list = mainplayer.effects.effect_list.reject({ arg ef; ef.isNil });
 
 			if(effect_list.size == 0) {
 				synth_out_bus = out_bus;
@@ -1028,7 +1064,8 @@
 				effect_outbus_list.add(out_bus);
 			};
 
-			effect_list.do { arg effect, idx;
+			effect_list.do { arg effect_name, idx;
+				var effect = mainplayer.get_main.get_node(effect_name);
 				effect_pat_list.add( effect.vpattern <> Pbind(
 					\ppatch, Pfunc{ppatch},
 					\group, Pfunc{ arg ev; ev[\ppatch].global_group[\effects] },
@@ -1296,5 +1333,254 @@
 		});
 	}
 
+
+);
+
+// ====================================================================================
+// ====================================================================================
+
+// ==========================================
+// EFFECTS VIEW
+// ==========================================
+
+~class_effect_mini_view = (
+	new: { arg self, controller;
+		self = self.deepCopy;
+
+		debug("class_effect_mini_view.new");
+		
+		self.make_gui;
+	
+		self;
+	},
+
+	set_player_controller: { arg self, player;
+		self.player_ctrl = {player};
+		self.player_responder !? { self.player_responder.remove };
+		if(player.notNil) {
+			self.player_responder = ~make_class_responder.(self, self.bt_name, player, [
+				\redraw_node
+			]);
+			self.bt_name.states = [
+				[self.player_ctrl.name]
+			];
+		}
+	},
+
+	redraw_node: { arg self;
+		self.bt_mute.value = if(self.player_ctrl.muted) { 1 } { 0 };
+	},
+
+	make_gui: { arg self;
+		self.layout = VLayout(
+			HLayout(
+				self.bt_name = Button.new.states_([["-"]]);
+					[self.bt_name, stretch:1],
+				[DragSource.new.maxWidth_(15), stretch:0],
+				self.bt_mute = Button.new.states_([
+						["M", Color.black, Color.white],
+						["M", Color.black, Color.gray]
+					]);
+					[self.bt_mute, stretch:0],
+			),
+			self.slider_mix = Slider.new
+				.orientation_(\horizontal);
+				self.slider_mix,
+		);
+		self.layout;
+	},
+
+);
+
+~class_effect_body_basic_view = (
+	new: { arg self, player_display;
+		self = self.deepCopy;
+
+		self.player_display = { player_display };
+
+		self.make_gui;
+		debug("class_effect_body_basic.new");
+
+		~make_class_responder.(self, self.param_group.layout, self.player_display, [
+			\player
+		]);
+
+		self;
+	},
+
+	player: { arg self;
+		var player = self.player_display.get_current_player;
+		player.name.debug("class_effect_body_basic_view: player.name");
+		player.data.keys.debug("class_effect_body_basic_view: player.data.keys");
+		self.param_group.paramview_list.do { arg view, idx;
+			var param_name;
+			var param, display;
+			param_name = self.player_display.get_param_name_by_display_idx(idx);
+			param_name.debug("class_modulator_body_basic: set_controller: param_name");
+			if(param_name.notNil) {
+				param = player.get_arg(param_name);
+				display = self.player_display.make_param_display(param);
+				view.set_param(param, display);
+			} {
+				view.clear_view;
+			}
+		};
+	},
+
+	make_gui: { arg self;
+		self.param_group = ~make_mini_param_group_widget.(nil, 3, ());
+		self.layout = VLayout.new;
+		self.layout.add(self.param_group.layout);
+		self.layout
+	}
+
+);
+
+~class_effects_view = (
+	mini_views: List.new,
+
+	new: { arg self, controller;
+		self = self.deepCopy;
+
+		self.controller = { controller };
+
+		debug("class_effect_view.new");
+
+		self.make_window;
+
+		~make_class_responder.(self, self.window.view, self.controller, [
+			\groupnode,
+		]);
+
+	
+		self;
+	},
+
+	groupnode: { arg self;
+		self.mini_views.do { arg view, idx;
+			var player = self.controller.get_player_at(idx);
+			view.set_player_controller(player);
+		}
+	},
+
+	make_gui: { arg self;
+		self.mini_views = List.new;
+		self.layout = HLayout(
+			[VLayout(*
+				self.controller.effects_ctrl.effects_number.collect { arg idx;
+					var mv = ~class_effect_mini_view.new(self.controller);
+					self.mini_views.add(mv);
+					mv.layout;
+				} ++ [nil]
+			), stretch:0],
+			[~class_effect_body_basic_view.new(self.controller).layout, stretch:1]; 
+
+		);
+		self.layout;
+		
+	},
+
+	make_window: { arg self;
+		self.window = Window.new("Effects");
+		self.window.layout = self.make_gui;
+		self.window.front;
+		self.window;
+	}
+);
+
+// ==========================================
+// EFFECTS CONTROLLERS
+// ==========================================
+
+
+~class_effects_controller = (
+	parent: ~class_player_display,
+
+	new: { arg self, main, player_ctrl;
+		var modmixer;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.player_ctrl = { player_ctrl };
+		self.effects_ctrl = { player_ctrl.effects };
+
+		self.model.param_no_midi = self.param_types.param_no_midi;
+	
+		self.make_bindings;
+		self.make_gui;
+	
+		self;
+	},
+
+	is_slot_selected: { arg self, idx;
+		self.effects_ctrl.selected_slot == idx;
+	},
+
+	select_slot: { arg self, idx;
+		var player_name;
+		self.effects_ctrl.select_slot(idx);
+		player_name = self.effects_ctrl.get_effect(self.effects_ctrl.selected_slot);
+		self.set_current_player(self.get_main.get_node(player_name ?? \voidplayer));
+	},
+
+	selected_slot: { arg self, idx;
+		self.effects_ctrl.selected_slot
+	},
+
+	get_player_at: { arg self, idx;
+		self.get_main.get_node(self.effects_ctrl.get_effect(idx));
+	},
+
+
+	make_gui: { arg self;
+		self.main_view = ~class_effects_view.new(self);
+		self.window = self.main_view.window;
+		self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\effects);
+	},
+
+	make_bindings: { arg self;
+
+		self.get_main.commands.parse_action_bindings(\effects, [
+
+			[\close_window, {
+				self.window.close;
+			}],
+
+			[\load_effect, {
+				~class_symbol_chooser.new(self.get_main, [\comb1], { arg libnodename;
+					var nodename;
+					var fx = self.player_ctrl.effects;
+					nodename = self.get_main.node_manager.make_livenode_from_libfxnode(libnodename);
+					fx.set_effect(self.selected_slot, nodename);
+					self.set_current_player(self.get_main.get_node(nodename));
+					self.changed(\groupnode);
+				})
+			}],
+
+			[\edit_modulator, {
+				var player = self.get_current_player;
+				var param = self.get_selected_param;
+				~class_modulation_controller.new(self.get_main, self.player_ctrl, player, param);
+			}],
+
+			[\select_player, 10, { arg i;
+				self.select_slot((i-1).clip(0,4));
+			}],
+
+			[\select_param, 32, { arg i;
+				self.select_param(i)
+			}],
+
+			[\change_param_kind, {
+				if(self.param_types.param_mode.includes(self.get_selected_param.name).not) {
+					~class_param_kind_chooser.new(self.get_main, { arg sel;
+						self.change_param_kind(sel);
+					})
+				}
+			}],
+
+		]);
+	
+	},
 
 );

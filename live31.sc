@@ -9,7 +9,7 @@ Quarks.gui
 )
 Ptempo
 (
-~seco_dir_path = "~/code/sc/seco/".standardizePath;
+//~seco_dir_path = "~/code/sc/seco/".standardizePath;
 s.waitForBoot{
 //"/home/ggz/code/sc/abcparser.sc".load;
 ~seq = Mdef.force_init(true);
@@ -150,8 +150,8 @@ a = ~class_modulator_body_basic.new;
 )
 
 (
-"/home/tytel/code/sc/seco/modulation.sc".load;
-a = ~class_modulation_view.new;
+"/home/ggz/code/sc/seco/modulation.sc".load;
+a = ~class_effect_mini_view.new;
 ~windowize.(a.make_gui);
 
 )

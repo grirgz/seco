@@ -1634,6 +1634,11 @@
 					~class_modulation_controller.new(self.get_main, player, nil, param);
 				}],
 
+				[\edit_effects, {
+					var player = self.get_current_player;
+					~class_effects_controller.new(self.get_main, player);
+				}],
+
 				///////// macro
 
 				[\add_sample_batch, {
