@@ -271,10 +271,13 @@
 		}
 		{ controller.param_types.param_mode.includes(param_name) } {
 			[player.get_mode, param_name].debug("LLLLLLLLLLLL making line");
-			if(player.get_mode == param_name, {
-				param_name.debug("LLLLLLLLLLLL making line vraiment");
-				~make_line_view.(param_name, row_layout, controller.make_param_display(param), param);
-			});
+			if(param_name != \scoreline) {
+				if(player.get_mode == param_name, {
+					param_name.debug("LLLLLLLLLLLL making line vraiment");
+					~make_line_view.(param_name, row_layout, controller.make_param_display(param), param);
+				});
+			
+			}
 		}
 		{ [\legato, \amp, \pan, \attack, \release, \sustain].includes(param_name)} {
 			~make_control_view.(info_layout, controller.make_param_display(param), param);
@@ -296,6 +299,7 @@
 	size = rows ?? 3;
 
 	vlayout = VLayoutView.new(parent, Rect(3,0,display.winsize.x-13,display.paramsize.y+15*2*size+35)); //FIXME: scaling is wrong
+	vlayout.minWidth = display.winsize.x-13;
 
 	size.do {
 		sep = VLayoutView(vlayout, Rect(0,0,display.winsize.x-158,display.paramsize.y*2+35));
@@ -852,15 +856,16 @@
 	var side;
 	var param_types;
 
-	param_types = (
-		param_field_group: List[\dur, \segdur, \stretchdur, \repeat],
-		param_slider_group: List[\amp, \legato, \pan, \attack, \sustain, \release],
-		param_status_group: List[\amp, \dur, \segdur, \stretchdur, \repeat, \bufnum, \samplekit],
-		param_order: List[\sustain, \pan, \attack, \release, \adsr, \freq],
-		param_mode: [\stepline, \noteline, \sampleline, \nodeline, \scoreline],
-		param_no_midi: { arg self; self.param_field_group ++ [\bufnum, \samplekit] ++ self.param_mode; },
-		param_reject: { arg self; [\out, \instrument, \type, \gate, \agate, \t_trig, \doneAction] ++ self.param_mode; },
-	);
+	//param_types = (
+	//	param_field_group: List[\dur, \segdur, \stretchdur, \repeat],
+	//	param_slider_group: List[\amp, \legato, \pan, \attack, \sustain, \release],
+	//	param_status_group: List[\amp, \dur, \segdur, \stretchdur, \repeat, \bufnum, \samplekit],
+	//	param_order: List[\sustain, \pan, \attack, \release, \adsr, \freq],
+	//	param_mode: [\stepline, \noteline, \sampleline, \nodeline, \scoreline],
+	//	param_no_midi: { arg self; self.param_field_group ++ [\bufnum, \samplekit] ++ self.param_mode; },
+	//	param_reject: { arg self; [\out, \instrument, \type, \gate, \agate, \t_trig, \doneAction] ++ self.param_mode; },
+	//);
+	param_types = ~class_player_display.param_types;
 
 	side = (
 		archive_data: [\model],
@@ -1624,6 +1629,13 @@
 					self.group_tracks_controller.make_gui;
 				}],
 
+				[\edit_player_tracks, {
+					var player = self.get_current_player;
+					var display = self.make_param_display(self.get_selected_param);
+					self.player_tracks_controller = ~class_player_tracks_controller.new(self.get_main, player, display);
+					self.player_tracks_controller.make_gui;
+				}],
+
 				[\edit_noteline, {
 					var player = self.get_current_player;
 				}],
@@ -1636,7 +1648,12 @@
 
 				[\edit_effects, {
 					var player = self.get_current_player;
-					~class_effects_controller.new(self.get_main, player);
+					if(player.uname != \voidplayer) {
+						if(self.class_effects_controller.notNil and: {self.class_effects_controller.window.isClosed.not}) {
+							self.class_effects_controller.window.close;
+						};
+						self.class_effects_controller = ~class_effects_controller.new(self.get_main, player);
+					}
 				}],
 
 				///////// macro

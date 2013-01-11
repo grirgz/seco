@@ -951,6 +951,56 @@
 
 );
 
+~class_modenv_player = (
+	parent: ~class_synthdef_player,
+	new: { arg self, main, defname, data=nil;
+		var desc = SynthDescLib.global.synthDescs[defname];
+		var notescore, notes;
+		self = self.deepCopy;
+	
+		self.defname = defname;
+
+		if(desc.isNil, {
+			("ERROR: make_player_from_synthdef: SynthDef not found: "++defname).error
+		});
+		defname.debug("loading player from");
+
+		self.get_main = { arg self; main };
+		self.get_desc = { arg self; desc };
+
+		self.init(data);
+		self.data[\tsustain] = ~class_param_tsustain_controller.new(\tsustain);
+		//self.data[\val] = ~class_param_scorekey_controller.new(self, \val);
+		self.data[\val] = ~class_param_modenv_val_controller.new(self, \val);
+		self.set_mode(\noteline);
+		notescore = ~make_notescore.();
+		notes = [
+			(
+				val: 0.5,
+				sustain: 0.1,
+				dur: 2.0
+			),
+			(
+				val: 0.5,
+				sustain: 0.1,
+				dur: 2.0
+			),
+		];
+
+		notescore.set_notes(notes);
+		notescore.no_first_rest = true;
+		notescore.set_end(16);
+		self.get_arg(\noteline).get_scoreset.set_notescore(notescore);
+		self.data[\firstsynth] = nil;
+		self.data[\firstval] = nil;
+
+		self.build_sourcepat;
+		self.build_real_sourcepat;
+
+		self;
+	},
+);
+
 ~make_player_from_synthdef = { arg main, defname, data=nil;
 	// changed messages: \redraw_node, \mode
 	var player;
@@ -1097,7 +1147,11 @@
 			player = ~class_passive_player.new(main, instr.replace("passive ", ""), data)
 		}
 		{ instr.isSymbolWS || instr.isString } {
-			player = ~make_player_from_synthdef.(main,instr.asSymbol, data);
+			if(instr == \modenv) {
+				player = ~class_modenv_player.new(main, instr, data);
+			} {
+				player = ~make_player_from_synthdef.(main,instr.asSymbol, data);
+			};
 		} 
 		{ instr.isFunction } {
 			player = ~make_player_from_patfun.(instr, data);

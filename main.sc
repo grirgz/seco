@@ -42,7 +42,7 @@
 		knob: 8,
 		slider: 8
 	),
-	safe_inf: 10,
+	safe_inf: 80,
 	bank: 10,
 	float_precision: 6,
 	children_per_groupnode: 16,
@@ -524,7 +524,9 @@
 			velocity_ratio_pad: 0.7,
 
 			latency: 0.2,
+
 			nodelib: List.new,
+			modnodelib: List.new,
 			presetlib: Dictionary.new,
 			presetlib_path: nil,
 			colpresetlib: Dictionary.new,
@@ -533,7 +535,7 @@
 			patpool: Dictionary.new,
 			samplelist: List.new,
 
-			livenodepool: Dictionary.new
+			livenodepool: Dictionary.new,
 
 		),
 
@@ -914,6 +916,17 @@
 
 			self.model.effectlist = fxlist.collect { arg asso; asso.key };
 			self.model.effectpool = patpool;
+		},
+
+		load_modlib: { arg self, list;
+			var patpool = Dictionary.new;
+
+			list.do { arg asso;
+				patpool[asso.key] = asso.value;
+			};
+
+			self.model.modnodelib = list.collect { arg asso; asso.key };
+			//self.model.effectpool = patpool;
 		},
 
 		load_samplelib: { arg self, samplelist;

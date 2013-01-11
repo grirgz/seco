@@ -1,48 +1,5 @@
 s.quit
 
-(
-SynthDef(\lfo1, { arg out=0, freq=1;
-	var sig = SinOsc.kr(freq);
-	Out.kr(out, sig);
-}, metadata:(specs:(
-	freq: \lofreq.asSpec
-))).store;
-
-SynthDef(\line1, { arg out=0, duration=0.5;
-	var sig = Line.kr(0, 1, duration);
-	Out.kr(out, sig);
-}, metadata:(specs:(
-	duration: ControlSpec(0.001,4,\lin, 0, 1)
-))).store;
-
-
-SynthDef(\adsr1, { arg out, attack, gate=1, doneAction=0;
-	var sig = EnvGen.kr(Env.adsr(attack,0.1,1,0.1), gate, doneAction:doneAction);
-	Out.kr(out, sig);
-}).add;
-
-SynthDef(\osc1, { arg out, gate=1, freq=300, amp=0.1, ffreq=200, rq=0.1, attack=0.1, release=0.1, doneAction=2;
-	var sig = LFSaw.ar(freq);
-	var env = EnvGen.kr(Env.adsr(attack,0.1,1,release), gate, doneAction:doneAction);
-	sig = RLPF.ar(sig, ffreq, rq);
-	//sig = sig + SinOsc.ar(ffreq);
-	//ffreq.poll;
-	rq.poll;
-	sig = sig * env;
-	sig = sig ! 2;
-	sig = sig * amp;
-	Out.ar(out, sig);
-}).store;
-
-SynthDef(\comb1, { arg in, out, attack, maxdelaytime=0.4, delaytime=0.4, decaytime=2, gate=1, doneAction=2;
-	//var sig = EnvGen.kr(Env.adsr(attack,0.1,1,0.1), gate, doneAction:doneAction);
-	var sig;
-	sig = In.ar(in, 2);
-	sig = CombL.ar(sig, maxdelaytime, delaytime, decaytime);
-	Out.ar(out, sig);
-}).add;
-
-)
 
 (
 	~make_modmixer = { arg name, rate=\kr, spec, kind=\normal;
@@ -650,3 +607,49 @@ var sig = SinOsc.ar(LFSaw.kr(0.5)*50+400) ! 2
 a = Dictionary.new
 a.size
 a[\bla] = nil
+
+
+
+
+
+
+
+
+
+
+
+
+(
+a = Pspawner({ arg spawner;
+ 	var pat;
+	var str;
+	pat = Pbind(
+		\degree, Pseq([0],4),
+
+	);
+ 	
+	str = CleanupStream(pat.asStream, {
+		"cleanup".debug;
+	});
+	spawner.par(str);
+
+});
+b = a.play
+)
+b.stop
+
+(
+a = Pfset(
+	{
+		"init".postln;
+	},
+	Pbind(
+		\degree, Pseq([0],4),
+	),
+	{
+		"cleanup".postln;
+	},
+);
+b = a.play
+)
+b.stop

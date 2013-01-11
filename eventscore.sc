@@ -252,6 +252,7 @@
 		book: Dictionary.new,
 		notequant: nil, // used externally to quantify note time
 		abs_start: 0,
+		no_first_rest: false,
 
 		sort_func: { arg a, b;
 			a.time < b.time;
@@ -347,7 +348,7 @@
 		},
 
 		set_abs_notes: { arg self, notes;
-			self.notes = notes;
+			self.notes = notes.asList;
 			self.abs_start = 0;
 			//self.abs_end = self.notes.last.dur + self.notes.last.time;
 		},
@@ -388,13 +389,15 @@
 			notes = notes.select { arg no;
 				no.time >= start and: { no.time <= end }
 			};
-			notes = [(
-				midinote: \rest,
-				type: \rest,
-				slotnum: \rest,
-				sustain: 0,
-				time: start
-			)] ++ notes;
+			if(self.no_first_rest.not) {
+				notes = [(
+					midinote: \rest,
+					type: \rest,
+					slotnum: \rest,
+					sustain: 0,
+					time: start // FIXME: why time=start ? c'est sensé etre la premiere note
+				)] ++ notes;
+			};
 			notes = ~event_abs_to_rel.(notes);
 			last = notes.last;
 			last.dur = end - last.time;

@@ -34,6 +34,13 @@
 	group_tracks: [
 		["close_window", \kb, 0, \escape],
 	],
+	player_tracks: [
+		["close_window", \kb, 0, \escape],
+		["decrease_gridstep_x", \kb, \ctrl, \left],
+		["increase_gridstep_x", \kb, \ctrl, \right],
+		["decrease_gridlen", \kb, 0, \left],
+		["increase_gridlen", \kb, 0, \right],
+	],
 	effects: [
 		["close_window", \kb, 0, \escape],
 		["load_effect", \kb, 0, \f1],
@@ -56,6 +63,7 @@
 		["edit_external_player", \kb, \alt, "e"],
 		["open_timeline", \kb, \ctrlalt, "l"],
 		["edit_group_tracks", \kb, \alt, "g"],
+		["edit_player_tracks", \kb, \alt, "p"],
 		["edit_modulator", \kb, \alt, "m"],
 		["edit_effects", \kb, \alt, "f"],
 

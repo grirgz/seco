@@ -2513,13 +2513,13 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 				//#delta, idx = find_next.(self.notes[0].start_offset, self.notes);
 				//#prevdelta, previdx = find_prev.(self.notes[0].end_offset, self.notes);
-//				#delta, idx = find_next.(qnotes[0].start_offset, qnotes);
-//				#prevdelta, previdx = find_prev.(qnotes[0].end_offset, qnotes);
-//				[delta, idx, prevdelta, previdx].debug("delta, idx, prevdelta, previdx");
-//				qnotes[0].dur = qnotes[0].start_silence + delta;
-//				self.vnotes = [qnotes[0]] ++ qnotes[idx..previdx].deepCopy;
-//				self.vnotes[self.vnotes.lastIndex].dur = qnotes[0].end_silence + prevdelta;
-//				self.vnotes.debug("update_note_dur: vnotes");
+			//	#delta, idx = find_next.(qnotes[0].start_offset, qnotes);
+			//	#prevdelta, previdx = find_prev.(qnotes[0].end_offset, qnotes);
+			//	[delta, idx, prevdelta, previdx].debug("delta, idx, prevdelta, previdx");
+			//	qnotes[0].dur = qnotes[0].start_silence + delta;
+			//	self.vnotes = [qnotes[0]] ++ qnotes[idx..previdx].deepCopy;
+			//	self.vnotes[self.vnotes.lastIndex].dur = qnotes[0].end_silence + prevdelta;
+			//	self.vnotes.debug("update_note_dur: vnotes");
 				self.changed(\notes);
 			} {
 				if(self.notes.size == 2) {
@@ -3095,6 +3095,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 		scalar: (
 			//quoi: { "QUOI".debug; }.value,
+			muted: false,
 			selected_cell: 0, // always 0
 			val: if(default_value.isArray, { default_value[0] }, { default_value }),
 
@@ -3110,6 +3111,19 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			},
 			get_norm_val: { arg self;
 				param.spec.unmap(self.val);
+			},
+
+			mute: { arg self, val;
+				// effect bypassing with mix
+				if(self.muted != val) {
+					self.muted = val;
+					if(val) {
+						self.oldval = self.val;
+						self.set_val(0);
+					} {
+						self.set_val(self.oldval);
+					}
+				}
 			},
 
 			get_cells: { arg self; [self.val] },
@@ -3191,7 +3205,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			},
 
 			mute: { arg self, val;
-				// FIXME: who call this ?
+				// FIXME: who call this ? the player when is audiotrack and param is amp
 			},
 
 			get_val: { arg self; param.bus.get_val },
@@ -3498,13 +3512,13 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 								bus = ev[\ppatch].get_mod_bus(player.uname, self.name);
 								if(bus.isNil) {
 									[player.uname, self.name, ev].debug("============== bus is nil: ev");
-									ev = 0.yield;
+									ev = self.scalar.val.yield;
 								} {
 									ev = bus.asMap.yield;
 								}
 							} {
 								[ev, player.uname, self.name].debug("param modulation: ppatch not found");
-								ev = 0.yield;
+								ev = self.scalar.val.yield;
 							};
 						},
 						\bus, {
@@ -3854,3 +3868,112 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		},
 	);
 };
+
+
+///////////////////////////////////////////////////////////
+
+~class_param_controller = (
+	new: { arg self;
+		self = self.deepCopy;
+	
+		self;
+	},
+);
+
+~class_param_tsustain_controller = (
+	kind: \tsustain,
+	new: { arg self, name;
+		self = self.deepCopy;
+
+		self.name = name;
+	
+		self;
+	},
+
+	vpattern: { arg self;
+		Plazy({ 
+			var val;
+			val = Pn(Pfunc({ arg ev; ev[\dur]}) / Ptempo());
+			val.debug("class_param_tsustain_controller.vpattern: val");
+			//ev = val.yield;
+			val;
+		});
+	}
+);
+
+~class_param_scorekey_controller = (
+	kind: \scorekey,
+	new: { arg self, player, name, key;
+		self = self.deepCopy;
+	
+		self.name = name;
+		self.player_node = { player };
+		self.key_name = key ?? name;
+
+		self;
+	},
+
+	vpattern: { arg self;
+		Prout({ arg ev;
+			var val;
+			~general_sizes.safe_inf.do {
+				val = ev[self.player_node.get_mode][self.key_name];
+				val.debug("class_param_scorekey_controller.vpattern: val");
+				if(val.isNil) {
+					ev.debug("class_param_scorekey_controller: ev");
+					val = 0;
+				};
+				ev = val.yield;
+			
+			};
+		});
+	}
+);
+
+~class_param_modenv_val_controller = (
+	kind: \scorekey,
+	new: { arg self, player, name, key;
+		self = self.deepCopy;
+	
+		self.name = name;
+		self.player_node = { player };
+		self.key_name = key ?? name;
+		self.val = [0,1];
+
+		self;
+	},
+
+	set_notes: { arg self, notes;
+		var res = List.new;
+		var tmp;
+		notes.do { arg note;
+			if(note.type != \rest) {
+				res.add(note[self.key_name]);
+			}
+		};
+		tmp = res.removeAt(0);
+		res.add(tmp);
+		self.val = res;
+	},
+
+	vpattern: { arg self;
+		Prout({ arg ev;
+			var idx, val, fun;
+			var repeat;
+			fun = { arg idx; self.val[idx] };
+			ev[\firstsynth] = 1;
+			ev[\firstval] = self.val.last;
+			repeat = ~general_sizes.safe_inf;
+			repeat.do {
+				idx = 0;
+				val = fun.(idx, ev);
+				//[val, idx].debug("pdynarray val idx");
+				while( { val.notNil } , { 
+					ev = val.yield;
+					idx = idx + 1;
+					val = fun.(idx, ev);
+				});
+			};
+		});
+	}
+);
