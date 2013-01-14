@@ -47,7 +47,8 @@
 	float_precision: 6,
 	children_per_groupnode: 16,
 	children_part_per_groupnode: 4, // keyboard can access to only 4 children at the same time
-	groupnode_per_bank: 8
+	groupnode_per_bank: 8,
+	wavetable_buffer_size: 2048,
 );
 
 
@@ -323,11 +324,13 @@
 	"synth",
 	"keycode", 
 	"bindings", 
+	"wavetable",
 	"eventscore",
 	"midi",
 	"param",
 	"samplelib",
 	"node_manager",
+	"classinstr",
 	"player",
 	"matrix",
 	"hmatrix",
@@ -1039,6 +1042,7 @@
 			~parse_bindings.(main.commands,~bindings);
 			self.node_manager = ~make_node_manager.(self);
 			self.samplekit_manager = ~samplekit_manager;
+			self.wavetable_manager = ~class_wavetable_manager.new;
 			self.midi_center = ~midi_center.(self);
 			self.play_manager = ~make_playmanager.(self);
 			self.context = ~make_context.(main);

@@ -1,10 +1,14 @@
 (
 s.waitForBoot{
 //"/home/ggz/code/sc/abcparser.sc".load;
+//"/home/ggz/code/sc/seco/classinstr.sc".load;
 ~seq = Mdef.force_init(true);
 ~synthlib = [
 	\audiotrack_expander,
 	\osc1,
+	"ci mosc",
+	"ci moscfilter",
+	"ci sin",
 	\lead2,
 	\pulsepass,
 	\flute1,
@@ -306,3 +310,34 @@ TempoClock.default.tempo
 
 
 )
+
+
+
+
+~seq = Mdef.force_init(true);
+~seq.side
+Mdef.side_gui;
+(
+
+"/home/ggz/code/sc/seco/classinstr.sc".load;
+~player = ~seq.node_manager.make_livenode_from_libnode("ci mosc");
+Mdef.node(~player).external_player.make_gui;
+//~windowize.(~ci.layout);
+)
+
+
+x = 4;
+
+a = SimpleController.new(x)
+b = SimpleController.new(x)
+a.put(\val, { "bla".postln; });
+b.put(\val, { "bli".postln; });
+
+x.changed(\val)
+
+
+Mdef.node("ci osc_l1002").external_player.static_data[\spectrum].changed(\val)
+a = SimpleController(Mdef.node("ci osc_l1002").external_player.static_data[\spectrum])
+
+Mdef.node("ci osc_l1002").external_player.set_static_responders
+

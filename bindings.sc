@@ -38,8 +38,11 @@
 		["close_window", \kb, 0, \escape],
 		["decrease_gridstep_x", \kb, \ctrl, \left],
 		["increase_gridstep_x", \kb, \ctrl, \right],
+		["decrease_gridstep_y", \kb, \ctrl, \down],
+		["increase_gridstep_y", \kb, \ctrl, \up],
 		["decrease_gridlen", \kb, 0, \left],
 		["increase_gridlen", \kb, 0, \right],
+
 	],
 	effects: [
 		["close_window", \kb, 0, \escape],
@@ -58,8 +61,11 @@
 		["change_param_kind", \kb, \altshift, "s"],
 		["change_modulated_param_kind", \kb, \shift, "s"],
 		["change_mod_kind", \kb, \altshift, "d"],
+
 	],
 	side: [
+		["add_modenv", \kb, \ctrlalt, "o"], // debug
+
 		["edit_external_player", \kb, \alt, "e"],
 		["open_timeline", \kb, \ctrlalt, "l"],
 		["edit_group_tracks", \kb, \alt, "g"],

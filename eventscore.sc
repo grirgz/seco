@@ -387,7 +387,8 @@
 			// add offset and last dur
 			notes = self.notes.copy.sort(self[\sort_func]);
 			notes = notes.select { arg no;
-				no.time >= start and: { no.time <= end }
+				//no.time >= start and: { no.time <= end }
+				no.time >= start and: { no.time < end }
 			};
 			if(self.no_first_rest.not) {
 				notes = [(
@@ -459,7 +460,8 @@
 
 			notes = self.notes.copy.sort(self[\sort_func]);
 			notes = notes.select { arg no;
-				no.time >= start and: { no.time <= end }
+				//no.time >= start and: { no.time <= end }
+				no.time >= start and: { no.time < end }
 			};
 			notes;
 		}

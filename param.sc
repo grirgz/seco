@@ -3033,6 +3033,17 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			self.current_kind = nil; self.change_kind(data[\current_kind]);
 		},
 
+		set_label: { arg self, name;
+			name.debug("SETLABEL");
+			self.label = name;
+			self.changed(\label);
+		},
+
+		set_spec: { arg self, val;
+			self.spec = val;
+			self.changed(\val);
+		},
+
 		seq: (
 			val: if(default_value.isArray, { default_value.asList }, { (default_value ! bar_length).asList }),
 			selected_cell: 0,
@@ -3878,6 +3889,13 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	
 		self;
 	},
+
+	vpattern: { arg self;
+		Pfunc{
+			self.name.debug("Error: No pattern defined in this param_controller");
+			0;
+		}
+	},
 );
 
 ~class_param_tsustain_controller = (
@@ -3976,4 +3994,238 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			};
 		});
 	}
+);
+
+~class_param_wavetable_range_controller = (
+	// static
+	spec: \unipolar.asSpec.copy,
+	new: { arg self, name;
+		self = self.deepCopy;
+		self.name = name;
+	
+		self;
+	},
+
+	set_val: { arg self, val;
+		self.val = val;	
+		self.changed(\val)
+	},
+
+	get_val: { arg self;
+		self.val;
+	},
+);
+
+~class_param_wavetable_controller = (
+	parent: ~class_param_controller,
+	classtype: \wavetable,
+
+	model: (
+		buffer_range: 0,
+		val: 0,
+		val_uname: "curve name",
+	),
+
+	new: { arg self, player, name, wt_pos;
+		self = self.deepCopy;
+		self.name = name;
+		self.get_player = { player };
+		player.uname.debug("class_param_wavetable_controller: uname");
+		//player.get_main.debug("class_param_wavetable_controller: main");
+		self.wtman = player.get_main.wavetable_manager;
+		self.menu_items = self.wtman.get_names ++ [\custom];
+		self.buffer = Buffer.alloc(s, ~general_sizes.wavetable_buffer_size);
+		player.to_destruct.add(self);
+
+		self.wt_range_controller = ~class_param_wavetable_range_controller.new(\wt_range);
+		self.wt_pos_ctrl = wt_pos;
+
+		self.set_curve(self.model.val);
+
+		self;
+	},
+
+	destructor: { arg self;
+		self.buffer.free;
+		self.buffer_array.do(_.free);
+	},
+
+	save_data: { arg self;
+		var data = self.model.deepCopy;
+		data.pathlist = data.pathlist.collect(_.save_data);
+		data;
+	},
+
+	load_data: { arg self, data;
+		self.model.val = self.menu_items.detectIndex { arg item; item == data.val_uname };
+		self.model.val_uname = data.val_uname;
+		self.model.pathlist = data.pathlist.collect{ arg dat; ~class_wavetable_file.new_from_data(dat) };
+		self.set_curve(self.model.val, true)
+	},
+
+	get_menu_items_names: { arg self;
+		self.menu_items
+	},
+
+	get_wt_range_controller: { arg self;
+		self.wt_range_controller;
+	},
+
+	set_wt_pos_controller: { arg self, val;
+		self.wt_pos_ctrl = val;
+	},
+
+	set_buffer_range: { arg self, range;
+		self.model.buffer_range = range;
+		self.wt_range_controller.set_val(range);
+		//osc_pos_ctrl = self.main_controller.get_arg("osc%_wt_pos".format(self.model.indexes).asSymbol);
+		////osc_pos_ctrl.debug("osc_wt_pos ctrl");
+		self.wt_pos_ctrl.spec.maxval = self.model.buffer_range - 0.0001;
+	},
+
+	set_curve: { arg self, curve_idx, load=false;
+		var curve = self.menu_items[curve_idx];
+		var apply_action, cancel_action;
+		var was_custom = false;
+		var osc_pos_ctrl;
+		if(curve == \custom) {
+			apply_action = { arg pathlist;
+				self.model.pathlist = pathlist;
+				//pathlist.debug("class_pparam_wavetable_controller: set_curve: custom: pathlist");
+				self.buffer_array.do(_.free);
+				self.buffer_array = Buffer.allocConsecutive(pathlist.size, s, ~general_sizes.wavetable_buffer_size);
+				self.buffer_array.do { arg buf, idx;
+					//self.main_controller.register_buffer(buf, self.model.uname);
+					pathlist[idx].load_in_wavetable_buffer(buf);
+					//~load_sample_in_wavetable_buffer.(buf, pathlist[idx].fullPath);
+				};
+				self.set_buffer_range(self.buffer_array.size-1);
+				self.model.val_uname = curve;
+				self.model.val = curve_idx;
+				//self.main_controller.update_arg(self.model.uname);
+				self.changed(\val);
+			};
+			cancel_action = {
+				self.changed(\val);
+			};
+			if(load) {
+				apply_action.(self.model.pathlist);
+			} {
+				~class_load_wavetable_dialog.new(apply_action, cancel_action);
+			}
+		} {
+			if(self.model.val_uname == \custom) {
+				was_custom = true;
+			}; 
+			~load_curve_in_wavetable_buffer.(self.buffer, self.wtman.get_wavetable(curve));
+			self.model.val_uname = curve;
+			self.model.val = curve_idx;
+
+			self.set_buffer_range(0);
+			if(was_custom) {
+				self.main_controller.update_arg(self.model.uname);
+			}
+		};
+	},
+
+	refresh: { arg self;
+		//"wtREFRESH++".debug;
+		//self.changed(\set_property, \label, self.model.name);
+		//"wtREFRESH++ 2".debug;
+		self.changed(\val);
+		//"wtREFRESH++ 3".debug;
+	},
+
+	get_buffer: { arg self;
+		if(self.model.val_uname == \custom) {
+			self.buffer_array[0]
+		} {
+			self.buffer;
+		}
+	},
+
+	set_val: { arg self, val;
+		self.set_curve(val);
+	},
+
+	get_val: { arg self;
+		self.model.val;
+	},
+
+	vpattern: { arg self;
+		Pfunc {
+			self.get_buffer.bufnum
+		}
+	},
+
+);
+
+~class_param_kind_chooser_controller = (
+	// static
+	parent: ~class_param_controller,
+	classtype: \kind_chooser,
+
+	model: (
+		name: "Filter kind",
+		uname: \filter1_kind,
+		kind: \filter_kind,
+		transmit: \kind,
+		val_uname: \bitcrusher,
+		val: 0
+	),
+
+	new: { arg self, name, variants;
+		self = self.deepCopy;
+		self.name = name;
+
+		self.menu_items = variants;
+		self.model.val_uname = self.menu_items[self.model.val].uname;
+		//self.model.knobs.do { arg knobname;
+		//	self.main_controller.get_arg(knobname).set_variant(self.menu_items[self.model.val])
+		//};
+
+		self;
+	},
+
+	save_data: { arg self;
+		self.model;
+	},
+
+	load_data: { arg self, data;
+		self.model.val = self.menu_items.detectIndex { arg item; item.uname == data.val_uname };
+		self.model.val_uname = data.val_uname;
+		self.set_property(\value, self.model.val);
+	},
+
+
+	get_menu_items_names: { arg self;
+		self.menu_items.collect { arg item;
+			item.name
+		}
+	},
+
+	refresh: { arg self;
+		self.changed(\val);
+		self.changed(\menu_items);
+	},
+
+	get_val: { arg self;
+		self.model.val;
+	},
+
+	get_val_uname: { arg self;
+		self.model.val_uname;
+	},
+
+	set_val: { arg self, val;
+		self.model.val = val;
+		self.model.val_uname = self.menu_items[val].uname;
+		//self.model.knobs.do { arg knobname;
+		//	//[knobname, val, self.menu_items[val]].debug("°°class_pparam_kind_controller: set_property: value: variant");
+		//	self.main_controller.get_arg(knobname).set_variant(self.menu_items[val])
+		//};
+		//self.main_controller.update_arg(self.model.uname);
+		[self.name, val].debug("class_param_kind_chooser.set_val");
+		self.changed(\val);
+	},	
 );

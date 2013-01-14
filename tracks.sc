@@ -18,6 +18,24 @@
 	};
 };
 
+~draw_stepx_grid = { arg size, beatlen, gridstep;
+	var gridstepx = gridstep.x*beatlen;
+	(size.x/gridstepx).asInteger.do{|i| 
+		Pen.color = Color.gray;
+		Pen.line((i*gridstepx)@0, (i*gridstepx)@( size.y ));
+		Pen.stroke
+	};
+};
+
+~draw_stepy_grid = { arg size, gridstep;
+	var gridstepy = gridstep.y;
+	(1/gridstepy).asInteger.do{|i| 
+		Pen.color = Color.gray(1-gridstepy-0.2);
+		Pen.line(0@(i*size.y*gridstepy), size.x@(i*size.y*gridstepy));
+		Pen.stroke
+	};
+};
+
 ~class_basic_track_view = (
 	block_top_padding: {arg self; self.track_size_y/10},
 	track_size_x: 800,
@@ -56,6 +74,7 @@
 			//beatlen = beatlen ?? self.beatlen;
 			beatlen = self.beatlen;
 			// x lines
+			~draw_stepx_grid.(size, beatlen, self.controller.display.gridstep);
 			~draw_beat_grid.(size, beatlen);
 
 			// end line
@@ -92,25 +111,35 @@
 		{ arg view, x, y, modifiers, buttonNumber, clickCount;
 			var pos_x = (x/self.beatlen);
 			[x, pos_x].debug("mouse_down_action: x, pos_x");
-			self.controller.toggle_note(pos_x);
-			self.move_list = Set.new;
 			//buttonNumber.debug("buttonNumber");
+			switch(buttonNumber,
+				0, {
+					self.controller.toggle_note(pos_x);
+					self.move_list = Set.new;
+				},
+				1, {
+					pos_x = pos_x.round(self.controller.display.gridstep.x);
+					self.controller.set_end(pos_x)
+				}
+			)
 		}
 	},
 
 	mouse_move_action: { arg self;
 		{ arg view, x, y, modifiers;
 			var pos_x = (x/self.beatlen);
-			pos_x.debug("mouseMoveAction");
-			pos_x = pos_x.trunc(self.controller.display.gridstep.x);
-			if(self.move_list.includes(pos_x).not) {
-				if(modifiers.isCtrl) {
-					self.controller.remove_note(pos_x);
-				} {
-					self.controller.add_note(pos_x);
+			if(self.move_list.notNil) {
+				pos_x.debug("mouseMoveAction");
+				pos_x = pos_x.trunc(self.controller.display.gridstep.x);
+				if(self.move_list.includes(pos_x).not) {
+					if(modifiers.isCtrl) {
+						self.controller.remove_note(pos_x);
+					} {
+						self.controller.add_note(pos_x);
+					};
+					self.move_list.add(pos_x);
 				};
-				self.move_list.add(pos_x);
-			};
+			}
 		};
 	},
 
@@ -151,7 +180,7 @@
 		//self.gridstep1 = controller.display.gridstep * (self.view_size1.x/self.controller.display.gridlen);
 		self.gridstep1 = Point(
 			controller.display.gridstep.x * (self.track_size1.x/self.controller.display.gridlen),
-			controller.display.gridstep.y * (self.track_size1.y/self.controller.display.gridlen) // FIXME: gridlen not y
+			controller.display.gridstep.y * self.track_size1.y // FIXME: gridlen not y
 		);
 	},
 
@@ -194,7 +223,7 @@
 				pos = self.note_to_point(note);
 
 				self.timeline.createNode(pos.x, pos.y);
-				self.timeline.setNodeSize_(spritenum, self.block_size_y);
+				self.timeline.setNodeSize_(spritenum, self.handle_size);
 				self.timeline.paraNodes[spritenum].setLen = note.sustain * self.beatlen;
 				self.timeline.paraNodes[spritenum].temp = pos;
 
@@ -313,6 +342,7 @@
 						pos = x@y;
 						pos = pos/self.view_size;
 						pos.x = pos.x.round(self.gridstep1.x);
+						pos.y = pos.y.round(self.gridstep1.y);
 						pos.debug("mouse_down_action: pos");
 						notepos = self.point_to_notepoint(pos);
 						if(modifiers.isCtrl) {
@@ -353,6 +383,8 @@
 			//beatlen = beatlen ?? (self.track_size.x/self.controller.display.gridlen);
 			beatlen = self.beatlen;
 			// x lines
+			~draw_stepx_grid.(size, beatlen, self.controller.display.gridstep);
+			~draw_stepy_grid.(size, self.controller.display.gridstep);
 			~draw_beat_grid.(size, beatlen);
 
 			// middle line
@@ -384,20 +416,40 @@
 	draw_curve_lines: { arg self;
 		var notes;
 		var first;
+		var offset = 0;
 		notes = self.controller.get_notes;
 		//self.scan_notes(notes);
-		Pen.color = Color.red;
 
-		notes.do { arg note;
-			//Pen.lineTo(self.note_to_point(note) * (self.track_size.x@self.track_size.y));
-			Pen.lineTo(self.note_to_point(note) * self.view_size);
-		};
-		first = self.note_to_point(notes.first);
+		//3.d/o { arg j;
+		Pen.use {
+			Pen.color = Color.red;
 
-		//Pen.lineTo((1@first.y) * (self.track_size.x@self.track_size.y));
-		i = (self.controller.get_end * self.beatlen) ?? (self.track_size1.x * self.view_size.x);
-		Pen.lineTo(i@(first.y * self.view_size.y));
-		Pen.stroke;
+			block { arg break;
+			
+				20.do { arg j;
+				
+					notes.do { arg note;
+						//Pen.lineTo(self.note_to_point(note) * (self.track_size.x@self.track_size.y));
+						Pen.lineTo(self.note_to_point(note) * self.view_size);
+					};
+					first = self.note_to_point(notes.first);
+
+					//Pen.lineTo((1@first.y) * (self.track_size.x@self.track_size.y));
+					i = (self.controller.get_end * self.beatlen) ?? (self.track_size1.x * self.view_size.x);
+					Pen.lineTo(i@(first.y * self.view_size.y));
+					Pen.stroke;
+
+					offset = i + offset;
+
+					if(offset > self.view_size.x) {
+						offset.debug("BREAK!!");
+						break.value;
+					};
+
+					Pen.translate(i);
+				}
+			}
+		}
 	
 	},
 
@@ -486,7 +538,7 @@
 				newx = current_pos[0].clip(0,1).trunc(self.gridstep1.x);
 			};
 			newx.debug("newx");
-			newy = current_pos[1].clip(0,1-self.margin);
+			newy = current_pos[1].clip(0,1-self.margin).trunc(self.gridstep1.y);
 			
 			notepoint = self.point_to_notepoint(newx@newy);
 			notepoint.debug("notepoint");
@@ -521,6 +573,11 @@
 		self.make_gui;
 	
 		self;
+	},
+
+	tracks: { arg self;
+		//TODO
+		
 	},
 
 	make_gui: { arg self;
@@ -601,29 +658,48 @@
 		self.get_notescore.get_abs_notes;
 	},
 
+	set_end: { arg self, val;
+		self.scoreset.get_notescore.set_end(val);
+		self.scoreset.update_notes;
+		//self.changed(\background);
+		self.changed(\notes);
+	},
+
+	get_end: { arg self;
+		self.scoreset.get_notescore.get_end.debug("get_end");
+	},
+
 	add_note: { arg self, abstime, sustain=0.5;
 		var note;
 		[abstime, sustain].debug("class_step_track_controller: add_note");
-		note = (
-			sustain: self.display.gridstep,
-		);
-		self.get_notescore.add_note(note, abstime);
-		self.get_notescore.debug("add_note: get_notes");
-		self.get_notescore.notes.debug("add_note: notescore.notes");
-		self.scoreset.update_notes;
-		self.changed(\notes);
+		if(abstime < self.get_end) {
+			note = (
+				sustain: self.display.gridstep.x,
+			);
+			self.get_notescore.add_note(note, abstime);
+			self.get_notescore.debug("add_note: get_notes");
+			self.get_notescore.notes.debug("add_note: notescore.notes");
+			self.scoreset.update_notes;
+			self.changed(\notes);
+		} {
+			debug("class_step_track_controller: past end: noop");
+		}
+
 	},
 
 	toggle_note: { arg self, abstime;
 		var iabstime;
 		[abstime].debug("class_step_track_controller: toggle_note");
-		iabstime = abstime.trunc(self.display.gridstep);
-		 if(self.get_notescore.is_note_playing_at_abstime(abstime)) {
-			self.remove_note(abstime); 
-		 } {
-			self.add_note(iabstime); 
-		 }
-	
+		iabstime = abstime.trunc(self.display.gridstep.x);
+		if(iabstime < self.get_end) {
+			if(self.get_notescore.is_note_playing_at_abstime(abstime)) {
+				self.remove_note(abstime); 
+			} {
+				self.add_note(iabstime); 
+			}
+		} {
+			debug("class_step_track_controller: past end: noop");
+		}
 	},
 
 	remove_note: { arg self, abstime;
@@ -654,6 +730,16 @@
 		self.scoreset = node.get_arg(\noteline).get_scoreset;
 	
 		self;
+	},
+
+	set_end: { arg self, val;
+		self.scoreset.get_notescore.set_end(val);
+		self.scoreset.update_notes;
+		self.changed(\background);
+	},
+
+	get_end: { arg self;
+		self.scoreset.get_notescore.get_end.debug("get_end");
 	},
 
 	get_notescore: { arg self;
@@ -720,6 +806,31 @@
 		var dur;
 		dur = self.node_object.get_arg(\dur).get_val;
 		self.stepline.seq.val.size * dur;
+	},
+	
+	set_end: { arg self, val;
+		var count;
+		var dur;
+		var cursize; 
+		var newsize;
+		var delta;
+		dur = self.node_object.get_arg(\dur).get_val;
+		val = val.round(self.display.gridstep.x);
+		cursize = self.stepline.get_cells.size;
+		newsize = val / dur;
+		delta = (newsize - cursize).asInteger;
+		if(delta > 0) {
+			self.stepline.add_cells({ arg x; self.stepline.seq.val.wrapAt(x) } ! delta);
+			self.changed(\notes);
+		};
+		if(delta < 0) {
+			self.stepline.remove_cells(delta.abs);
+			self.changed(\notes);
+		};
+		val.debug("class_stepline_track_controller.set_end");
+		//self.stepline.add_cells([])
+
+	
 	},
 
 	add_note: { arg self, abstime, sustain=0.5;
@@ -920,7 +1031,7 @@
 	},
 
 	increase_gridstep_y: { arg self;
-		self.gridstep.y = self.gridstep.x * 2;
+		self.gridstep.y = self.gridstep.y * 2;
 		self.changed(\gridstep);
 	},
 

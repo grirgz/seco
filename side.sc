@@ -1611,6 +1611,14 @@
 			main.commands.parse_action_bindings(\side, [
 
 
+				[\add_modenv, {
+					var player = self.get_current_player;
+					var mod = main.node_manager.make_livenode_from_libmodnode(\modenv);
+					player.modulation.set_modulator_name(0, mod);
+					player.modulation.connect_modulator(0, \freq, 0);
+					player.get_arg(\freq).change_kind(\modulation);
+				}],
+
 				[\open_timeline, {
 					self.timeline.make_gui;
 				}],

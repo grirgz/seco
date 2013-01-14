@@ -748,6 +748,68 @@
 
 );
 
+~class_cinstr_player = (
+	parent: ~class_synthdef_player,
+	new: { arg self, main, cinstr, data; 
+		self = self.deepCopy;
+
+		"ion est la".debug;
+		//self.external_player = ~class_passive_controller.new(UniqueID.next.asString);
+		self.get_main = { arg self; main };
+		self.external_player = cinstr.new(main, self);
+		self.defname = self.external_player.synthdef_name;
+		self.external_player.set_static_responders;
+		self.to_destruct.add(self.external_player);
+
+		"on est la".debug;
+		//self.external_player.build_synthdef;
+		self.init(data);
+
+		self;
+	},
+
+	uname_: { arg self, uname;
+		//self.external_player.synthdef_name_suffix = "_"++uname.replace("passive ", "");
+		self.external_player.synthdef_name_suffix = "_"++uname;
+		self.external_player.build_synthdef;
+		self.defname = self.external_player.synthdef_name;
+		self[\uname] = uname;
+		self.build_sourcepat;
+		self.build_real_sourcepat;
+	},
+
+	get_ordered_args: { arg self;
+		~sort_by_template.(self.data.keys, self.external_player.get_ordered_args_names);
+	},
+
+	external_wrap: { arg self, pat; pat },
+
+	init: { arg self, data;
+		var additional;
+		var reject;
+		var dict = Dictionary.new;
+		var name;
+		var macro_ctrl;
+
+		self.sourcewrapper = "Pbind(\n\t\\freq, Pkey(\\freq)\n) <> ~pat;\nfalse";
+
+		self.modulation = ~class_modulation_manager.new(self);
+		self.effects = ~class_effect_manager.new(self);
+
+		self.data = self.external_player.data.copy;
+
+		self.build_standard_args;
+		self.data[\instrument] = ~make_dynamic_literal_param.(\instrument, { self.external_player.synthdef_name });
+		//self.data[\dur].set_val(2);
+
+		self.build_sourcepat;
+		self.build_real_sourcepat;
+	
+	},
+
+
+);
+
 ~class_passive_player = (
 	parent: ~class_synthdef_player,
 	new: { arg self, main, defname, data; 
@@ -1145,6 +1207,9 @@
 	case
 		{ instr.isString and: {instr.beginsWith("passive ")}} {
 			player = ~class_passive_player.new(main, instr.replace("passive ", ""), data)
+		}
+		{ instr.isString and: {instr.beginsWith("ci ")}} {
+			player = ~class_cinstr_player.new(main, ~classinstr_lib[instr.replace("ci ", "").asSymbol], data)
 		}
 		{ instr.isSymbolWS || instr.isString } {
 			if(instr == \modenv) {
