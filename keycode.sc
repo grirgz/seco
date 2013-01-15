@@ -694,7 +694,7 @@
 		if(self.midi_handler[panel].isNil) { self.midi_handler[panel] = Dictionary.new };
 		oldparam = self.ccpathToParam[ccpath];
 
-		param.midi.get_param.debug("verif param");
+		//param.midi.get_param.debug("verif param");
 		[param.name, ccpath].debug("assigning ccpath to param");
 
 		self.ccpathToParam[ccpath] = param;
@@ -705,8 +705,8 @@
 			oldparam.name.debug("refreshing oldparam");
 			oldparam.midi.refresh;
 		};
-		param.midi.get_ccpath.debug("verif");
-		param.midi.get_param.debug("verif param");
+		//param.midi.get_ccpath.debug("verif");
+		//param.midi.get_param.debug("verif param");
 		param.name.debug("refreshing param");
 		param.midi.refresh;
 		self.midi_handler[panel][ccpath] = { arg val; 

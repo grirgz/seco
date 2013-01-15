@@ -8,6 +8,8 @@ s.waitForBoot{
 	\osc1,
 	"ci mosc",
 	"ci moscfilter",
+	"ci moscfaderfilter",
+	"ci osc3filter2",
 	"ci sin",
 	\lead2,
 	\pulsepass,
