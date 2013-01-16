@@ -343,3 +343,12 @@ a = SimpleController(Mdef.node("ci osc_l1002").external_player.static_data[\spec
 
 Mdef.node("ci osc_l1002").external_player.set_static_responders
 
+
+SynthDescLib.at(\ci_osc3filter2).controls.collect(_.name)
+
+
+a = IdentityDictionary.newFrom([rah: (bla:4)])
+b = a.copy
+a[\rah].dump
+b[\rah].dump
+b.rah.dump
