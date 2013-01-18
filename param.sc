@@ -4174,9 +4174,10 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		val: 0
 	),
 
-	new: { arg self, name, variants;
+	new: { arg self, name, variants, label;
 		self = self.deepCopy;
 		self.name = name;
+		self.label = label;
 
 		self.menu_items = variants;
 		self.model.val_uname = self.menu_items[self.model.val].uname;
@@ -4228,4 +4229,25 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		[self.name, val].debug("class_param_kind_chooser.set_val");
 		self.changed(\val);
 	},	
+);
+
+~class_param_static_controller = (
+	// static
+	new: { arg self, name, spec, default_value=0;
+		self = self.deepCopy;
+		self.name = name;
+		self.val = default_value;
+		self.spec = spec;
+	
+		self;
+	},
+
+	set_val: { arg self, val;
+		self.val = val;	
+		self.changed(\val)
+	},
+
+	get_val: { arg self;
+		self.val;
+	},
 );
