@@ -169,7 +169,7 @@
 		},
 
 		set_param: { arg self, param, display;
-			bt_name.string = param.name;
+			bt_name.string = param.get_abs_label ?? param.name;
 
 			self.kind = \param;
 			

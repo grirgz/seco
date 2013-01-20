@@ -759,6 +759,7 @@
 		self.external_player = cinstr.new(main, self);
 		self.defname = self.external_player.synthdef_name;
 		self.external_player.set_static_responders;
+		self.external_player.set_param_abs_labels;
 		self.to_destruct.add(self.external_player);
 
 		"on est la".debug;

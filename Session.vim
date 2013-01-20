@@ -49,6 +49,7 @@ set fileencodings=ucs-bom,utf-8,default,latin1
 set helplang=fr
 set history=50
 set hlsearch
+set iskeyword=@,48-57,_,192-255,-,|
 set nomodeline
 set printoptions=paper:a4
 set ruler
@@ -83,7 +84,7 @@ badd +128 modulation.sc
 badd +331 main.sc
 badd +41 bindings.sc
 badd +2 plop.sc
-badd +1241 classinstr.sc
+badd +396 classinstr.sc
 badd +1 ~/code/sc/passive/synth.scd
 badd +1 ~/code/sc/passive/control.scd
 badd +468 wavetable.sc
@@ -134,12 +135,12 @@ inoremap <buffer> <silent> " =AutoPairsInsert('"')
 inoremap <buffer> <silent> ' =AutoPairsInsert('''')
 inoremap <buffer> <silent> ( =AutoPairsInsert('(')
 inoremap <buffer> <silent> ) =AutoPairsInsert(')')
-nnoremap <buffer> <silent> î :call AutoPairsJump()
-xnoremap <buffer> <silent> î :call AutoPairsJump()
-onoremap <buffer> <silent> î :call AutoPairsJump()
-nnoremap <buffer> <silent> ð :call AutoPairsToggle()
-xnoremap <buffer> <silent> ð :call AutoPairsToggle()
 onoremap <buffer> <silent> ð :call AutoPairsToggle()
+xnoremap <buffer> <silent> ð :call AutoPairsToggle()
+nnoremap <buffer> <silent> ð :call AutoPairsToggle()
+onoremap <buffer> <silent> î :call AutoPairsJump()
+xnoremap <buffer> <silent> î :call AutoPairsJump()
+nnoremap <buffer> <silent> î :call AutoPairsJump()
 snoremap <buffer> <silent> î :call AutoPairsJump()
 snoremap <buffer> <silent> ð :call AutoPairsToggle()
 inoremap <buffer> <silent> [ =AutoPairsInsert('[')
@@ -294,12 +295,12 @@ inoremap <buffer> <silent> " =AutoPairsInsert('"')
 inoremap <buffer> <silent> ' =AutoPairsInsert('''')
 inoremap <buffer> <silent> ( =AutoPairsInsert('(')
 inoremap <buffer> <silent> ) =AutoPairsInsert(')')
-nnoremap <buffer> <silent> î :call AutoPairsJump()
-xnoremap <buffer> <silent> î :call AutoPairsJump()
-onoremap <buffer> <silent> î :call AutoPairsJump()
-nnoremap <buffer> <silent> ð :call AutoPairsToggle()
-xnoremap <buffer> <silent> ð :call AutoPairsToggle()
 onoremap <buffer> <silent> ð :call AutoPairsToggle()
+xnoremap <buffer> <silent> ð :call AutoPairsToggle()
+nnoremap <buffer> <silent> ð :call AutoPairsToggle()
+onoremap <buffer> <silent> î :call AutoPairsJump()
+xnoremap <buffer> <silent> î :call AutoPairsJump()
+nnoremap <buffer> <silent> î :call AutoPairsJump()
 snoremap <buffer> <silent> î :call AutoPairsJump()
 snoremap <buffer> <silent> ð :call AutoPairsToggle()
 inoremap <buffer> <silent> [ =AutoPairsInsert('[')
@@ -410,12 +411,16 @@ setlocal nowinfixheight
 setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
-let s:l = 1241 - ((19 * winheight(0) + 19) / 39)
+1147
+normal zo
+1147
+normal zo
+let s:l = 1158 - ((8 * winheight(0) + 19) / 39)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-1241
-normal! 03l
+1158
+normal! 047l
 lcd ~/code/sc/seco
 tabedit ~/code/sc/seco/param.sc
 set splitbelow splitright
@@ -455,12 +460,12 @@ inoremap <buffer> <silent> " =AutoPairsInsert('"')
 inoremap <buffer> <silent> ' =AutoPairsInsert('''')
 inoremap <buffer> <silent> ( =AutoPairsInsert('(')
 inoremap <buffer> <silent> ) =AutoPairsInsert(')')
-onoremap <buffer> <silent> ð :call AutoPairsToggle()
-xnoremap <buffer> <silent> ð :call AutoPairsToggle()
-nnoremap <buffer> <silent> ð :call AutoPairsToggle()
-onoremap <buffer> <silent> î :call AutoPairsJump()
-xnoremap <buffer> <silent> î :call AutoPairsJump()
 nnoremap <buffer> <silent> î :call AutoPairsJump()
+xnoremap <buffer> <silent> î :call AutoPairsJump()
+onoremap <buffer> <silent> î :call AutoPairsJump()
+nnoremap <buffer> <silent> ð :call AutoPairsToggle()
+xnoremap <buffer> <silent> ð :call AutoPairsToggle()
+onoremap <buffer> <silent> ð :call AutoPairsToggle()
 snoremap <buffer> <silent> î :call AutoPairsJump()
 snoremap <buffer> <silent> ð :call AutoPairsToggle()
 inoremap <buffer> <silent> [ =AutoPairsInsert('[')
@@ -616,12 +621,12 @@ inoremap <buffer> <silent> " =AutoPairsInsert('"')
 inoremap <buffer> <silent> ' =AutoPairsInsert('''')
 inoremap <buffer> <silent> ( =AutoPairsInsert('(')
 inoremap <buffer> <silent> ) =AutoPairsInsert(')')
-nnoremap <buffer> <silent> î :call AutoPairsJump()
-xnoremap <buffer> <silent> î :call AutoPairsJump()
-onoremap <buffer> <silent> î :call AutoPairsJump()
-nnoremap <buffer> <silent> ð :call AutoPairsToggle()
-xnoremap <buffer> <silent> ð :call AutoPairsToggle()
 onoremap <buffer> <silent> ð :call AutoPairsToggle()
+xnoremap <buffer> <silent> ð :call AutoPairsToggle()
+nnoremap <buffer> <silent> ð :call AutoPairsToggle()
+onoremap <buffer> <silent> î :call AutoPairsJump()
+xnoremap <buffer> <silent> î :call AutoPairsJump()
+nnoremap <buffer> <silent> î :call AutoPairsJump()
 snoremap <buffer> <silent> î :call AutoPairsJump()
 snoremap <buffer> <silent> ð :call AutoPairsToggle()
 inoremap <buffer> <silent> [ =AutoPairsInsert('[')
@@ -732,7 +737,7 @@ setlocal nowinfixheight
 setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
-let s:l = 468 - ((0 * winheight(0) + 4) / 9)
+let s:l = 468 - ((0 * winheight(0) + 19) / 39)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
@@ -887,7 +892,7 @@ setlocal nowinfixheight
 setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
-let s:l = 135 - ((0 * winheight(0) + 4) / 9)
+let s:l = 135 - ((0 * winheight(0) + 19) / 39)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
@@ -1042,12 +1047,12 @@ setlocal nowinfixheight
 setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
-let s:l = 799 - ((5 * winheight(0) + 4) / 9)
+let s:l = 799 - ((0 * winheight(0) + 19) / 39)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
 799
-normal! 044l
+normal! 0
 lcd ~/code/sc/seco
 tabedit ~/code/sc/passive/synth.scd
 set splitbelow splitright
@@ -1199,11 +1204,11 @@ setlocal wrap
 setlocal wrapmargin=0
 1633
 normal zo
-let s:l = 1902 - ((1 * winheight(0) + 4) / 9)
+let s:l = 1112 - ((38 * winheight(0) + 19) / 39)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-1902
+1112
 normal! 0
 lcd ~/code/sc/seco
 tabedit ~/code/sc/passive/control.scd
@@ -1354,7 +1359,7 @@ setlocal nowinfixheight
 setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
-let s:l = 545 - ((0 * winheight(0) + 4) / 9)
+let s:l = 545 - ((0 * winheight(0) + 19) / 39)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt

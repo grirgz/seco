@@ -3039,6 +3039,24 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			self.changed(\label);
 		},
 
+		get_label: { arg self, name;
+			self.label ?? self.name;
+		},
+
+		set_abs_label: { arg self, val;
+			debug("GNI2");
+			self.abs_label = val;
+			self.changed(\abs_label);
+		},
+
+		get_abs_label: { arg self;
+			var res;
+			self.debug("GNI");
+			res = self.abs_label ?? self.label ?? self.name;
+			self.debug("GNI3");
+			res;
+		},
+
 		set_spec: { arg self, val;
 			self.spec = val;
 			self.changed(\val);

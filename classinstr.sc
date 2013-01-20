@@ -33,6 +33,7 @@
 		var vallabel;
 		self.layout = VLayout(
 			label = StaticText.new
+				.font_(Font("Arial",11))
 				.string_(self.controller.label ?? self.controller.name);
 				[label, stretch:0, align:\center],
 			knob = ModKnob.new; 
@@ -40,7 +41,7 @@
 					self.controller.set_norm_val(knob.value)
 				});
 				knob.asView.debug("VIEW");
-				knob.asView.minSize_(60@60);
+				knob.asView.minSize_(50@50);
 				[knob.asView, stretch: 0, align:\center],
 			vallabel = StaticText.new
 				.string_("12354")
@@ -60,11 +61,12 @@
 );
 
 ~class_ci_modslider_view = (
-	new: { arg self, controller;
+	new: { arg self, controller, size;
 		self = self.deepCopy;
 
 		self.controller = { controller };
 		debug("BLLA1");
+		self.view_size = size ?? Rect(0,0,30,250);
 		self.make_gui;
 		debug("BLLA2");
 
@@ -91,23 +93,31 @@
 		var label;
 		var knob;
 		var vallabel;
-		self.layout = VLayout(
+		var layout;
+		layout = if(self.view_size.height > self.view_size.width) {
+			VLayout;
+		} {
+			HLayout;
+		};
+		self.layout = layout.new(
 			label = StaticText.new
 				.align_(\centered)
-				.string_(self.controller.label ?? self.controller.name);
+				.string_(self.controller.label ?? self.controller.name)
+				;
 				[label, stretch:0, align:\center],
-			knob = ModSlider.new(nil, Rect(0,0,30,300)); 
+			knob = ModSlider.new(nil, self.view_size); 
 				debug("BLLA");
 				knob.action_({ 
 					self.controller.set_norm_val(knob.value)
 				});
 				knob.asView.debug("SLIDERVIEW");
-				knob.asView.minSize_(20@200);
+				knob.asView.minSize_(self.view_size.extent);
 				[knob.asView, stretch: 0, align:\center],
 			vallabel = StaticText.new
 				.string_("12354")
 				.font_(Font("Arial",11))
 				.align_(\center)
+				.minWidth_(75)
 				//.minWidth_(75);
 				;
 				[vallabel, stretch:0, align:\center],
@@ -312,14 +322,6 @@
 		self;
 	},
 
-	bypass: { arg self, val, fun, in;
-		if(val == 1) {
-			fun.value;
-		} {
-			in;
-		}
-	},
-
 	make_gui: { arg self;
 		var win;
 		win = Window.new;
@@ -329,21 +331,27 @@
 		win.front;
 	},
 
-	//argnamemod: { arg self, prefix="", suffix="", rec=1;
-	//	{ arg name;
-	//		switch(rec,
-	//			2, {
-	//				self.parent_argnamemod.(
-	//					(prefix ++ name ++ suffix).asSymbol
-	//				)
-	//			},
-	//			{
-	//				(prefix ++ name ++ suffix).asSymbol
-	//			}
-	//		);
-	//	}	
-	//},
-	
+	bypass: { arg self, val, fun, in;
+		if(val == 1) {
+			fun.value;
+		} {
+			in;
+		}
+	},
+
+	build_spread_array: { arg self, unisono;
+		var z, ret;
+		if(unisono.asInteger.odd) {
+			z = (unisono-1 / 2).asInteger;
+			ret = z.collect { arg i; (i+1)/z };
+			ret = 0-ret.reverse ++ 0 ++ ret;
+		} {
+			z = (unisono / 2).asInteger;
+			ret = z.collect { arg i; (i+1)/z };
+			ret = 0-ret.reverse ++ ret;
+		};
+	},
+
 	rel_namer: { arg self, name;
 		if(self.namer.isNil) {
 			name;
@@ -424,10 +432,12 @@
 			i[name] = args[name] ?? control_name.kr(datum.default_value);
 		};
 		self.simple_args.keysValuesDo { arg name, def;
-			if(def == \void) {
-				i[name] = name.kr;
-			} {
-				i[name] = name.kr(def);
+			if(i[name].isNil) {
+				if(def == \void) {
+					i[name] = name.kr;
+				} {
+					i[name] = name.kr(def);
+				}
 			}
 		};
 		self.static_data.keysValuesDo { arg name, datum;
@@ -458,6 +468,15 @@
 			resp[name] = sc;
 		};
 		self.static_responders = resp;
+	},
+
+	set_param_abs_labels: { arg self;
+		self.data.keysValuesDo { arg name, datum;
+			if(datum.classtype == \control) {
+				datum.set_abs_label(name);
+				[datum.name,name].debug("ABSLABEL");
+			}
+		}
 	},
 
 	build_synthdef: { arg self;
@@ -604,6 +623,8 @@
 			var i = self.get_synthargs(args);
 			var sig;
 			i.debug("III");
+			args.debug("ARGS");
+			i.freq.debug("FREQ");
 
 			sig = Instr(\ci_oscillator).value((
 				midinote:i.freq.cpsmidi, 
@@ -708,7 +729,7 @@
 			var i = self.get_synthargs(args);
 			var sig1, sig2, sig;
 
-			sig = self.osc.synthfun.();
+			sig = self.osc.synthfun.(args);
 			//sig.poll;
 			sig1 = SelectX.ar(i.outmix, [sig, DC.ar(0)]);
 			sig2 = SelectX.ar(i.outmix, [DC.ar(0), sig]);
@@ -992,6 +1013,81 @@
 	},
 );
 
+~class_ci_dadsr = (
+	parent: ~class_instr,
+	args_prefix: "",
+	args_suffix: "",
+	new: { arg self, main, player;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.synthdef_name = \ci_dadsr;
+		self.build_data;
+
+		self.simple_args = (gate:1, doneAction:2);
+	
+		self;
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var specs = self.get_specs;
+		var player = self.get_player;
+		self.ordered_args = [
+			delay: ~make_control_param.(main, player, \delay, \scalar, 0.00001, specs[\env]),
+			attack_time: ~make_control_param.(main, player, \attack_time, \scalar, 0.1, specs[\env]),
+			decay_time: ~make_control_param.(main, player, \decay_time, \scalar, 0.1, specs[\env]),
+			sustain_level: ~make_control_param.(main, player, \sustain_level, \scalar, 0.5, specs[\envamp]),
+			release_time: ~make_control_param.(main, player, \release_time, \scalar, 0.1, specs[\env]),
+			velocity_mix: ~make_control_param.(main, player, \velocity_mix, \scalar, 0.1, \unipolar.asSpec),
+			ampcomp: ~make_control_param.(main, player, \ampcomp, \scalar, 0.1, \unipolar.asSpec),
+		];
+		self.data = IdentityDictionary.newFrom(self.ordered_args);
+		self.data.copy;
+	},
+
+	make_layout: { arg self;
+		var knobs = [\delay, \attack_time, \decay_time, \sustain_level, \release_time];
+		var faders = [\ampcomp, \velocity_mix];
+		var frame_view;
+		self.knobs = knobs.collect { arg name;
+			~class_ci_modknob_view.new(self.data[name]);
+		};
+		self.faders = faders.collect { arg name;
+			~class_ci_modslider_view.new(self.data[name]);
+		};
+		self.layout = VLayout(
+			HLayout(*
+				self.faders ++
+				[EnvelopeView.new]
+			),
+			HLayout(*
+				self.knobs
+			)
+		);
+		self.layout;
+	},
+
+	synthfun: { arg self;
+		{ arg in, args;
+			var i = self.get_synthargs(args);
+			var sig;
+
+			sig = in * EnvGen.ar(Env.dadsr(
+				i.delay,
+				i.attack_time,
+				i.decay_time,
+				i.sustain_level,
+				i.release_time,
+			), i.gate, doneAction:i.doneAction);
+			sig;
+
+		}
+	
+	},
+);
+
 ~class_ci_master_env = (
 	parent: ~class_instr,
 	args_prefix: "",
@@ -1003,6 +1099,63 @@
 		self.get_player = { player };
 		self.synthdef_name = \ci_master_env;
 		self.build_data;
+
+		self.simple_args = (gate:1, doneAction:2);
+	
+		self;
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		self.ordered_args = [
+			pan: ~make_control_param.(main, player, \pan, \scalar, 0, \pan.asSpec),
+			spread: ~make_control_param.(main, player, \spread, \scalar, 0, \unipolar.asSpec),
+			amp: ~make_control_param.(main, player, \amp, \scalar, 0.1, \amp.asSpec),
+		];
+		self.data = IdentityDictionary.newFrom(self.ordered_args);
+		self.data.copy;
+	},
+
+	make_layout: { arg self;
+		var knobs = [\pan, \spread, \amp];
+		var frame_view;
+		self.knobs = knobs.collect { arg name;
+			self.data[name];
+		};
+		frame_view = ~class_ci_frame_view.new("Master", self.knobs, nil, nil, nil);
+		self.layout = frame_view.layout;
+		self.layout;
+	},
+
+	synthfun: { arg self;
+		{ arg in, args;
+			var i = self.get_synthargs(args);
+			var is = self.get_staticargs;
+			var sig;
+
+			sig = Splay.ar(in, i.spread, i.amp, i.pan);
+			sig = sig * EnvGen.ar(Env.adsr(0.1,0.1,1,0.1), i.gate, doneAction:i.doneAction);
+			sig;
+
+		}
+	
+	},
+);
+
+~class_ci_master_dadsr = (
+	parent: ~class_instr,
+	args_prefix: "",
+	args_suffix: "",
+	new: { arg self, main, player;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.synthdef_name = \ci_master_dadsr;
+		self.build_data;
+
+		self.dadsr = ~class_ci_dadsr.new(main,player);
 
 		self.simple_args = (gate:1, doneAction:2);
 	
@@ -1308,7 +1461,7 @@
 		self.get_player = { player };
 		self.namer = { namer };
 		self.synthdef_name = \ci_osc3filter2;
-		self.simple_args = (gate:1, doneAction:2);
+		self.simple_args = (freq:\void, gate:1, doneAction:2);
 
 		self.oscs = 3.collect { arg idx;
 			~class_ci_oscfader.new(main, player, self.make_namer("osc%_".format(idx)));
@@ -1325,6 +1478,17 @@
 		self.build_data;
 	
 		self;
+	},
+
+	build_freq_spread_array: { arg self, i, freq;
+		if(i.enable_pitch_spread == 1) {
+			var array = self.build_spread_array(i.voices);
+			array.debug("spread array");
+			freq = (freq.cpsmidi + (i.pitch_spread * array)).midicps;
+		} {
+			freq = freq ! i.voices;
+		};
+		freq;
 	},
 
 	get_route_insfx_variants: { arg self;
@@ -1363,12 +1527,14 @@
 	build_data: { arg self;
 		var main = self.get_main;
 		var player = self.get_player;
+		var specs = self.get_specs;
 		var filtermix = ~make_control_param.(main, player, \filtermix, \scalar, 0.5, \unipolar.asSpec);
 		var filterparseq = ~make_control_param.(main, player, \filterparseq, \scalar, 0.5, \unipolar.asSpec);
 		self.ordered_args = self.modules.collect({ arg a; a.get_ordered_args }).flat;
 		self.ordered_args = self.ordered_args ++ [
 			filtermix: filtermix,
 			filterparseq: filterparseq,
+			pitch_spread: ~make_control_param.(main, player, \pitch_spread, \scalar, 0, \bipolar.asSpec),
 		];
 		filtermix.set_label("Filter Mix");
 		filterparseq.set_label("Par Seq");
@@ -1377,6 +1543,8 @@
 		self.static_data = (
 			route_insertfx1: ~class_param_kind_chooser_controller.new(\route_insertfx1, self.get_route_insfx_variants, "Insert Fx 1"),
 			route_insertfx2: ~class_param_kind_chooser_controller.new(\route_insertfx2, self.get_route_insfx_variants, "Insert Fx 1"),
+			enable_pitch_spread: ~class_param_static_controller.new(\enable_pitch_spread, specs[\onoff], 0),
+			voices: ~class_param_static_controller.new(\enable_pitch_spread, ControlSpec(1,16,\lin,1), 1),
 		);
 
 		self.ordered_args.clump(2).do { arg keyval;
@@ -1414,6 +1582,76 @@
 		routing_layout;
 	},
 
+	make_layout_voices: { arg self;
+		HLayout(
+			VLayout(
+				StaticText.new
+					.string_("Voices:"),
+				TextField.new
+					.string_(self.static_data[\voices].get_val)
+					.action_({ arg field;
+						self.static_data[\voices].set_val(field.string.asInteger)
+					})
+			),
+			VLayout(
+				HLayout(
+					Button.new
+						.states_([["Off"],["On"]])
+						.value_(self.static_data[\enable_pitch_spread].get_val)
+						.action_({ arg bt; 
+							self.static_data[\enable_pitch_spread].set_val(bt.value);
+						}),
+					{
+						var slider;
+						slider = ~class_ci_modslider_view.new(self.data[\pitch_spread],Rect(0,0,300,20));
+						slider.namelabel.minWidth_(100);
+						slider.layout;
+					}.value
+
+				),
+				HLayout(
+					Button.new
+						.states_([["Off"],["On"]])
+						.enabled_(false)
+						.value_(1)
+						,
+					{
+						var slider;
+						slider = ~class_ci_modslider_view.new(self.data[\spread],Rect(0,0,300,20));
+						slider.namelabel.minWidth_(100);
+						slider.layout;
+					}.value
+					//~class_ci_modslider_view.new(self.data[\spread],Rect(0,0,300,20)).layout
+				)
+			
+			)
+
+		)
+	},
+
+	make_tab_panel: { arg self;
+		var header, body, layout;
+		body = StackLayout(
+			View.new.layout_(self.make_layout_routing),
+			View.new.layout_(self.make_layout_voices),
+		);
+		layout = VLayout(
+			HLayout(
+				Button.new
+					.states_([["Routing"]])
+					.action_({ body.index = 0 })
+					,
+				Button.new
+					.states_([["Voices"]])
+					.action_({ body.index = 1 })
+					,
+			),
+			body
+		
+		);
+	
+	},
+
 	make_layout: { arg self;
 		self.layout = HLayout(
 			VLayout(*
@@ -1421,20 +1659,27 @@
 			),
 			VLayout(*
 				[HLayout(
-					~class_ci_modslider_view.new(self.data[\filterparseq]).layout,
-					VLayout(*
-						self.filters.collect(_.make_layout) ++
-						[nil]
+					HLayout(
+						~class_ci_modslider_view.new(self.data[\filterparseq]).layout,
+						VLayout(*
+							self.filters.collect(_.make_layout) ++
+							[nil]
+						),
+						~class_ci_modslider_view.new(self.data[\filtermix]).layout,
 					),
-					~class_ci_modslider_view.new(self.data[\filtermix]).layout,
+					VLayout(
+						[self.master.make_layout, stretch:0],
+						//[self.make_layout_routing, stretch:0],
+						[nil, stretch:1],
+					)
 				)] ++
-				self.insertfxs.collect(_.make_layout) ++
+				[HLayout(*
+					self.insertfxs.collect(_.make_layout)
+				)] ++
+				[[self.make_tab_panel, stretch:0]] ++
 				[nil]
 			),
 			VLayout(
-				[self.master.make_layout, stretch:0],
-				[self.make_layout_routing, stretch:0],
-				[nil, stretch:1],
 			),
 			nil,
 		);
@@ -1457,7 +1702,6 @@
 	synthfun: { arg self;
 		{ arg args;
 			var i = self.get_synthargs(args);
-			var is = self.get_staticargs;
 			var sig, sig1, sig2;
 			var rsig;
 			var oscs;
@@ -1465,11 +1709,18 @@
 			var fmiddle_in;
 			var f1_out, f2_out;
 
+			//[1,2,4].sum
+			//[[1,2],[2,4],[4,6]].sum
+			//[[[1.1,2.1],[1,2]],[[2.1,4.1],[2,4]]].flop[0].sum
+
 			oscs = self.oscs.collect { arg osc;
-				osc.synthfun.()
+				var freq;
+				freq = self.build_freq_spread_array(i, i.freq);
+				osc.synthfun.((freq:freq));
 			};
 			rsig = oscs[0];
 			oscs.debug("OSCS");
+			oscs.poll;
 			oscs = oscs.flop;
 			f1_in = oscs[1].sum;
 			f2_in = oscs[0].sum;
@@ -1484,7 +1735,7 @@
 			// filtering 1
 			f1_out = self.filters[0].synthfun.(f1_in);
 			f1_out.debug("F1OUT1");
-			f1_out.poll;
+			//f1_out.poll;
 
 			// parseq
 			fmiddle_in = SelectX.ar(i.filterparseq, [f1_out, DC.ar(0)]);
@@ -1509,7 +1760,7 @@
 			// end effect
 			sig = self.insert_effect(i, sig, \before_pan);
 
-			sig = sig ! 2;
+			//sig = sig ! 2;
 
 			sig = self.master.synthfun.(sig);
 

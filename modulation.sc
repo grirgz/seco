@@ -36,7 +36,7 @@
 
 	val: { arg self, obj;
 		self.modknob.value = obj.get_norm_val;
-		self.val_label.string = obj.get_val.asStringPrec(6);
+		self.val_label.string = obj.get_val.asFloat.asStringPrec(6);
 	},
 
 	kind: { arg self, obj;
