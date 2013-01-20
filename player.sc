@@ -766,6 +766,9 @@
 		//self.external_player.build_synthdef;
 		self.init(data);
 
+		self.data[\dur].set_val(1);
+		self.data[\repeat].set_val(0);
+
 		self;
 	},
 

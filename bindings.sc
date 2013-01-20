@@ -1,3 +1,13 @@
+~common_bindings = (
+	playing: [
+		["play_selected", \kb, 0, \f5],
+		["stop_selected", \kb, 0, \f6],
+		["panic", \kb, 0, \f8],
+	],
+	windowing: [
+		["close_window", \kb, 0, \escape],
+	]
+);
 
 ~bindings = (
 	editplayer: [
@@ -25,6 +35,12 @@
 		["select_header",							\kb, \alt, \kbnumline],
 		["show_panel.editplayer",							\kb, 0, \f12],
 		["create_new_livenode", \kb, \alt, "c"],
+	],
+	classinstr:
+		~common_bindings.playing ++
+		~common_bindings.windowing ++
+		[
+
 	],
 	timeline: [
 		["play_timeline", \kb, 0, \f5],

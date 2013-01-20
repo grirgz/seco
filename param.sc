@@ -3125,17 +3125,41 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		scalar: (
 			//quoi: { "QUOI".debug; }.value,
 			muted: false,
+			bus_mode: false,
 			selected_cell: 0, // always 0
 			val: if(default_value.isArray, { default_value[0] }, { default_value }),
 
+			set_bus_mode: { arg self, val=true;
+				if(val != self.bus_mode) {
+					self.bus_mode = val;
+					if(val) {
+						self.bus = Bus.control(s,1);
+						self.bus.set(self.val);
+					} {
+						self.bus.free;
+						self.bus = nil;
+					}
+
+				};
+			},
+
 			set_val: { arg self, val, idx=nil;
 				self.val = val;
+				if(self.bus_mode) {
+					self.bus.set(self.val)
+				};
 				param.changed(\val, 0);
 			},
-			get_val: { arg self; self.val },
+
+			get_val: { arg self; 
+				self.val
+			},
 
 			set_norm_val: { arg self, norm_val;
 				self.val = param.spec.map(norm_val);
+				if(self.bus_mode) {
+					self.bus.set(self.val)
+				};
 				param.changed(\val, 0);
 			},
 			get_norm_val: { arg self;
@@ -3497,7 +3521,11 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				} {
 					switch(kind, 
 						\scalar, {
-							ev = self.scalar.get_val.yield;
+							if(self.scalar.bus_mode) {
+								ev = self.scalar.bus.asMap.yield;
+							} {
+								ev = self.scalar.get_val.yield;
+							}
 						},
 						\seq, {
 							idx = 0;

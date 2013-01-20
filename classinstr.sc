@@ -262,7 +262,8 @@
 						self.fader_ctrl.set_norm_val(self.fader.value)
 					})
 					;
-					self.fader
+					self.fader,
+				stretch:0
 			)
 		};
 		vframe.layout.margins = 5;
@@ -312,8 +313,10 @@
 );
 
 ~class_instr = (
-	static_data: [],
+	static_data: List[],
+	ordered_args: List[],
 	simple_args: (),
+	data: IdentityDictionary.new,
 	args_prefix: "",
 	args_suffix: "",
 	new: { arg self;
@@ -328,7 +331,44 @@
 		self.make_layout;
 		win.layout = self.layout;
 		self.window = win;
+		self.make_bindings;
+		//FIXME: set on focus
+		self.set_all_bus_mode(true);
+		self.window.view.onClose = self.window.view.onClose.addFunc({
+			debug("CLOSING");
+			self.set_all_bus_mode(false)
+		});
+		self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\classinstr);
 		win.front;
+	},
+
+	set_all_bus_mode: { arg self, enable;
+		self.data.keysValuesDo { arg name, datum;
+			if(datum.classtype == \control) {
+				datum.scalar.set_bus_mode(enable);
+			}
+		}
+	},
+
+	make_bindings: { arg self;
+		self.get_main.commands.parse_action_bindings(\classinstr, [
+
+			[\close_window, {
+				self.window.close;
+			}],
+
+			[\play_selected, {
+				self.get_player.play_node;
+			}], 
+
+			[\stop_selected, {
+				self.get_player.stop_node;
+			}],
+
+			[\panic, {
+				self.get_main.panic;
+			}],
+		])
 	},
 
 	bypass: { arg self, val, fun, in;
@@ -421,6 +461,27 @@
 			//[keyval[0], keyval[1]]
 		};
 		res.flat;
+	},
+
+	help_build_data: { arg self, datalist, static_datalist;
+		datalist.do { arg data;
+			if(data.isSequenceableCollection) {
+				self.ordered_args = self.ordered_args ++ data;
+			} {
+				self.ordered_args = self.ordered_args ++ data.get_ordered_args;
+			}
+		};
+		self.data.putAll(self.ordered_args);
+		static_datalist.do { arg data;
+			if(data[\get_static_data].notNil) {
+				self.static_data.putAll(data.get_static_data)
+			} {
+				self.static_data.putAll(data)
+			}
+		};
+		self.param = ();
+		self.param.putAll(self.data);
+		self.param.putAll(self.static_data);
 	},
 
 	get_synthargs: { arg self, args=();
@@ -604,6 +665,7 @@
 			enabled: ~class_param_static_controller.new(\enabled, specs[\onoff], 1),
 		));
 		self.data = IdentityDictionary.newFrom(self.ordered_args);
+		//self.data[\detune].scalar.set_bus_mode(true);
 		self.data.copy;
 	},
 
@@ -636,11 +698,9 @@
 				intensity:i.intensity,
 				amp:i.oscamp, 
 			));
-			//i.oscamp.poll;
 			sig = self.bypass(i.enabled, sig, DC.ar(0));
 			i.oscamp.debug("OSCAMP");
 
-			//sig.poll;
 
 			sig;
 
@@ -730,7 +790,6 @@
 			var sig1, sig2, sig;
 
 			sig = self.osc.synthfun.(args);
-			//sig.poll;
 			sig1 = SelectX.ar(i.outmix, [sig, DC.ar(0)]);
 			sig2 = SelectX.ar(i.outmix, [DC.ar(0), sig]);
 			//sig1 = sig;
@@ -1000,7 +1059,7 @@
 				arg1:i.arg1,
 				arg2:i.arg2,
 				arg3:i.arg3,
-				freq:i.freq,
+				ktr:i.freq.cpsmidi,
 			));
 			i.enabled.debug("ENABLED");
 			sig = self.bypass(i.enabled, sig, in);
@@ -1035,11 +1094,12 @@
 		var specs = self.get_specs;
 		var player = self.get_player;
 		self.ordered_args = [
-			delay: ~make_control_param.(main, player, \delay, \scalar, 0.00001, specs[\env]),
+			delay: ~make_control_param.(main, player, \delay, \scalar, 0, specs[\env]),
 			attack_time: ~make_control_param.(main, player, \attack_time, \scalar, 0.1, specs[\env]),
 			decay_time: ~make_control_param.(main, player, \decay_time, \scalar, 0.1, specs[\env]),
 			sustain_level: ~make_control_param.(main, player, \sustain_level, \scalar, 0.5, specs[\envamp]),
 			release_time: ~make_control_param.(main, player, \release_time, \scalar, 0.1, specs[\env]),
+			curve: ~make_control_param.(main, player, \curve, \scalar, 1, ControlSpec(-10,10,\lin,0,1)),
 			velocity_mix: ~make_control_param.(main, player, \velocity_mix, \scalar, 0.1, \unipolar.asSpec),
 			ampcomp: ~make_control_param.(main, player, \ampcomp, \scalar, 0.1, \unipolar.asSpec),
 		];
@@ -1048,38 +1108,58 @@
 	},
 
 	make_layout: { arg self;
-		var knobs = [\delay, \attack_time, \decay_time, \sustain_level, \release_time];
+		var knobs = [\delay, \attack_time, \decay_time, \sustain_level, \release_time, \curve];
 		var faders = [\ampcomp, \velocity_mix];
 		var frame_view;
+		var env_view;
 		self.knobs = knobs.collect { arg name;
-			~class_ci_modknob_view.new(self.data[name]);
+			~class_ci_modknob_view.new(self.data[name]).layout;
 		};
 		self.faders = faders.collect { arg name;
-			~class_ci_modslider_view.new(self.data[name]);
+			~class_ci_modslider_view.new(self.data[name], Rect(0,0,30,100)).layout;
 		};
 		self.layout = VLayout(
 			HLayout(*
 				self.faders ++
-				[EnvelopeView.new]
+				[
+					env_view = EnvelopeView.new
+				]
 			),
 			HLayout(*
 				self.knobs
 			)
 		);
+		knobs.do { arg name;
+			~make_view_responder.(env_view, self.data[name], (
+				val: {
+					env_view.setEnv( Env.dadsr(
+						self.data[\delay].get_val,
+						self.data[\attack_time].get_val,
+						self.data[\decay_time].get_val,
+						self.data[\sustain_level].get_val,
+						self.data[\release_time].get_val,
+						1,
+						self.data[\curve].get_val
+					) )
+				}
+			), true)
+		};
 		self.layout;
 	},
 
 	synthfun: { arg self;
-		{ arg in, args;
+		{ arg args;
 			var i = self.get_synthargs(args);
 			var sig;
 
-			sig = in * EnvGen.ar(Env.dadsr(
+			sig = EnvGen.ar(Env.dadsr(
 				i.delay,
 				i.attack_time,
 				i.decay_time,
 				i.sustain_level,
 				i.release_time,
+				1,
+				i.curve
 			), i.gate, doneAction:i.doneAction);
 			sig;
 
@@ -1153,11 +1233,12 @@
 		self.get_main = { main };
 		self.get_player = { player };
 		self.synthdef_name = \ci_master_dadsr;
-		self.build_data;
 
 		self.dadsr = ~class_ci_dadsr.new(main,player);
-
 		self.simple_args = (gate:1, doneAction:2);
+
+		self.build_data;
+
 	
 		self;
 	},
@@ -1165,17 +1246,20 @@
 	build_data: { arg self;
 		var main = self.get_main;
 		var player = self.get_player;
-		self.ordered_args = [
-			pan: ~make_control_param.(main, player, \pan, \scalar, 0, \pan.asSpec),
-			spread: ~make_control_param.(main, player, \spread, \scalar, 0, \unipolar.asSpec),
-			amp: ~make_control_param.(main, player, \amp, \scalar, 0.1, \amp.asSpec),
-		];
-		self.data = IdentityDictionary.newFrom(self.ordered_args);
-		self.data.copy;
+		self.help_build_data(
+			[
+				[
+					pan: ~make_control_param.(main, player, \pan, \scalar, 0, \pan.asSpec),
+					spread: ~make_control_param.(main, player, \spread, \scalar, 0, \unipolar.asSpec),
+					amp: ~make_control_param.(main, player, \amp, \scalar, 0.1, \amp.asSpec),
+				],
+				self.dadsr;
+			],
+		)
 	},
 
 	make_layout: { arg self;
-		var knobs = [\pan, \spread, \amp];
+		var knobs = [\pan, \amp];
 		var frame_view;
 		self.knobs = knobs.collect { arg name;
 			self.data[name];
@@ -1185,6 +1269,10 @@
 		self.layout;
 	},
 
+	make_layout_env: { arg self;
+		self.dadsr.make_layout;
+	},
+
 	synthfun: { arg self;
 		{ arg in, args;
 			var i = self.get_synthargs(args);
@@ -1192,7 +1280,7 @@
 			var sig;
 
 			sig = Splay.ar(in, i.spread, i.amp, i.pan);
-			sig = sig * EnvGen.ar(Env.adsr(0.1,0.1,1,0.1), i.gate, doneAction:i.doneAction);
+			sig = sig * self.dadsr.synthfun.();
 			sig;
 
 		}
@@ -1472,7 +1560,7 @@
 		self.insertfxs = 2.collect { arg idx;
 			~class_ci_insertfx.new(main, player, self.make_namer("insfx%_".format(idx)));
 		};
-		self.master = ~class_ci_master_env.new(main, player);
+		self.master = ~class_ci_master_dadsr.new(main, player);
 		self.modules = [self.master] ++ self.oscs ++ self.filters ++ self.insertfxs;
 
 		self.build_data;
@@ -1631,20 +1719,25 @@
 
 	make_tab_panel: { arg self;
 		var header, body, layout;
-		body = StackLayout(
-			View.new.layout_(self.make_layout_routing),
-			View.new.layout_(self.make_layout_voices),
+		var content;
+		content = [
+			"Master Env", self.master.make_layout_env,
+			"Routing", self.make_layout_routing,
+			"Voices", self.make_layout_voices,
+		];
+		content = content.clump(2).flop;
+		body = StackLayout(*
+			content[1].collect { arg co;
+				View.new.layout_(co)
+			};
 		);
 		layout = VLayout(
-			HLayout(
-				Button.new
-					.states_([["Routing"]])
-					.action_({ body.index = 0 })
-					,
-				Button.new
-					.states_([["Voices"]])
-					.action_({ body.index = 1 })
-					,
+			HLayout(*
+				content[0].collect { arg co, idx;
+					Button.new
+						.states_([[co]])
+						.action_({ body.index = idx })
+				}
 			),
 			body
 		
@@ -1655,7 +1748,8 @@
 	make_layout: { arg self;
 		self.layout = HLayout(
 			VLayout(*
-				self.oscs.collect(_.make_layout) ++ [nil]
+				self.oscs.collect({arg x;[x.make_layout, stretch:0]}) ++
+				[[nil, stretch:1]]
 			),
 			VLayout(*
 				[HLayout(
@@ -1720,7 +1814,6 @@
 			};
 			rsig = oscs[0];
 			oscs.debug("OSCS");
-			oscs.poll;
 			oscs = oscs.flop;
 			f1_in = oscs[1].sum;
 			f2_in = oscs[0].sum;
@@ -1735,7 +1828,6 @@
 			// filtering 1
 			f1_out = self.filters[0].synthfun.(f1_in);
 			f1_out.debug("F1OUT1");
-			//f1_out.poll;
 
 			// parseq
 			fmiddle_in = SelectX.ar(i.filterparseq, [f1_out, DC.ar(0)]);
@@ -1798,7 +1890,6 @@ Instr(\ci_oscillator, { arg spectrum, wt_range=0, amp=0.1, midinote=200, wt=0, d
 			// modulo
 		},
 		\formant, {
-			//intensity.poll;
 			formantfreq = endfreq;
 			//endfreq = formantfreq * ((intensity * 8) + 1);
 			endfreq = formantfreq * (2 ** (intensity-0.5 *8).trunc);
@@ -1861,7 +1952,6 @@ Instr(\ci_filter, { arg in, kind, arg1, arg2, arg3, freq;
 			CombL.ar(in, arg1, arg2, arg3);
 		}
 	);
-	//sig.poll;
 	sig;
 
 },[\audio, NonControlSpec()]);
