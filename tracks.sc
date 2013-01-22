@@ -1284,6 +1284,10 @@
 	
 	},
 
+	get_notescore: { arg self;
+		self.scoreset.get_notescore;
+	},
+
 	get_notes: { arg self;
 		self.current_notes = self.scoreset.notescore.get_abs_notes;
 		self.current_notes.debug("get_notes");
@@ -1296,11 +1300,27 @@
 		self.scoreset.update_notes;
 	},
 
-	add_note: { arg self, abstime, sustain=0.5;
+	remove_note: { arg self, notepoint;
+		var cons;
+		[notepoint.x].debug("class_step_track_controller: remove_note");
+		cons = { arg no;
+			no.midinote == notepoint.y;
+		};
+		self.get_notescore.remove_notes_playing_at_abstime(notepoint.x, cons);
+		self.scoreset.update_notes;
+		self.changed(\notes);
+	},
+
+	add_note: { arg self, notepoint, sustain=0.5;
 		var note;
+		var midinote;
+		var abstime;
+		abstime = notepoint.x;
+		midinote = notepoint.y;
 		[abstime, sustain].debug("class_step_track_controller: add_note");
 		if(abstime < self.get_end) {
 			note = (
+				midinote: midinote,
 				sustain: self.display.gridstep.x,
 			);
 			self.get_notescore.add_note(note, abstime);
@@ -1317,8 +1337,9 @@
 	set_end: { arg self, val;
 		val.debug("controller: set_end");
 		self.scoreset.get_notescore.set_end(val);
-		self.update_notes;
+		self.scoreset.update_notes;
 		self.changed(\background);
+		self.changed(\notes);
 	},
 
 	get_end: { arg self;
@@ -1338,6 +1359,24 @@
 	view_size_y: 1500,
 	block_dict: Dictionary.new,
 	//roll_size: 400@400,
+
+	update_sizes: { arg self;
+		var controller = self.controller;
+		self.handle_size = 12;
+		self.view_size = (1500@(self.handle_size * 128));
+		self.view_size1 = 1@1;
+		self.track_size = self.view_size-self.handle_size;
+		self.track_size1 = (1-(self.handle_size/self.view_size.x)) @ (1-(self.handle_size/self.view_size.y));
+		self.scaling = Point(self.track_size1.x/controller.display.gridlen, 1);
+		self.offset = Point(controller.display.offset*self.scaling.x,0);
+		self.beatlen = (self.track_size.x/self.controller.display.gridlen);
+		[self.beatlen, self.controller.display.gridlen].debug("class_basic_track_view: update_sizes: beatlen, gridlen");
+		//self.gridstep1 = controller.display.gridstep * (self.view_size1.x/self.controller.display.gridlen);
+		self.gridstep1 = Point(
+			controller.display.gridstep.x * (self.track_size1.x/self.controller.display.gridlen),
+			self.view_size1.y/128
+		);
+	},
 
 	new: { arg self, parent, controller;
 		self = self.deepCopy;
@@ -1384,12 +1423,12 @@
 
 	note_to_point: { arg self, note;
 		// TODO: spec unmapping
-		Point(note.time*self.scaling.x/2,  1-(note.midinote /128));
+		Point(note.time*self.scaling.x,  1-(note.midinote /128));
 	},
 
 	point_to_notepoint: { arg self, point;
 		var x, y;
-		x = point.x / self.scaling.x * 2;
+		x = point.x / self.scaling.x;
 		//x = point.x/self.beat_size_x;
 		y = (1-point.y);
 		y = y * 128;
@@ -1406,12 +1445,15 @@
 					if(clickCount == 1) {
 						pos = x@y;
 						pos = pos/self.view_size;
-						pos.x = pos.x.round(self.gridstep1.x);
-						pos.y = pos.y.round(self.gridstep1.y);
+						pos.x = pos.x.trunc(self.gridstep1.x);
+						pos.y = pos.y.trunc(self.gridstep1.y);
 						pos.debug("mouse_down_action: pos");
 						notepos = self.point_to_notepoint(pos);
-						if(modifiers.isCtrl) {
+						if(modifiers.isShift) {
 							self.controller.add_note(notepos);
+						};
+						if(modifiers.isCtrl) {
+							self.controller.remove_note(notepos);
 						}
 					};
 
@@ -1422,7 +1464,8 @@
 					pos.x = pos.x.round(self.gridstep1.x);
 					pos.debug("mouse_down_action: set_end: pos");
 					notepos = self.point_to_notepoint(pos);
-					self.controller.set_end(notepos.x * 2);
+					notepos.debug("mouse_down_action: set_end: notepos");
+					self.controller.set_end(notepos.x);
 				}
 			)
 		}
@@ -1494,16 +1537,16 @@
 	},
 
 	make_piano_roll: { arg self;
-		self.piano_roll = UserView.new(nil, Rect(0,0,self.piano_band_size_x, self.roll_size.y));
-		self.piano_roll.minSize = self.piano_band_size_x@ self.roll_size.y;
+		self.piano_roll = UserView.new(nil, Rect(0,0,self.piano_band_size_x, self.track_size.y));
+		self.piano_roll.minSize = self.piano_band_size_x@ self.track_size.y;
 		self.piano_roll.background = Color.yellow;
 		self.piano_roll.drawFunc_({
 			
 			128.do { arg y;
 				var yy;
 				//y = 128 - y;
-				yy = self.block_size_y * y;
-				Pen.stringInRect(self.midinote_to_notename(128 - y), Rect(0,yy,self.piano_band_size_x,yy+self.block_size_y))
+				yy = self.handle_size * y;
+				Pen.stringInRect(self.midinote_to_notename(128 - y), Rect(0,yy,self.piano_band_size_x,yy+self.handle_size))
 			};
 
 		});
@@ -1523,10 +1566,11 @@
 
 			// end line
 
-			i = self.controller.get_end / 2;
+			//i = self.controller.get_end / 2;
+			i = self.controller.get_end;
 			if(i.notNil) {
 				Pen.color = Color.red;
-				Pen.line((i*self.beatlen)@0, (i*self.beatlen)@( self.view_size_y )); Pen.stroke
+				Pen.line((i*self.beatlen)@0, (i*self.beatlen)@( self.track_size.y )); Pen.stroke
 			};
 		}
 	},
@@ -1534,10 +1578,10 @@
 	make_note_view: { arg self;
 		var timeline;
 		"0".debug;
-		self.timeline = ParaTimeline.new(self.parent_view, Rect(0,0,self.roll_size.x,self.roll_size.y));
+		self.timeline = ParaTimeline.new(self.parent_view, Rect(0,0,self.view_size.x,self.view_size.y));
 		timeline = self.timeline;
 		//self.timeline.userView.background = Color.yellow;
-		timeline.userView.minSize = self.roll_size.x@self.roll_size.y;
+		timeline.userView.minSize = self.view_size;
 		//self.timeline.maxHeight = 30;
 		timeline.mouseDownAction = self.mouse_down_action;
 		timeline.mouseMoveAction = self.mouse_move_action;
@@ -1547,7 +1591,7 @@
 			var i;
 			Pen.color = Color.gray(0.5);
 			128.do { arg y;
-				var yy = self.block_size_y * y;
+				var yy = self.handle_size * y;
 				if(y % 12 == 0) {
 					//y.debug("y 12");
 					Pen.color = Color.gray(0.4);
@@ -1555,7 +1599,7 @@
 					//y.debug("y");
 					Pen.color = Color.gray(0.8);
 				};
-				Pen.line(0@yy, self.roll_size.x@yy);
+				Pen.line(0@yy, self.track_size.x@yy);
 				Pen.stroke;
 			};
 			Pen.use {
@@ -1596,8 +1640,8 @@
 				pos = self.note_to_point(note);
 
 				self.timeline.createNode1(pos.x, pos.y);
-				self.timeline.setNodeSize_(spritenum, self.block_size_y);
-				self.timeline.paraNodes[spritenum].setLen = note.sustain * self.beat_size_x;
+				self.timeline.setNodeSize_(spritenum, self.handle_size);
+				self.timeline.paraNodes[spritenum].setLen = note.sustain * self.beatlen;
 				self.timeline.paraNodes[spritenum].temp = pos;
 
 				self.block_dict[spritenum] = note;

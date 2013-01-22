@@ -285,11 +285,17 @@
 			self.notes = self.notes.reject { arg no; no.time == abstime }.asList;
 		},
 
-		remove_notes_playing_at_abstime: { arg self, abstime;
+		remove_notes_playing_at_abstime: { arg self, abstime, constraint;
 			self.notes = self.notes.reject { arg no;
 				(abstime >= no.time) and: {
-					abstime < (no.time + no.sustain)
-				}
+					(abstime < (no.time + no.sustain)) and: {
+						if(constraint.notNil) {
+							constraint.(no)
+						} {
+							true
+						}
+					}
+				} 
 			}.asList;
 		},
 
