@@ -4,6 +4,14 @@
 		["stop_selected", \kb, 0, \f6],
 		["panic", \kb, 0, \f8],
 	],
+	grid_display: [
+		["decrease_gridstep_x", \kb, \ctrl, \left],
+		["increase_gridstep_x", \kb, \ctrl, \right],
+		["decrease_gridstep_y", \kb, \ctrl, \down],
+		["increase_gridstep_y", \kb, \ctrl, \up],
+		["decrease_gridlen", \kb, 0, \left],
+		["increase_gridlen", \kb, 0, \right],
+	],
 	windowing: [
 		["close_window", \kb, 0, \escape],
 	]
@@ -50,7 +58,7 @@
 	group_tracks: [
 		["close_window", \kb, 0, \escape],
 	],
-	player_tracks: [
+	player_tracks: ~common_bindings.playing ++ [
 		["close_window", \kb, 0, \escape],
 		["decrease_gridstep_x", \kb, \ctrl, \left],
 		["increase_gridstep_x", \kb, \ctrl, \right],
@@ -60,7 +68,18 @@
 		["increase_gridlen", \kb, 0, \right],
 
 	],
-	effects: [
+	line_tracks: 
+		~common_bindings.playing ++ 
+		~common_bindings.windowing ++
+		[
+			["decrease_gridstep_x", \kb, \ctrl, "h"],
+			["increase_gridstep_x", \kb, \ctrl, "l"],
+			["decrease_gridstep_y", \kb, \ctrl, "k"],
+			["increase_gridstep_y", \kb, \ctrl, "j"],
+			["decrease_gridlen", \kb, 0, "h"],
+			["increase_gridlen", \kb, 0, "l"],
+		],
+	effects: ~common_bindings.playing ++ [
 		["close_window", \kb, 0, \escape],
 		["load_effect", \kb, 0, \f1],
 		["select_param", \kb, 0, \kbpad8x4_flat],
@@ -68,7 +87,7 @@
 		["edit_modulator", \kb, \alt, "m"],
 		["change_param_kind", \kb, \altshift, "s"],
 	],
-	modulator: [
+	modulator: ~common_bindings.playing ++ [
 		["close_window", \kb, 0, \escape],
 		["load_modulator", \kb, 0, \f1],
 		["select_param", \kb, 0, \kbpad8x4_flat],
@@ -86,6 +105,7 @@
 		["open_timeline", \kb, \ctrlalt, "l"],
 		["edit_group_tracks", \kb, \alt, "g"],
 		["edit_player_tracks", \kb, \alt, "p"],
+		["edit_line_tracks", \kb, \alt, "q"],
 		["edit_modulator", \kb, \alt, "m"],
 		["edit_effects", \kb, \alt, "f"],
 
@@ -163,7 +183,7 @@
 		["midi.set_global_mode.liveplay", \midi, 0, \b3],
 		["midi.set_global_mode.mixer", \midi, 0, \b4],
 
-		["set_notequant", \kb, \alt, "q"],
+		["set_notequant", \kb, \ctrlaltshift, "q"],
 		["add_cell_bar", \kb, 0, \npplus],
 		["remove_cell_bar", \kb, \ctrl, \npplus],
 

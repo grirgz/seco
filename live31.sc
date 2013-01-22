@@ -28,10 +28,11 @@ s.waitForBoot{
 	\comb1,
 ].collect({arg i; i -> i });
 
-~effectlib = [
+~modlib = [
 	\modenv,
 	\lfo1,
 	\line1,
+	"ci dadsr_kr",
 ].collect({arg i; i -> i });
 
 ~samplelib = [
@@ -42,7 +43,7 @@ s.waitForBoot{
 ];
 ~seq.load_patlib( ~synthlib );
 ~seq.load_effectlib( ~effectlib );
-~seq.load_modlib( ~effectlib );
+~seq.load_modlib( ~modlib );
 ~seq.set_presetlib_path("mypresets2");
 ~seq.append_samplelib_from_path("sounds/" );
 ~seq.append_samplelib_from_path("sounds/hydrogen/GMkit" );
@@ -352,3 +353,5 @@ b = a.copy
 a[\rah].dump
 b[\rah].dump
 b.rah.dump
+
+Mdef.main.model.modnodelib

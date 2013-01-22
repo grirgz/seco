@@ -1978,6 +1978,10 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		buffer_list_position: 0,
 		archive_data: [\name, \classtype, \selected, \spec, \has_custom_buffer, \audio_id, \buffer_list_position, \pkey_mode],
 
+		destructor: { arg self;
+			BufferPool.release_client(player.uid)
+		},
+
 		save_data: { arg self;
 			var data = ();
 			var savepath;
@@ -2987,6 +2991,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 	param = (
 		name: name,
+		label: name,
 		classtype: \control,
 		current_kind: kind,
 		spec: spec,
@@ -2998,6 +3003,14 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		muted: false,
 		archive_data: [\name, \classtype, \current_kind, \spec, \selected, \selected_cell, \default_val, \noteline, \muted, \pkey_mode],
 		archive_kind: [\seq, \scalar, \preset, \bus, \recordbus],
+
+		get_player: { arg self;
+			player
+		},
+
+		get_main: { arg self;
+			main;
+		},
 
 		save_data: { arg self;
 			var data = ();
@@ -3033,6 +3046,11 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			self.current_kind = nil; self.change_kind(data[\current_kind]);
 		},
 
+		destructor: { arg self;
+			self.bus.bus.free;
+			self.scalar.bus.free;
+		},
+
 		set_label: { arg self, name;
 			name.debug("SETLABEL");
 			self.label = name;
@@ -3044,16 +3062,16 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		},
 
 		set_abs_label: { arg self, val;
-			debug("GNI2");
+			//debug("GNI2");
 			self.abs_label = val;
 			self.changed(\abs_label);
 		},
 
 		get_abs_label: { arg self;
 			var res;
-			self.debug("GNI");
+			//self.debug("GNI");
 			res = self.abs_label ?? self.label ?? self.name;
-			self.debug("GNI3");
+			//self.debug("GNI3");
 			res;
 		},
 
@@ -3122,26 +3140,36 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			}
 		),
 
+		set_bus_mode: { arg self, val=true;
+			var reject = [\sustain, \dur, \repeat, \stepline, \segdur, \stretchdur];
+			if(reject.includes(self.name).not) {
+				if(val != self.scalar.bus_mode) {
+					self.scalar.bus_mode = val;
+					if(val) {
+						if(self.scalar.bus_mode_counter == 0) {
+							self.scalar.bus = Bus.control(s,1);
+							self.scalar.bus.set(self.scalar.val);
+						};
+						self.scalar.bus_mode_counter = self.scalar.bus_mode_counter + 1;
+					} {
+						self.scalar.bus_mode_counter = self.scalar.bus_mode_counter - 1;
+						if(self.scalar.bus_mode_counter == 0) {
+							self.scalar.bus.free;
+							self.scalar.bus = nil;
+						}
+					}
+
+				};
+			}
+		},
+
 		scalar: (
 			//quoi: { "QUOI".debug; }.value,
 			muted: false,
 			bus_mode: false,
+			bus_mode_counter: 0,
 			selected_cell: 0, // always 0
 			val: if(default_value.isArray, { default_value[0] }, { default_value }),
-
-			set_bus_mode: { arg self, val=true;
-				if(val != self.bus_mode) {
-					self.bus_mode = val;
-					if(val) {
-						self.bus = Bus.control(s,1);
-						self.bus.set(self.val);
-					} {
-						self.bus.free;
-						self.bus = nil;
-					}
-
-				};
-			},
 
 			set_val: { arg self, val, idx=nil;
 				self.val = val;
@@ -3236,7 +3264,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 			init: { arg self, val;
 				if(param.bus.bus.isNil) {
-					param.bus.bus = Bus.control(s, 1); // TODO: destructor
+					param.bus.bus = Bus.control(s, 1);
 				} {
 					param.name.debug("recordbus.init: bus already exists");
 				};
@@ -3311,7 +3339,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 			init: { arg self, val;
 				if(self.bus.isNil) {
-					self.bus = Bus.control(s, 1); // TODO: destructor
+					self.bus = Bus.control(s, 1);
 				} {
 					param.name.debug("bus.init: bus already exists");
 				};
@@ -4081,7 +4109,6 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		self.wtman = player.get_main.wavetable_manager;
 		self.menu_items = self.wtman.get_names ++ [\custom];
 		self.buffer = Buffer.alloc(s, ~general_sizes.wavetable_buffer_size);
-		player.to_destruct.add(self);
 
 		self.wt_range_controller = ~class_param_wavetable_range_controller.new(\wt_range);
 		self.wt_pos_ctrl = wt_pos;

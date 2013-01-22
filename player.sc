@@ -224,6 +224,9 @@
 		self.to_destruct.do { arg i;
 			i.destructor;
 		};
+		self.data.keysValuesDo { arg name, datum;
+			datum.destructor;
+		};
 		self.name = "FREED";
 		self.to_destruct = [];
 	},
@@ -700,8 +703,8 @@
 	},
 
 	vpattern_loop: { arg self;
-		//Pn(self.vpattern, ~general_sizes.safe_inf); // DEBUG: temp
-		self.vpattern;
+		Pn(self.vpattern, ~general_sizes.safe_inf);
+		//self.vpattern;
 	},
 
 	prepared_node: { arg self;
@@ -758,8 +761,7 @@
 		self.get_main = { arg self; main };
 		self.external_player = cinstr.new(main, self);
 		self.defname = self.external_player.synthdef_name;
-		self.external_player.set_static_responders;
-		self.external_player.set_param_abs_labels;
+		self.external_player.init_top_classinstr;
 		self.to_destruct.add(self.external_player);
 
 		"on est la".debug;

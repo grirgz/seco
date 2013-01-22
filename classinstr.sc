@@ -3,7 +3,9 @@
 //////////////////////////////////////////////////////
 
 ~class_ci_modknob_view = (
+	range_val: 0,
 	new: { arg self, controller;
+		var modmixer;
 		self = self.deepCopy;
 
 		self.controller = { controller };
@@ -12,9 +14,18 @@
 		~make_class_responder.(self, self.namelabel, self.controller, [
 			\val, \label,
 		]);
+
+		modmixer = self.controller.get_player.modulation.get_modulation_mixer(self.controller.name);
+		self.modmixer = { modmixer };
+
+		~make_class_responder.(self, self.namelabel, modmixer, [
+			\range, \connection
+		]);
 	
 		self;
 	},
+
+	////////// responders
 
 	val: { arg self;
 		self.vallabel.string = self.controller.get_val.asFloat.asStringPrec(~general_sizes.float_precision);
@@ -25,6 +36,102 @@
 		self.controller.label.debug("class_ci_modknob_view: LABEL");
 		self.controller.name.debug("class_ci_modknob_view: LABEL2");
 		self.namelabel.string = self.controller.label ?? self.controller.name;
+	},
+
+	range: { arg self, obj, msg, idx;
+		idx.debug("set range");
+		if(idx.isNil) {
+			3.do { arg idx; // FIXME: hardcoded
+				self.modmixer.get_range(idx).debug("range");
+				self.knob.set_range(idx, self.modmixer.get_range(idx));
+			}
+		} {
+			self.modmixer.get_range(idx).debug("range");
+			self.knob.set_range(idx, self.modmixer.get_range(idx));
+		};
+		self.knob.refresh;
+	},
+
+	connection: { arg self, obj, msg, idx;
+		var setco;
+		idx.debug("class_ci_modknob_view: connection");
+		setco = { arg idx;
+			self.modmixer.get_source_slot_from_target_slot(idx).debug("class_ci_modknob_view: connection: source_slot");
+			self.slots[idx].string = self.modmixer.get_source_slot_from_target_slot(idx) ?? "";
+			if(self.modmixer.is_slot_muted(idx)) {
+				debug("slot muted");
+				self.slots[idx].stringColor = Color.gray;
+			} {
+				debug("slot NOT muted");
+				self.slots[idx].stringColor = Color.black;
+			};
+		};
+		if(idx.isNil) {
+			3.do { arg idx; // FIXME: hardcoded
+				setco.(idx);
+			}
+		} {
+			setco.(idx);
+		}
+	},
+
+	/////////// methods
+
+	clear_slot: { arg self, idx;
+		idx.debug("class_ci_modknob_view: clear_slot");
+		self.modmixer.disconnect_slot(idx);
+		self.modmixer.set_range(idx, 0);
+	},	
+
+	toggle_mute_slot: { arg self, idx;
+		idx.debug("class_ci_modknob_view: toggle_mute_slot");
+		if(self.modmixer.is_slot_muted(idx)) {
+			self.modmixer.mute_slot(idx, false);
+		} {
+			self.modmixer.mute_slot(idx, true);
+		}
+	},
+
+	make_modslots: { arg self;
+		HLayout(*
+			self.slots = 3.collect { arg idx;
+				DragSink.new
+					.maxSize_(15@15)
+					.receiveDragHandler_({ arg dragsink;
+						dragsink.string = View.currentDrag;
+						[View.currentDrag, self.controller.name, idx].debug("CONNECT MOD");
+						self.controller.get_player.modulation.connect_modulator(View.currentDrag, self.controller.name, idx);
+						self.controller.change_kind(\modulation);
+					})
+					.mouseDownAction_({ arg view, x, y, modifier, buttonNumber, clickCount;
+						buttonNumber.debug("class_mod_slot: mouseDownAction: buttonNumber");
+						//self.x_offset = x;
+						//self.val_offset = self.modmixer.get_range(idx);
+						switch(buttonNumber,
+							~keycode.mouse.middle_click, {
+								self.clear_slot(idx);
+							},
+							~keycode.mouse.right_click, {
+								self.toggle_mute_slot(idx);
+							},
+							{
+								self.x_offset = x;
+								self.val_offset = self.modmixer.get_range(idx);
+							}
+						);
+					})
+					.mouseMoveAction = { arg view, x, y;
+						var nx, ro;
+						nx = x - self.x_offset;
+						ro = ((nx/100) + self.val_offset).clip(-0.999, 0.999 );
+						[x, y, nx, ro].debug("move");
+						//self.range_val = ro;
+						//self.action; // function set by outside
+						self.modmixer.set_range(idx, ro);
+					};
+			};
+			self.slots
+		).margins_(1).spacing_(0)
 	},
 
 	make_gui: { arg self;
@@ -50,8 +157,9 @@
 				//.minWidth_(75);
 				;
 				[vallabel, stretch:0, align:\center],
+			[self.make_modslots, stretch:0, align:\center],
 			nil
-		);
+		).spacing_(0).margins_(0);
 		self.namelabel = label;
 		self.knob = knob;
 		self.vallabel = vallabel;
@@ -134,7 +242,7 @@
 ~class_ci_popup_view = (
 	new: { arg self, controller, size, action;
 		self = self.deepCopy;
-		self.controller = controller;
+		self.controller = {controller};
 		size = size ?? (80@20);
 
 		self.popup = PopUpMenu.new(nil, size);
@@ -153,6 +261,7 @@
 		} { 
 			["default"]
 		};
+		self.popup.value = self.controller.get_val;
 
 		self.layout = self.popup;
 
@@ -166,6 +275,7 @@
 
 	menu_items: { arg self;
 		self.popup.items = self.controller.get_menu_items_names;
+		self.val;
 	},
 );
 
@@ -345,9 +455,20 @@
 	set_all_bus_mode: { arg self, enable;
 		self.data.keysValuesDo { arg name, datum;
 			if(datum.classtype == \control) {
-				datum.scalar.set_bus_mode(enable);
+				datum.set_bus_mode(enable);
 			}
 		}
+	},
+
+	destructor: { arg self;
+		self.static_data.keysValuesDo { arg name, datum;
+			datum.destructor;
+		}
+	},
+
+	init_top_classinstr: { arg self;
+		self.set_static_responders;
+		self.set_param_abs_labels;
 	},
 
 	make_bindings: { arg self;
@@ -535,19 +656,21 @@
 		self.data.keysValuesDo { arg name, datum;
 			if(datum.classtype == \control) {
 				datum.set_abs_label(name);
+				datum.name = name;
 				[datum.name,name].debug("ABSLABEL");
 			}
 		}
 	},
 
-	build_synthdef: { arg self;
+	build_synthdef: { arg self, rate=\ar;
 		self.synthdef_name.debug("REBUILD SYNTH");
+		rate = self.synth_rate ?? rate;
 		SynthDef(self.synthdef_name, { arg out=0;
 			var sig;
 
 			sig = self.synthfun.();
 
-			Out.ar(out, sig);
+			Out.performList(rate, [out, sig]);
 
 		}).add
 	},
@@ -653,7 +776,7 @@
 		
 		self.ordered_args = [
 			freq: ~make_control_param.(main, player, \freq, \scalar, 200, \freq.asSpec),
-			detune: ~make_control_param.(main, player, \detune, \scalar, 0, \midinote.asSpec),
+			detune: ~make_control_param.(main, player, \detune, \scalar, 0, specs[\pitch]),
 			wt: wt,
 			wt_pos: wt_pos,
 			intensity: ~make_control_param.(main, player, \intensity, \scalar, 0, \unipolar.asSpec),
@@ -1166,6 +1289,11 @@
 		}
 	
 	},
+);
+
+~class_ci_dadsr_kr = (
+	parent: ~class_ci_dadsr,
+	synth_rate: \kr,
 );
 
 ~class_ci_master_env = (
@@ -1717,32 +1845,68 @@
 		)
 	},
 
+	make_layout_effects: { arg self;
+		self.fx_ctrl = ~class_embeded_effects_controller.new(self.get_main, self.get_player);
+		self.fx_ctrl.window = { self.window };
+		self.fx_ctrl.layout;
+	},
+
+	make_layout_modulation: { arg self;
+		self.fx_ctrl = ~class_embeded_effects_controller.new(self.get_main, self.get_player);
+		self.fx_ctrl.window = { self.window };
+		self.fx_ctrl.layout;
+	},
+
 	make_tab_panel: { arg self;
 		var header, body, layout;
 		var content;
+		var modview;
+		self.modulation_controller = ~class_embeded_modulation_controller.new(self.get_main, self.get_player, nil, self.data[\filtermix]);
+		self.modulation_controller.window = { self.window };
+		modview = ~class_embeded_modulation_view.new(self.modulation_controller);
+
 		content = [
 			"Master Env", self.master.make_layout_env,
 			"Routing", self.make_layout_routing,
 			"Voices", self.make_layout_voices,
+			"Effects", self.make_layout_effects,
 		];
 		content = content.clump(2).flop;
+		debug("NUIT 1");
 		body = StackLayout(*
 			content[1].collect { arg co;
 				View.new.layout_(co)
-			};
+			} ++
+			[View.new.layout_(modview.body_layout)]
 		);
+		debug("NUIT 2");
 		layout = VLayout(
 			HLayout(*
 				content[0].collect { arg co, idx;
+					debug("NUIT 3");
 					Button.new
 						.states_([[co]])
-						.action_({ body.index = idx })
+						.action_({ 
+							body.index = idx;
+							if(idx == 3) {
+								self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\effects);
+							} {
+								self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\classinstr);
+							}
+						})
 				}
 			),
-			body
+			modview.tab_layout,
+			body,
 		
 		);
-	
+		debug("NUIT 4");
+		self.tab_panel_stack_layout = body;
+		modview.show_body_layout = { arg myself;
+			self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\modulator);
+			self.tab_panel_stack_layout.index = 4;
+		};
+		layout;
 	},
 
 	make_layout: { arg self;
@@ -1847,7 +2011,7 @@
 			f2_out = self.insert_effect(i, f2_out, \after_filter2);
 
 			// mix
-			sig = SelectX.ar(i.filtermix, [f1_out, f2_out]);
+			sig = SelectX.ar(i.filtermix, [f2_out, f1_out]);
 
 			// end effect
 			sig = self.insert_effect(i, sig, \before_pan);
@@ -1872,6 +2036,7 @@
 	moscfilter: ~class_ci_moscfilter,
 	moscfaderfilter: ~class_ci_moscfaderfilter,
 	osc3filter2: ~class_ci_osc3filter2,
+	dadsr_kr: ~class_ci_dadsr_kr,
 );
 
 //////////////////////////////////////////////////////

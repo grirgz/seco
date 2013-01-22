@@ -179,6 +179,11 @@
 });
 
 ~keycode = Environment.make({
+	~mouse = (
+		left_click: 0,
+		right_click: 1,
+		middle_click: 2,
+	);
 	~kbpad8x4 = [
 		[ 38, 233, 34, 39, 40, 45, 232, 95 ],
 		[97, 122, 101, 114, 116, 121, 117, 105 ],

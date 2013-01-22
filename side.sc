@@ -169,11 +169,19 @@
 		},
 
 		set_param: { arg self, param, display;
+			var unset_bus_mode;
+
+			unset_bus_mode = {
+				param.name.debug("UNSET BUSMODE");
+				param.set_bus_mode(false);
+			};
+
 			bt_name.string = param.get_abs_label ?? param.name;
 
 			self.kind = \param;
 			
 			if( self.responder.notNil ) {
+				unset_bus_mode.();
 				self.responder.remove
 			};
 			[param.name, param.classtype].debug("OOOOOOOOOOOOOOOOO");
@@ -188,6 +196,13 @@
 
 			param[\make_responder_translator].debug("before making translator");
 			param.make_responder_translator(vlayout);
+			if(param.classtype == \control) {
+				param.name.debug("SET BUSMODE");
+				param.set_bus_mode(true);
+				vlayout.onClose = vlayout.onClose.addFunc({
+					unset_bus_mode.()
+				});
+			};
 			self.responder = ~make_view_responder.(vlayout, param, param_responder.(display));
 		},
 
@@ -1644,8 +1659,10 @@
 					self.player_tracks_controller.make_gui;
 				}],
 
-				[\edit_noteline, {
+				[\edit_line_tracks, {
 					var player = self.get_current_player;
+					self.line_tracks_controller = ~class_line_tracks_controller.new(self.get_main, player);
+					self.line_tracks_controller.make_gui;
 				}],
 
 				[\edit_modulator, {

@@ -315,6 +315,12 @@
 	)
 };
 
+
+if(~silent_control_bus.isNil) {
+	~silent_control_bus = Bus.control(s, 1);
+	~silent_control_bus.set(0);
+};
+
 // ==========================================
 // INCLUDES
 // ==========================================
@@ -553,6 +559,12 @@
 
 		set_window_title: { arg self, title;
 			self.changed(\title, title);
+		},
+
+		destructor: { arg self;
+			self.model.livenodepool.keysValuesDo { arg name, player;
+				player.destructor;
+			}
 		},
 
 		get_node: { arg self, name;
@@ -918,6 +930,7 @@
 			};
 
 			self.model.effectlist = fxlist.collect { arg asso; asso.key };
+			self.model.effectlib = fxlist.collect { arg asso; asso.key };
 			self.model.effectpool = patpool;
 		},
 

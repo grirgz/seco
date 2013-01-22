@@ -329,11 +329,11 @@
 		};
 		self.tab_layout = HLayout(*
 			self.tab_buttons.collect { arg lay;
-				[
+				HLayout(
 					[lay[0], stretch:0],
 					[lay[1], stretch:1]
-				]
-			}.flatten(1)
+				).spacing_(0)
+			}
 		);
 		self.tab_layout;
 	},
@@ -360,6 +360,62 @@
 	}
 );
 
+~class_embeded_modulation_view = (
+	parent: ~class_modulation_view,
+	new: { arg self, controller;
+		self = self.deepCopy;
+		self.player_display = { controller };
+		self.player_ctrl = { controller.player_ctrl };
+		self.param_ctrl = { controller.param_ctrl };
+		self.modmixer_ctrl = { controller.modmixer_ctrl };
+		self.modulation_ctrl = { controller.modulation_ctrl };
+		self.parent_modulation_ctrl = { controller.parent_modulation_ctrl };
+		self.controller = { controller };
+
+		debug("class_modulation_view.new");
+
+		self.make_gui;
+		//self.make_window;
+		
+		//self.tab_buttons[0].children.debug("=======================================");
+
+		~make_class_responder.(self, self.tab_buttons[0][0], self.controller.modulation_ctrl, [
+			\modulator
+		]);
+		~make_class_responder.(self, self.tab_buttons[0][0], self.controller.parent_modulation_ctrl, [
+			\selected_slot
+		]);
+		debug("class_modulation_view.new: fin");
+	
+		self;
+	},
+
+	show_body_layout: { arg self;
+		//self.body_stack_layout.index = 4;
+	},
+
+	make_gui: { arg self;
+		self.make_tabs;
+		self.mod_header = ~class_modulator_header_view.new(self.controller); 
+		self.header_layout = self.mod_header.layout;
+		self.mod_body = ~class_modulator_body_basic.new(self.controller);
+		self.body_layout = VLayout(
+			[self.header_layout, stretch:0],
+			self.mod_body.layout,
+		);
+	},
+
+	selected_slot: { arg self;
+		self.show_body_layout;
+		self.tab_buttons.do { arg butlay, idx;
+			idx.debug("class_modulation_view: selected_slot");
+			butlay[1].states_([
+				[self.controller.get_modulator_name_from_source_slot(idx) ?? "-", Color.black, if(self.controller.is_slot_selected(idx)) { Color.gray } { Color.white }]
+			])
+		};
+	},
+);
+
 
 // ==========================================
 // MODULATION CONTROLLERS
@@ -374,7 +430,7 @@
 		param_order: List[\sustain, \pan, \attack, \release, \adsr, \freq],
 		param_mode: [\scoreline, \stepline, \noteline, \sampleline, \nodeline],
 		param_no_midi: { arg self; self.param_field_group ++ [\bufnum, \samplekit] ++ self.param_mode; },
-		param_reject: { arg self; [\out, \instrument, \tsustain, \type, \gate, \agate, \t_trig] ++ self.param_mode; },
+		param_reject: { arg self; [\out, \instrument, \tsustain, \type, \gate, \agate, \t_trig, \doneAction] ++ self.param_mode; },
 	),
 
 	model: (
@@ -621,7 +677,7 @@
 		self.modulation_ctrl = { player_ctrl.modulation };
 		self.parent_modulation_ctrl = { self.parent_player_ctrl.modulation };
 
-		self.param_ctrl.name.debug("class_modulation_controller param name");
+		//self.param_ctrl.name.debug("class_modulation_controller param name");
 
 		modmixer = self.parent_player_ctrl.modulation.get_modulation_mixer(self.param_ctrl.name);
 		self.modmixer_ctrl = { modmixer };
@@ -687,6 +743,18 @@
 				})
 			}],
 
+			[\play_selected, {
+				self.player_ctrl.play_node;
+			}],
+
+			[\stop_selected, {
+				self.player_ctrl.stop_node;
+			}],
+
+			[\panic, {
+				self.player_ctrl.get_main.panic;
+			}],
+
 			[\edit_modulator, {
 				var player = self.get_current_player;
 				var param = self.get_selected_param;
@@ -720,7 +788,7 @@
 
 			[\change_mod_kind, {
 				var player = self.get_current_player;
-				if(player.notNil) {
+				if(player.notNil and: {player.uname != \voidplayer}) {
 					~class_symbol_chooser.new(self.get_main, [\note,\pattern], { arg kind;
 						player.modulation.set_mod_kind(kind);
 					}, player.modulation.mod_kind)
@@ -731,6 +799,17 @@
 	
 	},
 
+);
+
+~class_embeded_modulation_controller = (
+	parent: ~class_modulation_controller,
+
+	make_gui: { arg self;
+		//self.main_view = ~class_modulation_view.new(self);
+		//self.window = self.main_view.window;
+		//self.window.view.toFrontAction = { self.make_bindings };
+		//self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\modulator);
+	},
 );
 
 // ===========================================
@@ -836,6 +915,16 @@
 		self.slots
 	},
 
+	get_used_slots: { arg self;
+		var res = Dictionary.new;
+		self.slots.keysValuesDo { arg key, val;
+			if(val.name != nil and: { val.muted != true }) {
+				res[key] = val;
+			}
+		};
+		res;
+	},
+
 	refresh: { arg self;
 		self.changed(\selected_slot);
 		self.changed(\connection);
@@ -859,9 +948,22 @@
 		[idx, range, self.slots[idx]].debug("class_modulation_mixer_controller: idx, range");
 		if(self.slots[idx].notNil) {
 			self.slots[idx].range = range;
-			self.changed(\range);
+			self.changed(\range, idx);
 		} {
 			nil
+		}
+	},
+
+	mute_slot: { arg self, target_slot, val=true;
+		self.slots[target_slot].muted = val;
+		self.slots[target_slot.dump].muted.debug("class_modulation_mixer_controller: mute_slot: slot muted");
+		self.changed(\connection, target_slot);
+	},
+
+	is_slot_muted: { arg self, target_slot;
+		self.slots[target_slot].debug("class_modulation_mixer_controller: is_slot_muted");
+		self.slots[target_slot.dump].notNil and: {
+			self.slots[target_slot].muted == true;
 		}
 	},
 
@@ -870,14 +972,14 @@
 			self.slots[target_slot] = (range:0)
 		};
 		self.slots[target_slot].name = source_slot;
-		self.changed(\connection);
+		self.changed(\connection, target_slot);
 	},
 
 	disconnect_slot: { arg self, target_slot;
 		if(self.slots[target_slot].notNil) {
 			self.slots[target_slot].name = nil;
 		};
-		self.changed(\connection);
+		self.changed(\connection, target_slot);
 	},
 
 	get_modulator_name: { arg self, idx;
@@ -1166,10 +1268,15 @@
 					mixerarglist = (mixerarglist ++ [
 						(\in++idx).asSymbol, Pfunc{ arg ev;
 							[in_bus_name, modstruct, idx].debug("mixer: in");
-							if(mainplayer.modulation.get_modulator_node(modstruct.name).modulation.mod_kind == \pattern) {
-								ev[\ppatch].global_bus[in_bus_name];
+							if(mainplayer.modulation.get_modulator_node(modstruct.name).modulation.notNil and: { modstruct.muted != true }) {
+								if(mainplayer.modulation.get_modulator_node(modstruct.name).modulation.mod_kind == \pattern) {
+									ev[\ppatch].global_bus[in_bus_name];
+								} {
+									ev[\ppatch].note_bus[in_bus_name];
+								}
 							} {
-								ev[\ppatch].note_bus[in_bus_name];
+								~silent_control_bus;
+								// FIXME: is it a problem to return nil here ?
 							}
 						},
 						(\range++idx).asSymbol, Pfunc{modstruct.range}
@@ -1188,7 +1295,7 @@
 						modmixer.get_slots.keysValuesDo { arg slotidx, modstruct, idx;
 							var modname = mainplayer.modulation.get_modulators[modstruct.name];
 							var modnode = mainplayer.get_main.get_node(modname);
-							if(done_modulators.includesEqual(modname).not) {
+							if(modname.notNil and: {done_modulators.includesEqual(modname).not}) {
 								done_modulators = done_modulators.add(modname);
 								if(modnode.modulation.mod_kind == \pattern) {
 									pattern_modulator_list.add( make_modulator_pattern.(mainplayer, modnode) )
@@ -1411,6 +1518,7 @@
 						["-"],
 						["-", Color.black, Color.gray]
 					])
+					.keyDownAction_(self.controller.get_button_keydownaction) 
 					.action_({
 						self.controller.select_slot(self.player_idx);
 					});
@@ -1496,15 +1604,9 @@
 
 		debug("class_effect_view.new");
 
-		self.make_window;
+		//self.make_window;
+		self.make_gui;
 
-		~make_class_responder.(self, self.window.view, self.controller, [
-			\groupnode,
-		]);
-
-		~make_class_responder.(self, self.window.view, self.controller.effects_ctrl, [
-			\selected_slot,
-		]);
 
 	
 		self;
@@ -1523,7 +1625,18 @@
 		self.mini_views[self.controller.selected_slot].update_selection;
 	},
 
+	make_responders: { arg self, parent;
+		~make_class_responder.(self, parent, self.controller, [
+			\groupnode,
+		]);
+
+		~make_class_responder.(self, parent, self.controller.effects_ctrl, [
+			\selected_slot,
+		]);
+	},
+
 	make_gui: { arg self;
+		var dependant;
 		self.mini_views = List.new;
 		self.layout = HLayout(
 			[VLayout(*
@@ -1536,13 +1649,17 @@
 			[~class_effect_body_basic_view.new(self.controller).layout, stretch:1]; 
 
 		);
+
+		dependant = self.mini_views[0].bt_name;
+		self.make_responders(dependant);
+
 		self.layout;
 		
 	},
 
 	make_window: { arg self;
 		self.window = Window.new("Effects");
-		self.window.layout = self.make_gui;
+		self.window.layout = self.layout;
 		self.window.front;
 		self.window;
 	}
@@ -1615,7 +1732,7 @@
 
 	make_gui: { arg self;
 		self.main_view = ~class_effects_view.new(self);
-		self.window = self.main_view.window;
+		self.window = self.main_view.make_window;
 		self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\effects);
 	},
 
@@ -1652,6 +1769,18 @@
 				self.select_param(i)
 			}],
 
+			[\play_selected, {
+				self.player_ctrl.play_node;
+			}], 
+
+			[\stop_selected, {
+				self.player_ctrl.stop_node;
+			}],
+
+			[\panic, {
+				self.get_main.panic;
+			}],
+
 			[\change_param_kind, {
 				if(self.param_types.param_mode.includes(self.get_selected_param.name).not) {
 					~class_param_kind_chooser.new(self.get_main, { arg sel;
@@ -1665,3 +1794,50 @@
 	},
 
 );
+
+~class_embeded_effects_controller = (
+	parent: ~class_effects_controller,
+
+	new: { arg self, main, player_ctrl;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.player_ctrl = { player_ctrl };
+		self.effects_ctrl = { player_ctrl.effects };
+
+		self.model.param_no_midi = self.param_types.param_no_midi;
+	
+		self.make_bindings;
+		self.make_gui;
+		self.select_slot(self.selected_slot);
+	
+		self;
+	},
+
+	get_button_keydownaction: { arg self;
+		{ arg view, char, modifiers, unicode, keycode;
+			var symbol;
+			debug("RESPO");
+			symbol = ~qt_keycode_to_keysymbol.(char, modifiers, unicode, keycode);
+			switch(symbol,
+				[0, \f1], {
+					~class_symbol_chooser.new(self.get_main, self.get_main.model.effectlib, { arg libnodename;
+						var nodename;
+						var fx = self.player_ctrl.effects;
+						nodename = self.get_main.node_manager.make_livenode_from_libfxnode(libnodename);
+						fx.set_effect(self.selected_slot, nodename);
+						self.set_current_player(self.get_main.get_node(nodename));
+						self.changed(\groupnode);
+					})
+				}
+			)
+
+		}
+	},
+
+	make_gui: { arg self;
+		self.main_view = ~class_effects_view.new(self);
+		self.layout = self.main_view.layout;
+	},
+
+)
