@@ -1074,9 +1074,11 @@
 			var player = self.current_player;
 			var mode;
 			var args;
+			var res;
 			
 			args = self.get_paramlist_splited;
-			args[0] ++ self.get_paramlist_macros ++ args[1] ++ args[2];
+			res = args[0] ++ self.get_paramlist_macros ++ args[1] ++ args[2];
+			res[..24] // FIXME: hardcoded
 		},
 
 		get_extparamlist: { arg self;
@@ -1428,7 +1430,7 @@
 				//index = group.children.detectIndex { arg i; i == name };
 				//group.set_children_name(index, \voidplayer);
 				if(free) {
-					player.destructor;
+					self.get_main.free_node(player.uname);
 				};
 			} {
 				"can't remove voidplayer".debug;
@@ -1668,7 +1670,11 @@
 				[\edit_modulator, {
 					var player = self.get_current_player;
 					var param = self.get_selected_param;
-					~class_modulation_controller.new(self.get_main, player, nil, param);
+					if(param.classtype == \control) {
+						~class_modulation_controller.new(self.get_main, player, nil, param);
+					} {
+						param.classtype.debug("ERROR: param classtype can't be modulated");
+					}
 				}],
 
 				[\edit_effects, {
@@ -1979,6 +1985,16 @@
 				[\save_colpreset, {
 					var player = self.get_current_player;
 					main.node_manager.save_column_preset(player);
+				}],
+
+				[\load_preset, {
+					var player = self.get_current_player;
+					main.node_manager.load_preset(player);
+				}],
+
+				[\save_preset, {
+					var player = self.get_current_player;
+					main.node_manager.save_preset(player);
 				}],
 
 				///// eventline

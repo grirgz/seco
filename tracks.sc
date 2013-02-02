@@ -111,17 +111,18 @@
 		{ arg view, x, y, modifiers, buttonNumber, clickCount;
 			var pos_x = (x/self.beatlen);
 			[x, pos_x].debug("mouse_down_action: x, pos_x");
-			//buttonNumber.debug("buttonNumber");
-			switch(buttonNumber,
-				0, {
+			[modifiers, buttonNumber].debug("mouse_down_action: buttonNumber");
+			~mouse_responder.(modifiers, buttonNumber, clickCount, (
+				toggle_note: {
 					self.controller.toggle_note(pos_x);
 					self.move_list = Set.new;
 				},
-				1, {
+				set_end: {
 					pos_x = pos_x.round(self.controller.display.gridstep.x);
 					self.controller.set_end(pos_x)
-				}
-			)
+				},
+			));
+
 		}
 	},
 
@@ -299,7 +300,7 @@
 				minnote = min(no.midinote, minnote);
 				maxnote = max(no.midinote, maxnote);
 			});
-			totaldur = no.dur + totaldur
+			//totaldur = no.dur + totaldur
 		};
 		self.minnote = minnote;
 		self.maxnote = maxnote;
@@ -308,7 +309,7 @@
 	},
 
 	note_to_point: { arg self, note;
-		Point(note.time*self.beat_size_x, note.midinote.linlin(self.minnote-1, self.maxnote+1, self.track_size_y, 0));
+		Point(note.time*self.beat_size_x, note.midinote.linlin(self.minnote-1, self.maxnote+1, self.track_size.y, 0));
 	},
 );
 
@@ -334,32 +335,40 @@
 	mouse_down_action: { arg self;
 		{ arg view, x, y, modifiers, buttonNumber, clickCount;
 			var pos, notepos;
-			buttonNumber.debug("mouse_down_action: buttonNumber");
-			// 0 left, 1: right, 2: middle
-			switch(buttonNumber,
-				0, {
-					if(clickCount == 1) {
-						pos = x@y;
-						pos = pos/self.view_size;
-						pos.x = pos.x.round(self.gridstep1.x);
-						pos.y = pos.y.round(self.gridstep1.y);
-						pos.debug("mouse_down_action: pos");
-						notepos = self.point_to_notepoint(pos);
-						if(modifiers.isCtrl) {
-							self.controller.add_note(notepos);
-						}
-					};
+			var round_notepos;
+			var trunc_notepos;
+			trunc_notepos = {
+				var pos, notepos;
+				pos = x@y;
+				pos = pos/self.view_size;
+				pos.x = pos.x.trunc(self.gridstep1.x);
+				pos.y = pos.y.trunc(self.gridstep1.y);
+				pos.debug("mouse_down_action: pos");
+				notepos = self.point_to_notepoint(pos);
+				notepos
+			};
 
-				},
-				1, {
-					pos = x@y;
-					pos = pos/self.view_size;
-					pos.x = pos.x.round(self.gridstep1.x);
-					pos.debug("mouse_down_action: set_end: pos");
-					notepos = self.point_to_notepoint(pos);
-					self.controller.set_end(notepos.x)
-				}
-			)
+			[modifiers, buttonNumber].debug("mouse_down_action: buttonNumber");
+			// 0 left, 1: right, 2: middle
+			~mouse_responder.(modifiers, buttonNumber, clickCount, (
+						create_note: {
+							notepos = trunc_notepos.();
+							self.controller.add_note(notepos);
+						},
+						remove_note: {
+							notepos = trunc_notepos.();
+							self.controller.remove_note(notepos);
+						},
+						set_end: {
+							pos = x@y;
+							pos = pos/self.view_size;
+							pos.x = pos.x.round(self.gridstep1.x);
+							pos.debug("mouse_down_action: set_end: pos");
+							notepos = self.point_to_notepoint(pos);
+							notepos.debug("mouse_down_action: set_end: notepos");
+							self.controller.set_end(notepos.x);
+						},
+			));
 		}
 	},
 
@@ -705,6 +714,7 @@
 	remove_note: { arg self, abstime;
 		[abstime].debug("class_step_track_controller: remove_note");
 		self.get_notescore.remove_notes_playing_at_abstime(abstime);
+		self.scoreset.update_notes;
 		self.changed(\notes);
 	},
 
@@ -936,6 +946,7 @@
 		self.notescore.set_end(val);
 		self.update_notes;
 		self.changed(\background);
+		self.changed(\notes);
 	},
 
 	get_end: { arg self;
@@ -965,6 +976,12 @@
 		self.update_notes;
 		self.changed(\notes);
 	
+	},
+
+	remove_note: { arg self, notepos;
+		self.notescore.remove_notes_at_abstime(notepos.x, { arg no; no[self.notekey] == notepos.y });
+		self.update_notes;
+		self.changed(\notes);
 	},
 
 	make_gui: { arg self, parent;
@@ -1410,7 +1427,7 @@
 		var octave = ((midinote / 12)).asInteger;
 		var name = notenames[ midinote % 12 ];
 		name ++ octave.asString;
-		midinote.asString;
+		//midinote.asString;
 	
 	},
 
@@ -1438,36 +1455,40 @@
 	mouse_down_action: { arg self;
 		{ arg view, x, y, modifiers, buttonNumber, clickCount;
 			var pos, notepos;
-			buttonNumber.debug("mouse_down_action: buttonNumber");
-			// 0 left, 1: right, 2: middle
-			switch(buttonNumber,
-				0, {
-					if(clickCount == 1) {
-						pos = x@y;
-						pos = pos/self.view_size;
-						pos.x = pos.x.trunc(self.gridstep1.x);
-						pos.y = pos.y.trunc(self.gridstep1.y);
-						pos.debug("mouse_down_action: pos");
-						notepos = self.point_to_notepoint(pos);
-						if(modifiers.isShift) {
-							self.controller.add_note(notepos);
-						};
-						if(modifiers.isCtrl) {
-							self.controller.remove_note(notepos);
-						}
-					};
+			var round_notepos;
+			var trunc_notepos;
+			trunc_notepos = {
+				var pos, notepos;
+				pos = x@y;
+				pos = pos/self.view_size;
+				pos.x = pos.x.trunc(self.gridstep1.x);
+				pos.y = pos.y.trunc(self.gridstep1.y);
+				pos.debug("mouse_down_action: pos");
+				notepos = self.point_to_notepoint(pos);
+				notepos
+			};
 
-				},
-				1, {
-					pos = x@y;
-					pos = pos/self.view_size;
-					pos.x = pos.x.round(self.gridstep1.x);
-					pos.debug("mouse_down_action: set_end: pos");
-					notepos = self.point_to_notepoint(pos);
-					notepos.debug("mouse_down_action: set_end: notepos");
-					self.controller.set_end(notepos.x);
-				}
-			)
+			[modifiers, buttonNumber].debug("mouse_down_action: buttonNumber");
+			// 0 left, 1: right, 2: middle
+			~mouse_responder.(modifiers, buttonNumber, clickCount, (
+						create_note: {
+							notepos = trunc_notepos.();
+							self.controller.add_note(notepos);
+						},
+						remove_note: {
+							notepos = trunc_notepos.();
+							self.controller.remove_note(notepos);
+						},
+						set_end: {
+							pos = x@y;
+							pos = pos/self.view_size;
+							pos.x = pos.x.round(self.gridstep1.x);
+							pos.debug("mouse_down_action: set_end: pos");
+							notepos = self.point_to_notepoint(pos);
+							notepos.debug("mouse_down_action: set_end: notepos");
+							self.controller.set_end(notepos.x);
+						},
+			));
 		}
 	},
 

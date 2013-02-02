@@ -546,6 +546,8 @@ if(~silent_control_bus.isNil) {
 
 			livenodepool: Dictionary.new,
 
+			bus_mode_enabled: true,
+
 		),
 
 		commands: ~shortcut,
@@ -574,6 +576,13 @@ if(~silent_control_bus.isNil) {
 			if(node.isNil) { ("Node not found:"+name).error };
 			//node.debug("========get_node node");
 			node;
+		},
+
+		free_node: { arg self, name;
+			var node;
+			node = self.get_node(name);
+			self.model.livenodepool[name] = nil;
+			node.destructor;
 		},
 
 		node_exists: { arg self, name, functrue=nil, funcfalse=nil;
@@ -644,100 +653,90 @@ if(~silent_control_bus.isNil) {
 
 		context: \to_init,
 
+		make_node_from_data: { arg self, data;
+			var node;
+			switch(data.kind,
+				\player, {
+					switch(data.subkind,
+						\nodesampler, {
+							node = ~make_nodesampler.(self);
+							node.load_data(data)
+						},
+						{
+							if(data.uname != \voidplayer) {
+								node = ~make_player.(self, data.instrname);
+								node.load_data(data);
+							} {
+								node = nil;
+							}
+						}
+					)
+				},
+				\seqnode, {
+					node = ~make_seqplayer.(self);
+					node.load_data(data);
+				},
+				\parnode, {
+					node = ~make_seqplayer.(self);
+					node.load_data(data);
+				},
+				{
+					data.kind.debug("ERROR: make_node_from_data: kind not known")
+				}
+			
+			);
+			node;
+		},
+
+		make_data_from_node: { arg self, node;
+			node.save_data;
+		},
+
 		archive_livenodepool: { arg self, projpath, pool=nil;
 			var dict = Dictionary.new;
-			"HH".debug;
+			var data;
+			"--Begin archive_livenodepool".debug;
 			if(pool.isNil) {
 				pool = self.model.livenodepool
 			};
 			pool.keysValuesDo { arg key, val;
-				switch(val.kind,
-					\player, {
-						if(val.subkind == \nodesampler) {
-							(key -> (
-								kind: \nodesampler,
-								data: val.save_data
-							)).writeArchive(projpath++"/samplernode_"++key);
-
-						} {
-							(key -> (
-								kind: \synthnode,
-								defname: val.defname,
-								data: val.save_data
-							)).writeArchive(projpath++"/livenode_"++key);
-						}
-					},
-					\seqnode, {
-						(key -> (
-							kind: \seqnode,
-							data: val.save_data
-						)).writeArchive(projpath++"/seqnode_"++key);
-					},
-					\parnode, {
-						(key -> (
-							kind: \parnode,
-							data: val.save_data
-						)).writeArchive(projpath++"/parnode_"++key);
-					}
-				)
+				if(val.uname != \voidplayer) {
+					data = self.make_data_from_node(val);
+					data.writeArchive(projpath+/+"node_"++key);
+				}
 			};
-			"HH".debug;
+			"--End archive_livenodepool".debug;
 		},
 
 		unarchive_livenodepool: { arg self, projpath;
 			var path;
 			var pool = Dictionary.new;
-			"FF".debug;
+			"--Begin unarchive_livenodepool".debug;
 			path = PathName.new(projpath);
-			"FF".debug;
 			path.entries.do { arg file;
-				var fullname, name, asso;
-				try {
+				var fullname, name, data, node;
+				//try {
 					file.debug("unarchive_livenodepool file");
 					fullname = file.fullPath;
 					name = file.fileName;
 
-					if(name.containsStringAt(0, "livenode_"), {
-						asso = Object.readArchive(fullname);
-						asso.key.debug("unarchive_livenodepool livenode");
-						if(asso.key == \voidplayer) {
-							pool[asso.key] = ~empty_player.()
+					if(name.containsStringAt(0, "node_")) {
+						data = Object.readArchive(fullname);
+						data.uname.debug("unarchive_livenodepool node");
+						node = self.make_node_from_data(data);
+						if(node.notNil) {
+							pool[node.uname] = node;
 						} {
-							pool[asso.key] = ~make_player_from_synthdef.(self, asso.value.defname);
-							pool[asso.key].load_data( asso.value.data );
-							pool[asso.key].name = asso.key;
-							pool[asso.key].uname = asso.key;
+							name.debug("Loaded node is nil");
 						}
-					});
-					if(name.containsStringAt(0, "parnode_"), {
-						asso = Object.readArchive(fullname);
-						asso.key.debug("unarchive_livenodepool parnode");
-						pool[asso.key] = ~make_parplayer.(self);
-						pool[asso.key].load_data( asso.value.data );
-						pool[asso.key].name = asso.key;
-						pool[asso.key].uname = asso.key;
-					});
-					if(name.containsStringAt(0, "seqnode_"), {
-						asso = Object.readArchive(fullname);
-						asso.key.debug("unarchive_livenodepool seqnode");
-						pool[asso.key] = ~make_seqplayer.(self);
-						pool[asso.key].load_data( asso.value.data );
-						pool[asso.key].name = asso.key;
-						pool[asso.key].uname = asso.key;
-					});
-					if(name.containsStringAt(0, "samplernode_"), {
-						asso = Object.readArchive(fullname);
-						asso.key.debug("unarchive_livenodepool samplernode");
-						pool[asso.key] = ~make_nodesampler.(self);
-						pool[asso.key].load_data( asso.value.data );
-						pool[asso.key].name = asso.key;
-						pool[asso.key].uname = asso.key;
-					});
-				} { arg error;
-					[file, error].debug("Error occured when loading file");
-				}
+					} {
+						name.debug("unarchive_livenodepool: don't load unknown file");
+					};
+				//} { arg error;
+				//	[file, error].debug("Error occured when loading file");
+				//}
 			};
-			"FF".debug;
+			"--End unarchive_livenodepool".debug;
 			pool;
 		},
 
@@ -803,6 +802,7 @@ if(~silent_control_bus.isNil) {
 				self.model.project_path = projpath;
 
 				self.model.livenodepool = self.unarchive_livenodepool(projpath);
+				self.add_node(~empty_player);
 				self.model.livenodepool.keys.debug("unarchived livenodepool keys");
 				//TODO: load context
 				self.model.project_path = nil;

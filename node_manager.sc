@@ -254,6 +254,39 @@
 			livenodename;
 		},
 
+		save_preset: { arg self, player;
+			~class_player_preset_chooser.new(main, player, "SAVE preset", { arg sel, offset;
+				var name;
+				if( sel == \empty ) {
+					name = player.defname ++ "_c" ++ UniqueID.next;
+				} {
+					name = sel;
+				};
+				main.model.presetlib[player.instrname][offset] = player.save_data_preset;
+				main.model.presetlib[player.instrname][offset].name = name;
+				main.save_presetlib;
+			}); 
+			
+		},
+
+		load_preset: { arg self, player;
+
+			~class_player_preset_chooser.new(main, player, "LOAD preset", { arg sel, offset;
+				// load action
+				var uname, name;
+				if( sel == \empty ) {
+					"load_column_preset: Can't load empty preset".error;
+				} {
+					uname = player.uname;
+					name = player.name;
+					player.load_data_preset(main.model.presetlib[player.instrname][offset]);
+					player.name = name;
+					player.uname = uname;
+				}
+			});
+			
+		},
+
 		save_column_preset: { arg self, player;
 			//TODO: handle synth args change
 			var datalist;
@@ -327,6 +360,7 @@
 		},
 
 		load_effectnode: { arg self, player, action;
+			//deprecated
 			var livenode;
 			~choose_effect.(main, { arg libnodename, livenodename; 
 				//self.model.default_newnode = [\libnode, libnodename];

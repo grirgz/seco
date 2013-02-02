@@ -2929,10 +2929,18 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				if(ev[\muted]) {
 					\rest
 				} {
-					if(ev[\stepline] > 0) {
-						\note
+					if(ev[\current_mode] == \stepline) {
+						if(ev[\stepline] > 0) {
+							\note
+						} {
+							\rest
+						}
 					} {
-						\rest
+						if(ev[ev[\current_mode]].type != \rest) {
+							\note;
+						} {
+							\rest;
+						}
 					}
 				}
 			})
@@ -3142,7 +3150,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 		set_bus_mode: { arg self, val=true;
 			var reject = [\sustain, \dur, \repeat, \stepline, \segdur, \stretchdur];
-			if(reject.includes(self.name).not) {
+			if(reject.includes(self.name).not and: {self.get_main.model.bus_mode_enabled}) {
 				if(val != self.scalar.bus_mode) {
 					self.scalar.bus_mode = val;
 					if(val) {
@@ -3511,6 +3519,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				\dur, {
 					{ arg ev, mode;
 						if(ev[mode].dur.notNil) {
+							[player.uname, self.name, mode, ev[mode], ev[\stretchdur], ev].debug("CONTROL param: vpattern");
 							ev[mode].dur * ev[\stretchdur];
 						}
 					}
@@ -3526,7 +3535,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				\amp, { // FIXME: handle sampleline; does pseg/bus need velocity adjusting ?
 					{ arg ev, mode;
 						if(ev[mode].velocity.notNil) {
-							main.calcveloc(self.scalar.get_val,(ev[\noteline].velocity));	
+							main.calcveloc(self.scalar.get_val,(ev[ev[\current_mode]].velocity ?? 0.5));	
 						}
 					};
 				},
@@ -3964,6 +3973,20 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		self;
 	},
 
+	save_data: { arg self;
+		var data = IdentityDictionary.new;
+		self.archive_data.do { arg key;
+			data[key] = self[key]
+		};
+		data;
+	},
+
+	load_data: { arg self, data;
+		data.keysValuesDo { arg key, val;
+			self[key] = val;
+		}
+	},
+
 	vpattern: { arg self;
 		Pfunc{
 			self.name.debug("Error: No pattern defined in this param_controller");
@@ -3973,6 +3996,8 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 );
 
 ~class_param_tsustain_controller = (
+	parent: ~class_param_controller,
+	archive_data: [\name],
 	kind: \tsustain,
 	new: { arg self, name;
 		self = self.deepCopy;
@@ -3994,6 +4019,8 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 );
 
 ~class_param_scorekey_controller = (
+	parent: ~class_param_controller,
+	archive_data: [\name, \key_name, \val],
 	kind: \scorekey,
 	new: { arg self, player, name, key;
 		self = self.deepCopy;
@@ -4023,6 +4050,8 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 );
 
 ~class_param_modenv_val_controller = (
+	parent: ~class_param_controller,
+	archive_data: [\name, \key_name, \val],
 	kind: \scorekey,
 	new: { arg self, player, name, key;
 		self = self.deepCopy;
@@ -4030,7 +4059,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		self.name = name;
 		self.player_node = { player };
 		self.key_name = key ?? name;
-		self.val = [0,1];
+		self.val = [0,1]; //FIXME: not displayed
 
 		self;
 	},
@@ -4070,26 +4099,6 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	}
 );
 
-~class_param_wavetable_range_controller = (
-	// static
-	spec: \unipolar.asSpec.copy,
-	new: { arg self, name;
-		self = self.deepCopy;
-		self.name = name;
-	
-		self;
-	},
-
-	set_val: { arg self, val;
-		self.val = val;	
-		self.changed(\val)
-	},
-
-	get_val: { arg self;
-		self.val;
-	},
-);
-
 ~class_param_wavetable_controller = (
 	parent: ~class_param_controller,
 	classtype: \wavetable,
@@ -4124,15 +4133,17 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	},
 
 	save_data: { arg self;
-		var data = self.model.deepCopy;
-		data.pathlist = data.pathlist.collect(_.save_data);
+		var data = ();
+		data.model = self.model.deepCopy;
+		data.model.pathlist = self.model.pathlist.collect(_.save_data);
 		data;
 	},
 
 	load_data: { arg self, data;
-		self.model.val = self.menu_items.detectIndex { arg item; item == data.val_uname };
-		self.model.val_uname = data.val_uname;
-		self.model.pathlist = data.pathlist.collect{ arg dat; ~class_wavetable_file.new_from_data(dat) };
+		self.model.val = self.menu_items.detectIndex { arg item; item == data.model.val_uname };
+		[data.model.val_uname, self.model.val].debug("class_param_wavetable_controller: load_data");
+		self.model.val_uname = data.model.val_uname;
+		self.model.pathlist = data.model.pathlist.collect{ arg dat; ~class_wavetable_file.new_from_data(dat) };
 		self.set_curve(self.model.val, true)
 	},
 
@@ -4236,6 +4247,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 ~class_param_kind_chooser_controller = (
 	// static
 	parent: ~class_param_controller,
+	archive_data: [\model, \name, \menu_items],
 	classtype: \kind_chooser,
 
 	model: (
@@ -4306,6 +4318,8 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 ~class_param_static_controller = (
 	// static
+	parent: ~class_param_controller,
+	archive_data: [\name, \val, \spec],
 	new: { arg self, name, spec, default_value=0;
 		self = self.deepCopy;
 		self.name = name;
@@ -4324,3 +4338,107 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		self.val;
 	},
 );
+
+~class_param_wavetable_range_controller = (
+	// static
+	parent: ~class_param_static_controller,
+	spec: \unipolar.asSpec.copy,
+	new: { arg self, name;
+		self = self.deepCopy;
+		self.name = name;
+	
+		self;
+	},
+);
+
+~class_param_ienv_controller = (
+	parent: ~class_param_controller,
+	curve: [[64,64,64,64], [1,2,3]/3*128],
+	new: { arg self, uname;
+		self = self.deepCopy;
+		self.uname = uname;
+	
+		self;
+	},
+
+	get_env: { arg self;
+		Env.new(self.curve[0], self.curve[1][1..]);
+	},
+
+	set_curve: { arg self, curve;
+		self.curve = curve;
+		self.changed(\val)
+	},
+
+	get_curve: { arg self;
+		self.curve;
+	},
+);
+
+~class_param_ienv_proxy_controller = (
+	parent: ~class_param_controller,
+	new: { arg self, label, preset;
+		self = self.deepCopy;
+		self.set_preset(preset);
+		self.label = label;
+	
+		self;
+	},
+
+	get_preset_uname: { arg self;
+		self.preset.uname;
+	},
+
+	get_label: { arg self;
+		self.label;
+	},
+
+	set_preset: { arg self, preset;
+		self.preset = preset;
+	},
+
+	get_env: { arg self;
+		self.preset.get_env;
+	},
+
+	set_curve: { arg self, curve;
+		self.preset.set_curve(curve);
+		self.changed(\val)
+	},
+
+	get_curve: { arg self;
+		self.preset.get_curve;
+	},
+);
+
+~class_param_ienv_presets_controller = (
+	presets: IdentityDictionary.new,
+	ienv_controllers: IdentityDictionary.new,
+	new: { arg self;
+		self = self.deepCopy;
+
+		self;
+	},
+
+	add_preset: { arg self, name, val;
+		self.presets[name] = ~class_param_ienv_controller.new(name);
+		self.presets[name].set_curve(val);
+	},
+
+	get_presets_names: { arg self;
+		self.presets.keys;
+	},
+
+	get_ienv_controllers_list: { arg self;
+		self.ienv_controllers.values;
+	},
+
+	get_preset: { arg self, name;
+		self.presets[name]
+	},
+
+	add_ienv_controller: { arg self, name, preset=\off;
+		self.ienv_controllers[name] = ~class_param_ienv_proxy_controller.new(name, self.presets[preset]);
+	},
+);
+

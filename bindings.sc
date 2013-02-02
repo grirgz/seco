@@ -1,3 +1,26 @@
+~mouse_bindings = (
+	toggle_note: [0, ~keycode.mouse.left_click],
+	create_note: [\ctrl, ~keycode.mouse.left_click],
+	remove_note: [\ctrl, ~keycode.mouse.right_click],
+	set_end: [0, ~keycode.mouse.right_click],
+
+);
+
+~rev_mouse_bindings = Dictionary.newFrom(~mouse_bindings.invert);
+
+~mouse_responder = { arg mod, button, click, handlers;
+	var sym, funkey, fun;
+	sym = ~modifier_to_symbol.(mod);
+	funkey = ~rev_mouse_bindings[[sym, button]];
+	fun = handlers[funkey];
+	if(fun.isNil) {
+		[sym, button].debug("No mouse handler");
+	} {
+		fun.()
+	}
+
+};
+
 ~common_bindings = (
 	playing: [
 		["play_selected", \kb, 0, \f5],
@@ -18,6 +41,14 @@
 );
 
 ~bindings = (
+	matrix_chooser: 
+		~common_bindings.windowing ++
+		~common_bindings.playing ++ 
+		[
+			["edit_name", \kb, \alt, "r"],
+			["remove_selected", \kb, \alt, \delete],
+			["select_cell", \kb, 0, \kbpad8x4_flat],
+	],
 	editplayer: [
 		["select_cell",							\kb, 0, \kbnumline],
 		["edit_value", 							\kb, 0, \enter],
@@ -48,6 +79,7 @@
 		~common_bindings.playing ++
 		~common_bindings.windowing ++
 		[
+			["edit_selected_param", \kb, 0, \npenter],
 
 	],
 	timeline: [
@@ -86,6 +118,7 @@
 		["select_player", \kb, 0, \kbnumpad],
 		["edit_modulator", \kb, \alt, "m"],
 		["change_param_kind", \kb, \altshift, "s"],
+		["remove_effect", \kb, \shift, \f3],
 	],
 	modulator: ~common_bindings.playing ++ [
 		["close_window", \kb, 0, \escape],
@@ -96,6 +129,8 @@
 		["change_param_kind", \kb, \altshift, "s"],
 		["change_modulated_param_kind", \kb, \shift, "s"],
 		["change_mod_kind", \kb, \altshift, "d"],
+		["remove_modulator", \kb, \shift, \f3],
+		["disconnect_modulator", \kb, 0, \f3],
 
 	],
 	side: [
@@ -132,7 +167,7 @@
 		["edit_tempo", \kb, \ctrlalt, "e"], // t open terminal
 		["edit_quant", \kb, \ctrlalt, "q"],
 		["edit_barrecord", \kb, \ctrlalt, "b"],
-		["edit_selected_param", \kb, 0, \enter],
+		["edit_selected_param", \kb, 0, \npenter],
 
 		["edit_wrapper", \kb, \alt, "w"],
 
@@ -150,8 +185,11 @@
 
 		["add_effect", \kb, \ctrlshift, \f2],
 
-		["load_colpreset", \kb, \ctrl, \f1],
-		["save_colpreset", \kb, \ctrl, \f2],
+		//["load_colpreset", \kb, \ctrl, \f1],
+		//["save_colpreset", \kb, \ctrl, \f2],
+
+		["load_preset", \kb, \ctrl, \f1],
+		["save_preset", \kb, \ctrl, \f2],
 
 		["select_param", \kb, 0, \kbpad8x4_flat],
 		["pad_select_param", \midi, 0, \midipads],

@@ -281,8 +281,16 @@
 			self.notes.removeAt(num);
 		},
 
-		remove_notes_at_abstime: { arg self, abstime;
-			self.notes = self.notes.reject { arg no; no.time == abstime }.asList;
+		remove_notes_at_abstime: { arg self, abstime, constraint;
+			self.notes = self.notes.reject { arg no; 
+				(no.time == abstime) and: {
+					if(constraint.notNil) {
+						constraint.(no)
+					} {
+						true
+					}
+				}
+			}.asList;
 		},
 
 		remove_notes_playing_at_abstime: { arg self, abstime, constraint;

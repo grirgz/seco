@@ -1036,7 +1036,7 @@ if(GUI.current == QtGUI) {
 
 	[
 		\escape,
-		\square, \backscape,
+		\square, \backspace,
 		\tab, \enter,
 		\capslock, \leftshift, \rightshift,
 		\leftctrl, \meta, \alt, \space, \altgr, \menu, \rightctrl

@@ -94,15 +94,17 @@
 		self.action = action;
 		self.model.patlist.debug("patlist");
 		
-		parent.view.keyDownAction = { arg view, char, modifiers, u, k; 
-			u.debug("slooooooooooooo u");
-			modifiers.debug("slooooooooooooo modifiers");
-			//self.kb_handler.debug("kb");
-			self.kb_handler[[modifiers,u]].value
-		};
+		//parent.view.keyDownAction = { arg view, char, modifiers, u, k; 
+		//	u.debug("slooooooooooooo u");
+		//	modifiers.debug("slooooooooooooo modifiers");
+		//	//self.kb_handler.debug("kb");
+		//	self.kb_handler[[modifiers,u]].value
+		//};
+		parent.view.keyDownAction = ~shortcut.get_kb_responder(\matrix_chooser); // FIXME: should not use global var
 		"zarb".debug("oui2");
 
-		self.set_bindings;
+		//self.set_bindings;
+		self.make_bindings;
 
 		self;
 	},
@@ -171,7 +173,65 @@
 		self.changed(\cell, address, val)
 	},
 
-	set_bindings: { arg self;
+	make_bindings: { arg self;
+		//FIXME: should not use global var
+		~shortcut.parse_action_bindings(\matrix_chooser, [
+			["edit_name", {
+				if( self.model.selection.notNil ) {
+					self.edit_value;
+				}
+			}],
+
+			["play_selected", {
+				var sel = self.model.selection;
+				if( sel.notNil ) {
+					self.play_selection(self.get_cell_by_address(sel), self.window, sel);
+				}
+			}],
+
+			["remove_selected", {
+				if(self.model.selection.isNil, {
+					"No selection to load".error;
+				}, {
+					self.remove_selected(self.get_selected_cell)
+				});
+			}],
+
+
+			["load_selected", {
+				if(self.model.selection.isNil, {
+					"No selection to load".error;
+				}, {
+					self.load(self.get_selected_cell, self.window)
+				});
+			}],
+
+			["stop_selected", {
+				var sel = self.model.selection;
+				if( sel.notNil ) {
+					self.stop_selection(self.get_cell_by_address(sel), self.window, sel);
+				}
+			}],
+
+			["create_batch", {
+				if( self.model.selection.notNil ) {
+					self.create_batch;
+				}
+			}],
+
+			["select_cell", 32, { arg i;
+				self.set_selection(i%8, (i/8).trunc);
+			}],
+
+			["close_window", {
+				self.stop_selection;
+				self.window.close;
+			}],
+
+		]);
+	},
+
+	set_bindings2: { arg self;
 		~kbpad8x4.do { arg line, iy;
 			line.do { arg key, ix;
 				self.kb_handler[[0, key]] = { 
@@ -329,7 +389,7 @@
 	},
 
 	selected: { arg self, sel, win, address;
-		sel.dump.debug("selected");
+		//sel.dump.debug("selected");
 		if(sel != "" and: {self.oldsel == sel}) {
 			self[\action].(sel);
 			win.close;
@@ -415,6 +475,97 @@
 		self.show_window;
 		self;
 	},
+
+);
+
+~class_player_preset_chooser = (
+	
+	parent: ~class_matrix_chooser,
+	new: { arg self, main, player, name, action;
+		var datalist;
+		self = self.parent[\new].(self, action, name);
+
+		self.liblist = main.model.presetlib[player.instrname];
+
+		datalist = main.model.presetlib[player.instrname];
+		if( datalist.isNil ) {
+			main.model.presetlib[player.instrname] = SparseArray.newClear(4*8*10, \empty);
+			datalist = main.model.presetlib[player.instrname];
+		};
+		datalist = datalist.collect { arg d; 
+			if( d == \empty ) { d } { d.name }
+		};
+
+		self.get_main = { arg self; main };
+		self.get_player = { player };
+		self.set_datalist(datalist);
+		self.show_window;
+		self;
+	},
+
+	play_selection: { arg self;
+		var sel = self.model.selection;
+		var offset;
+		var player;
+		offset = self.address_to_index(self.model.selection);
+		if(self.current_player.notNil) {
+			self.stop_selection;
+		};
+		self.current_player = ~make_player.(self.get_main, self.liblist[offset].instrname);
+		self.current_player.load_data(self.liblist[offset]);
+		self.current_stream_player = self.current_player.vpattern.play;
+	},
+
+	stop_selection: { arg self;
+		if(self.current_player.notNil) {
+			self.current_stream_player.stop;
+			self.current_player.destructor;
+			self.current_player = nil;
+		} {
+
+		}
+		
+	},
+
+	remove_selected: { arg self;
+		var player = self.get_player;
+		var offset;
+		var main = self.get_main;
+		self.set_cell(self.model.selection, \empty);
+		offset = self.address_to_index(self.model.selection);
+		if(main.model.presetlib[player.instrname][offset] != \empty) {
+			main.model.presetlib[player.instrname][offset] = \empty;
+			main.save_presetlib;
+		};
+	},
+
+	selected: { arg self, sel, win, address;
+		var offset;
+		offset = self.address_to_index(self.model.selection);
+		sel.debug("selected");
+		if(self.oldsel == sel, {
+			self[\action].(sel, offset);
+			win.close;
+		}, {
+			self.oldsel = sel;	
+		});
+	},
+
+	edit_value: { arg self;
+		var player = self.get_player;
+		var offset;
+		var main = self.get_main;
+		// rename action
+		~edit_value.(self.get_selected_cell.asString, { arg newname; 
+			self.set_cell(self.model.selection, newname);
+			offset = self.address_to_index(self.model.selection);
+			if(main.model.presetlib[player.instrname][offset] != \empty) {
+				main.model.presetlib[player.instrname][offset].name = newname;
+				main.save_presetlib;
+			};
+		})
+	},
+
 );
 
 /////////////////////// old matrix code

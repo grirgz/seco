@@ -26,6 +26,11 @@ s.waitForBoot{
 
 ~effectlib = [
 	\comb1,
+	\p_reverb,
+	\p_flanger,
+	\p_chorus,
+	\p_delay,
+	\p_comb,
 ].collect({arg i; i -> i });
 
 ~modlib = [
@@ -69,8 +74,8 @@ Mdef.side_gui;
 )
 
 
-Mdef.main.save_project("live20");
-Mdef.main.load_project("live20");
+Mdef.main.save_project("live31.1");
+Mdef.main.load_project("live31.1");
 
 Debug.enableDebug = true;
 Debug.enableDebug = false;
@@ -162,6 +167,11 @@ Mdef.node("piano2_l1061").get_arg(\stepline).seq.get_val(3)
 Mdef.node("piano2_l1089").get_arg(\stepline).get_val(3)
 Mdef.node("piano2_l1089").get_arg(\stepline).get_val(gtgt1)
 Mdef.node("piano2_l1089").get_arg(\stepline).seq
+
+Mdef.node("ci dadsr_kr_l1025").external_player.synthdef_basename == ""
+Mdef.node("ci dadsr_kr_l1025").defname
+
+Mdef.node("ci dadsr_kr_l1080").uname
 
 nil !? 4
 
@@ -355,3 +365,246 @@ b[\rah].dump
 b.rah.dump
 
 Mdef.main.model.modnodelib
+
+
+
+(
+
+Mdef.main.save_project("live31_test12");
+)
+
+
+Mdef.main.load_project("live31_test12");
+
+~d = Mdef.node("ci osc3filter2_l1066").external_player
+
+Mdef.node("ci moscfilter_l1004").get_arg(\wt).get_val
+~d = Mdef.node("ci osc3filter2_l1035").save_data
+~d = Mdef.node("ci moscfilter_l1004").get_arg(\wt).save_data
+Mdef.node("ci moscfilter_l1005").get_arg(\wt).load_data(~d)
+Mdef.node("ci moscfilter_l1005").get_arg(\wt).get_val
+
+Mdef.node("ci osc3filter2_l1036").load_data(~d)
+~d.static_data
+~d.external_player
+
+~d = Mdef.node("ci mosc_l1033").data[\wt].save_data
+~d = Mdef.node("ci mosc_l1034").data[\wt].load_data(~d)
+
+
+kkk
+~d = Mdef.node("osc1_l1023").modulation.get_modulation_mixer(\ffreq)
+~d = Mdef.node("osc1_l1023").modulation
+
+~d = Mdef.node(Mdef.node(\s1_part1_sect1_var1).children[1]).get_arg(\speed).spec
+
+(
+~class_ci_ienv_view = (
+	new: { arg self, controller;
+		self = self.deepCopy;
+
+		self.curve = [[25,50,70,110], [0,10,70,128]];
+		self.controller = { controller };
+		self.make_gui;
+		self.update_curve;
+
+		self;
+	},
+
+	set_curve: { arg self, curve;
+		self.curve = curve;
+		self.controller.get_current_ienv.set_curve(self.curve);
+		self.update_curve;
+	},
+
+	update_curve: { arg self;
+		var levels, times;
+		var time = 0;
+		var curve = self.curve;
+		self.ienv_view.clearSpace;
+		#levels, times = curve;
+		levels.do { arg lev, idx;
+			time = times[idx]/128;
+			self.ienv_view.createNode1(time,1-(lev/128));
+			if(idx > 0) {
+				self.ienv_view.createConnection(idx-1, idx);
+			};
+		};
+	},
+
+	make_matrix: { arg self;
+		var presets = self.controller.get_presets_names;
+		GridLayout.rows(*
+			[
+				[nil] ++ presets.collect { arg name;
+					Button.new
+						.states_([[name]])
+				}
+			] ++
+			self.controller.get_ienv_controllers_list.collect { arg ctrl;
+				[
+					Button.new
+						.states_([[ctrl.get_label]])
+				] ++
+				presets.collect { arg name, idx;
+					Button.new
+						.states_([[idx]])
+				}
+			} ++ [nil]
+		)
+	},
+
+	make_gui: { arg self;
+		self.ienv_view = ParaTimeline.new;
+		self.ienv_view.userView.minSize_(200@150);
+		self.node_shape = "circle";
+		self.node_align = \center;
+		self.ienv_view.setShape_(self.node_shape);
+		self.ienv_view.nodeAlign_(self.node_align);
+		self.ienv_view.nodeTrackAction = { arg node;
+			var pos = self.ienv_view.getNodeLoc1(node.spritenum);
+			pos = pos[0] @ pos[1];
+			pos = pos.round(1/128);
+			switch(node.spritenum,
+				0, {
+					self.ienv_view.setNodeLoc1_( node.spritenum, 0, pos.y );
+				},
+				3, {
+					self.ienv_view.setNodeLoc1_( node.spritenum, 1, pos.y );
+				},
+				{
+					self.ienv_view.setNodeLoc1_( node.spritenum, pos.x, pos.y);
+				}
+			);
+		};
+		self.ienv_view.nodeUpAction = {
+			//self.curve = 
+			var nodes = self.ienv_view.getNodeStates[0].collect({ arg node;
+				var pos;
+				pos = (node/self.ienv_view.bounds.extent);
+				pos = [pos.x, 1-pos.y] * 128;
+				pos = pos.round(1);
+				pos;
+			});
+			//nodes.debug("note state before sort");
+			nodes = nodes.sort({ arg a, b; a[0] < b[0] });
+			//nodes.debug("note state after sort");
+			nodes = nodes.flop.reverse;
+			//nodes.debug("note state");
+			self.curve = nodes;
+			self.update_curve;
+
+		};
+		self.ienv_view.refresh;
+		self.layout = HLayout(
+			self.ienv_view.userView,
+			self.make_matrix,
+		);
+		self.layout;
+		
+	},
+);
+b = ~class_param_ienv_presets_controller.new;
+b.add_preset(\off, [[25,50,70,110], [0,10,70,128]]);
+b.add_preset(\linear, [[25,50,70,110], [0,10,70,128]]);
+b.add_preset(\user1, [[25,50,70,110], [0,10,70,128]]);
+b.add_ienv_controller(\osc1, \off);
+b.add_ienv_controller(\osc2, \off);
+a = ~class_ci_ienv_view.new(b);
+~windowize.(a.layout);
+)
+
+
+
+(
+w=Window().layout_( GridLayout.rows(c
+    [Slider2D(), Slider2D(), [Slider(), rows:2]],
+    [Slider2D(), Slider2D()],
+    [[Slider().orientation_(\horizontal), columns:2]]
+)).front;
+)
+
+(
+w=Window().layout_( GridLayout.columns(
+	3.collect{ Button.new.states_([["kkkkkkkkkkkkk"]]) },
+	3.collect{ Button.new },
+	3.collect{ Button.new },
+)).front;
+)
+
+(
+a=	 HLayout(
+
+ 	StaticText.new.string_("TTTTTTTTTTTTTT")
+		 );
+
+ w.layout_(
+
+a
+	 )
+	 
+)
+a.remove
+a.parent.children
+a.parent.layout
+
+(
+w.layout.remove
+)
+w.layout = HLayout.new
+w.layout
+w.layout.add(StaticText.new.string_("kj"))
+w.layout.children
+w.view.children.do(_.remove)
+w.view.children = nil
+w.view.children
+
+
+
+(
+a = ModSlider.new(nil, Rect(0,0,30,300));
+v = VLayout(
+		StaticText.new.string_("lkjlkj"),
+		[a.asView, align:\center]
+	);
+~windowize.(v);
+
+)
+(
+
+	var label, knob, vallabel;
+		var layout = VLayout.new(
+			label = StaticText.new
+				.align_(\centered)
+				.string_("kjkj")
+				;
+				[label, stretch:0, align:\center],
+			knob = ModLayoutSlider.new(nil, Rect(0,0,350,700)); 
+				debug("BLLA");
+				knob.asView.debug("SLIDERVIEW");
+				knob.asView.minSizeHint.asRect.debug("hint");
+				//knob.asView.minSize_(self.view_size.extent);
+				//knob.minSize_(5@5);
+				//knob.maxSize_(350@350);
+				//[knob.asView, stretch: 1, align:\left],
+				knob.rangeview.minWidth_(12);
+				//knob.rangeview.minSize_(80@480);
+				knob.maxSize_(800@880);
+				knob.rangeview.maxSize_(800@880);
+				knob.slider.maxSize_(800@880);
+				knob.background = Color.red;
+				//knob.slider.maxWidth_(5);
+				[knob.asView, stretch: 3, align:\topLeft],
+				//[knob.asView, stretch: 1],
+			vallabel = StaticText.new
+				.string_("12354")
+				.font_(Font("Arial",11))
+				.align_(\center)
+				.minWidth_(75)
+				//.minWidth_(75);
+				;
+				[vallabel, stretch:0, align:\center],
+			nil
+		);
+~windowize.(layout);
+)

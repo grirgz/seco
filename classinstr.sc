@@ -2,13 +2,18 @@
 ////////////// GUI parts
 //////////////////////////////////////////////////////
 
+~global_controller = (
+	current_param: nil,
+);
+
 ~class_ci_modknob_view = (
 	range_val: 0,
-	new: { arg self, controller;
+	new: { arg self, controller, display;
 		var modmixer;
 		self = self.deepCopy;
 
 		self.controller = { controller };
+		self.display = { display };
 		self.make_gui;
 
 		~make_class_responder.(self, self.namelabel, self.controller, [
@@ -160,6 +165,21 @@
 			[self.make_modslots, stretch:0, align:\center],
 			nil
 		).spacing_(0).margins_(0);
+
+		knob.mouse_edit_pixel_range = 2000;
+		knob.focusGainedAction = { arg me;
+			me.background = Color.gray(0.6);
+			~global_controller.current_param = self.controller;
+		};
+
+		knob.focusLostAction = { arg me;
+			try {
+				me.background = Color.clear;
+			}
+			//~global_controller.current_param = self.controller;
+		};
+
+
 		self.namelabel = label;
 		self.knob = knob;
 		self.vallabel = vallabel;
@@ -220,7 +240,8 @@
 				});
 				knob.asView.debug("SLIDERVIEW");
 				knob.asView.minSize_(self.view_size.extent);
-				[knob.asView, stretch: 0, align:\center],
+				//knob.asView.minSize_(50@50);
+				[knob.asView, stretch: 1, align:\center],
 			vallabel = StaticText.new
 				.string_("12354")
 				.font_(Font("Arial",11))
@@ -280,7 +301,7 @@
 );
 
 ~class_ci_frame_view = (
-	new: { arg self, label, knobs_ctrl, onoff_ctrl, popup1_ctrl, popup2_ctrl, fader_ctrl;
+	new: { arg self, label, knobs_ctrl, onoff_ctrl, popup1_ctrl, popup2_ctrl, fader_ctrl, display;
 		self = self.deepCopy;
 
 		self.label_string = label;
@@ -289,6 +310,7 @@
 		self.popup1_ctrl = { popup1_ctrl };
 		self.popup2_ctrl = { popup2_ctrl };
 		self.fader_ctrl = { fader_ctrl };
+		self.display = { display };
 		self.make_gui;
 
 		if(self.fader_ctrl.notNil) {
@@ -312,7 +334,7 @@
 		var body, vbody;
 		var vframe;
 		self.knobs = self.knobs_ctrl.collect { arg ctrl;
-			~class_ci_modknob_view.new(ctrl);
+			~class_ci_modknob_view.new(ctrl, self.display);
 		};
 		header = HLayout.new;
 		if(self.onoff_ctrl.notNil) {
@@ -429,6 +451,10 @@
 	data: IdentityDictionary.new,
 	args_prefix: "",
 	args_suffix: "",
+	synthdef_name_suffix: "",
+	synthdef_basename: "s",
+	archive_data: [\synthdef_name_suffix],
+
 	new: { arg self;
 		self = self.deepCopy;
 	
@@ -452,6 +478,29 @@
 		win.front;
 	},
 
+	save_data: { arg self;
+		var data;
+		data = ();
+		data.static_data = ();
+		self.static_data.keysValuesDo { arg key, datum;
+			data.static_data[key] = datum.save_data;
+		};
+		self.archive_data.do { arg key;
+			data[key] = self[key];
+		};
+		data;
+	},
+
+	load_data: { arg self, data;
+		data.static_data.keysValuesDo { arg key, val;
+			self.static_data[key].load_data(val)
+		};
+		self.archive_data.do { arg key;
+			self[key] = data[key];
+		};
+		self.build_synthdef;
+	},
+
 	set_all_bus_mode: { arg self, enable;
 		self.data.keysValuesDo { arg name, datum;
 			if(datum.classtype == \control) {
@@ -469,6 +518,7 @@
 	init_top_classinstr: { arg self;
 		self.set_static_responders;
 		self.set_param_abs_labels;
+		self.data[\freq] = ~make_control_param.(self.get_main, self.get_player, \freq, \scalar, 200, \freq.asSpec);
 	},
 
 	make_bindings: { arg self;
@@ -484,6 +534,13 @@
 
 			[\stop_selected, {
 				self.get_player.stop_node;
+			}],
+
+			[\edit_selected_param, {
+				if(~global_controller.current_param.notNil) {
+					debug("class_instr: edit_selected_param");
+					~class_player_display.edit_param_value(self.get_main, self.get_player, ~global_controller.current_param);
+				}
 			}],
 
 			[\panic, {
@@ -663,6 +720,8 @@
 	},
 
 	build_synthdef: { arg self, rate=\ar;
+		var synthdef_name;
+		self.synthdef_name = self.synthdef_basename ++ self.synthdef_name_suffix;
 		self.synthdef_name.debug("REBUILD SYNTH");
 		rate = self.synth_rate ?? rate;
 		SynthDef(self.synthdef_name, { arg out=0;
@@ -957,7 +1016,7 @@
 			(
 				name: "RLPF",
 				uname: \rlpf,
-				args: ["Cutoff", "Resonance"],
+				args: ["Cutoff", "RQ"],
 				specs: [specs[\pitch], \rq]
 			),
 			(
@@ -969,14 +1028,44 @@
 			(
 				name: "RHPF",
 				uname: \rhpf,
-				args: ["Cutoff", "Resonance"],
+				args: ["Cutoff", "RQ"],
 				specs: [specs[\pitch], \rq]
 			),
 			(
 				name: "BPF",
 				uname: \bpf,
-				args: ["Cutoff", "Resonance"],
+				args: ["Cutoff", "RQ"],
 				specs: [specs[\pitch], \rq]
+			),
+			(
+				name: "LP DM1",
+				uname: \lpdm1,
+				args: ["Cutoff", "Resonance", "Noise"],
+				specs: [specs[\pitch], \unipolar, specs[\smalldelay]]
+			),
+			(
+				name: "HP DM1",
+				uname: \hpdm1,
+				args: ["Cutoff", "Resonance", "Noise"],
+				specs: [specs[\pitch], \unipolar, specs[\smalldelay]]
+			),
+			(
+				name: "MoogLader",
+				uname: \mooglader,
+				args: ["Cutoff", "Resonance"],
+				specs: [specs[\pitch], \unipolar]
+			),
+			(
+				name: "MoogFF",
+				uname: \moogff,
+				args: ["Cutoff", "Gain"],
+				specs: [specs[\pitch], ControlSpec(0,4,\lin,0,2)]
+			),
+			(
+				name: "Ramp",
+				uname: \ramp,
+				args: ["Lag"],
+				specs: [specs[\delay]]
 			),
 			(
 				name: "Comb",
@@ -1016,6 +1105,7 @@
 				self.data["arg%".format(i+1).asSymbol].set_spec(variant.specs[i].asSpec.copy);
 			};
 		});
+		filterkind.changed(\val);
 		self.data.copy;
 	},
 
@@ -1144,7 +1234,7 @@
 		insertfxkind = ~class_param_kind_chooser_controller.new(\insertfxkind, self.get_variants);
 		self.static_data = IdentityDictionary.newFrom((
 			insertfxkind: insertfxkind,
-			enabled: ~class_param_static_controller.new(\enabled, specs[\onoff], 1),
+			enabled: ~class_param_static_controller.new(\enabled, specs[\onoff], 0),
 		));
 		self.data = IdentityDictionary.newFrom(self.ordered_args);
 		sc = SimpleController.new(insertfxkind);
@@ -1383,6 +1473,81 @@
 				],
 				self.dadsr;
 			],
+		)
+	},
+
+	make_layout: { arg self;
+		var knobs = [\pan, \amp];
+		var frame_view;
+		self.knobs = knobs.collect { arg name;
+			self.data[name];
+		};
+		frame_view = ~class_ci_frame_view.new("Master", self.knobs, nil, nil, nil);
+		self.layout = frame_view.layout;
+		self.layout;
+	},
+
+	make_layout_env: { arg self;
+		self.dadsr.make_layout;
+	},
+
+	synthfun: { arg self;
+		{ arg in, args;
+			var i = self.get_synthargs(args);
+			var is = self.get_staticargs;
+			var sig;
+
+			sig = Splay.ar(in, i.spread, i.amp, i.pan);
+			sig = sig * self.dadsr.synthfun.();
+			sig;
+
+		}
+	
+	},
+);
+
+~class_ci_ienv_matrix = (
+	parent: ~class_instr,
+	args_prefix: "",
+	args_suffix: "",
+	new: { arg self, main, player, ienv_controls;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.synthdef_name = \ci_ienv_matrix;
+
+		self.ienv_presets = ~class_param_ienv_presets_controller.new;
+		self.ienv_presets.add_preset(\user1, [[64,64,64,64], [1,2,3]/3*128]);
+		self.ienv_presets.add_preset(\user2, [[64,64,64,64], [1,2,3]/3*128]);
+
+		self.build_data;
+
+	
+		self;
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		self.help_build_data(
+			[
+				[
+					pan: ~make_control_param.(main, player, \pan, \scalar, 0, \pan.asSpec),
+					spread: ~make_control_param.(main, player, \spread, \scalar, 0, \unipolar.asSpec),
+					amp: ~make_control_param.(main, player, \amp, \scalar, 0.1, \amp.asSpec),
+				],
+				self.dadsr;
+			],
+			[
+				self.ienv_controls.collect { arg name;
+					[
+						name.asSymbol,
+						{ var a; a = ~class_param_ienv_proxy_controller.new(self.ienv_presets.get_preset(\off)); a.set_curve(self.ienv_presets.get_preset(\off)); a }.value,
+					]
+				
+				}.flat
+			]
 		)
 	},
 
@@ -1782,19 +1947,16 @@
 			\route_insertfx2,
 		].collect({ arg x; self.static_data[x] });
 
-		var routing_layout = HLayout(
-			VLayout(*
-				route_data.collect{ arg x; 
-					StaticText.new
-						.string_(x.label ?? x.name);
-				};
-			),
-			VLayout(*
-				route_data.collect{ arg x; 
-					~class_ci_popup_view.new(x).layout;
-				};
-			)
+		var routing_layout = GridLayout.columns(
+			route_data.collect{ arg x; 
+				StaticText.new
+					.string_(x.label ?? x.name);
+			} ++ [nil],
+			route_data.collect{ arg x; 
+				~class_ci_popup_view.new(x).layout;
+			} ++ [nil],
 		);
+		routing_layout.setColumnStretch(1,1);
 		routing_layout;
 	},
 
@@ -1807,9 +1969,10 @@
 					.string_(self.static_data[\voices].get_val)
 					.action_({ arg field;
 						self.static_data[\voices].set_val(field.string.asInteger)
-					})
+					}),
+				nil
 			),
-			VLayout(
+			[VLayout(
 				HLayout(
 					Button.new
 						.states_([["Off"],["On"]])
@@ -1838,9 +2001,10 @@
 						slider.layout;
 					}.value
 					//~class_ci_modslider_view.new(self.data[\spread],Rect(0,0,300,20)).layout
-				)
+				), 
+				nil
 			
-			)
+			), stretch:1],
 
 		)
 	},
@@ -1861,6 +2025,8 @@
 		var header, body, layout;
 		var content;
 		var modview;
+		var custom_view = View.new;
+		self.tab_custom_view = custom_view;
 		self.modulation_controller = ~class_embeded_modulation_controller.new(self.get_main, self.get_player, nil, self.data[\filtermix]);
 		self.modulation_controller.window = { self.window };
 		modview = ~class_embeded_modulation_view.new(self.modulation_controller);
@@ -1876,8 +2042,10 @@
 		body = StackLayout(*
 			content[1].collect { arg co;
 				View.new.layout_(co)
-			} ++
-			[View.new.layout_(modview.body_layout)]
+			} ++ [
+				View.new.layout_(modview.body_layout),
+				custom_view,
+			]
 		);
 		debug("NUIT 2");
 		layout = VLayout(
@@ -1903,11 +2071,33 @@
 		debug("NUIT 4");
 		self.tab_panel_stack_layout = body;
 		modview.show_body_layout = { arg myself;
+			var extplayer = myself.controller.get_current_player.external_player;
+			myself.controller.get_current_player.uname.debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: curplayer");
 			self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\modulator);
-			self.tab_panel_stack_layout.index = 4;
+			if(extplayer.notNil) {
+				// FIXME: external player should have custom gui
+				self.tab_panel_stack_layout.index = 5;
+				extplayer.make_layout;
+				self.tab_custom_view.children.do(_.remove);
+				debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: before cusheader");
+				self.custom_header_view = ~class_modulator_header_view.new_without_responders(myself.controller); 
+				debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: after cusheader");
+				self.tab_custom_view.layout_(
+					VLayout(
+						[self.custom_header_view.layout, stretch:0],
+						extplayer.layout,
+					)
+				);
+				self.custom_header_view.selected_slot;
+				debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: after view cusheader");
+				debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: last view cusheader");
+			} {
+				self.tab_panel_stack_layout.index = 4;
+			}
 		};
 		layout;
 	},
+
 
 	make_layout: { arg self;
 		self.layout = HLayout(
@@ -1925,14 +2115,18 @@
 						),
 						~class_ci_modslider_view.new(self.data[\filtermix]).layout,
 					),
-					VLayout(
-						[self.master.make_layout, stretch:0],
+					VLayout(*
+						[
+							[self.master.make_layout, stretch:0],
+						] ++
 						//[self.make_layout_routing, stretch:0],
-						[nil, stretch:1],
+						[HLayout(*
+							self.insertfxs.collect(_.make_layout)
+						)] ++
+						[
+							[nil, stretch:1],
+						]
 					)
-				)] ++
-				[HLayout(*
-					self.insertfxs.collect(_.make_layout)
 				)] ++
 				[[self.make_tab_panel, stretch:0]] ++
 				[nil]
@@ -2113,6 +2307,25 @@ Instr(\ci_filter, { arg in, kind, arg1, arg2, arg3, freq;
 			arg1 = compute_arg1.();
 			RHPF.ar(in, arg1, arg2)
 		},
+		\lpdm1, {
+			arg1 = compute_arg1.();
+			DFM1.ar(in, arg1, arg2, 1, 0, arg3);
+		},
+		\hpdm1, {
+			arg1 = compute_arg1.();
+			DFM1.ar(in, arg1, arg2, 1, 1, arg3);
+		},
+		\mooglader, {
+			arg1 = compute_arg1.();
+			MoogLadder.ar(in, arg1, arg2);
+		},
+		\moogff, {
+			arg1 = compute_arg1.();
+			MoogFF.ar(in, arg1, arg2, arg3);
+		},
+		\ramp, {
+			Ramp.ar(in, arg1);
+		},
 		\comb, {
 			CombL.ar(in, arg1, arg2, arg3);
 		}
@@ -2120,6 +2333,8 @@ Instr(\ci_filter, { arg in, kind, arg1, arg2, arg3, freq;
 	sig;
 
 },[\audio, NonControlSpec()]);
+
+/////////// insert effects
 
 Instr(\ci_insertfx, { arg kind, in, arg1, arg2, ktr;
 	var sig;
@@ -2213,3 +2428,88 @@ Instr(\p_hardclipper, { arg in, mix, drive;
 	sig = in.clip(0-drive, drive);
 	SelectX.ar(mix, [in, sig]);
 }, [\audio]);
+
+/////////// effects
+
+Instr(\p_reverb, { arg in, mix, room, damp;
+	in = In.ar(in, 2);
+	FreeVerb.ar(in, mix, room, damp);
+}, [\audio]).storeSynthDef([\ar]);
+
+
+Instr(\p_flanger, { arg in, fbbus, mix, rate, feedback, depth;
+	var sig;
+	var maxdelay = depth;
+	var lfo;
+	var ou;
+	in = In.ar(in, 2);
+	ou = Fb({ arg fb;
+		fb = fb * feedback;
+	
+		lfo = SinOsc.kr(rate).range(0,1)*depth;
+		sig = DelayL.ar(in+fb, maxdelay, lfo);
+		ou = SelectX.ar(mix, [in, sig]);
+	});
+	ou;
+}, [\audio])
+	.storeSynthDef([\ar]);
+
+Instr(\p_chorus, { arg in, mix=0, rate, offset, depth;
+	var sig;
+	var lfo;
+	var delay = [10,15,20,25]/1000;
+	in = In.ar(in, 2);
+	lfo = SinOsc.ar(rate).range(0,1) * depth;
+	delay = delay * lfo;
+	sig = in;
+	sig = DelayL.ar(in, delay+depth+0.01, delay+lfo+offset);
+	sig = sig.sum;
+	SelectX.ar(mix, [in, sig]);
+}, [\audio])
+	.storeSynthDef([\ar]);
+
+//Instr(\p_phaser, { arg in, mix=0, rate, feedback, depth;
+//	var sig;
+//	var maxdelay = depth;
+//	var lfo;
+//	var ou;
+//	var rq = 1;
+//	var bands = [200,400,800,1600,4000,8000];
+//	ou = in + Fb({ arg fb;
+//		var fbou;
+//		fb = fb * feedback;
+//
+//		lfo = SinOsc.kr(rate).range(0,1)*depth;
+//
+//		fbou = Mix.fill(bands, { arg freq;
+//			sig = fb;
+//			sig = BPF.ar(sig, freq, rq);
+//			sig = DelayL.ar(in, maxdelay, lfo);
+//		});
+//		fbou = SelectX.ar(mix, [in, ou]);
+//		fbou;
+//	});
+//	ou;
+//}, [\audio])
+//	.storeSynthDef([\ar]);
+
+Instr(\p_delay, { arg in, mix, damp, delay_left, delay_right;
+	var sig;
+	var sigl, sigr;
+	in = In.ar(in, 2);
+	sig = DelayL.ar(in, [delay_left,delay_right], [delay_left, delay_right]);
+	sig = LPF.ar(sig, damp);
+	SelectX.ar(mix, [in, sig]);
+}, [\audio])
+	.storeSynthDef([\ar]);
+
+
+Instr(\p_comb, { arg in, mix, delay, offset, decay;
+	var sig;
+	var sigl, sigr;
+	in = In.ar(in, 2);
+	sig = CombL.ar(in, 0.4, LPF.kr([delay, delay+offset],1), decay);
+	//CheckBadValues.ar(sig,0,1);
+	SelectX.ar(mix, [in, sig]);
+}, [\audio])
+	.storeSynthDef([\ar]);

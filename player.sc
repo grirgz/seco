@@ -23,19 +23,22 @@
 	playing_state: \stop,
 	muted: false,
 	available_modes: [\stepline, \noteline, \scoreline, \sampleline],
-	archive_param_data: [\control, \stepline, \adsr, \noteline, \nodeline, \sampleline, \buf],
-	archive_data: [\current_mode, \effects],
+	archive_param_data: [\control, \stepline, \adsr, \noteline, \nodeline, \sampleline, \buf, \wavetable],
+	archive_data: [\current_mode, \sourcewrapper, \instrname, \defname, \name, \uname, \kind, \subkind, \bank],
 	effects: List.new,
 	is_effect: false,
 	ccbus_set: IdentitySet.new,
 	env_mode: false,
 
-	new: { arg self, main, defname, data=nil;
-		var desc = SynthDescLib.global.synthDescs[defname];
+	new: { arg self, main, instr, data=nil;
+		var desc;
+		var defname = instr;
+		desc = SynthDescLib.global.synthDescs[defname];
 
 		self = self.deepCopy;
 
 		self.defname = defname;
+		self.instrname = instr;
 
 		if(desc.isNil, {
 			("ERROR: make_player_from_synthdef: SynthDef not found: "++defname).error
@@ -194,7 +197,7 @@
 		};
 		//list.debug("maked pbind list");
 		//[\type, \stepline, \instrument].do { arg x; list.add(x); list.add(dict[x]) };
-		//list.debug("maked pbind list");
+		list.debug("maked pbind list");
 		//Pbind(*list).dump;
 		self.sourcepat = if(self.is_effect) {
 			Pmono(self.data[\instrument].vpattern, *list)
@@ -207,11 +210,13 @@
 	get_dur_pattern: { arg self;
 		var arglist = List.new;
 		var val;
-		(self.available_modes ++ [\dur]).do { arg key;
-			val = self.get_arg(key);
-			if(val.notNil) {
-				arglist.add(key);
-				arglist.add(val.vpattern);
+		(self.available_modes ++ [\repeat, \stretchdur, \segdur,  \dur]).do { arg key;
+			if(self.data[key].notNil) {
+				val = self.get_arg(key);
+				if(val.notNil) {
+					arglist.add(key);
+					arglist.add(val.vpattern);
+				}
 			}
 		};
 		arglist.debug("++++++++++++++++++++++++++++ ARGLIST");
@@ -381,7 +386,7 @@
 		var res, env;
 		env = (pat:self.sourcepat);
 		res = env.use({code.interpret});
-		res.postcs;
+		//res.postcs;
 		if(res.notNil) {
 			if(res == false) {
 				self.set_wrapper(nil, code);
@@ -506,7 +511,7 @@
 
 	////////////////// save/load
 
-	save_data: { arg self;
+	save_data: { arg self, options;
 		var argdat;
 		var data = ();
 		data.args = ();
@@ -516,11 +521,10 @@
 				data.args[key] = argdat.save_data
 			})
 		};
-		data.name = self.defname;
-		data.defname = self.defname;
-		data.bank = self.bank;
+		options.debug("player SAVE DATA");
+		data.modulation = self.modulation.save_data(options);
+		data.effects = self.effects.save_data(options);
 		data.current_mode = self.get_mode;
-		data.sourcewrapper = self.sourcewrapper;
 		self.archive_data.do { arg key;
 			if(self[key].notNil) {
 				data[key] = self[key]
@@ -529,7 +533,30 @@
 		data;
 	},
 
-	load_data: { arg self, data;
+	save_data_without_score: { arg self, options;
+		var data, keys;
+		data = self.save_data(options);
+		keys = [\current_mode, \dur, \segdur, \stretchdur, \sustain, \amp] ++ self.available_modes;
+		data.current_mode = nil;
+		keys.do { arg key;
+			data.args[key] = nil
+		};
+		data;
+	},
+
+	save_data_preset: { arg self;
+		var options = IdentityDictionary.new;
+		options[\copy_subplayers] = true;
+		self.save_data_without_score(options)
+	},
+
+	load_data_preset: { arg self, data;
+		var options = IdentityDictionary.new;
+		options[\copy_subplayers] = true;
+		self.load_data(data, options)
+	},
+
+	load_data: { arg self, data, options;
 		var argdat;
 		self.get_args.do { arg key;
 			argdat = self.get_arg(key);	
@@ -539,14 +566,17 @@
 				}
 			})
 		};
-		self.bank = data.bank;
-		self.set_wrapper_code(data.sourcewrapper);
-		self.set_mode(data.current_mode ?? \stepline);
+		self.modulation.load_data(data.modulation, options);
+		self.effects.load_data(data.effects, options);
 		self.archive_data.do { arg key;
 			if(data[key].notNil) {
 				self[key] = data[key]
 			}
 		};
+		if(data.current_mode.notNil) {
+			self.set_mode(data.current_mode);
+		};
+		self.set_wrapper_code(data.sourcewrapper);
 		self.build_real_sourcepat;
 	},
 
@@ -639,8 +669,8 @@
 
 		if(self.input_pattern.notNil) {
 			//"entering build_real_sourcepat: making input pattern".debug;
-			self.input_pattern.source.postcs;
-			res.postcs;
+			//self.input_pattern.source.postcs;
+			//res.postcs;
 			chain = Pfunc({ arg ev; 
 				//ev.debug("EV"); 
 				var evd = ev.as(Dictionary);
@@ -684,6 +714,9 @@
 			res = self.external_wrap(res);
 		};
 
+		res.debug("REAL_SOURCEPAT");
+		//res.postcs;
+
 		res = self.modulation.make_modulation_pattern(res);
 
 		// add bus setting
@@ -693,7 +726,8 @@
 		//	res = Ppar( list )
 		//};
 
-		self.real_sourcepat = res.postcs.trace; //DEBUG
+		self.real_sourcepat = res.trace; //DEBUG
+		//self.real_sourcepat = res.postcs.trace; //DEBUG
 		//self.real_sourcepat = res.postcs;
 	},
 
@@ -753,11 +787,15 @@
 
 ~class_cinstr_player = (
 	parent: ~class_synthdef_player,
-	new: { arg self, main, cinstr, data; 
+	new: { arg self, main, instr, data; 
+		var cinstr;
 		self = self.deepCopy;
 
 		"ion est la".debug;
 		//self.external_player = ~class_passive_controller.new(UniqueID.next.asString);
+		self.instrname = instr;
+		cinstr = ~classinstr_lib[instr.replace("ci ", "").asSymbol];
+
 		self.get_main = { arg self; main };
 		self.external_player = cinstr.new(main, self);
 		self.defname = self.external_player.synthdef_name;
@@ -768,10 +806,17 @@
 		//self.external_player.build_synthdef;
 		self.init(data);
 
-		self.data[\dur].set_val(1);
-		self.data[\repeat].set_val(0);
+		self.data[\dur].select_cell(2);
+		//self.data[\repeat].set_val(0);
 
 		self;
+	},
+
+	clone: { arg self;
+		var pl;
+		pl = ~class_cinstr_player.new(self.get_main,self.instrname);
+		pl.load_data( self.save_data.deepCopy );
+		pl;
 	},
 
 	uname_: { arg self, uname;
@@ -782,6 +827,18 @@
 		self[\uname] = uname;
 		self.build_sourcepat;
 		self.build_real_sourcepat;
+	},
+
+	save_data: { arg self, options;
+		var data;
+		data = ~class_synthdef_player[\save_data].(self, options);
+		data.external_data = self.external_player.save_data(options);
+		data;
+	},
+
+	load_data: { arg self, data, options;
+		self.external_player.load_data(data.external_data, options);
+		~class_synthdef_player[\load_data].(self, data, options);
 	},
 
 	get_ordered_args: { arg self;
@@ -818,15 +875,16 @@
 
 ~class_passive_player = (
 	parent: ~class_synthdef_player,
-	new: { arg self, main, defname, data; 
+	new: { arg self, main, instr, data; 
 		self = self.deepCopy;
 
 		"ion est la".debug;
 		//self.external_player = ~class_passive_controller.new(UniqueID.next.asString);
+		self.instrname = instr;
 		self.external_player = ~class_passive_controller.new;
 		self.to_destruct.add(self.external_player);
 		"on est la".debug;
-		self.external_player.load_preset_by_uname(defname.replace("passive ", ""));
+		self.external_player.load_preset_by_uname(instr.replace("passive ", ""));
 		self.defname = self.external_player.synthdef_name;
 		self.get_main = { arg self; main };
 
@@ -1021,11 +1079,14 @@
 
 ~class_modenv_player = (
 	parent: ~class_synthdef_player,
-	new: { arg self, main, defname, data=nil;
-		var desc = SynthDescLib.global.synthDescs[defname];
+	new: { arg self, main, instr, data=nil;
+		var desc;
 		var notescore, notes;
+		var defname = instr;
+		desc = SynthDescLib.global.synthDescs[defname];
 		self = self.deepCopy;
-	
+		
+		self.instrname = instr;
 		self.defname = defname;
 
 		if(desc.isNil, {
@@ -1037,6 +1098,9 @@
 		self.get_desc = { arg self; desc };
 
 		self.init(data);
+
+		self.modulation.set_mod_kind(\pattern);
+
 		self.data[\tsustain] = ~class_param_tsustain_controller.new(\tsustain);
 		//self.data[\val] = ~class_param_scorekey_controller.new(self, \val);
 		self.data[\val] = ~class_param_modenv_val_controller.new(self, \val);
@@ -1059,6 +1123,7 @@
 		notescore.no_first_rest = true;
 		notescore.set_end(16);
 		self.get_arg(\noteline).get_scoreset.set_notescore(notescore);
+		self.get_arg(\val).set_notes(notescore.get_rel_notes);
 		self.data[\firstsynth] = nil;
 		self.data[\firstval] = nil;
 
@@ -1212,19 +1277,20 @@
 	var player = nil;
 	case
 		{ instr.isString and: {instr.beginsWith("passive ")}} {
-			player = ~class_passive_player.new(main, instr.replace("passive ", ""), data)
+			player = ~class_passive_player.new(main, instr, data)
 		}
 		{ instr.isString and: {instr.beginsWith("ci ")}} {
-			player = ~class_cinstr_player.new(main, ~classinstr_lib[instr.replace("ci ", "").asSymbol], data)
+			player = ~class_cinstr_player.new(main, instr, data)
 		}
 		{ instr.isSymbolWS || instr.isString } {
 			if(instr == \modenv) {
 				player = ~class_modenv_player.new(main, instr, data);
 			} {
-				player = ~make_player_from_synthdef.(main,instr.asSymbol, data);
+				player = ~make_player_from_synthdef.(main,instr, data);
 			};
 		} 
 		{ instr.isFunction } {
+			// FIXME: instr should be a symbol or string
 			player = ~make_player_from_patfun.(instr, data);
 		}
 		{ ("ERROR: player type not recognized:"++instr).postln }
@@ -1285,7 +1351,7 @@
 		name: \new,
 		uname: \new,
 		data: Dictionary.new,
-		archive_data: [\children, \kind, \name, \selected_child, \selected_child_index, \expset_mode],
+		archive_data: [\children, \kind, \subkind, \name, \uname, \instrname, \selected_child, \selected_child_index, \expset_mode],
 		archive_classtype: [\control, \stepline, \adsr, \noteline, \sampleline, \samplekit, \nodeline, \buf],
 		playlist: List.new,
 		playing_state: \stop,
@@ -1617,7 +1683,7 @@
 
 		vpattern2: { arg self, noreplay=true;
 			self.uname.debug("vpattern2");
-			Ppar(self.get_children_nodes2).postcs;
+			Ppar(self.get_children_nodes2);
 		},
 
 		vpattern3: { arg self, noreplay=true;
