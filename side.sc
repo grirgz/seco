@@ -1593,6 +1593,133 @@
 			//self.window = ~make_nodegroup_view.(main, self);
 		},
 
+		make_window_panel: { arg self, key, is_different, constructor;
+			if(self[key].isNil) {
+				self[key] = constructor.();
+				self[key].make_gui;
+			} {
+				if(is_different.()) {
+					if(self[key].window.notNil) {
+						if(self[key].window.isClosed.not) {
+							self[key].window.close;
+						}
+					};
+					self[key].destructor;
+					self[key] = constructor.();
+					self[key].make_gui;
+				} {
+					if(
+						self[key].window.notNil and: {
+							self[key].window.isClosed.not
+						}
+					) {
+						self[key].window.front;
+					} {
+						self[key].make_gui;
+					}
+				}
+			};
+		},
+
+		get_windows_bindings: { arg self;
+			var make_window = { arg key, is_different, constructor;
+				self.make_window_panel(key, is_different, constructor)
+			};
+
+			[
+
+				[\show_side_panel, {
+					self.window.front;
+				}],
+
+				[\edit_group_tracks, {
+					var group = self.get_current_group;
+					var display = self.track_display;
+					make_window.(\group_tracks_controller, 
+						{ 
+							self.group_tracks_controller.get_group != group
+						},
+						{
+							~class_group_tracks_controller.new(self.get_main, group, display);
+						}
+					);
+				}],
+
+				[\edit_player_tracks, {
+					var player = self.get_current_player;
+					var display = self.track_display;
+					make_window.(\player_tracks_controller, 
+						{ 
+							self.player_tracks_controller.get_player != player
+						},
+						{
+							~class_player_tracks_controller.new(self.get_main, player, display);
+						}
+					);
+				}],
+
+				[\edit_line_tracks, {
+					var player = self.get_current_player;
+					var display = self.track_display;
+					make_window.(\line_tracks_controller, 
+						{ 
+							self.line_tracks_controller.get_player != player
+						},
+						{
+							~class_line_tracks_controller.new(self.get_main, player, display);
+						}
+					);
+				}],
+
+				[\edit_modulator, 
+					self.edit_modulator_callback = {
+						var player = self.get_current_player;
+						var param = self.get_selected_param;
+						param.debug("edit_modulator PARAM");
+						if(param.classtype == \control) {
+							make_window.(\modulation_controller, 
+								{ 
+									self.modulation_controller.param_ctrl != param
+								},
+								{
+									~class_modulation_controller.new(self.get_main, player, nil, param);
+								}
+							);
+						} {
+							param.classtype.debug("ERROR: param classtype can't be modulated");
+						}
+					};
+					self[\edit_modulator_callback]
+				],
+
+				[\edit_effects, {
+					var player = self.get_current_player;
+					if(player.uname != \voidplayer) {
+						make_window.(\effects_controller, 
+							{ 
+								self.effects_controller.get_player != player
+							},
+							{
+								~class_effects_controller.new(self.get_main, player);
+							}
+						);
+					}
+				}],
+
+				[\edit_external_player, {
+					var player = self.get_current_player;
+					if(player.external_player.notNil) {
+						if(player.external_player.window.notNil and: { player.external_player.window.isClosed.not }) {
+							player.external_player.window.front;
+						} {
+							player.external_player.make_gui;
+						}
+					}
+				}],
+			]
+
+		},
+
 		init: { arg self;
 			//self.model.selected_param = \amp;
 			var supergroup;
@@ -1603,6 +1730,8 @@
 
 			self.song_manager = ~make_song_manager.(main);
 			current_group = self.song_manager.get_current_group;
+
+			self.track_display = ~class_track_display.new;
 
 			main.model.current_panel = \side;
 			main.midi_center.install_pad_responders;
@@ -1625,7 +1754,8 @@
 
 			"OU SUOSJE".debug;
 
-			main.commands.parse_action_bindings(\side, [
+			main.commands.parse_action_bindings(\side, 
+				self.get_windows_bindings ++ [
 
 
 				[\add_modenv, {
@@ -1640,52 +1770,52 @@
 					self.timeline.make_gui;
 				}],
 
-				[\edit_external_player, {
-					var player = self.get_current_player;
-					if(player.external_player.notNil) {
-						player.external_player.make_gui;
-					}
-				}],
+				//[\edit_external_player, {
+				//	var player = self.get_current_player;
+				//	if(player.external_player.notNil) {
+				//		player.external_player.make_gui;
+				//	}
+				//}],
 
-				[\edit_group_tracks, {
-					var group = self.get_current_group;
-					var display = self.make_param_display(self.get_selected_param);
-					self.group_tracks_controller = ~class_group_tracks_controller.new(self.get_main, group, display);
-					self.group_tracks_controller.make_gui;
-				}],
+				////[\edit_group_tracks, {
+				////	var group = self.get_current_group;
+				////	var display = self.make_param_display(self.get_selected_param);
+				////	self.group_tracks_controller = ~class_group_tracks_controller.new(self.get_main, group, display);
+				////	self.group_tracks_controller.make_gui;
+				////}],
 
-				[\edit_player_tracks, {
-					var player = self.get_current_player;
-					var display = self.make_param_display(self.get_selected_param);
-					self.player_tracks_controller = ~class_player_tracks_controller.new(self.get_main, player, display);
-					self.player_tracks_controller.make_gui;
-				}],
+				//[\edit_player_tracks, {
+				//	var player = self.get_current_player;
+				//	var display = self.make_param_display(self.get_selected_param);
+				//	self.player_tracks_controller = ~class_player_tracks_controller.new(self.get_main, player, display);
+				//	self.player_tracks_controller.make_gui;
+				//}],
 
-				[\edit_line_tracks, {
-					var player = self.get_current_player;
-					self.line_tracks_controller = ~class_line_tracks_controller.new(self.get_main, player);
-					self.line_tracks_controller.make_gui;
-				}],
+				//[\edit_line_tracks, {
+				//	var player = self.get_current_player;
+				//	self.line_tracks_controller = ~class_line_tracks_controller.new(self.get_main, player);
+				//	self.line_tracks_controller.make_gui;
+				//}],
 
-				[\edit_modulator, {
-					var player = self.get_current_player;
-					var param = self.get_selected_param;
-					if(param.classtype == \control) {
-						~class_modulation_controller.new(self.get_main, player, nil, param);
-					} {
-						param.classtype.debug("ERROR: param classtype can't be modulated");
-					}
-				}],
+				//[\edit_modulator, {
+				//	var player = self.get_current_player;
+				//	var param = self.get_selected_param;
+				//	if(param.classtype == \control) {
+				//		~class_modulation_controller.new(self.get_main, player, nil, param);
+				//	} {
+				//		param.classtype.debug("ERROR: param classtype can't be modulated");
+				//	}
+				//}],
 
-				[\edit_effects, {
-					var player = self.get_current_player;
-					if(player.uname != \voidplayer) {
-						if(self.class_effects_controller.notNil and: {self.class_effects_controller.window.isClosed.not}) {
-							self.class_effects_controller.window.close;
-						};
-						self.class_effects_controller = ~class_effects_controller.new(self.get_main, player);
-					}
-				}],
+				//[\edit_effects, {
+				//	var player = self.get_current_player;
+				//	if(player.uname != \voidplayer) {
+				//		if(self.class_effects_controller.notNil and: {self.class_effects_controller.window.isClosed.not}) {
+				//			self.class_effects_controller.window.close;
+				//		};
+				//		self.class_effects_controller = ~class_effects_controller.new(self.get_main, player);
+				//	}
+				//}],
 
 				///////// macro
 

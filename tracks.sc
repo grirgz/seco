@@ -1065,10 +1065,9 @@
 
 		self.get_main = { main };
 		self.get_group = {group};
-		//self.display = display;
-		self.display = ~class_track_display.new;
+		self.display = display;
+		//self.display = ~class_track_display.new;
 
-		self.make_bindings;
 	
 		self;
 	},
@@ -1090,8 +1089,9 @@
 
 	make_bindings: { arg self;
 	
-			self.get_main.commands.parse_action_bindings(\group_tracks, [
+			self.get_main.commands.parse_action_bindings(\group_tracks, 
 
+				self.get_main.panels.side.get_windows_bindings ++ [
 
 				[\close_window, {
 					self.window.close;
@@ -1101,7 +1101,8 @@
 	},
 
 	make_gui: { arg self;
-		self.window = Window.new("steptrack", Rect(300,300,900,300));
+		self.make_bindings;
+		self.window = Window.new("Group Tracks", Rect(300,300,900,300));
 		self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\group_tracks);
 		self.multitrack_view = ~class_multitrack_view.new(self);
 		self.window.view.layout = self.multitrack_view.layout;
@@ -1117,10 +1118,9 @@
 
 		self.get_main = { main };
 		self.get_player = {player};
-		//self.display = display;
-		self.display = ~class_track_display.new;
+		self.display = display;
+		//self.display = ~class_track_display.new;
 
-		self.make_bindings;
 	
 		self;
 	},
@@ -1144,7 +1144,8 @@
 
 	make_bindings: { arg self;
 	
-		self.get_main.commands.parse_action_bindings(\player_tracks, [
+		self.get_main.commands.parse_action_bindings(\player_tracks, 
+			self.get_main.panels.side.get_windows_bindings ++ [
 			[\close_window, {
 				self.window.close;
 			
@@ -1184,7 +1185,8 @@
 	},
 
 	make_gui: { arg self;
-		self.window = Window.new("steptrack", Rect(300,300,900,300));
+		self.make_bindings;
+		self.window = Window.new("Player Tracks", Rect(300,300,900,300));
 		self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\player_tracks);
 		self.multitrack_view = ~class_multitrack_view.new(self);
 		self.window.view.layout = self.multitrack_view.layout;
@@ -1200,10 +1202,9 @@
 
 		self.get_main = { main };
 		self.get_player = {player};
-		//self.display = display;
-		self.display = ~class_track_display.new;
+		self.display = display;
+		//self.display = ~class_track_display.new;
 
-		self.make_bindings;
 	
 		self;
 	},
@@ -1217,7 +1218,8 @@
 
 	make_bindings: { arg self;
 	
-		self.get_main.commands.parse_action_bindings(\line_tracks, [
+		self.get_main.commands.parse_action_bindings(\line_tracks, 
+			self.get_main.panels.side.get_windows_bindings ++ [
 			[\close_window, {
 				self.window.close;
 			
@@ -1257,6 +1259,7 @@
 	},
 
 	make_gui: { arg self;
+		self.make_bindings;
 		self.window = Window.new("line tracks", Rect(300,300,900,300));
 		self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\line_tracks);
 		self.multitrack_view = ~class_multitrack_view.new(self);

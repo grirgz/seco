@@ -37,6 +37,15 @@
 	],
 	windowing: [
 		["close_window", \kb, 0, \escape],
+	],
+	panels: [
+		["show_side_panel", \kb, \alt, "s"],
+		["edit_modulator", \kb, \alt, "m"],
+		["edit_effects", \kb, \alt, "f"],
+		["edit_line_tracks", \kb, \alt, "q"],
+		["edit_player_tracks", \kb, \alt, "p"],
+		["edit_group_tracks", \kb, \alt, "g"],
+		["edit_external_player", \kb, \alt, "e"],
 	]
 );
 
@@ -77,6 +86,7 @@
 	],
 	classinstr:
 		~common_bindings.playing ++
+		~common_bindings.panels ++
 		~common_bindings.windowing ++
 		[
 			["edit_selected_param", \kb, 0, \npenter],
@@ -87,10 +97,13 @@
 		["stop_timeline", \kb, 0, \f6],
 		["close_timeline", \kb, 0, \escape],
 	],
-	group_tracks: [
+	group_tracks: 
+		~common_bindings.panels ++ [
 		["close_window", \kb, 0, \escape],
 	],
-	player_tracks: ~common_bindings.playing ++ [
+	player_tracks: 
+		~common_bindings.panels ++
+		~common_bindings.playing ++ [
 		["close_window", \kb, 0, \escape],
 		["decrease_gridstep_x", \kb, \ctrl, \left],
 		["increase_gridstep_x", \kb, \ctrl, \right],
@@ -103,6 +116,7 @@
 	line_tracks: 
 		~common_bindings.playing ++ 
 		~common_bindings.windowing ++
+		~common_bindings.panels ++
 		[
 			["decrease_gridstep_x", \kb, \ctrl, "h"],
 			["increase_gridstep_x", \kb, \ctrl, "l"],
@@ -111,7 +125,10 @@
 			["decrease_gridlen", \kb, 0, "h"],
 			["increase_gridlen", \kb, 0, "l"],
 		],
-	effects: ~common_bindings.playing ++ [
+	effects:
+		~common_bindings.playing ++
+		~common_bindings.panels ++
+	[
 		["close_window", \kb, 0, \escape],
 		["load_effect", \kb, 0, \f1],
 		["select_param", \kb, 0, \kbpad8x4_flat],
@@ -120,7 +137,10 @@
 		["change_param_kind", \kb, \altshift, "s"],
 		["remove_effect", \kb, \shift, \f3],
 	],
-	modulator: ~common_bindings.playing ++ [
+	modulator: 
+		~common_bindings.playing ++
+		~common_bindings.panels ++
+		[
 		["close_window", \kb, 0, \escape],
 		["load_modulator", \kb, 0, \f1],
 		["select_param", \kb, 0, \kbpad8x4_flat],

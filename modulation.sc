@@ -794,8 +794,7 @@
 		//self.current_player = player_ctrl;
 		self.select_slot(self.selected_slot);
 	
-		self.make_bindings;
-		self.make_gui;
+		//self.make_gui;
 	
 		self;
 	},
@@ -849,6 +848,7 @@
 	},
 
 	make_gui: { arg self;
+		self.make_bindings;
 		self.main_view = ~class_modulation_view.new(self);
 		self.window = self.main_view.window;
 		self.window.view.toFrontAction = { self.make_bindings };
@@ -857,8 +857,9 @@
 
 	make_bindings: { arg self;
 
-		self.get_main.commands.parse_action_bindings(\modulator, [
+		self.get_main.commands.parse_action_bindings(\modulator, 
 
+			self.get_main.panels.side.get_windows_bindings ++ [
 			[\close_window, {
 				self.window.close;
 			}],
@@ -896,7 +897,23 @@
 			[\edit_modulator, {
 				var player = self.get_current_player;
 				var param = self.get_selected_param;
-				~class_modulation_controller.new(self.get_main, self.player_ctrl, player, param);
+				var side = self.get_main.panels.side;
+
+				param.debug("edit_modulator PARAM");
+				if(param.notNil and: {param.classtype == \control}) {
+					side[\make_window_panel].(self, \modulation_controller, 
+						{ 
+							debug("TEST");
+							self.modulation_controller.param_ctrl != param
+						},
+						{
+							~class_modulation_controller.new(self.get_main, self.player_ctrl, player, param);
+						}
+					);
+				} {
+					debug("ERROR: param classtype can't be modulated: trying side panel param");
+					side[\edit_modulator_callback].()
+				}
 			}],
 
 			[\select_player, 10, { arg i;
@@ -1975,12 +1992,12 @@
 
 		self.get_main = { main };
 		self.player_ctrl = { player_ctrl };
+		self.get_player = { player_ctrl };
 		self.effects_ctrl = { player_ctrl.effects };
 
 		self.model.param_no_midi = self.param_types.param_no_midi;
 	
-		self.make_bindings;
-		self.make_gui;
+		//self.make_gui;
 		self.select_slot(self.selected_slot);
 	
 		self;
@@ -2039,6 +2056,7 @@
 
 
 	make_gui: { arg self;
+		self.make_bindings;
 		self.main_view = ~class_effects_view.new(self);
 		self.window = self.main_view.make_window;
 		self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\effects);
@@ -2046,7 +2064,8 @@
 
 	make_bindings: { arg self;
 
-		self.get_main.commands.parse_action_bindings(\effects, [
+		self.get_main.commands.parse_action_bindings(\effects, 
+			self.get_main.panels.side.get_windows_bindings ++ [
 
 			[\close_window, {
 				self.window.close;
@@ -2066,7 +2085,22 @@
 			[\edit_modulator, {
 				var player = self.get_current_player;
 				var param = self.get_selected_param;
-				~class_modulation_controller.new(self.get_main, self.player_ctrl, player, param);
+				var side = self.get_main.panels.side;
+
+				param.debug("edit_modulator PARAM");
+				if(param.notNil and: {param.classtype == \control}) {
+					side.make_window_panel(\modulation_controller, 
+						{ 
+							self.modulation_controller.param_ctrl != param
+						},
+						{
+							~class_modulation_controller.new(self.get_main, self.player_ctrl, player, param);
+						}
+					);
+				} {
+					debug("ERROR: param classtype can't be modulated: trying side panel param");
+					side[\edit_modulator_callback].()
+				}
 			}],
 
 			[\remove_effect, {

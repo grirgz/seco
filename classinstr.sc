@@ -522,7 +522,9 @@
 	},
 
 	make_bindings: { arg self;
-		self.get_main.commands.parse_action_bindings(\classinstr, [
+		self.get_main.commands.parse_action_bindings(\classinstr, 
+		
+			self.get_main.panels.side.get_windows_bindings ++ [
 
 			[\close_window, {
 				self.window.close;
