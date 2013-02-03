@@ -46,7 +46,19 @@
 		["edit_player_tracks", \kb, \alt, "p"],
 		["edit_group_tracks", \kb, \alt, "g"],
 		["edit_external_player", \kb, \alt, "e"],
-	]
+	],
+	side_shared: [
+		["edit_tempo", \kb, \ctrlalt, "e"], // t open terminal
+		["edit_quant", \kb, \ctrlalt, "q"],
+		["edit_barrecord", \kb, \ctrlalt, "b"],
+		["edit_wrapper", \kb, \alt, "w"],
+		["open_timeline", \kb, \alt, "l"],
+		["toggle_metronome", \kb, \ctrlalt, "m"],
+		["play_group", \kb, \ctrl, \f5],
+		["stop_group", \kb, \ctrl, \f6],
+		["assign_midi_knob", \kb, \ctrlalt, "k"],
+	
+	],
 );
 
 ~bindings = (
@@ -87,6 +99,7 @@
 	classinstr:
 		~common_bindings.playing ++
 		~common_bindings.panels ++
+		~common_bindings.side_shared ++
 		~common_bindings.windowing ++
 		[
 			["edit_selected_param", \kb, 0, \npenter],
@@ -98,10 +111,12 @@
 		["close_timeline", \kb, 0, \escape],
 	],
 	group_tracks: 
+		~common_bindings.side_shared ++
 		~common_bindings.panels ++ [
 		["close_window", \kb, 0, \escape],
 	],
 	player_tracks: 
+		~common_bindings.side_shared ++
 		~common_bindings.panels ++
 		~common_bindings.playing ++ [
 		["close_window", \kb, 0, \escape],
@@ -114,6 +129,7 @@
 
 	],
 	line_tracks: 
+		~common_bindings.side_shared ++
 		~common_bindings.playing ++ 
 		~common_bindings.windowing ++
 		~common_bindings.panels ++
@@ -126,6 +142,7 @@
 			["increase_gridlen", \kb, 0, "l"],
 		],
 	effects:
+		~common_bindings.side_shared ++
 		~common_bindings.playing ++
 		~common_bindings.panels ++
 	[
@@ -138,6 +155,7 @@
 		["remove_effect", \kb, \shift, \f3],
 	],
 	modulator: 
+		~common_bindings.side_shared ++
 		~common_bindings.playing ++
 		~common_bindings.panels ++
 		[
@@ -153,16 +171,18 @@
 		["disconnect_modulator", \kb, 0, \f3],
 
 	],
-	side: [
+	side: 
+		~common_bindings.side_shared ++
+		~common_bindings.panels ++ [
 		["add_modenv", \kb, \ctrlalt, "o"], // debug
 
-		["edit_external_player", \kb, \alt, "e"],
-		["open_timeline", \kb, \ctrlalt, "l"],
-		["edit_group_tracks", \kb, \alt, "g"],
-		["edit_player_tracks", \kb, \alt, "p"],
-		["edit_line_tracks", \kb, \alt, "q"],
-		["edit_modulator", \kb, \alt, "m"],
-		["edit_effects", \kb, \alt, "f"],
+		//["edit_external_player", \kb, \alt, "e"],
+		//["open_timeline", \kb, \ctrlalt, "l"],
+		//["edit_group_tracks", \kb, \alt, "g"],
+		//["edit_player_tracks", \kb, \alt, "p"],
+		//["edit_line_tracks", \kb, \alt, "q"],
+		//["edit_modulator", \kb, \alt, "m"],
+		//["edit_effects", \kb, \alt, "f"],
 
 		["decrease_select_offset", \midi, 0, \begin],
 		["increase_select_offset", \midi, 0, \end],
@@ -171,8 +191,6 @@
 
 		["midi.play_group", \midi, \hold, \play],
 		["midi.stop_group", \midi, \hold, \stop],
-		["play_group", \kb, \ctrl, \f5],
-		["stop_group", \kb, \ctrl, \f6],
 		["play_selected", \kb, 0, \f5],
 		["midi.play_selected", \midi, 0, \play],
 		["stop_selected", \kb, 0, \f6],
@@ -184,12 +202,8 @@
 		["unsolo_selected", \kb, \ctrl, \f7],
 		["toggle_solo_selected", \midi, 0, \pause],
 		["panic", \kb, 0, \f8],
-		["edit_tempo", \kb, \ctrlalt, "e"], // t open terminal
-		["edit_quant", \kb, \ctrlalt, "q"],
-		["edit_barrecord", \kb, \ctrlalt, "b"],
 		["edit_selected_param", \kb, 0, \npenter],
 
-		["edit_wrapper", \kb, \alt, "w"],
 
 		["copy_node", \kb, \ctrl, "c"],
 		["copy_node_children", \kb, \ctrlalt, "c"],
@@ -249,7 +263,6 @@
 		//["toggle_player_recording", \midi, 0, \record],
 		["toggle_player_recording", \midi, 0, \record],
 		["toggle_param_recording", \midi, \hold, \record],
-		["toggle_metronome", \kb, \ctrlalt, "m"],
 
 		//["change_param_kind.seq",			\kb, \altshift, "q"],
 		//["change_param_kind.scalar",			\kb, \altshift, "s"],

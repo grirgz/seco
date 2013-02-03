@@ -167,6 +167,8 @@
 };
 
 ~keygroups = Environment.make({
+	// deprecated
+
 	//~kbpad8x4 = [
 	//	"1234567890)=",
 	//	"azertyuiop^$",
@@ -341,6 +343,7 @@
 		b3: 45,
 		b4: 46
 	);
+	~rev_midispecial = ~midispecial.invert;
 	~kbqtnumpad = (
 		npslash: 47,
 		npstar: 42,
@@ -695,9 +698,11 @@
 	bind_param: { arg self, ccpath, param;
 		var panel = \midi;
 		var oldparam;
+		var oldccpath;
 		"I---I bind_param".debug;
 		if(self.midi_handler[panel].isNil) { self.midi_handler[panel] = Dictionary.new };
 		oldparam = self.ccpathToParam[ccpath];
+		oldccpath = self.paramToCcpath[param];
 
 		//param.midi.get_param.debug("verif param");
 		[param.name, ccpath].debug("assigning ccpath to param");
@@ -709,6 +714,14 @@
 			self.get_param_binded_ccpath(oldparam).debug("ce n'est point possible");
 			oldparam.name.debug("refreshing oldparam");
 			oldparam.midi.refresh;
+		};
+		if(oldccpath.notNil && (oldparam != param)) {
+			self.ccpathToParam[oldccpath] = nil;
+			self.midi_handler[panel][oldccpath] = { arg val; 
+				//[param.name, val].debug("bind_param function: set_val");
+				//param.midi.set_val(val);
+			};
+
 		};
 		//param.midi.get_ccpath.debug("verif");
 		//param.midi.get_param.debug("verif param");
@@ -755,6 +768,7 @@
 		var fun;
 		//self.kb_handler.debug("handle_key: kb_handler");
 		shortcut[1] = self.midi_modifier;
+		shortcut[2] = ~midi_cc_to_symbol.(shortcut[2]);
 		if(self.midi_handler[panel].isNil) { self.midi_handler[panel] = Dictionary.new };
 		[shortcut, panel].debug("current shortcut panel");
 		self.commands[panel][shortcut].debug("shortcut of path called");
@@ -888,8 +902,7 @@
 	"**begin parsing bindings".debug;
 	bindings.keysValuesDo { arg panel, blist;
 		blist.do { arg binding;
-			var kc = ~get_keycode.(binding);
-			if(~qt_symbol_to_keygroup.(binding[3]).notNil) {
+			if(~qt_symbol_to_keygroup.(binding[3]).notNil) { // if key is a group of keys
 				[binding[3], ~qt_symbol_to_keygroup.(binding[3])].debug("qt_parse_bindings: array");
 				commands.array_set_shortcut(
 					[panel] ++ ~string_to_symbol_list.(binding[0]), 
@@ -987,6 +1000,10 @@ if(GUI.current == QtGUI) {
 	} {
 		ret.asSymbol;
 	};
+};
+
+~midi_cc_to_symbol = { arg cc;
+	~keycode.rev_midispecial[cc]
 };
 
 ~qt_keycodes = {

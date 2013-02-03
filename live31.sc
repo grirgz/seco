@@ -339,6 +339,12 @@ Mdef.node(~player).external_player.make_gui;
 )
 
 
+Mdef.main.midi_center.fixed_bindings[[\knob, 1]].name
+Mdef.main.midi_center.fixed_bindings
+~p = Mdef.node(Mdef.node(\s1_part1_sect1_var1).children[0]).get_arg(\attack)
+Mdef.main.midi_center.get_ccpath_assigned_with_given_param(~p)
+Mdef.main.commands.ccpath_to_param([\knob, 7]).name
+
 x = 4;
 
 a = SimpleController.new(x)

@@ -71,15 +71,18 @@
 		val: { arg self, msg, cellidx;
 			var newval;
 			newval = self.get_val(cellidx);
-			paramval.string = if(newval.isNumber) {
-				newval.asFloat.asStringPrec(~general_sizes.float_precision);
-			} {
-				newval
-			};
+			{
+				paramval.string = if(newval.isNumber) {
+					newval.asFloat.asStringPrec(~general_sizes.float_precision);
+				} {
+					newval
+				};
 
-			if(slider.notNil, {
-				slider.value = self.get_norm_val(cellidx) ?? 0;
-			});
+				if(slider.notNil, {
+					slider.value = self.get_norm_val(cellidx) ?? 0;
+				});
+
+			}.defer;
 		},
 
 		selected_cell: { arg self;
@@ -111,13 +114,19 @@
 			txt_midi_label.string = self.midi.label;
 		},
 		midi_val: { arg self, msg, val;
-			txt_midi_val.string = val;
+			{
+				txt_midi_val.string = val;
+			}.defer;
 		},
 		blocked: { arg self, msg, blocked;
-			txt_midi_val.background = if(blocked.not, { ~color_scheme.led_ok }, { ~editplayer_color_scheme.led });
+			{
+				txt_midi_val.background = if(blocked.not, { ~color_scheme.led_ok }, { ~editplayer_color_scheme.led });
+			}.defer
 		},
 		recording: { arg self, msg, recording;
-			txt_midi_label.background = if(recording, { ~editplayer_color_scheme.led }, { Color.clear });
+			{
+				txt_midi_label.background = if(recording, { ~editplayer_color_scheme.led }, { Color.clear });
+			}.defer;
 		}
 	)};
 
@@ -149,14 +158,16 @@
 		},
 
 		selected: { arg self, bool;
-			if(bool) {
-				self.name.debug("mini_param_group_widget: selected: je suis select");
-				bt_name.debug("bt_name");
-				bt_name.background = Color.newHex("B4B1BA");
-			} {
-				self.name.debug("mini_param_group_widget: selected: je suis DEselect");
-				bt_name.background = Color.newHex("54516A");
-			}
+			{
+				if(bool) {
+					self.name.debug("mini_param_group_widget: selected: je suis select");
+					bt_name.debug("bt_name");
+					bt_name.background = Color.newHex("B4B1BA");
+				} {
+					self.name.debug("mini_param_group_widget: selected: je suis DEselect");
+					bt_name.background = Color.newHex("54516A");
+				}
+			}.defer;
 		},
 
 		clear_view: { arg self;
@@ -536,8 +547,12 @@
 
 	mode: { arg self, obj;
 		"class_player_view: player: mode".debug;
-		self.paramlist;
-		self.extparamlist;
+
+		{
+		
+			self.paramlist;
+			self.extparamlist;
+		}.defer;
 	},
 
 );
@@ -1621,6 +1636,47 @@
 			};
 		},
 
+		get_shared_bindings: { arg self;
+			 [
+				[\edit_tempo, {
+					~make_tempo_edit_view.(main, [\knob, 0]);
+				}],
+
+				[\edit_quant, {
+					~make_quant_edit_view.(main, [\knob, 0]);
+				}],
+
+				[\edit_barrecord, {
+					~make_barrecord_edit_view.(main, [\knob, 0]);
+				}],
+
+				[\edit_wrapper, {
+					var player = self.get_current_player;
+					player.edit_wrapper;
+				}],
+				[\toggle_metronome, {
+					if(main.play_manager.use_metronome == false) {
+						main.play_manager.use_metronome = true;
+					} {
+						main.play_manager.use_metronome = false;
+					}
+				}],
+
+				[\play_group, {
+					self.get_current_group.play_node;
+				}], 
+
+				[\stop_group, {
+					self.get_current_group.stop_node;
+				}], 
+				[\open_timeline, {
+					self.timeline.make_gui;
+				}],
+
+			 ]
+		
+		},
+
 		get_windows_bindings: { arg self;
 			var make_window = { arg key, is_different, constructor;
 				self.make_window_panel(key, is_different, constructor)
@@ -1672,6 +1728,7 @@
 				}],
 
 				[\edit_modulator, 
+					// TODO: rename binding_edit_modulator
 					self.edit_modulator_callback = {
 						var player = self.get_current_player;
 						var param = self.get_selected_param;
@@ -1755,8 +1812,27 @@
 			"OU SUOSJE".debug;
 
 			main.commands.parse_action_bindings(\side, 
-				self.get_windows_bindings ++ [
+				self.get_windows_bindings ++
+				self.get_shared_bindings ++ [
 
+				[\assign_midi_knob, 
+					self.binding_assign_midi_knob = { arg param;
+						param = param ?? { self.get_selected_param };
+						if(param.classtype == \control) {
+							~edit_value.(1, { arg cc;
+								var ccpath;
+								if(cc == "0" or: { cc == "" }) {
+									self.get_main.midi_center.clear_fixed_binding_by_param(param);
+								} {
+									ccpath = [\knob, cc.asInteger - 1];
+									self.get_main.midi_center.set_fixed_binding(ccpath, param);
+								}
+							}, "Assign knob")
+						}
+
+					};
+					self.binding_assign_midi_knob
+				],
 
 				[\add_modenv, {
 					var player = self.get_current_player;
@@ -1764,10 +1840,6 @@
 					player.modulation.set_modulator_name(0, mod);
 					player.modulation.connect_modulator(0, \freq, 0);
 					player.get_arg(\freq).change_kind(\modulation);
-				}],
-
-				[\open_timeline, {
-					self.timeline.make_gui;
 				}],
 
 				//[\edit_external_player, {
@@ -1890,13 +1962,6 @@
 				}],
 
 
-				[\play_group, {
-					self.get_current_group.play_node;
-				}], 
-
-				[\stop_group, {
-					self.get_current_group.stop_node;
-				}], 
 
 				[\play_selected, {
 					self.song_manager.update_expset(self.get_current_group.selected_child_index);
@@ -1958,30 +2023,7 @@
 					main.panic
 				}],
 
-				[\toggle_metronome, {
-					if(main.play_manager.use_metronome == false) {
-						main.play_manager.use_metronome = true;
-					} {
-						main.play_manager.use_metronome = false;
-					}
-				}],
 
-				[\edit_tempo, {
-					~make_tempo_edit_view.(main, [\knob, 0]);
-				}],
-
-				[\edit_quant, {
-					~make_quant_edit_view.(main, [\knob, 0]);
-				}],
-
-				[\edit_barrecord, {
-					~make_barrecord_edit_view.(main, [\knob, 0]);
-				}],
-
-				[\edit_wrapper, {
-					var player = self.get_current_player;
-					player.edit_wrapper;
-				}],
 
 				[\forward_in_record_history, {
 					var player = self.get_current_player;
@@ -2156,11 +2198,12 @@
 
 				///// effects
 
-				[\add_effect, {
-					var player = self.get_current_player;
-					main.node_manager.load_effectnode(player);
-					self.changed(\paramlist);
-				}],
+				//[\add_effect, {
+				//	// deprecated
+				//	var player = self.get_current_player;
+				//	main.node_manager.load_effectnode(player);
+				//	self.changed(\paramlist);
+				//}],
 
 				///// player modes
 

@@ -1081,16 +1081,18 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		},
 
 		recording: { arg self, msg, recording;
-		   if(txt_rec.notNil) {
+		   {
+			   if(txt_rec.notNil) {
 
-				if( recording, {
-					txt_rec.string = "Rec";
-					txt_rec.background = ~editplayer_color_scheme.led;
-				}, {
-					txt_rec.string = "Stop";
-					txt_rec.background = Color.clear;
-				});
-		   }
+					if( recording, {
+						txt_rec.string = "Rec";
+						txt_rec.background = ~editplayer_color_scheme.led;
+					}, {
+						txt_rec.string = "Stop";
+						txt_rec.background = Color.clear;
+					});
+			   }
+		   }.defer;
 		}
 
 	));
@@ -3499,11 +3501,29 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			self.midi.refresh;
 		},
 
-		vpiano: { arg self;
+		vpiano: { arg self, spatch;
 			{
 				switch(self.current_kind,
 					\preset, { self.preset.val[self.preset.selected_cell] },
 					\bus, { self.bus.get_bus.asMap },
+					\modulation, {
+						if(spatch.notNil) {
+							{
+								var bus;
+								bus = spatch.get_mod_bus(player.uname, self.name);
+								if(bus.isNil) {
+									[player.uname, self.name].debug("============== vpiano: mod: bus is nil");
+									self.scalar.val;
+								} {
+									bus.asMap;
+								}
+							}
+						} {
+							[player.uname, self.name].debug("vpiano: param modulation: spatch not found");
+							{ self.scalar.val };
+						};
+
+					},
 					//default
 					{ self.scalar.val }
 				);
@@ -3955,7 +3975,9 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			self.changed(\selected);
 		},
 		vpiano: { arg self;
-			Pfunc { self.get_val };
+			{
+				self.get_val;
+			}
 		},
 		vpattern: { arg self;
 			Pfunc { self.get_val };
@@ -3984,6 +4006,12 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	load_data: { arg self, data;
 		data.keysValuesDo { arg key, val;
 			self[key] = val;
+		}
+	},
+
+	vpiano: { arg self;
+		{
+			self.get_val;
 		}
 	},
 
@@ -4234,6 +4262,12 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 	get_val: { arg self;
 		self.model.val;
+	},
+
+	vpiano: { arg self;
+		{
+			self.get_buffer.bufnum
+		}
 	},
 
 	vpattern: { arg self;

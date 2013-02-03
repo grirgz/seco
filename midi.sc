@@ -3,13 +3,23 @@
 ~midi_center = { arg main;
 	var mc = (
 		cc_states: Dictionary.new,
+		fixed_bindings: Dictionary.new,
 
 		next_free: (
 			slider: 0,
 			knob: 0
 		),
 
-		
+		set_fixed_binding: { arg self, ccpath, param;
+			self.clear_fixed_binding_by_param(param);
+			self.fixed_bindings[ccpath] = param;
+			main.commands.bind_param(ccpath, param);
+		},
+
+		clear_fixed_binding_by_param: { arg self, param;
+			var ccpath = self.get_ccpath_assigned_with_given_param(param);
+			self.fixed_bindings[ccpath] = nil;
+		},
 
 		get_main: { arg self; main },
 
@@ -23,7 +33,16 @@
 			if(self.is_next_free(kind)) { //FIXME: hardcoded value
 				ccpath = [kind, self.next_free[kind]];
 				//[param.name, ccpath, self.next_free].debug("III: assign_first: assigning midi");
-				main.commands.bind_param(ccpath, param);
+				if(self.fixed_bindings.keys.includesEqual(ccpath).not) {
+					// FIXME: crap hack, should have modes to use fixed bindings or auto assigned 
+					self.fixed_bindings.keysValuesDo { arg key, val; 
+						[key, if(val.notNil) { val.name } { "val is nil" }].debug("FIXED BINDINGS") 
+					};
+					self.get_ccpath_assigned_with_given_param(param).debug("old ccpath");
+					if(self.fixed_bindings[self.get_ccpath_assigned_with_given_param(param)].isNil) {
+						main.commands.bind_param(ccpath, param);
+					}
+				};
 				//main.commands.get_param_binded_ccpath(param).debug("III: assigned ccpath verification");
 				self.next_free[kind] = self.next_free[kind] + 1;
 				true;

@@ -33,8 +33,10 @@
 	////////// responders
 
 	val: { arg self;
-		self.vallabel.string = self.controller.get_val.asFloat.asStringPrec(~general_sizes.float_precision);
-		self.knob.value = self.controller.get_norm_val;
+		{
+			self.vallabel.string = self.controller.get_val.asFloat.asStringPrec(~general_sizes.float_precision);
+			self.knob.value = self.controller.get_norm_val;
+		}.defer;
 	},
 
 	label: { arg self;
@@ -455,7 +457,7 @@
 	synthdef_basename: "s",
 	archive_data: [\synthdef_name_suffix],
 
-	new: { arg self;
+	new: { arg self, main, player;
 		self = self.deepCopy;
 	
 		self;
@@ -524,6 +526,7 @@
 	make_bindings: { arg self;
 		self.get_main.commands.parse_action_bindings(\classinstr, 
 		
+			self.get_main.panels.side.get_shared_bindings ++
 			self.get_main.panels.side.get_windows_bindings ++ [
 
 			[\close_window, {
@@ -543,6 +546,13 @@
 					debug("class_instr: edit_selected_param");
 					~class_player_display.edit_param_value(self.get_main, self.get_player, ~global_controller.current_param);
 				}
+			}],
+
+			[\assign_midi_knob, {
+				if(~global_controller.current_param.notNil) {
+					var param = ~global_controller.current_param;
+					self.get_main.panels.side[\binding_assign_midi_knob].(param);
+				};
 			}],
 
 			[\panic, {

@@ -859,6 +859,7 @@
 
 		self.get_main.commands.parse_action_bindings(\modulator, 
 
+			self.get_main.panels.side.get_shared_bindings ++
 			self.get_main.panels.side.get_windows_bindings ++ [
 			[\close_window, {
 				self.window.close;
@@ -872,6 +873,11 @@
 					mod.set_modulator_name(self.selected_slot, nodename);
 					self.select_slot(self.selected_slot);
 				})
+			}],
+
+			[\assign_midi_knob, {
+				var param = self.get_selected_param;
+				self.get_main.panels.side[\binding_assign_midi_knob].(param)
 			}],
 
 			[\remove_modulator, {
@@ -1384,6 +1390,93 @@
 		self.selected_slot = slotidx;
 		self.changed(\selected_slot);
 	},
+
+	//make_spatch: { arg self;
+
+	//	var walk_modulators;
+	//	var done_modulators = Set.new;
+	//	var mainplayer = self.player;
+	//	var note_modulator_list = List.new;
+	//	var pattern_modulator_list = List.new;
+	//	var make_modulator_vpiano;
+	//	var make_note_out_bus;
+	//	var note_bus_alloc_list;
+	//	var note_group_alloc_list;
+	//	var spatch = (
+	//		note_bus: Dictionary.new,
+	//		note_group: Dictionary.new,
+	//		global_bus: Dictionary.new,
+	//		global_group: Dictionary.new,
+	//	 	get_mod_bus: { arg pself, player_name, param_name;
+	//		
+	//		}
+	//	);
+
+	//	make_note_out_bus = { arg key, group_name;
+	//		note_bus_alloc_list.add(key);
+	//		note_group_alloc_list.add(key);
+	//		Pfunc{ arg ev;
+	//			var brate = \control;
+	//			//var bus = Bus.alloc(brate, s, 1);
+	//			var pp = spatch;
+	//			var group;
+	//			[key, group_name].debug("vpiano make_note_out_bus: key, group_name");
+	//			group = Group.new(pp.global_group[group_name]);
+	//			ev[\group] = group;
+	//			pp.note_group[key] = group;
+	//			pp.note_bus[key];
+	//		}
+	//	};
+
+	//	make_modulator_vpiano = { arg player, mod, key;
+	//		
+	//			var modpat;
+	//			var out_bus_name;
+	//			var brate = if(rate == \kr) { \control } { \audio };
+	//			// key is modulator source slot index
+	//			out_bus_name = "mod_%_%".format(player.uname, mod.uname).asSymbol;
+
+	//			if(mod.modulation.mod_kind == \pattern) {
+	//				//spatch.global_bus[out_bus_name] = Bus.alloc(brate, s, 1);
+	//				//modpat = Pmono(mod.get_arg(\instrument).get_val,
+	//				//		//\ppatch, Pfunc{ppatch},
+	//				//		\group, Pfunc{ arg ev; ppatch.global_group[\modulator] },
+	//				//		\out, Pfunc{ arg ev; ppatch.global_bus[out_bus_name] }
+	//				//	) <> mod.sourcepat <> Pbind(\ppatch, Pfunc{ppatch});
+	//			} {
+	//				modpat = mod.get_mod_vpiano(spatch, (
+	//					out: make_note_out_bus.(out_bus_name, \modulator),
+	//					group: make_note_group.()
+	//				))
+	//			};
+	//			{ modpat; }
+
+	//	};
+
+	//	walk_modulators = { arg player, kind=\feedback;
+	//		player.modulation.get_modulation_mixers.keysValuesDo { arg key, modmixer;
+	//			if(modmixer.get_slots.size > 0) {
+	//				modmixer.get_slots.keysValuesDo { arg slotidx, modstruct, idx;
+	//					var modname = mainplayer.modulation.get_modulators[modstruct.name];
+	//					var modnode = mainplayer.get_main.get_node(modname);
+	//					if(modname.notNil and: {done_modulators.includesEqual(modname).not}) {
+	//						done_modulators = done_modulators.add(modname);
+	//						if(modnode.modulation.mod_kind == \pattern) {
+	//							//pattern_modulator_list.add( make_modulator_pattern.(mainplayer, modnode) )
+	//						} {
+	//							note_modulator_list.add( make_modulator_vpiano.(mainplayer, modnode) )
+	//						};
+	//						walk_modulators.(modnode);
+	//					}
+	//				};
+	//				make_mixer_pattern.( player, key, modmixer, kind );
+	//			};
+	//		};
+	//	};
+
+	//		walk_modulators.( mainplayer, \normal );
+	//
+	//},
 
 	make_modulation_pattern: { arg self, source_pattern;
 		var free_defer_time = 3; // FIXME: hardcoded
@@ -2065,6 +2158,7 @@
 	make_bindings: { arg self;
 
 		self.get_main.commands.parse_action_bindings(\effects, 
+			self.get_main.panels.side.get_shared_bindings ++
 			self.get_main.panels.side.get_windows_bindings ++ [
 
 			[\close_window, {
@@ -2101,6 +2195,11 @@
 					debug("ERROR: param classtype can't be modulated: trying side panel param");
 					side[\edit_modulator_callback].()
 				}
+			}],
+
+			[\assign_midi_knob, {
+				var param = self.get_selected_param;
+				self.get_main.panels.side[\binding_assign_midi_knob].(param)
 			}],
 
 			[\remove_effect, {

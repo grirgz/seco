@@ -291,8 +291,10 @@
 
 	get_piano: { arg self, kind=\normal;
 		var exclu, list = List[];
-		exclu = [\instrument, \noteline,  \sampleline, \samplekit, \repeat, \stretchdur, \stepline, \type, \dur, \segdur, \legato, \sustain,
-				\amp, \bufnum, \freq,
+		exclu = [
+			\instrument, \noteline, \scoreline, \sampleline, \samplekit, \repeat, \stretchdur, \stepline, 
+			\type, \dur, \segdur, \legato, \sustain,
+			\amp, \bufnum, \freq,
 		];
 		self.data.keys.difference(exclu).do { arg key;
 			var val = self.data[key].vpiano ?? self.data[key].vpattern;
@@ -334,15 +336,20 @@
 					list.add(\bufnum); list.add( self.data[\bufnum].vpiano ?? self.data[\bufnum].vpattern );
 				};
 				{ arg freq, veloc=1; 
+					var spatch;
 					veloc = veloc ?? 1;
 					[self.data[\amp].vpiano.value, veloc].debug("CESTLA?");
 					if(freq.isNil) { "get_piano: why freq is nil ?".debug; };
-					Synth(self.data[\instrument].vpiano, (
+					self.data[\instrument].vpiano.value.debug("making Synth()");
+
+					spatch = self.modulation.vpiano;
+
+					Synth(self.data[\instrument].vpiano.value, (
 						[
 							\amp, self.get_main.calcveloc(self.data[\amp].vpiano.value, veloc),
 							\freq, freq,
 						] 
-						++ list.collect(_.value)).debug("arg listHHHHHHHHHHHHHHHHHHHHHHHHHHH")
+						++ list.collect(_.value(spatch))).debug("arg listHHHHHHHHHHHHHHHHHHHHHHHHHHH")
 					) 
 				}
 
