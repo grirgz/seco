@@ -2040,8 +2040,10 @@
 		var custom_view = View.new;
 		self.tab_custom_view = custom_view;
 		self.modulation_controller = ~class_embeded_modulation_controller.new(self.get_main, self.get_player, nil, self.data[\filtermix]);
+		self.modulation_controller.make_bindings;
 		self.modulation_controller.window = { self.window };
 		modview = ~class_embeded_modulation_view.new(self.modulation_controller);
+		self.modulation_controller.main_view = modview;
 
 		content = [
 			"Master Env", self.master.make_layout_env,
@@ -2049,6 +2051,7 @@
 			"Voices", self.make_layout_voices,
 			"Effects", self.make_layout_effects,
 		];
+		self.tabs_count = content.size/2;
 		content = content.clump(2).flop;
 		debug("NUIT 1");
 		body = StackLayout(*
@@ -2056,7 +2059,7 @@
 				View.new.layout_(co)
 			} ++ [
 				View.new.layout_(modview.body_layout),
-				custom_view,
+				//custom_view,
 			]
 		);
 		debug("NUIT 2");
@@ -2068,7 +2071,7 @@
 						.states_([[co]])
 						.action_({ 
 							body.index = idx;
-							if(idx == 3) {
+							if(idx == 3) { //FIXME: hardcoded
 								self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\effects);
 							} {
 								self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\classinstr);
@@ -2083,30 +2086,34 @@
 		debug("NUIT 4");
 		self.tab_panel_stack_layout = body;
 		modview.show_body_layout = { arg myself;
-			var extplayer = myself.controller.get_current_player.external_player;
-			myself.controller.get_current_player.uname.debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: curplayer");
-			self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\modulator);
-			if(extplayer.notNil) {
-				// FIXME: external player should have custom gui
-				self.tab_panel_stack_layout.index = 5;
-				extplayer.make_layout;
-				self.tab_custom_view.children.do(_.remove);
-				debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: before cusheader");
-				self.custom_header_view = ~class_modulator_header_view.new_without_responders(myself.controller); 
-				debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: after cusheader");
-				self.tab_custom_view.layout_(
-					VLayout(
-						[self.custom_header_view.layout, stretch:0],
-						extplayer.layout,
-					)
-				);
-				self.custom_header_view.selected_slot;
-				debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: after view cusheader");
-				debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: last view cusheader");
-			} {
-				self.tab_panel_stack_layout.index = 4;
-			}
+			debug("modview: show_body_layout");
+			self.tab_panel_stack_layout.index = self.tabs_count;
 		};
+		//modview.show_body_layout = { arg myself;
+		//	var extplayer = myself.controller.get_current_player.external_player;
+		//	myself.controller.get_current_player.uname.debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: curplayer");
+		//	self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\modulator);
+		//	if(extplayer.notNil) {
+		//		// FIXME: external player should have custom gui
+		//		self.tab_panel_stack_layout.index = 5;
+		//		extplayer.make_layout;
+		//		self.tab_custom_view.children.do(_.remove);
+		//		debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: before cusheader");
+		//		self.custom_header_view = ~class_modulator_header_view.new_without_responders(myself.controller); 
+		//		debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: after cusheader");
+		//		self.tab_custom_view.layout_(
+		//			VLayout(
+		//				[self.custom_header_view.layout, stretch:0],
+		//				extplayer.layout,
+		//			)
+		//		);
+		//		self.custom_header_view.selected_slot;
+		//		debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: after view cusheader");
+		//		debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: last view cusheader");
+		//	} {
+		//		self.tab_panel_stack_layout.index = 4;
+		//	}
+		//};
 		layout;
 	},
 

@@ -74,8 +74,8 @@ Mdef.side_gui;
 )
 
 
-Mdef.main.save_project("live31.1");
-Mdef.main.load_project("live31.1");
+Mdef.main.save_project("live31.3");
+Mdef.main.load_project("live31.3");
 
 Debug.enableDebug = true;
 Debug.enableDebug = false;
@@ -138,7 +138,7 @@ if(~t.notNil) {~t.window.close};
 ~t = ~class_group_tracks_controller.new(Mdef.main, Mdef.node(\s1_part1_sect1_var1));
 ~t.make_gui;
 
-Mdef.node(\s1_part1_sect1_var1)
+Mdef.node(\s1_part1_sect1_var1).kind
 
 
 if(~t.notNil) {~t.window.close};

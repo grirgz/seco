@@ -233,13 +233,14 @@
 );
 
 ~class_modulator_body_basic = (
+	show_custom_view: true,		
 	new: { arg self, player_display;
 		self = self.deepCopy;
 		//self.make_gui;
 		self.modulation_ctrl = { player_display.modulation_ctrl };
+		self.player_display = { player_display };
 
 		self.make_gui;
-		self.player_display = { player_display };
 
 		~make_class_responder.(self, self.param_group.layout, self.modulation_ctrl, [
 			\modulator
@@ -252,15 +253,17 @@
 
 	selected_slot: { arg self;
 		var nodename;
-		self.modulation_ctrl.selected_slot.debug("selected_slot: mod: selected_slot");
+		self.modulation_ctrl.selected_slot.debug("class_modulator_body_basic: selected_slot: mod: selected_slot");
 		self.modulation_ctrl.get_modulator_node(self.modulation_ctrl.selected_slot).uname.debug("selected_slot: modnode name");
 		self.set_controller(self.modulation_ctrl.get_modulator_node(self.player_display.selected_slot));
+		self.show_body_layout;
 	},
 
 	modulator: { arg self;
-		self.modulation_ctrl.selected_slot.debug("modulator: selected_slot");
+		self.modulation_ctrl.selected_slot.debug("class_modulator_body_basic: modulator: selected_slot");
 		self.modulation_ctrl.get_modulator_node(self.modulation_ctrl.selected_slot).uname.debug("modulator: modnode name");
 		self.set_controller(self.modulation_ctrl.get_modulator_node(self.player_display.selected_slot));
+		self.show_body_layout;
 	},
 
 	set_controller: { arg self, player;
@@ -280,10 +283,58 @@
 		};
 	},
 
+	switch_body_view: { arg self;
+		self.show_custom_view = self.show_custom_view.not;
+		self.show_body_layout;
+	},
+
+	show_body_layout: { arg self;
+		var extplayer = self.player_display.get_current_player.external_player;
+		self.player_display.get_current_player.uname.debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: curplayer");
+		self.player_display.set_keydown_responder(\modulator);
+		if(extplayer.notNil and: { self.show_custom_view }) {
+			// FIXME: external player should have custom gui
+			self.stack_layout.index = 1;
+			extplayer.make_layout;
+			self.custom_view.children.do(_.remove);
+			debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: before cusheader");
+			//self.custom_header_view = ~class_modulator_header_view.new_without_responders(myself.controller); 
+			debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: after cusheader");
+			//self.tab_custom_view.layout_(
+			//	VLayout(
+			//		[self.custom_header_view.layout, stretch:0],
+			//		extplayer.layout,
+			//	)
+			//);
+			//self.custom_header_view.selected_slot;
+			self.custom_view.layout = extplayer.layout;
+			debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: after view cusheader");
+			debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: last view cusheader");
+		} {
+			self.stack_layout.index = 0;
+		}
+		
+	},
+
 	make_gui: { arg self;
+		debug("class_modulator_body_basic: make_gui");
 		self.param_group = ~make_mini_param_group_widget.(nil, 3, ());
-		self.layout = VLayout.new;
-		self.layout.add(self.param_group.layout);
+		self.param_group_layout = VLayout.new;
+		self.param_group_layout.add(self.param_group.layout);
+		debug("class_modulator_body_basic: make_gui");
+		//self.layout = VLayout.new;
+		self.custom_view = View.new;
+		debug("class_modulator_body_basic: make_gui");
+		self.stack_layout = StackLayout(
+			View.new.layout_(self.param_group_layout),
+			self.custom_view;
+		);
+		debug("class_modulator_body_basic: make_gui");
+		//stack_layout.index = 0;
+		self.show_body_layout;
+		//self.layout.add(self.param_group.layout);
+		debug("class_modulator_body_basic: make_gui");
+		self.layout = self.stack_layout;
 		self.layout
 	}
 
@@ -500,6 +551,14 @@
 		var player = self.get_current_player;
 		var param_name = player.get_selected_param;
 		player.get_arg(param_name);
+	},
+
+	set_keydown_responder: { arg self, key;
+		if(self.window.notNil) {
+			self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(key);
+		} {
+			debug("Cant set keydown responder: window is nil")
+		}
 	},
 
 	select_param: { arg self, index;
@@ -878,6 +937,10 @@
 			[\assign_midi_knob, {
 				var param = self.get_selected_param;
 				self.get_main.panels.side[\binding_assign_midi_knob].(param)
+			}],
+
+			[\switch_body_view, {
+				self.main_view.mod_body.switch_body_view;
 			}],
 
 			[\remove_modulator, {
@@ -1792,55 +1855,55 @@
 			//spawner.par(Ppar(mixer_list));
 
 			"bla1".debug;
-			//str = CleanupStream(main_note_pat.asStream, {
-			//	"cleanup".debug;
-			//	spawner.suspendAll;
-			//	{
-			//		"defered cleanup".debug;
-			//		ppatch.note_bus.keysValuesDo { arg bname, bobj;
-			//			bname.debug("free bus");
-			//			bobj.free;
-			//		};
-			//		ppatch.global_group.keysValuesDo { arg gname, gobj;
-			//			gname.debug("pattern group free");
-			//			gobj.free;
-			//		};
-			//		ppatch.global_bus.keysValuesDo { arg bname, bobj;
-			//			bname.debug("pattern bus free");
-			//			bobj.free;
-			//		};
-			//		"fin cleanup".debug;
-			//	}.defer(free_defer_time); 
-			//});
-			//"bla2".debug;
+			str = CleanupStream(main_note_pat.asStream, {
+				"cleanup".debug;
+				spawner.suspendAll;
+				{
+					"defered cleanup".debug;
+					ppatch.note_bus.keysValuesDo { arg bname, bobj;
+						bname.debug("free bus");
+						bobj.free;
+					};
+					ppatch.global_group.keysValuesDo { arg gname, gobj;
+						gname.debug("pattern group free");
+						gobj.free;
+					};
+					ppatch.global_bus.keysValuesDo { arg bname, bobj;
+						bname.debug("pattern bus free");
+						bobj.free;
+					};
+					"fin cleanup".debug;
+				}.defer(free_defer_time); 
+			});
+			"bla2".debug;
 
-			//spawner.par(str);
-			spawner.par(
-				Pfset(
-					{},
-					main_note_pat,
-					{
-						"cleanup".debug;
-						spawner.suspendAll;
-						{
-							"defered cleanup".debug;
-							ppatch.note_bus.keysValuesDo { arg bname, bobj;
-								bname.debug("free bus");
-								bobj.free;
-							};
-							ppatch.global_group.keysValuesDo { arg gname, gobj;
-								gname.debug("pattern group free");
-								gobj.free;
-							};
-							ppatch.global_bus.keysValuesDo { arg bname, bobj;
-								bname.debug("pattern bus free");
-								bobj.free;
-							};
-							"fin cleanup".debug;
-						}.defer(free_defer_time); 
-					}
-				)
-			);
+			spawner.par(str);
+			//spawner.par(
+			//	Pfset(
+			//		{},
+			//		main_note_pat,
+			//		{
+			//			"cleanup".debug;
+			//			{
+			//				//spawner.suspendAll;
+			//				mainplayer.name.debug("defered cleanup");
+			//				ppatch.note_bus.keysValuesDo { arg bname, bobj;
+			//					bname.debug("free bus");
+			//					bobj.free;
+			//				};
+			//				ppatch.global_group.keysValuesDo { arg gname, gobj;
+			//					gname.debug("pattern group free");
+			//					gobj.free;
+			//				};
+			//				ppatch.global_bus.keysValuesDo { arg bname, bobj;
+			//					bname.debug("pattern bus free");
+			//					bobj.free;
+			//				};
+			//				"fin cleanup".debug;
+			//			}.defer(free_defer_time); 
+			//		}
+			//	)
+			//);
 			"bla3".debug;
 			"$$$$$$$$$$$$$$$$$$$$ make_modulator_pattern: END".debug;
 		});

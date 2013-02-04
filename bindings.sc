@@ -159,6 +159,7 @@
 		~common_bindings.playing ++
 		~common_bindings.panels ++
 		[
+		["switch_body_view", \kb, \alt, "b"],
 		["close_window", \kb, 0, \escape],
 		["load_modulator", \kb, 0, \f1],
 		["select_param", \kb, 0, \kbpad8x4_flat],

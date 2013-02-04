@@ -16,7 +16,7 @@
 		var val = 0;
 		var repeat;
 		userepeat.debug("=============================pdynarray:userepeat");
-		ev[\current_mode].debug("pdynarray:current_mode");
+		[ev[\instrument], ev[\current_mode]].debug("pdynarray:current_mode");
 		switch(userepeat,
 			false, {
 				repeat = ~general_sizes.safe_inf;	
@@ -3539,14 +3539,14 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				\dur, {
 					{ arg ev, mode;
 						if(ev[mode].dur.notNil) {
-							[player.uname, self.name, mode, ev[mode], ev[\stretchdur], ev].debug("CONTROL param: vpattern");
+							//[player.uname, self.name, mode, ev[mode], ev[\stretchdur], ev].debug("CONTROL param: vpattern");
 							ev[mode].dur * ev[\stretchdur];
 						}
 					}
 				},
 				\freq, {
 					{ arg ev, mode;
-						ev.debug("vpattern: freq");
+						//ev.debug("vpattern: freq");
 						if(ev[mode].midinote.notNil) {
 							ev[mode].midinote.midicps
 						}

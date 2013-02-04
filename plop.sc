@@ -12,3 +12,41 @@
 
 ).play
 )
+
+
+(
+a = Pbind(
+	\dur, 0.5,
+	\freq, Pseq([300, 400, 500]-50,2),
+);
+a = a <> Pbind(
+	\cur, \plop,
+	\freq, Pseq([300, 400, 500]),
+
+);
+a.play
+)
+(
+a = Pbind(
+	\dur, 0.5,
+	\freq, Pseq([300, 400, 500],2),
+);
+b = a <> Pbind(
+	\freq, Pseq([300, 400, 500]),
+
+);
+b.play
+)
+
+(
+a = Pbind(
+	\dur, 0.5,
+);
+b = a <> Pbind(
+	\freq, Pseq([300, 400, 500]),
+
+);
+
+b = Psetpre(\freq, Pseq([300, 400, 500], 2), b);
+b.play
+)

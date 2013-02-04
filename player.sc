@@ -210,7 +210,9 @@
 	get_dur_pattern: { arg self;
 		var arglist = List.new;
 		var val;
-		(self.available_modes ++ [\repeat, \stretchdur, \segdur,  \dur]).do { arg key;
+		arglist.add(\current_mode);
+		arglist.add(Pfunc{ self.get_mode });
+		([\repeat] ++ self.available_modes ++ [\stretchdur, \segdur,  \dur]).do { arg key;
 			if(self.data[key].notNil) {
 				val = self.get_arg(key);
 				if(val.notNil) {
@@ -744,8 +746,8 @@
 	},
 
 	vpattern_loop: { arg self;
-		Pn(self.vpattern, ~general_sizes.safe_inf);
-		//self.vpattern;
+		//Pn(self.vpattern, ~general_sizes.safe_inf);
+		self.vpattern; //debug
 	},
 
 	prepared_node: { arg self;

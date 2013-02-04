@@ -677,7 +677,7 @@ if(~silent_control_bus.isNil) {
 					node.load_data(data);
 				},
 				\parnode, {
-					node = ~make_seqplayer.(self);
+					node = ~make_parplayer.(self);
 					node.load_data(data);
 				},
 				{
