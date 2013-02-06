@@ -42,7 +42,7 @@
 		knob: 8,
 		slider: 8
 	),
-	safe_inf: 80,
+	safe_inf: 580,
 	bank: 10,
 	float_precision: 6,
 	children_per_groupnode: 16,

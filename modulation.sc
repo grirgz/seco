@@ -770,6 +770,11 @@
 		);
 	},
 
+	edit_selected_param: { arg self;
+		self.edit_param_value
+	
+	},
+
 	get_bindings: { arg self, get_top_player, get_param;
 		[
 			[\close_window, {
@@ -946,6 +951,11 @@
 			[\remove_modulator, {
 				self.remove_current_modulator(true)
 			}],
+
+			[\edit_selected_param, {
+				self.edit_selected_param;
+			}],
+
 
 			[\disconnect_modulator, {
 				self.disconnect_modulator(self.modmixer_ctrl.selected_slot);
@@ -1542,7 +1552,7 @@
 	//},
 
 	make_modulation_pattern: { arg self, source_pattern;
-		var free_defer_time = 3; // FIXME: hardcoded
+		var free_defer_time = 1; // FIXME: hardcoded
 		var out_bus = 0;
 		var mainplayer = self.player;
 		Pspawner({ arg spawner;
@@ -1564,6 +1574,7 @@
 			var done_modulators = Set.new;
 			var allocator_note_pattern;
 			var note_bus_alloc_list = List.new;
+			var clean_started = false;
 			"$$$$$$$$$$$$$$$$$$$$ make_modulator_pattern: START".debug;
 
 			ppatch = (
@@ -1609,13 +1620,18 @@
 
 			effect_list.do { arg effect_name, idx;
 				var effect = mainplayer.get_main.get_node(effect_name);
-				effect_pat_list.add( effect.sourcepat <> Pbind(
-					\ppatch, Pfunc{ppatch},
-					\group, Pfunc{ arg ev; ev[\ppatch].global_group[\effects] },
-					\addAction, \addToTail,
-					\in, effect_inbus_list[idx],
-					\out, effect_outbus_list[idx],
-				))
+				effect_pat_list.add( 
+					Pbind(
+						\group, Pfunc{ arg ev; ev[\ppatch].global_group[\effects] },
+						\addAction, \addToTail,
+						\in, effect_inbus_list[idx],
+						\out, effect_outbus_list[idx],
+					) <>
+					effect.sourcepat <>
+					Pbind(
+						\ppatch, Pfunc{ppatch},
+					)
+				)
 			};
 
 			///////// functions
@@ -1804,15 +1820,15 @@
 						group.addDependant({ arg grp, status;
 							[grp, status].debug("dependant");
 							if(status == \n_end) {
-								"freeing".debug;
+								"main_note_pat: freeing".debug;
 								note_group.keysValuesDo { arg gname, gobj;
-									gname.debug("free group");
+									gname.debug("free note group");
 									if(gname != mainplayer.name) {
 										gobj.free
 									}
 								};
 								note_bus.keysValuesDo { arg bname, bobj;
-									bname.debug("free bus");
+									bname.debug("free note bus");
 									bobj.free;
 								};
 							}
@@ -1825,6 +1841,8 @@
 				\type, \rest,
 				\ppatch, Pfunc{ppatch},
 				\alloc, Pfunc{ arg ev;
+					ev[\ppatch].note_bus = IdentityDictionary.new;
+					ev[\ppatch].note_group = IdentityDictionary.new;
 					note_bus_alloc_list.do { arg key;
 						key.debug("alloc note bus");
 						ev[\ppatch].note_bus[key] = Bus.control(s, 1);
@@ -1855,55 +1873,61 @@
 			//spawner.par(Ppar(mixer_list));
 
 			"bla1".debug;
-			str = CleanupStream(main_note_pat.asStream, {
-				"cleanup".debug;
-				spawner.suspendAll;
-				{
-					"defered cleanup".debug;
-					ppatch.note_bus.keysValuesDo { arg bname, bobj;
-						bname.debug("free bus");
-						bobj.free;
-					};
-					ppatch.global_group.keysValuesDo { arg gname, gobj;
-						gname.debug("pattern group free");
-						gobj.free;
-					};
-					ppatch.global_bus.keysValuesDo { arg bname, bobj;
-						bname.debug("pattern bus free");
-						bobj.free;
-					};
-					"fin cleanup".debug;
-				}.defer(free_defer_time); 
-			});
+			//str = CleanupStream(main_note_pat.asStream, {
+			//	"cleanup".debug;
+			//	spawner.suspendAll;
+			//	{
+			//		"defered cleanup".debug;
+			//		ppatch.note_bus.keysValuesDo { arg bname, bobj;
+			//			bname.debug("free bus");
+			//			bobj.free;
+			//		};
+			//		ppatch.global_group.keysValuesDo { arg gname, gobj;
+			//			gname.debug("pattern group free");
+			//			gobj.free;
+			//		};
+			//		ppatch.global_bus.keysValuesDo { arg bname, bobj;
+			//			bname.debug("pattern bus free");
+			//			bobj.free;
+			//		};
+			//		"fin cleanup".debug;
+			//	}.defer(free_defer_time); 
+			//});
 			"bla2".debug;
 
-			spawner.par(str);
-			//spawner.par(
-			//	Pfset(
-			//		{},
-			//		main_note_pat,
-			//		{
-			//			"cleanup".debug;
-			//			{
-			//				//spawner.suspendAll;
-			//				mainplayer.name.debug("defered cleanup");
-			//				ppatch.note_bus.keysValuesDo { arg bname, bobj;
-			//					bname.debug("free bus");
-			//					bobj.free;
-			//				};
-			//				ppatch.global_group.keysValuesDo { arg gname, gobj;
-			//					gname.debug("pattern group free");
-			//					gobj.free;
-			//				};
-			//				ppatch.global_bus.keysValuesDo { arg bname, bobj;
-			//					bname.debug("pattern bus free");
-			//					bobj.free;
-			//				};
-			//				"fin cleanup".debug;
-			//			}.defer(free_defer_time); 
-			//		}
-			//	)
-			//);
+			//spawner.par(str);
+			spawner.par(
+				Pfset(
+					{},
+					main_note_pat,
+					{
+						"cleanup".debug;
+						spawner.suspendAll;
+						if(clean_started.not) {
+						//if(true) {
+							clean_started = true;
+							"sched cleanup".debug;
+							{
+								//spawner.suspendAll;
+								mainplayer.name.debug("defered cleanup");
+								ppatch.note_bus.keysValuesDo { arg bname, bobj;
+									bname.debug("free bus");
+									bobj.free;
+								};
+								ppatch.global_group.keysValuesDo { arg gname, gobj;
+									gname.debug("pattern group free");
+									gobj.free;
+								};
+								ppatch.global_bus.keysValuesDo { arg bname, bobj;
+									bname.debug("pattern bus free");
+									bobj.free;
+								};
+								"fin cleanup".debug;
+							}.defer(free_defer_time); 
+						}
+					}
+				)
+			);
 			"bla3".debug;
 			"$$$$$$$$$$$$$$$$$$$$ make_modulator_pattern: END".debug;
 		});
@@ -2000,7 +2024,7 @@
 						["M", Color.black, Color.gray]
 					])
 					.action_({
-						self.controller.mute_slot(self.player_idx)
+						self.controller.toggle_mute_slot(self.player_idx)
 					});
 					[self.bt_mute, stretch:0],
 			),
@@ -2183,6 +2207,14 @@
 		}
 	},
 
+	toggle_mute_slot: { arg self, idx;
+		var player;
+		player = self.get_player_at(idx);
+		if(player.notNil) {
+			player.mute(player.muted.not)
+		}
+	},
+
 	set_mix: { arg self, idx, val;
 		var player;
 		player = self.get_player_at(idx);
@@ -2228,6 +2260,10 @@
 				self.window.close;
 			}],
 
+			[\edit_selected_param, {
+				self.edit_selected_param;
+			}],
+
 			[\load_effect, {
 				~class_symbol_chooser.new(self.get_main, self.get_main.model.effectlib, { arg libnodename;
 					var nodename;
@@ -2246,7 +2282,7 @@
 
 				param.debug("edit_modulator PARAM");
 				if(param.notNil and: {param.classtype == \control}) {
-					side.make_window_panel(\modulation_controller, 
+					side[\make_window_panel].(self, \modulation_controller, 
 						{ 
 							self.modulation_controller.param_ctrl != param
 						},

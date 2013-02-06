@@ -1815,6 +1815,15 @@
 				self.get_windows_bindings ++
 				self.get_shared_bindings ++ [
 
+				[\rename_player, {
+					var player = self.get_current_player;
+					if(player.notNil and: { player.uname != \voidplayer }) {
+						~edit_value.(player.name, { arg name;
+							player.name = name;
+						}, "Rename player")
+					}
+				}],
+
 				[\assign_midi_knob, 
 					self.binding_assign_midi_knob = { arg param;
 						param = param ?? { self.get_selected_param };

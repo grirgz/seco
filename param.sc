@@ -575,7 +575,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	validate_action = { 
 		var val = tf_val.value;
 		if(val.size > 0) {
-			param.set_val(val.asFloat.debug("la valeur"));
+			param.set_val(val.interpret.asFloat.debug("la valeur"));
 		};
 	};
 	close_window = {
@@ -1206,7 +1206,9 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	~make_view_responder.(content_view, param, (
 		selected: { arg self;
 			if(bt_name.notNil) {
-				bt_name.value = display.selected;
+				{
+					bt_name.value = display.selected;
+				}.defer
 			};
 		},
 

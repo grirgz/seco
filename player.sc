@@ -23,7 +23,7 @@
 	playing_state: \stop,
 	muted: false,
 	available_modes: [\stepline, \noteline, \scoreline, \sampleline],
-	archive_param_data: [\control, \stepline, \adsr, \noteline, \nodeline, \sampleline, \buf, \wavetable],
+	archive_param_data: [\control, \stepline, \adsr, \noteline, \scoreline, \nodeline, \sampleline, \buf, \wavetable],
 	archive_data: [\current_mode, \sourcewrapper, \instrname, \defname, \name, \uname, \kind, \subkind, \bank],
 	effects: List.new,
 	is_effect: false,
@@ -240,8 +240,9 @@
 
 	clone: { arg self;
 		var pl;
+		var options = (copy_subplayers: true);
 		pl = ~make_player_from_synthdef.(self.get_main,self.defname);
-		pl.load_data( self.save_data.deepCopy );
+		pl.load_data( self.save_data(options).deepCopy, options );
 		pl;
 	},
 
@@ -746,8 +747,8 @@
 	},
 
 	vpattern_loop: { arg self;
-		//Pn(self.vpattern, ~general_sizes.safe_inf);
-		self.vpattern; //debug
+		Pn(self.vpattern, ~general_sizes.safe_inf);
+		//self.vpattern; //debug
 	},
 
 	prepared_node: { arg self;
@@ -823,8 +824,9 @@
 
 	clone: { arg self;
 		var pl;
+		var options = (copy_subplayers: true);
 		pl = ~class_cinstr_player.new(self.get_main,self.instrname);
-		pl.load_data( self.save_data.deepCopy );
+		pl.load_data( self.save_data(options).deepCopy, options );
 		pl;
 	},
 

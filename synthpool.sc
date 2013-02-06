@@ -238,11 +238,11 @@ SynthDef(\organ, { |out, freq=440, amp=0.1, gate=1|
     OffsetOut.ar(out, snd * amp);
 }).store;
 
-SynthDef(\monosampler, {| out = 0, amp=0.1, pan=0, bufnum = 0, gate = 1, pos = 0, speed = 1, loop=0|
+SynthDef(\monosampler, {| out = 0, amp=0.1, pan=0, bufnum = 0, gate = 1, pos = 0, speed = 1, loop=0, doneAction=2|
 
 	var player,env;
-	env = EnvGen.kr(~make_adsr.(\adsr), gate, doneAction:2) * amp;
-	player = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum) * speed, 1, startPos: (pos*BufFrames.kr(bufnum)), doneAction:2, loop: loop);
+	env = EnvGen.kr(~make_adsr.(\adsr), gate, doneAction:doneAction) * amp;
+	player = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum) * speed, 1, startPos: (pos*BufFrames.kr(bufnum)), doneAction:doneAction, loop: loop);
 	player = Pan2.ar(player, pan, amp);
 	Out.ar(out, player * env);
 
@@ -250,11 +250,11 @@ SynthDef(\monosampler, {| out = 0, amp=0.1, pan=0, bufnum = 0, gate = 1, pos = 0
 	bufnum: (numchan: 1)
 ))).store;
 
-SynthDef(\stereosampler, {| out = 0, amp=0.1, bufnum = 0, gate = 1, pos = 0, speed = 1, loop=0|
+SynthDef(\stereosampler, {| out = 0, amp=0.1, bufnum = 0, gate = 1, pos = 0, speed = 1, loop=0, doneAction=2|
 
 	var player,env;
-	env =  EnvGen.kr(~make_adsr.(\adsr), gate, doneAction:2);
-	player = PlayBuf.ar(2, bufnum, BufRateScale.kr(bufnum) * speed, 1, startPos: (pos*BufFrames.kr(bufnum)), doneAction:2, loop: loop);
+	env =  EnvGen.kr(~make_adsr.(\adsr), gate, doneAction:doneAction);
+	player = PlayBuf.ar(2, bufnum, BufRateScale.kr(bufnum) * speed, 1, startPos: (pos*BufFrames.kr(bufnum)), doneAction:doneAction, loop: loop);
 	player = player * env * amp;
 	Out.ar(out, player);
 

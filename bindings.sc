@@ -32,8 +32,8 @@
 		["increase_gridstep_x", \kb, \ctrl, \right],
 		["decrease_gridstep_y", \kb, \ctrl, \down],
 		["increase_gridstep_y", \kb, \ctrl, \up],
-		["decrease_gridlen", \kb, 0, \left],
-		["increase_gridlen", \kb, 0, \right],
+		["decrease_gridlen", \kb, 0, \right],
+		["increase_gridlen", \kb, 0, \left],
 	],
 	windowing: [
 		["close_window", \kb, 0, \escape],
@@ -69,6 +69,7 @@
 			["edit_name", \kb, \alt, "r"],
 			["remove_selected", \kb, \alt, \delete],
 			["select_cell", \kb, 0, \kbpad8x4_flat],
+			["create_batch", \kb, \alt, "c"],
 	],
 	editplayer: [
 		["select_cell",							\kb, 0, \kbnumline],
@@ -112,20 +113,16 @@
 	],
 	group_tracks: 
 		~common_bindings.side_shared ++
+		~common_bindings.grid_display ++
 		~common_bindings.panels ++ [
 		["close_window", \kb, 0, \escape],
 	],
 	player_tracks: 
 		~common_bindings.side_shared ++
 		~common_bindings.panels ++
+		~common_bindings.grid_display ++
 		~common_bindings.playing ++ [
 		["close_window", \kb, 0, \escape],
-		["decrease_gridstep_x", \kb, \ctrl, \left],
-		["increase_gridstep_x", \kb, \ctrl, \right],
-		["decrease_gridstep_y", \kb, \ctrl, \down],
-		["increase_gridstep_y", \kb, \ctrl, \up],
-		["decrease_gridlen", \kb, 0, \left],
-		["increase_gridlen", \kb, 0, \right],
 
 	],
 	line_tracks: 
@@ -138,8 +135,8 @@
 			["increase_gridstep_x", \kb, \ctrl, "l"],
 			["decrease_gridstep_y", \kb, \ctrl, "k"],
 			["increase_gridstep_y", \kb, \ctrl, "j"],
-			["decrease_gridlen", \kb, 0, "h"],
-			["increase_gridlen", \kb, 0, "l"],
+			["decrease_gridlen", \kb, 0, "l"],
+			["increase_gridlen", \kb, 0, "h"],
 		],
 	effects:
 		~common_bindings.side_shared ++
@@ -170,12 +167,15 @@
 		["change_mod_kind", \kb, \altshift, "d"],
 		["remove_modulator", \kb, \shift, \f3],
 		["disconnect_modulator", \kb, 0, \f3],
+		["edit_selected_param", \kb, 0, \npenter],
+		//["edit_selected_param", \kb, 0, \enter],
 
 	],
 	side: 
 		~common_bindings.side_shared ++
 		~common_bindings.panels ++ [
 		["add_modenv", \kb, \ctrlalt, "o"], // debug
+		["rename_player", \kb, \ctrlalt, "r"],
 
 		//["edit_external_player", \kb, \alt, "e"],
 		//["open_timeline", \kb, \ctrlalt, "l"],

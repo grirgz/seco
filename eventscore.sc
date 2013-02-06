@@ -333,7 +333,7 @@
 					}
 				}
 			};
-			end = end + tmpno.sustain;
+			end = end + (tmpno.dur ?? tmpno.sustain);
 			if(set) {  self.set_end(end); };
 			end;
 		};,
@@ -472,10 +472,14 @@
 				start + dur;
 			};
 
-			notes = self.notes.copy.sort(self[\sort_func]);
+			//notes = self.notes.copy.sort(self[\sort_func]);
+			notes = self.notes.deepCopy.sort(self[\sort_func]);
 			notes = notes.select { arg no;
 				//no.time >= start and: { no.time <= end }
 				no.time >= start and: { no.time < end }
+			};
+			notes.collect { arg no;
+				no.time = no.time - start;
 			};
 			notes;
 		}
@@ -558,7 +562,8 @@
 			var realdur, normdur;
 			var vnotes;
 			var size;
-			notes = self.notescore.get_rel_notes(self.slice_start, self.slice_dur);
+			//notes = self.notescore.get_rel_notes(self.slice_start, self.slice_dur); // FIXME: why slices ?
+			notes = self.notescore.get_rel_notes;
 
 			notes.collect({arg no, x; no.numero = x }); // debug purpose
 			//notes.debug("update_note_dur: original notes");
@@ -848,6 +853,7 @@
 		},
 
 		update_note_dur: { arg self;
+			// somewhat deprecated
 			// manage start and end offset and silence and put result notes in self.vnotes
 			var find_next, find_prev, delta, prevdelta, idx, previdx;
 			var qnotes, normdur, realdur, size;

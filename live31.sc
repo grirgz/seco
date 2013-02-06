@@ -72,13 +72,26 @@ Mdef.side_gui;
 
 }
 )
+Mdef.main.save_project("live31.nimp");
+Mdef.main.load_project("live31.nimp");
 
+Mdef.main.save_project("live31.soft");
+Mdef.main.load_project("live31.soft");
 
-Mdef.main.save_project("live31.3");
-Mdef.main.load_project("live31.3");
+Mdef.main.save_project("live31.boom");
+Mdef.main.load_project("live31.boom");
+
+Mdef.main.save_project("live31.perc");
+Mdef.main.load_project("live31.perc");
+
+Mdef.main.save_project("live31.perc2");
+Mdef.main.load_project("live31.perc2");
 
 Debug.enableDebug = true;
 Debug.enableDebug = false;
+
+s.latency = 0.8
+s.latency
 
 (
 SynthDef(\lfo1, { arg out=0, freq=1;
@@ -337,7 +350,7 @@ Mdef.side_gui;
 Mdef.node(~player).external_player.make_gui;
 //~windowize.(~ci.layout);
 )
-
+1+1
 
 Mdef.main.midi_center.fixed_bindings[[\knob, 1]].name
 Mdef.main.midi_center.fixed_bindings
@@ -359,6 +372,24 @@ Mdef.node("ci osc_l1002").external_player.static_data[\spectrum].changed(\val)
 a = SimpleController(Mdef.node("ci osc_l1002").external_player.static_data[\spectrum])
 
 Mdef.node("ci osc_l1002").external_player.set_static_responders
+Mdef.node("osc1_l1097").get_arg(\noteline).get_scoreset.get_notescore.get_rel_notes.do(_.postln)
+Mdef.node("osc1_l1097").get_arg(\noteline).get_scoreset.get_notescore.notes
+Mdef.node("osc1_l1097").get_arg(\noteline).get_scoreset.update_notes
+Mdef.node("osc1_l1097").get_arg(\noteline).get_scoreset.notes.do(_.postln)
+Mdef.node("osc1_l1097").get_arg(\noteline).get_scoreset.slice_dur
+Mdef.node("osc1_l1097").get_arg(\noteline).get_scoreset.
+Mdef.node("osc1_l1097").get_arg(\noteline).get_scoreset.get_notescore.abs_start
+Mdef.node("osc1_l1097").get_arg(\noteline).get_scoreset.get_notescore.abs_end
+Mdef.node("osc1_l1097").get_arg(\noteline).get_scoreset.history.do{ arg ns; [ns.abs_start, ns.abs_end].postln; }
+
+(
+~ss = Mdef.node("osc1_l1099").get_arg(\noteline).get_scoreset.get_notescore;
+[~ss.abs_start, ~ss.abs_end].debug("abs start, end");
+~ss.notes.do(_.postln);
+"---------- abs".debug;
+~ss.get_abs_notes.do(_.postln);
+
+)
 
 
 SynthDescLib.at(\ci_osc3filter2).controls.collect(_.name)

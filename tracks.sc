@@ -426,7 +426,8 @@
 		var notes;
 		var first;
 		var offset = 0;
-		notes = self.controller.get_notes;
+		//notes = self.controller.get_notes;
+		notes = self.controller.current_notes;
 		//self.scan_notes(notes);
 
 		//3.d/o { arg j;
@@ -676,6 +677,7 @@
 
 	get_end: { arg self;
 		self.scoreset.get_notescore.get_end.debug("get_end");
+		self.scoreset.get_notescore.get_end - self.scoreset.get_notescore.abs_start
 	},
 
 	add_note: { arg self, abstime, sustain=0.5;
@@ -750,6 +752,7 @@
 
 	get_end: { arg self;
 		self.scoreset.get_notescore.get_end.debug("get_end");
+		self.scoreset.get_notescore.get_end - self.scoreset.get_notescore.abs_start
 	},
 
 	get_notescore: { arg self;
@@ -938,6 +941,7 @@
 	},
 
 	get_notes: { arg self;
+		debug("class_curve_track_controller: move note");
 		self.current_notes = self.notescore.get_abs_notes;
 		self.current_notes;
 	},
@@ -954,11 +958,12 @@
 	},
 
 	update_notes: { arg self;
-		self.get_node.get_arg(\noteline).get_scoreset.update_notes;
 		self.get_node.get_arg(\val).set_notes(self.notescore.get_rel_notes);
+		self.get_node.get_arg(\noteline).get_scoreset.update_notes;
 	},
 
 	move_note: { arg self, note, time, notekey;
+		debug("class_curve_track_controller: move note");
 		note.time = time;
 		note[self.notekey] = notekey;
 		self.notescore.set_abs_notes(self.current_notes);
@@ -1057,6 +1062,29 @@
 		self.gridstep.y = self.gridstep.y / 2;
 		self.changed(\gridstep);
 	},
+
+	get_bindings: { arg self;
+		[
+			[\increase_gridstep_x, {
+				self.increase_gridstep_x;
+			}],
+			[\decrease_gridstep_x, {
+				self.decrease_gridstep_x;
+			}],
+			[\increase_gridstep_y, {
+				self.increase_gridstep_y;
+			}],
+			[\decrease_gridstep_y, {
+				self.decrease_gridstep_y;
+			}],
+			[\increase_gridlen, {
+				self.increase_gridlen;
+			}],
+			[\decrease_gridlen, {
+				self.decrease_gridlen;
+			}],
+		]
+	},
 );
 
 ~class_group_tracks_controller = (
@@ -1091,6 +1119,7 @@
 	
 			self.get_main.commands.parse_action_bindings(\group_tracks, 
 
+				self.display.get_bindings ++ 
 				self.get_main.panels.side.get_shared_bindings ++ 
 				self.get_main.panels.side.get_windows_bindings ++ [
 
@@ -1147,6 +1176,7 @@
 	
 		self.get_main.commands.parse_action_bindings(\player_tracks, 
 			self.get_main.panels.side.get_shared_bindings ++ 
+			self.display.get_bindings ++ 
 			self.get_main.panels.side.get_windows_bindings ++ [
 			[\close_window, {
 				self.window.close;
@@ -1163,25 +1193,6 @@
 
 			[\panic, {
 				self.get_main.panic;
-			}],
-
-			[\increase_gridstep_x, {
-				self.display.increase_gridstep_x;
-			}],
-			[\decrease_gridstep_x, {
-				self.display.decrease_gridstep_x;
-			}],
-			[\increase_gridstep_y, {
-				self.display.increase_gridstep_y;
-			}],
-			[\decrease_gridstep_y, {
-				self.display.decrease_gridstep_y;
-			}],
-			[\increase_gridlen, {
-				self.display.increase_gridlen;
-			}],
-			[\decrease_gridlen, {
-				self.display.decrease_gridlen;
 			}],
 		]);
 	},
@@ -1222,6 +1233,7 @@
 	
 		self.get_main.commands.parse_action_bindings(\line_tracks, 
 			self.get_main.panels.side.get_shared_bindings ++
+			self.display.get_bindings ++ 
 			self.get_main.panels.side.get_windows_bindings ++ [
 			[\close_window, {
 				self.window.close;
@@ -1238,25 +1250,6 @@
 
 			[\panic, {
 				self.get_main.panic;
-			}],
-
-			[\increase_gridstep_x, {
-				self.display.increase_gridstep_x;
-			}],
-			[\decrease_gridstep_x, {
-				self.display.decrease_gridstep_x;
-			}],
-			[\increase_gridstep_y, {
-				self.display.increase_gridstep_y;
-			}],
-			[\decrease_gridstep_y, {
-				self.display.decrease_gridstep_y;
-			}],
-			[\increase_gridlen, {
-				self.display.increase_gridlen;
-			}],
-			[\decrease_gridlen, {
-				self.display.decrease_gridlen;
 			}],
 		]);
 	},
@@ -1323,6 +1316,12 @@
 		self.scoreset.update_notes;
 	},
 
+	set_note_key: { arg self, note, key, val;
+		note[key] = val;
+		self.scoreset.get_notescore.set_abs_notes(self.current_notes);
+		self.scoreset.update_notes;
+	},
+
 	remove_note: { arg self, notepoint;
 		var cons;
 		[notepoint.x].debug("class_step_track_controller: remove_note");
@@ -1367,6 +1366,7 @@
 
 	get_end: { arg self;
 		self.scoreset.get_notescore.get_end.debug("get_end");
+		self.scoreset.get_notescore.get_end - self.scoreset.get_notescore.abs_start
 	},
 
 );
@@ -1381,6 +1381,7 @@
 	view_size_x: 1500,
 	view_size_y: 1500,
 	block_dict: Dictionary.new,
+	moving_notes: List.new,
 	//roll_size: 400@400,
 
 	update_sizes: { arg self;
@@ -1473,6 +1474,7 @@
 				notepos = self.point_to_notepoint(pos);
 				notepos
 			};
+			self.current_modifiers = modifiers;
 
 			[modifiers, buttonNumber].debug("mouse_down_action: buttonNumber");
 			// 0 left, 1: right, 2: middle
@@ -1495,6 +1497,27 @@
 							self.controller.set_end(notepos.x);
 						},
 			));
+		}
+	},
+
+	mouse_up_action: { arg self;
+		{ arg view, x, y, modifiers, buttonNumber, clickCount;
+			var newx, newy, notepoint;
+			var block, current_pos;
+			self.current_modifiers = nil;
+			self.moving_notes.do { arg snum;
+				block = self.block_dict[snum];
+				[block, nil, notepoint].debug("block point notepoint");
+				current_pos = self.timeline.getNodeLoc1(snum);
+				newx = current_pos[0].clip(0,1).trunc(self.gridstep1.x);
+				newx.debug("newx");
+				newy = current_pos[1].clip(0,1-self.margin).trunc(1/128);
+				[block, newx@newy, notepoint].debug("block point notepoint");
+				notepoint = self.point_to_notepoint(newx@newy);
+				[block, newx@newy, notepoint].debug("block point notepoint");
+				self.controller.move_note(block, notepoint.x, notepoint.y);
+			};
+			self.moving_notes = List.new;
 		}
 	},
 
@@ -1545,21 +1568,40 @@
 			current_pos.debug("current_pos");
 			temp_pos = self.timeline.paraNodes[node.spritenum].temp;
 			temp_pos.debug("temp_pos");
-			if(temp_pos.x == 0) {
-				current_pos.debug("current_pos == 0");
-				newx = temp_pos.x;
-			} {
-				newx = current_pos[0].clip(0,1).trunc(self.gridstep1.x);
-			};
+			//if(temp_pos.x == 0) {
+			//	current_pos.debug("current_pos == 0");
+			//	newx = temp_pos.x;
+			//} {
+			//	newx = current_pos[0].clip(0,1).trunc(self.gridstep1.x);
+			//};
+			newx = current_pos[0].clip(0,1).trunc(self.gridstep1.x);
 			newx.debug("newx");
 			newy = current_pos[1].clip(0,1-self.margin).trunc(1/128);
-			
+
+			self.current_modifiers.debug("current_modifiers");
 			notepoint = self.point_to_notepoint(newx@newy);
 			notepoint.debug("notepoint");
+			if(self.current_modifiers.notNil and: { self.current_modifiers.isShift }) {
+				//resize
+				var temp_notepoint = self.point_to_notepoint(temp_pos);
+				var newlen = newx - temp_pos.x + self.gridstep1.x;
+				var newsustain = notepoint.x - temp_notepoint.x + self.controller.display.gridstep.x;
+				newlen = newlen * self.track_size.x;
+				[newlen, newsustain].debug("newlen, newsustain");
+				block = self.block_dict[node.spritenum];
+				self.controller.set_note_key(block, \sustain, newsustain);
+				self.timeline.paraNodes[node.spritenum].setLen = newlen;
+				tl.setNodeLoc1_( node.spritenum, temp_pos.x, temp_pos.y );
 			
-			block = self.block_dict[node.spritenum];
-			self.controller.move_note(block, notepoint.x, notepoint.y);
-			tl.setNodeLoc1_( node.spritenum, newx, newy );
+			} {
+				//move
+				debug("move");
+				
+				self.moving_notes.add(node.spritenum);
+				tl.setNodeLoc1_( node.spritenum, newx, newy );
+
+			}
+			
 		}
 	},
 
@@ -1611,6 +1653,7 @@
 		timeline.userView.minSize = self.view_size;
 		//self.timeline.maxHeight = 30;
 		timeline.mouseDownAction = self.mouse_down_action;
+		timeline.mouseUpAction = self.mouse_up_action;
 		timeline.mouseMoveAction = self.mouse_move_action;
 		timeline.nodeTrackAction = self.node_track_action;
 		"1".debug;
