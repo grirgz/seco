@@ -203,6 +203,10 @@
 		self.gridlen;
 	},
 
+	note_to_length: { arg self, note;
+		note.sustain * self.beatlen;
+	},
+
 	notes: { arg self, controller;
 		var tl;
 		var stext;
@@ -225,7 +229,7 @@
 
 				self.timeline.createNode(pos.x, pos.y);
 				self.timeline.setNodeSize_(spritenum, self.handle_size);
-				self.timeline.paraNodes[spritenum].setLen = note.sustain * self.beatlen;
+				self.timeline.paraNodes[spritenum].setLen = self.note_to_length(note);
 				self.timeline.paraNodes[spritenum].temp = pos;
 
 				//self.block_dict[spritenum] = block;
@@ -248,6 +252,11 @@
 
 ~class_step_track_view = ( // scoreline
 	parent: ~class_basic_track_view,
+
+	note_to_length: { arg self, note;
+		//min(note.sustain, self.controller.display.gridstep.x) * self.beatlen;
+		note.sustain * self.beatlen;
+	},
 	
 	new: { arg self, parent, controller;
 		self = self.deepCopy;
@@ -309,7 +318,7 @@
 	},
 
 	note_to_point: { arg self, note;
-		Point(note.time*self.beat_size_x, note.midinote.linlin(self.minnote-1, self.maxnote+1, self.track_size.y, 0));
+		Point(note.time*self.beatlen, note.midinote.linlin(self.minnote-1, self.maxnote+1, self.track_size.y, 0));
 	},
 );
 
@@ -686,6 +695,7 @@
 		if(abstime < self.get_end) {
 			note = (
 				sustain: self.display.gridstep.x,
+				//sustain: 0.1,
 			);
 			self.get_notescore.add_note(note, abstime);
 			self.get_notescore.debug("add_note: get_notes");
@@ -704,6 +714,7 @@
 		iabstime = abstime.trunc(self.display.gridstep.x);
 		if(iabstime < self.get_end) {
 			if(self.get_notescore.is_note_playing_at_abstime(abstime)) {
+			//if(self.get_notescore.is_note_playing_at_abstime(iabstime - self.display)) {
 				self.remove_note(abstime); 
 			} {
 				self.add_note(iabstime); 
@@ -1587,6 +1598,8 @@
 				var newlen = newx - temp_pos.x + self.gridstep1.x;
 				var newsustain = notepoint.x - temp_notepoint.x + self.controller.display.gridstep.x;
 				newlen = newlen * self.track_size.x;
+				newlen = newlen.abs;
+				newsustain = newsustain.clip(0.01,20);
 				[newlen, newsustain].debug("newlen, newsustain");
 				block = self.block_dict[node.spritenum];
 				self.controller.set_note_key(block, \sustain, newsustain);

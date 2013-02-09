@@ -10,6 +10,31 @@
 	dur: 1.12345
 );
 
+~default_scoreline = [ // FIXME: crash when no notes
+	(
+		midinote: \rest,
+		type: \rest,
+		sustain: 0.1,
+		start_silence: 0.5,
+		default_start_silence: 0.5,
+		end_silence: 2.0,
+		default_end_silence: 2.0,
+		start_offset: 0,
+		end_offset: 0,
+		velocity: 0.8,
+		dur: 0.5
+	),
+	(
+		sustain: 0.1,
+		velocity: 0.8,
+		dur: 1.5
+	),
+	(
+		sustain: 0.1,
+		velocity: 0.8,
+		dur: 2.0
+	),
+];
 
 ~default_noteline3 = [ // FIXME: crash when no notes
 	(
@@ -248,14 +273,32 @@
 
 ~make_notescore = { 
 	(
+		classtype: \notescore,
 		notes: List.new,
 		book: Dictionary.new,
 		notequant: nil, // used externally to quantify note time
 		abs_start: 0,
+		archive_data: [\abs_start, \abs_end, \notes],
 		no_first_rest: false,
 
 		sort_func: { arg a, b;
 			a.time < b.time;
+		},
+
+		load_data: { arg self, data;
+			self.archive_data.do { arg key;
+				if(data[key].notNil) {
+					self[key] = data[key]
+				}
+			};	
+		},
+
+		save_data: { arg self;
+			var data = IdentityDictionary.new;
+			self.archive_data.do { arg key;
+				data[key] = self[key]
+			};	
+			data;
 		},
 
 		add_note: { arg self, note, abstime, num;
@@ -315,6 +358,14 @@
 			};
 		},
 
+		//is_note_at_abstime: { arg self, abstime;
+		//	self.notes.any { arg no;
+		//		(abstime >= no.time) and: {
+		//			abstime < (no.time + no.sustain)
+		//		}
+		//	};
+		//},
+
 		set_start: { arg self, abstime;
 			self.abs_start = abstime;
 		},
@@ -333,7 +384,7 @@
 					}
 				}
 			};
-			end = end + (tmpno.dur ?? tmpno.sustain);
+			end = end + (tmpno.dur ?? (tmpno.sustain ?? 1));
 			if(set) {  self.set_end(end); };
 			end;
 		};,
@@ -529,6 +580,8 @@
 	scoreset;
 };
 
+
+
 ~make_scoreset_hack = { arg param;
 	(
 		parent: ~make_scoreset.(),
@@ -540,11 +593,32 @@
 		history_len: 8,
 		history: List.new,
 		history_index: 0,
-		archive_data: [\history_index, \history_len, \history, \next_notescore, \notescore],
+		archive_data: [\history_index, \history_len],
 
 
 		save_data: { arg self;
-			var data = Dictionary.new;
+			var data = IdentityDictionary.new;
+			var nsset = false, nnsset = false;
+			debug("scoreset: save_data");
+			data[\history] = List.new;
+			self.history.do { arg ns, idx;
+				[ns, idx].debug("ns");
+				data[\history].add(ns.save_data);
+				if(ns === self.notescore) {
+					data[\notescore] = idx;
+					nsset = true;
+				};
+				if(ns === self.next_notescore) {
+					data[\next_notescore] = idx;
+					nnsset = true;
+				};
+			};
+			if(nsset.not and:{self.notescore.notNil}) {
+				data[\notescore] = self[\notescore].save_data;
+			};
+			if(nnsset.not and: {self.next_notescore.notNil}) {
+				data[\next_notescore] = self[\next_notescore].save_data;
+			};
 			self.archive_data.do { arg key;
 				data[key] = self[key];
 			};
@@ -552,9 +626,33 @@
 		},
 
 		load_data: { arg self, data;
-			self.archive_data.do { arg key;
-				self[key] = data[key];
+			var nsset = false, nnsset = false;
+			debug("scoreset: load_data");
+			self.history = List.new;
+			data[\history].do { arg nsdata, idx;
+				var ns = ~make_notescore.value.load_data(nsdata);
+				self[\history].add(ns);
+				if(idx == data[\notescore]) {
+					self[\notescore] = ns;
+					nsset = true;
+				};
+				if(idx == data[\next_notescore]) {
+					self[\next_notescore] = ns;
+					nnsset = true;
+				};
 			};
+			if(nsset.not and:{data[\notescore].notNil}) {
+				self[\notescore].load_data(data[\notescore]);
+			};
+			if(nnsset.not and:{data[\next_notescore].notNil}) {
+				self[\next_notescore].load_data(data[\next_notescore]);
+			};
+			self.archive_data.do { arg key;
+				if(data[key].notNil) {
+					self[key] = data[key];
+				}
+			};
+			self.update_notes;
 		},
 
 		update_notes: { arg self;

@@ -181,10 +181,11 @@
 
 		set_param: { arg self, param, display;
 			var unset_bus_mode;
+			var dont_set_bus_mode = false;
 
-			unset_bus_mode = {
-				param.name.debug("UNSET BUSMODE");
-				param.set_bus_mode(false);
+			unset_bus_mode = { arg par;
+				par.name.debug("UNSET BUSMODE");
+				par.set_bus_mode(false);
 			};
 
 			bt_name.string = param.get_abs_label ?? param.name;
@@ -192,8 +193,14 @@
 			self.kind = \param;
 			
 			if( self.responder.notNil ) {
-				unset_bus_mode.();
 				self.responder.remove
+			};
+			if(self.old_param.notNil) {
+				if( self.old_param != param ) {
+					unset_bus_mode.(self.old_param);
+				} {
+					dont_set_bus_mode = true;
+				}
 			};
 			[param.name, param.classtype].debug("OOOOOOOOOOOOOOOOO");
 			if([\buf, \samplekit].includes(param.classtype)) {
@@ -207,13 +214,20 @@
 
 			param[\make_responder_translator].debug("before making translator");
 			param.make_responder_translator(vlayout);
+			self.old_param = param;
 			if(param.classtype == \control) {
-				param.name.debug("SET BUSMODE");
-				param.set_bus_mode(true);
-				vlayout.onClose = vlayout.onClose.addFunc({
-					unset_bus_mode.()
-				});
+				if(dont_set_bus_mode.not) {
+					param.name.debug("SET BUSMODE");
+					param.set_bus_mode(true);
+					vlayout.onClose = vlayout.onClose.addFunc({
+						debug("CLOSE MINIPARAM");
+						unset_bus_mode.(self.old_param)
+					});
+				} {
+					param.name.debug("DONT SET BUSMODE: same param");
+				}
 			};
+			self.old_param = param;
 			self.responder = ~make_view_responder.(vlayout, param, param_responder.(display));
 		},
 
@@ -1181,7 +1195,7 @@
 						}
 						{ \amp == param_name } {
 							if(self.model.current_mode != \mixer) {
-								param.debug("midi assign: amp param");
+								//param.debug("midi assign: amp param");
 								//param.midi.get_param.debug("verif param1");
 								main.commands.bind_param([\knob, 8], param);
 							};
@@ -1251,7 +1265,7 @@
 				//};
 				if(sel.notNil) {
 					player.select_param(sel);
-					self.model.selected_param = player.get_arg(sel);
+					//self.selected_param = player.get_arg(sel); //not used
 
 					if(param_types.param_mode.includes(sel)) {
 						"enable change_player_mode".debug;
@@ -1638,6 +1652,10 @@
 
 		get_shared_bindings: { arg self;
 			 [
+				[\edit_master_volume, {
+					~make_master_volume_edit_view.(main, [\knob, 0]);
+				}],
+
 				[\edit_tempo, {
 					~make_tempo_edit_view.(main, [\knob, 0]);
 				}],
@@ -2156,6 +2174,14 @@
 					self.reload_selected_slot;
 					//self.set_current_player(newplayer);
 
+				}],
+
+				[\quick_save_project, {
+					main.quick_save_project;
+				}],
+
+				[\quick_load_project, {
+					main.quick_load_project;
 				}],
 
 				[\load_colpreset, {

@@ -1923,7 +1923,7 @@
 									bobj.free;
 								};
 								"fin cleanup".debug;
-							}.defer(free_defer_time); 
+							}.defer(free_defer_time + s.latency); 
 						}
 					}
 				)

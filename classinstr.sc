@@ -191,7 +191,9 @@
 );
 
 ~class_ci_modslider_view = (
+	parent: ~class_ci_modknob_view,
 	new: { arg self, controller, size;
+		var modmixer;
 		self = self.deepCopy;
 
 		self.controller = { controller };
@@ -200,8 +202,17 @@
 		self.make_gui;
 		debug("BLLA2");
 
+		//self[\make_modslots] = ~class_ci_modknob_view[\make_modslots];
+
 		~make_class_responder.(self, self.namelabel, self.controller, [
 			\val, \label,
+		]);
+
+		modmixer = self.controller.get_player.modulation.get_modulation_mixer(self.controller.name);
+		self.modmixer = { modmixer };
+
+		~make_class_responder.(self, self.namelabel, modmixer, [
+			\range, \connection
 		]);
 	
 		debug("BLLA3");
@@ -252,6 +263,7 @@
 				//.minWidth_(75);
 				;
 				[vallabel, stretch:0, align:\center],
+			[self.make_modslots, stretch:0, align:\center],
 			nil
 		);
 		self.namelabel = label;
@@ -315,12 +327,6 @@
 		self.display = { display };
 		self.make_gui;
 
-		if(self.fader_ctrl.notNil) {
-			~make_class_responder.(self, self.fader, self.fader_ctrl, [
-				\val,
-			]);
-
-		};
 
 		self;
 	},
@@ -335,6 +341,11 @@
 		var header, vheader;
 		var body, vbody;
 		var vframe;
+		"ON EST LZ".debug;
+		vframe = View.new;
+		//self.fader = Slider.new
+		{
+
 		self.knobs = self.knobs_ctrl.collect { arg ctrl;
 			~class_ci_modknob_view.new(ctrl, self.display);
 		};
@@ -380,7 +391,6 @@
 		vheader.layout = header;
 		vheader.background = Color.gray(0.6);
 
-		vframe = View.new;
 		vframe.background = Color.gray(0.7);
 		vframe.layout = HLayout(
 			VLayout(
@@ -391,6 +401,7 @@
 		if(self.fader_ctrl.notNil) {
 			vframe.layout.add(
 				self.fader = Slider.new
+				//self.fader
 					.orientation_(\vertical)
 					.action_({
 						self.fader_ctrl.set_norm_val(self.fader.value)
@@ -403,6 +414,16 @@
 		vframe.layout.margins = 5;
 		header.margins = 3;
 		//vframe.layout.spacing = 1;
+
+		if(self.fader_ctrl.notNil) {
+			~make_class_responder.(self, self.layout, self.fader_ctrl, [
+				\val,
+			]);
+
+		};
+
+		}.defer( rrand(1,4) );
+
 		self.layout = vframe;
 		self.layout;
 	},
@@ -447,7 +468,7 @@
 );
 
 ~class_instr = (
-	static_data: List[],
+	static_data: IdentityDictionary.new,
 	ordered_args: List[],
 	simple_args: (),
 	data: IdentityDictionary.new,
@@ -992,6 +1013,56 @@
 			[sig1, sig2];
 			//[sig, sig];
 			//sig
+
+		}
+	
+	},
+);
+
+~class_ci_wrapfader = (
+	parent: ~class_instr,
+	new: { arg self, main, player, namer, input_class;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.namer = { namer };
+		self.synthdef_name = \ci_oscfader;
+
+		self.osc = input_class.new(main, player, self.make_namer("rah_"));
+
+		self.build_data;
+	
+		self;
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		
+		self.ordered_args = self.osc.get_ordered_args ++ [
+			outmix: ~make_control_param.(main, player, \outmix, \scalar, 0.5, \unipolar.asSpec),
+		];
+		self.static_data = self.osc.get_static_data;
+		self.data = IdentityDictionary.newFrom(self.ordered_args);
+		self.data.copy;
+	},
+
+	make_layout: { arg self;
+		self.layout = self.osc.make_layout(self.data[\outmix]);
+		self.layout;
+	},
+
+	synthfun: { arg self;
+		{ arg args;
+			var i = self.get_synthargs(args);
+			var sig1, sig2, sig;
+
+			sig = self.osc.synthfun.(args);
+			sig1 = SelectX.ar(i.outmix, [sig, DC.ar(0)]);
+			sig2 = SelectX.ar(i.outmix, [DC.ar(0), sig]);
+
+			[sig1, sig2];
 
 		}
 	
@@ -1552,6 +1623,7 @@
 				self.dadsr;
 			],
 			[
+				// FIXME: should be a dict, no ?
 				self.ienv_controls.collect { arg name;
 					[
 						name.asSymbol,
@@ -1586,6 +1658,93 @@
 
 			sig = Splay.ar(in, i.spread, i.amp, i.pan);
 			sig = sig * self.dadsr.synthfun.();
+			sig;
+
+		}
+	
+	},
+);
+
+~class_ci_noise = (
+	parent: ~class_instr,
+	new: { arg self, main, player, namer;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.namer = { namer };
+		self.build_data;
+
+		self.simple_args = (gate:1, doneAction:2);
+	
+		self;
+	},
+
+	get_variants: { arg self;
+		[
+			(
+				name: "White",
+				uname: \white,
+			),
+			(
+				name: "Brown",
+				uname: \brown,
+			),
+			(
+				name: "Gray",
+				uname: \gray,
+			),
+			(
+				name: "Clip",
+				uname: \clip,
+			),
+			(
+				name: "Pink",
+				uname: \pink,
+			),
+		]
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		var specs = self.get_specs;
+		self.help_build_data(
+			[
+				[
+					amp: ~make_control_param.(main, player, \amp, \scalar, 0.1, \amp.asSpec),
+				],
+			],
+			[
+				(
+					kind: ~class_param_kind_chooser_controller.new(\kind, self.get_variants),
+					enabled: ~class_param_static_controller.new(\enabled, specs[\onoff], 1),
+				)
+			]
+		)
+	},
+
+	make_layout: { arg self, fader;
+		var knobs = [\amp];
+		var frame_view;
+		self.knobs = knobs.collect { arg name;
+			self.data[name];
+		};
+		frame_view = ~class_ci_frame_view.new("Noise", self.knobs, self.static_data[\enabled], self.static_data[\kind], nil, fader);
+		self.layout = frame_view.layout;
+		self.layout;
+	},
+
+	synthfun: { arg self;
+		{ arg args;
+			var i = self.get_synthargs(args);
+			var sig;
+
+			sig = Instr(\ci_noise).value((
+				kind: i.kind,
+				amp: i.amp,
+			));
+			sig = self.bypass(i.enabled, sig, DC.ar(0));
 			sig;
 
 		}
@@ -1859,6 +2018,10 @@
 		self.oscs = 3.collect { arg idx;
 			~class_ci_oscfader.new(main, player, self.make_namer("osc%_".format(idx)));
 		};
+		self.oscs = self.oscs ++ [
+			//~class_ci_noise.new(main, player, self.make_namer("noise1_"));
+			~class_ci_wrapfader.new(main, player, self.make_namer("noise1_"), ~class_ci_noise);
+		];
 		self.filters = 2.collect { arg idx;
 			~class_ci_filter.new(main, player, self.make_namer("filter%_".format(idx)));
 		};
@@ -2038,6 +2201,7 @@
 		var content;
 		var modview;
 		var custom_view = View.new;
+		var tab_views = List.new;
 		self.tab_custom_view = custom_view;
 		self.modulation_controller = ~class_embeded_modulation_controller.new(self.get_main, self.get_player, nil, self.data[\filtermix]);
 		self.modulation_controller.make_bindings;
@@ -2045,23 +2209,38 @@
 		modview = ~class_embeded_modulation_view.new(self.modulation_controller);
 		self.modulation_controller.main_view = modview;
 
+		//content = [
+		//	"Master Env", self.master.make_layout_env,
+		//	"Routing", self.make_layout_routing,
+		//	"Voices", self.make_layout_voices,
+		//	"Effects", self.make_layout_effects,
+		//];
 		content = [
-			"Master Env", self.master.make_layout_env,
-			"Routing", self.make_layout_routing,
-			"Voices", self.make_layout_voices,
-			"Effects", self.make_layout_effects,
+			"Master Env", {  self.master.make_layout_env },
+			"Routing", {  self.make_layout_routing },
+			"Voices", {  self.make_layout_voices },
+			"Effects", {  self.make_layout_effects },
 		];
 		self.tabs_count = content.size/2;
 		content = content.clump(2).flop;
 		debug("NUIT 1");
 		body = StackLayout(*
 			content[1].collect { arg co;
-				View.new.layout_(co)
+				//View.new.layout_(co)
+				var view;
+				view = View.new;
+				tab_views.add(view);
+				view;
 			} ++ [
 				View.new.layout_(modview.body_layout),
 				//custom_view,
 			]
 		);
+		tab_views.do { arg view, idx;
+			//{
+				view.layout = content[1][idx].value
+			//}.defer( 1+idx )
+		};
 		debug("NUIT 2");
 		layout = VLayout(
 			HLayout(*
@@ -2238,6 +2417,10 @@
 		}
 	
 	},
+);
+
+~class_ci_noise3filter2 = (
+
 );
 
 //////////////////////////////////////////////////////
@@ -2471,7 +2654,13 @@ Instr(\p_flanger, { arg in, fbbus, mix, rate, feedback, depth;
 	});
 	ou;
 }, [\audio])
-	.storeSynthDef([\ar]);
+.storeSynthDef([\ar], metadata:(
+	specs: (
+		rate: ControlSpec(0,4,\lin,0,0),
+		depth: ControlSpec(0,4,\lin,0,0),
+	)
+
+));
 
 Instr(\p_chorus, { arg in, mix=0, rate, offset, depth;
 	var sig;
@@ -2485,7 +2674,13 @@ Instr(\p_chorus, { arg in, mix=0, rate, offset, depth;
 	sig = sig.sum;
 	SelectX.ar(mix, [in, sig]);
 }, [\audio])
-	.storeSynthDef([\ar]);
+.storeSynthDef([\ar], metadata:(
+	specs: (
+		rate: ControlSpec(0.0000001,4,\exp,0,0),
+		depth: ControlSpec(0.0000001,4,\exp,0,0),
+		offset: ControlSpec(0.0000001,1,\exp,0,0),
+	)
+));
 
 //Instr(\p_phaser, { arg in, mix=0, rate, feedback, depth;
 //	var sig;
@@ -2520,7 +2715,13 @@ Instr(\p_delay, { arg in, mix, damp, delay_left, delay_right;
 	sig = LPF.ar(sig, damp);
 	SelectX.ar(mix, [in, sig]);
 }, [\audio])
-	.storeSynthDef([\ar]);
+.storeSynthDef([\ar], metadata:(
+	specs: (
+		damp: ControlSpec(0,4,\lin,0,0),
+		delay_left: ControlSpec(0,4,\lin,0,0),
+		delay_right: ControlSpec(0,1,\lin,0,0),
+	)
+));
 
 
 Instr(\p_comb, { arg in, mix, delay, offset, decay;
@@ -2531,4 +2732,40 @@ Instr(\p_comb, { arg in, mix, delay, offset, decay;
 	//CheckBadValues.ar(sig,0,1);
 	SelectX.ar(mix, [in, sig]);
 }, [\audio])
-	.storeSynthDef([\ar]);
+.storeSynthDef([\ar], metadata:(
+	specs: (
+		delay: ControlSpec(0,4,\lin,0,0),
+		decay: ControlSpec(0,4,\lin,0,0),
+		offset: ControlSpec(0,1,\lin,0,0),
+	)
+));
+
+///////////////////////////////////
+
+Instr(\ci_noise, { arg kind, amp=0.1;
+	//TODO
+	var sig;
+	sig = switch(kind,
+		\white, {
+			WhiteNoise.ar(amp);
+		},
+		\pink, {
+			PinkNoise.ar(amp);
+		},
+		\brown, {
+			BrownNoise.ar(amp);
+		},
+		\gray, {
+			GrayNoise.ar(amp);
+		},
+		\clip, {
+			ClipNoise.ar(amp);
+		},
+		{
+			//kind.debug("p_noise: ERROR: noise kind not found");
+			WhiteNoise.ar(amp);
+		}
+	);
+	sig;
+
+}, [NonControlSpec()]);

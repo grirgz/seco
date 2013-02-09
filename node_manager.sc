@@ -189,6 +189,8 @@
 			var player;
 			livenodename = self.make_livenodename_from_libnodename(libnodename);
 			player = ~make_player.(main, libnodename);
+			player.get_arg(\dur).select_cell(0); // avoid too fast pattern per default
+			player.get_arg(\repeat).set_val(0);
 			player.name = livenodename;
 			player.uname = livenodename;
 			self.add_node(player);

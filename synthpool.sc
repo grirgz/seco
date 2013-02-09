@@ -1,3 +1,60 @@
+//////////////////// modulators
+
+SynthDef(\lfo1, { arg out=0, freq=1, amp=1;
+	var sig = SinOsc.kr(freq);
+	sig = sig * amp;
+	Out.kr(out, sig);
+}, metadata:(specs:(
+	freq: \lofreq.asSpec
+))).store;
+
+SynthDef(\lfo_tri, { arg out=0, freq=1;
+	var sig = LFTri.kr(freq);
+	Out.kr(out, sig);
+}, metadata:(specs:(
+	freq: \lofreq.asSpec
+))).store;
+
+SynthDef(\lfo_asr, { arg out=0, freq=1, gate=1, attackTime=0.1, releaseTime=0.1, doneAction=0;
+	var sig = SinOsc.kr(freq);
+	sig = sig * EnvGen.ar(Env.asr(attackTime,1,releaseTime),gate,doneAction:doneAction);
+	Out.kr(out, sig);
+}, metadata:(specs:(
+	freq: \lofreq.asSpec
+))).store;
+
+SynthDef(\line1, { arg out=0, duration=0.5;
+	var sig = Line.kr(0, 1, duration);
+	Out.kr(out, sig);
+}, metadata:(specs:(
+	duration: ControlSpec(0.001,4,\lin, 0, 1)
+))).store;
+
+
+SynthDef(\adsr1, { arg out, attack, gate=1, doneAction=0;
+	var sig = EnvGen.kr(Env.adsr(attack,0.1,1,0.1), gate, doneAction:doneAction);
+	Out.kr(out, sig);
+}).add;
+
+SynthDef(\comb1, { arg in, out, mix=0.5, maxdelaytime=0.4, delaytime=0.4, decaytime=2, gate=1;
+	//var sig = EnvGen.kr(Env.adsr(attack,0.1,1,0.1), gate, doneAction:doneAction);
+	var sig, sigwet;
+	sigwet = In.ar(in, 2);
+	sig = CombL.ar(sigwet, maxdelaytime, delaytime, decaytime);
+	sig = SelectX.ar(mix, [sigwet, sig]);
+	Out.ar(out, sig);
+}).store;
+
+SynthDef(\modenv, { |out, val=0, t_trig=1, gate=1, tsustain, curve=0, doneAction=0|
+       var start = In.kr(out, 1);
+	   var sig;
+	   //start.poll;
+	   sig = EnvGen.kr(Env([start, val], [tsustain], curve), t_trig, doneAction: doneAction);
+	   //sig.poll;
+       ReplaceOut.kr(out, sig);
+}).store;
+
+//////////////////// synths
 
 	SynthDef(\string, { | out=0 gate=1 freq=1000 |
 		var aEnv, osc, flt;

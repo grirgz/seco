@@ -48,6 +48,7 @@
 		["edit_external_player", \kb, \alt, "e"],
 	],
 	side_shared: [
+		["edit_master_volume", \kb, \alt, "v"],
 		["edit_tempo", \kb, \ctrlalt, "e"], // t open terminal
 		["edit_quant", \kb, \ctrlalt, "q"],
 		["edit_barrecord", \kb, \ctrlalt, "b"],
@@ -222,6 +223,9 @@
 
 		//["load_colpreset", \kb, \ctrl, \f1],
 		//["save_colpreset", \kb, \ctrl, \f2],
+		["quick_save_project", \kb, \ctrlaltshift, "s"],
+		["quick_load_project", \kb, \ctrlaltshift, "l"],
+
 
 		["load_preset", \kb, \ctrl, \f1],
 		["save_preset", \kb, \ctrl, \f2],

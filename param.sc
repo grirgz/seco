@@ -10,13 +10,8 @@
 	});
 };
 
-~pdynarray = { arg fun, userepeat=false;
-	Prout({ arg ev;
-		var idx;
-		var val = 0;
+~compute_repeat = { arg ev, userepeat;
 		var repeat;
-		userepeat.debug("=============================pdynarray:userepeat");
-		[ev[\instrument], ev[\current_mode]].debug("pdynarray:current_mode");
 		switch(userepeat,
 			false, {
 				repeat = ~general_sizes.safe_inf;	
@@ -55,6 +50,17 @@
 			}
 		);
 		repeat.debug("pdynarray:repeat");
+		repeat;
+};
+
+~pdynarray = { arg fun, userepeat=false;
+	Prout({ arg ev;
+		var idx;
+		var val = 0;
+		var repeat;
+		userepeat.debug("=============================pdynarray:userepeat");
+		[ev[\instrument], ev[\current_mode]].debug("pdynarray:current_mode");
+		repeat = ~compute_repeat.(ev, userepeat);
 		repeat.do {
 			idx = 0;
 			val = fun.(idx, ev);
@@ -676,6 +682,11 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 ~make_barrecord_edit_view = { arg main, midi_cc;
 	var param = ~make_barrecord_param.(main, \barrecord, EventPatternProxy);
 	~make_edit_number_view.(main, "barrecord", param, midi_cc);
+};
+
+~make_master_volume_edit_view = { arg main, midi_cc;
+	var param = ~make_master_volume_param.(main, \tempo);
+	~make_edit_number_view.(main, "Master Volume", param, midi_cc);
 };
 
 ~make_tempo_edit_view2 = { arg main, midi_cc;
@@ -1963,6 +1974,19 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	res;
 };
 
+~make_master_volume_param = { arg main, name;
+	var set_fun = { arg val; 
+		s.volume.volume = val;
+	};
+	var get_fun = { s.volume.volume };
+	var res = (
+		parent: ~make_binded_number_param.(main, name, \db.asSpec, get_fun, set_fun)
+
+	);
+	res.midi = main.midi_center.get_midi_control_handler(res);
+	res;
+};
+
 
 ~make_buf_param = { arg name, default_value, player, spec;
 
@@ -2697,17 +2721,30 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			self.changed(\notes);
 			self.changed(\selected);
 		},
+
+		//vpattern: { arg self; 
+			// deprecated: cause time mismatch when adding notes
+		//	~pdynarray.( { arg idx, no;
+		//		self.tick;
+		//		//self.classtype.debug("classtype!!!!!!!!");
+		//		no = self.get_note(idx);
+		//		//"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".debug;
+		//		//self.classtype.debug("classtype");
+		//		//idx.debug("note number");
+		//		//no.debug("note");
+		//		no;
+		//	}, self.classtype );
+		//},
 		vpattern: { arg self; 
-			~pdynarray.( { arg idx, no;
-				self.tick;
-				//self.classtype.debug("classtype!!!!!!!!");
-				no = self.get_note(idx);
-				//"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".debug;
-				//self.classtype.debug("classtype");
-				//idx.debug("note number");
-				//no.debug("note");
-				no;
-			}, self.classtype );
+			Prout{ arg ev;
+				var repeat = ~compute_repeat.(ev, self.classtype);
+				repeat.do {
+					var notes = self.scoreset.get_notes;
+					notes.do { arg no;
+						ev = no.yield;
+					}
+				}
+			};
 		},
 
 		init: { arg self;
@@ -2726,7 +2763,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	// FIXME: modes
 	fun = switch(name,
 		\noteline, { ~make_noteline_param },
-		\scoreline, { ~make_noteline_param },
+		\scoreline, { ~make_scoreline_param },
 		\stepline, { ~make_stepline_param },
 		\nodeline, { ~make_nodeline_param },
 		\sampleline, { ~make_sampleline_param },
@@ -2797,7 +2834,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	ret = (
 		parent: ~make_parent_recordline_param.(name, default_value),
 		classtype: \scoreline,
-		notes: ~default_noteline3.deepCopy
+		notes: ~default_scoreline.deepCopy
 	);
 	ret.init;
 	ret;
@@ -3155,29 +3192,37 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		set_bus_mode: { arg self, val=true;
 			var reject = [\sustain, \dur, \repeat, \stepline, \segdur, \stretchdur];
 			if(reject.includes(self.name).not and: {self.get_main.model.bus_mode_enabled}) {
-				if(val != self.scalar.bus_mode) {
-					self.scalar.bus_mode = val;
+				//if(val != self.scalar.bus_mode) {
+					[self.name, val, self.scalar.bus_mode, self.scalar.bus_mode_counter]
+						.debug("make_control_param: set_bus_mode: name, val, mode, count");
 					if(val) {
 						if(self.scalar.bus_mode_counter == 0) {
+							debug("make_control_param: set_bus_mode: make bus");
+							self.scalar.should_free_bus_mode = false;
 							self.scalar.bus = Bus.control(s,1);
 							self.scalar.bus.set(self.scalar.val);
+							self.scalar.bus_mode = true;
 						};
 						self.scalar.bus_mode_counter = self.scalar.bus_mode_counter + 1;
 					} {
 						self.scalar.bus_mode_counter = self.scalar.bus_mode_counter - 1;
 						if(self.scalar.bus_mode_counter == 0) {
-							self.scalar.bus.free;
-							self.scalar.bus = nil;
+							debug("make_control_param: set_bus_mode: free bus");
+							self.scalar.bus_mode = false;
+							self.scalar.should_free_bus_mode = true;
+							//self.scalar.bus.free;
+							//self.scalar.bus = nil;
 						}
-					}
+					};
 
-				};
+				//};
 			}
 		},
 
 		scalar: (
 			//quoi: { "QUOI".debug; }.value,
 			muted: false,
+			should_free_bus_mode: false,
 			bus_mode: false,
 			bus_mode_counter: 0,
 			selected_cell: 0, // always 0
@@ -3563,7 +3608,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				},
 				\sustain, {
 					{ arg ev, mode;
-						if(ev[mode].sustain.notNil) {
+						if(ev[mode].sustain.notNil and:{mode != \scoreline}) {
 							ev[mode].sustain
 						} 
 					}
@@ -3580,9 +3625,22 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				} {
 					switch(kind, 
 						\scalar, {
+							if(self.scalar.should_free_bus_mode) {
+								debug("vpattern: BUS MODE: free bus");
+								self.scalar.should_free_bus_mode = false;
+								self.scalar.bus.free;
+								self.scalar.bus = nil;
+							};
 							if(self.scalar.bus_mode) {
-								ev = self.scalar.bus.asMap.yield;
+								if(self.scalar.bus.isNil or: {self.scalar.bus.index.isNil}) {
+									debug("~make_control_param: vpattern: scalar: bus_mode: Error: bus not allocated");
+									ev = self.scalar.get_val.yield;
+								} {
+									debug("vpattern: BUS MODE enabled");
+									ev = self.scalar.bus.asMap.yield;
+								};
 							} {
+								debug("vpattern: NO BUS MODE");
 								ev = self.scalar.get_val.yield;
 							}
 						},
@@ -3626,7 +3684,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 							var bus;
 							if(ev[\ppatch].notNil) {
 								bus = ev[\ppatch].get_mod_bus(player.uname, self.name);
-								if(bus.isNil) {
+								if(bus.isNil or:{bus.index.isNil}) { // why bus index can be freed ?
 									[player.uname, self.name, ev].debug("============== bus is nil: ev");
 									ev = self.scalar.val.yield;
 								} {

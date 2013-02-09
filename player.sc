@@ -212,7 +212,7 @@
 		var val;
 		arglist.add(\current_mode);
 		arglist.add(Pfunc{ self.get_mode });
-		([\repeat] ++ self.available_modes ++ [\stretchdur, \segdur,  \dur]).do { arg key;
+		([\repeat] ++ self.available_modes ++ [\sustain, \stretchdur, \segdur,  \dur]).do { arg key;
 			if(self.data[key].notNil) {
 				val = self.get_arg(key);
 				if(val.notNil) {
@@ -241,7 +241,7 @@
 	clone: { arg self;
 		var pl;
 		var options = (copy_subplayers: true);
-		pl = ~make_player_from_synthdef.(self.get_main,self.defname);
+		pl = ~make_player.(self.get_main,self.instrname);
 		pl.load_data( self.save_data(options).deepCopy, options );
 		pl;
 	},
@@ -1090,6 +1090,7 @@
 
 ~class_modenv_player = (
 	parent: ~class_synthdef_player,
+	subkind: \modenv,
 	new: { arg self, main, instr, data=nil;
 		var desc;
 		var notescore, notes;
@@ -1103,7 +1104,7 @@
 		if(desc.isNil, {
 			("ERROR: make_player_from_synthdef: SynthDef not found: "++defname).error
 		});
-		defname.debug("loading player from");
+		defname.debug("loading modenv player from");
 
 		self.get_main = { arg self; main };
 		self.get_desc = { arg self; desc };
@@ -1142,6 +1143,13 @@
 		self.build_real_sourcepat;
 
 		self;
+	},
+
+	load_data: { arg self, data, options;
+		var notescore;
+		~class_synthdef_player[\load_data].(self, data, options);
+		notescore = self.get_arg(\noteline).get_scoreset.get_notescore;
+		self.get_arg(\val).set_notes(notescore.get_rel_notes);
 	},
 );
 
