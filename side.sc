@@ -160,11 +160,11 @@
 		selected: { arg self, bool;
 			{
 				if(bool) {
-					self.name.debug("mini_param_group_widget: selected: je suis select");
-					bt_name.debug("bt_name");
+					//self.name.debug("mini_param_group_widget: selected: je suis select");
+					//bt_name.debug("bt_name");
 					bt_name.background = Color.newHex("B4B1BA");
 				} {
-					self.name.debug("mini_param_group_widget: selected: je suis DEselect");
+					//self.name.debug("mini_param_group_widget: selected: je suis DEselect");
 					bt_name.background = Color.newHex("54516A");
 				}
 			}.defer;
@@ -184,7 +184,7 @@
 			var dont_set_bus_mode = false;
 
 			unset_bus_mode = { arg par;
-				par.name.debug("UNSET BUSMODE");
+				//par.name.debug("UNSET BUSMODE");
 				par.set_bus_mode(false);
 			};
 
@@ -202,7 +202,7 @@
 					dont_set_bus_mode = true;
 				}
 			};
-			[param.name, param.classtype].debug("OOOOOOOOOOOOOOOOO");
+			//[param.name, param.classtype].debug("OOOOOOOOOOOOOOOOO");
 			if([\buf, \samplekit].includes(param.classtype)) {
 				self.set_display_mode(\text);
 			} {
@@ -212,19 +212,19 @@
 			slider.action = slider_action.(param);
 
 
-			param[\make_responder_translator].debug("before making translator");
+			//param[\make_responder_translator].debug("before making translator");
 			param.make_responder_translator(vlayout);
 			self.old_param = param;
 			if(param.classtype == \control) {
 				if(dont_set_bus_mode.not) {
-					param.name.debug("SET BUSMODE");
+					//param.name.debug("SET BUSMODE");
 					param.set_bus_mode(true);
 					vlayout.onClose = vlayout.onClose.addFunc({
-						debug("CLOSE MINIPARAM");
+						//debug("CLOSE MINIPARAM");
 						unset_bus_mode.(self.old_param)
 					});
 				} {
-					param.name.debug("DONT SET BUSMODE: same param");
+					//param.name.debug("DONT SET BUSMODE: same param");
 				}
 			};
 			self.old_param = param;

@@ -2967,18 +2967,19 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		refresh: { arg self; },
 		vpattern: { arg self; 
 			Pfunc({ arg ev;
+				var normal_type = ev[\type] ?? \note;
 				if(ev[\muted]) {
 					\rest
 				} {
 					if(ev[\current_mode] == \stepline) {
 						if(ev[\stepline] > 0) {
-							\note
+							normal_type
 						} {
 							\rest
 						}
 					} {
 						if(ev[ev[\current_mode]].type != \rest) {
-							\note;
+							normal_type;
 						} {
 							\rest;
 						}
@@ -3577,6 +3578,167 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			}
 		},
 
+		update_vpattern: { arg self;
+			var kind, mode;
+			kind = self.current_kind;
+			mode = player.get_mode;
+			score_val = switch(self.name,
+				\dur, {
+					{ arg ev;
+						if(ev[mode].dur.notNil) {
+							//[player.uname, self.name, mode, ev[mode], ev[\stretchdur], ev].debug("CONTROL param: vpattern");
+							ev[mode].dur * ev[\stretchdur];
+						}
+					}
+				},
+				\freq, {
+					{ arg ev;
+						//ev.debug("vpattern: freq");
+						if(ev[mode].midinote.notNil) {
+							ev[mode].midinote.midicps
+						}
+					};
+				},
+				\amp, { // FIXME: handle sampleline; does pseg/bus need velocity adjusting ?
+					{ arg ev;
+						if(ev[mode].velocity.notNil) {
+							main.calcveloc(self.scalar.get_val,(ev[ev[\current_mode]].velocity ?? 0.5));	
+						}
+					};
+				},
+				\sustain, {
+					{ arg ev;
+						if(ev[mode].sustain.notNil and:{mode != \scoreline}) {
+							ev[mode].sustain
+						} 
+					}
+				},
+				// else
+				{
+					nil
+				}
+			);
+			pat_val = 
+				var idx, val;
+				if(self.pkey_mode and: { ev.includesKey(self.name) }) {
+					ev = ev[self.name].yield;
+				} {
+					switch(kind, 
+						\scalar, {
+							if(self.scalar.should_free_bus_mode) {
+								//debug("vpattern: BUS MODE: free bus");
+								self.scalar.should_free_bus_mode = false;
+								self.scalar.bus.free;
+								self.scalar.bus = nil;
+							};
+							if(self.scalar.bus_mode) {
+								if(self.scalar.bus.isNil or: {self.scalar.bus.index.isNil}) {
+									debug("~make_control_param: vpattern: scalar: bus_mode: Error: bus not allocated");
+									ev = self.scalar.get_val.yield;
+								} {
+									//debug("vpattern: BUS MODE enabled");
+									ev = self.scalar.bus.asMap.yield;
+								};
+							} {
+								//debug("vpattern: NO BUS MODE");
+								ev = self.scalar.get_val.yield;
+							}
+						},
+						\seq, {
+							idx = 0;
+							val = self.seq.val[idx];
+							while( { val.notNil } , { 
+								//ev.debug("seQ: ev");
+								ev = val.yield;
+								idx = idx + 1;
+								val = self.seq.val[idx];
+							});
+						},
+						\seg, {
+							//[
+							//	ev[\elapsed], ev[\segdur], 
+							//	(self.seq.val.size),
+							//	ev[\elapsed]/ev[\segdur], 
+							//	(ev[\elapsed]/ev[\segdur]) % (self.seq.val.size),
+							//	self.seq.val.blendAt((ev[\elapsed]/ev[\segdur]) % (self.seq.val.size))
+							//].debug("seggggggggggggggggg: elapsed, segdur, size, el/dur, el/dur%size, res");
+							//self.seq.debug("seg: seq");
+							//self.seq.val.debug("seg: seq.val");
+							//ev.debug("seg: ev");
+							//self.seg.debug("seg: seg");
+							//ev = (self.seq.val++[self.seq.val[0]]).blendAt((ev[\elapsed]/ev[\segdur]) % (self.seq.val.size)).yield;
+							//ev = 500.yield;
+							//[
+							//	ev[\elapsed], ev[\segdur], 
+							//	ev[\elapsed]/ev[\segdur], 
+							//	(self.seg.val.size),
+							//	(ev[\elapsed]/ev[\segdur]) % (self.seg.val.size),
+							//	self.seg.val.blendAt((ev[\elapsed]/ev[\segdur]) % (self.seg.val.size))
+							//].debug("seggggggggggggggggg: elapsed, segdur, size, el/dur, el/dur%size, res");
+							ev = (self.seg.val++[self.seg.val[0]]).blendAt((ev[\elapsed]/ev[\segdur]) % (self.seg.val.size)).yield;
+						},
+						\preset, {
+							ev = self.preset.val[self.preset.selected_cell].yield
+						},
+						\modulation, {
+							var bus;
+							if(ev[\ppatch].notNil) {
+								bus = ev[\ppatch].get_mod_bus(player.uname, self.name);
+								if(bus.isNil or:{bus.index.isNil}) { // why bus index can be freed ?
+									[player.uname, self.name, ev].debug("============== bus is nil: ev");
+									ev = self.scalar.val.yield;
+								} {
+									ev = bus.asMap.yield;
+								}
+							} {
+								[ev, player.uname, self.name].debug("param modulation: ppatch not found");
+								ev = self.scalar.val.yield;
+							};
+						},
+						\bus, {
+							ev = self.bus.get_bus.asMap.yield;
+						},
+						\recordbus, {
+							ev = self.bus.get_bus.asMap.yield;
+						},
+						// else
+						{
+							[param.name, self.current_kind].debug("ERROR: param kind dont match");
+							ev = 0.yield;
+						}
+					)
+				}
+			};
+			self.get_vpattern_value = if(score_val.isNil) {
+				pat_val;
+			} {
+				if(mode == \stepline) {
+					pat_val;
+				} {
+					{ arg self, ev;
+						var val;
+						val = score_val.(ev);
+						if(val.isNil) {
+							ev = pat_val.(self, ev);
+						} {
+							ev = val.yield;
+						};
+					}
+				}
+			};
+			
+		},
+
+		vpattern_static: { arg self; 
+
+			Prout({ arg ev;
+				var repeat = ~general_sizes.safe_inf;
+				repeat.do { arg x;
+					ev = self.get_vpattern_value(ev);
+				}
+			});
+		},
+
 		vpattern: { arg self; 
 			var score_val;
 			var pat_val;
@@ -3626,7 +3788,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 					switch(kind, 
 						\scalar, {
 							if(self.scalar.should_free_bus_mode) {
-								debug("vpattern: BUS MODE: free bus");
+								//debug("vpattern: BUS MODE: free bus");
 								self.scalar.should_free_bus_mode = false;
 								self.scalar.bus.free;
 								self.scalar.bus = nil;
@@ -3636,11 +3798,11 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 									debug("~make_control_param: vpattern: scalar: bus_mode: Error: bus not allocated");
 									ev = self.scalar.get_val.yield;
 								} {
-									debug("vpattern: BUS MODE enabled");
+									//debug("vpattern: BUS MODE enabled");
 									ev = self.scalar.bus.asMap.yield;
 								};
 							} {
-								debug("vpattern: NO BUS MODE");
+								//debug("vpattern: NO BUS MODE");
 								ev = self.scalar.get_val.yield;
 							}
 						},
@@ -3741,7 +3903,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			});
 		},
 
-		vpattern2: { arg self; 
+		vpattern_old: { arg self; 
 			var segf, scalf, pref, scalm;
 			// segf: noteline seg
 			// scalf: noteline scalar

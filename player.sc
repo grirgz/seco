@@ -212,7 +212,8 @@
 		var val;
 		arglist.add(\current_mode);
 		arglist.add(Pfunc{ self.get_mode });
-		([\repeat] ++ self.available_modes ++ [\sustain, \stretchdur, \segdur,  \dur]).do { arg key;
+		arglist.add(\muted); arglist.add(Pfunc({ self.muted }));
+		([\repeat] ++ self.available_modes ++ [\sustain, \stretchdur, \segdur,  \dur, \type]).do { arg key;
 			if(self.data[key].notNil) {
 				val = self.get_arg(key);
 				if(val.notNil) {

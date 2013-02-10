@@ -642,7 +642,9 @@ if(~silent_control_bus.isNil) {
 			livenodename.debug("livenodename");
 			//main.model.livenodepool.keys.debug("livenodepool");
 			self.model.livenodepool[newlivenodename] = self.model.livenodepool[livenodename].clone;
-			self.model.livenodepool[newlivenodename].name = newlivenodename;
+			if(self.model.livenodepool[livenodename].name == self.model.livenodepool[livenodename].uname) {
+				self.model.livenodepool[newlivenodename].name = newlivenodename;
+			};
 			self.model.livenodepool[newlivenodename].uname = newlivenodename;
 			newlivenodename;
 		},

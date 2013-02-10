@@ -78,6 +78,9 @@ Mdef.side_gui;
 Mdef.main.save_project("live31.tintin");
 Mdef.main.load_project("live31.tintin");
 
+Mdef.main.save_project("live31.tintin-pink");
+Mdef.main.load_project("live31.tintin-pink");
+
 Mdef.main.save_project("live31.zetest1");
 Mdef.main.load_project("live31.zetest1");
 
@@ -105,6 +108,7 @@ Debug.enableDebug = false;
 s.latency = 3
 s.latency = 1.2
 s.latency = 1.0
+s.latency = 0.2
 
 
 (
@@ -122,3 +126,30 @@ SynthDef(\osc1, { arg out, gate=1, freq=300, amp=0.1, ffreq=200, rq=0.1, attack=
 }).store;
 
 )
+
+
+
+(
+
+~g = Group.new;
+~g.register;
+~g.addDependant({ arg grp, status;
+	[grp,status].debug("free");
+	if(status == \n_end) {
+		grp.releaseDependants;
+		debug("release");
+	}
+
+});
+~g.onFree({ "bla" });
+)
+~g.free
+
+
+
+Mdef.node("ci osc3filter2_l1066").modulation.get_modulators[nil]
+Mdef.node("ci osc3filter2_l1066").modulation.get_modulation_mixer(0).get_slots
+Mdef.node("ci osc3filter2_l1066").modulation.get_modulation_mixers.keys
+Mdef.node("ci osc3filter2_l1066").modulation.get_modulation_mixer(\filter1_arg1).get_slots[0].name
+Mdef.node("ci osc3filter2_l1066").modulation.get_modulation_mixer(\ampcomp).get_slots
+Mdef.node("ci osc3filter2_l1066").modulation.get_modulation_mixers.keysValuesDo { arg key, val; [key, val.get_slots].debug; }

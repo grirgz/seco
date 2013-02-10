@@ -1363,7 +1363,7 @@
 		data[\modulation_mixers] = Dictionary.new;
 		self.modulation_mixers.keysValuesDo { arg key, val;
 			data[\modulation_mixers][key] = val.save_data;
-			[key, data[\modulation_mixers][key]].debug("class_modulation_manager: save_data: key, data");
+			//[key, data[\modulation_mixers][key]].debug("class_modulation_manager: save_data: key, data");
 		};
 		data;
 	},
@@ -1555,7 +1555,8 @@
 		var free_defer_time = 1; // FIXME: hardcoded
 		var out_bus = 0;
 		var mainplayer = self.player;
-		Pspawner({ arg spawner;
+		var pspawner;
+		pspawner = Pspawner({ arg spawner;
 			var str;
 			var main_note_pat;
 			var mixer_list = List.new;
@@ -1575,6 +1576,7 @@
 			var allocator_note_pattern;
 			var note_bus_alloc_list = List.new;
 			var clean_started = false;
+			var cleanup_function;
 			"$$$$$$$$$$$$$$$$$$$$ make_modulator_pattern: START".debug;
 
 			ppatch = (
@@ -1752,20 +1754,26 @@
 			walk_modulators = { arg player, kind=\feedback;
 				player.modulation.get_modulation_mixers.keysValuesDo { arg key, modmixer;
 					if(modmixer.get_slots.size > 0) {
+						var can_make_mixer = false;
 						modmixer.get_slots.keysValuesDo { arg slotidx, modstruct, idx;
 							var modname = mainplayer.modulation.get_modulators[modstruct.name];
 							var modnode = mainplayer.get_main.get_node(modname);
-							if(modname.notNil and: {done_modulators.includesEqual(modname).not}) {
-								done_modulators = done_modulators.add(modname);
-								if(modnode.modulation.mod_kind == \pattern) {
-									pattern_modulator_list.add( make_modulator_pattern.(mainplayer, modnode) )
-								} {
-									note_modulator_list.add( make_modulator_pattern.(mainplayer, modnode) )
-								};
-								walk_modulators.(modnode);
+							if(modname.notNil) {
+								can_make_mixer = true;
+								if(done_modulators.includesEqual(modname).not) {
+									done_modulators = done_modulators.add(modname);
+									if(modnode.modulation.mod_kind == \pattern) {
+										pattern_modulator_list.add( make_modulator_pattern.(mainplayer, modnode) )
+									} {
+										note_modulator_list.add( make_modulator_pattern.(mainplayer, modnode) )
+									};
+									walk_modulators.(modnode);
+								}
 							}
 						};
-						make_mixer_pattern.( player, key, modmixer, kind );
+						if(can_make_mixer) {
+							make_mixer_pattern.( player, key, modmixer, kind );
+						}
 					};
 				};
 			};
@@ -1792,12 +1800,6 @@
 			//};
 
 
-			///////// creating global groups
-
-			ppatch.global_group[\modulator] = Group.new(s);
-			ppatch.global_group[\mixer] = Group.after(ppatch.global_group[\modulator]);
-			ppatch.global_group[\synth] = Group.after(ppatch.global_group[\mixer]);
-			ppatch.global_group[\effects] = Group.after(ppatch.global_group[\synth]);
 
 			///////// building main pattern
 
@@ -1822,15 +1824,16 @@
 							if(status == \n_end) {
 								"main_note_pat: freeing".debug;
 								note_group.keysValuesDo { arg gname, gobj;
-									gname.debug("free note group");
+									[gname, gobj].debug("main_note_pat: free note group");
 									if(gname != mainplayer.name) {
 										gobj.free
 									}
 								};
 								note_bus.keysValuesDo { arg bname, bobj;
-									bname.debug("free note bus");
+									[bname, bobj].debug("main_note_pat: free note bus");
 									bobj.free;
 								};
+								grp.releaseDependants;
 							}
 						});
 						group;
@@ -1841,8 +1844,8 @@
 				\type, \rest,
 				\ppatch, Pfunc{ppatch},
 				\alloc, Pfunc{ arg ev;
-					ev[\ppatch].note_bus = IdentityDictionary.new;
-					ev[\ppatch].note_group = IdentityDictionary.new;
+					//ev[\ppatch].note_bus = IdentityDictionary.new;
+					//ev[\ppatch].note_group = IdentityDictionary.new;
 					note_bus_alloc_list.do { arg key;
 						key.debug("alloc note bus");
 						ev[\ppatch].note_bus[key] = Bus.control(s, 1);
@@ -1851,6 +1854,54 @@
 			);
 
 			[pattern_modulator_list, note_modulator_list, mixer_list, effect_pat_list].debug("pat, not, mix, eff");
+
+			cleanup_function = {
+				"cleanup".debug;
+				spawner.suspendAll;
+				if(clean_started.not) {
+				//if(true) {
+					clean_started = true;
+					"sched cleanup".debug;
+					{
+						//spawner.suspendAll;
+						mainplayer.name.debug("defered cleanup");
+						ppatch.note_bus.keysValuesDo { arg bname, bobj;
+							[bname, bobj].debug("free bus");
+							bobj.free;
+						};
+						ppatch.global_group.keysValuesDo { arg gname, gobj;
+							[gname, gobj].debug("pattern group free");
+							gobj.free;
+						};
+						ppatch.global_bus.keysValuesDo { arg bname, bobj;
+							[bname, bobj].debug("pattern bus free");
+							bobj.free;
+						};
+						"fin cleanup".debug;
+					}.defer(free_defer_time + s.latency); 
+				}
+			};
+
+			self.cleanup_function = cleanup_function;
+
+			///////// creating global groups
+
+			if(pattern_modulator_list.size > 0 or: { note_modulator_list.size > 0 }) {
+				ppatch.global_group[\modulator] = Group.new(s);
+				ppatch.global_group[\mixer] = Group.after(ppatch.global_group[\modulator]);
+			};
+
+			if(ppatch.global_group[\mixer].notNil) {
+				ppatch.global_group[\synth] = Group.after(ppatch.global_group[\mixer]);
+			} {
+				ppatch.global_group[\synth] = Group.new(s);
+			};
+			
+			if(effect_pat_list.size > 0) {
+				ppatch.global_group[\effects] = Group.after(ppatch.global_group[\synth]);
+			};
+
+			///////////////////// spawning
 
 			if([pattern_modulator_list, note_modulator_list, mixer_list, effect_pat_list].any{ arg li; li.size > 0 }) {
 				spawner.par(allocator_note_pattern);
@@ -1896,41 +1947,53 @@
 			"bla2".debug;
 
 			//spawner.par(str);
+
+			//spawner.par(main_note_pat);
+			
 			spawner.par(
-				Pfset(
-					{},
+				Pfset({},
 					main_note_pat,
-					{
-						"cleanup".debug;
-						spawner.suspendAll;
-						if(clean_started.not) {
-						//if(true) {
-							clean_started = true;
-							"sched cleanup".debug;
-							{
-								//spawner.suspendAll;
-								mainplayer.name.debug("defered cleanup");
-								ppatch.note_bus.keysValuesDo { arg bname, bobj;
-									bname.debug("free bus");
-									bobj.free;
-								};
-								ppatch.global_group.keysValuesDo { arg gname, gobj;
-									gname.debug("pattern group free");
-									gobj.free;
-								};
-								ppatch.global_bus.keysValuesDo { arg bname, bobj;
-									bname.debug("pattern bus free");
-									bobj.free;
-								};
-								"fin cleanup".debug;
-							}.defer(free_defer_time + s.latency); 
-						}
-					}
+					{ "INNER CLEAN".debug; cleanup_function.value; }
 				)
 			);
+
+
+			//spawner.par(
+			//	Pfset(
+			//		{},
+			//		main_note_pat,
+			//		{
+			//			"cleanup".debug;
+			//			spawner.suspendAll;
+			//			if(clean_started.not) {
+			//			//if(true) {
+			//				clean_started = true;
+			//				"sched cleanup".debug;
+			//				{
+			//					//spawner.suspendAll;
+			//					mainplayer.name.debug("defered cleanup");
+			//					ppatch.note_bus.keysValuesDo { arg bname, bobj;
+			//						[bname, bobj].debug("free bus");
+			//						bobj.free;
+			//					};
+			//					ppatch.global_group.keysValuesDo { arg gname, gobj;
+			//						[gname, gobj].debug("pattern group free");
+			//						gobj.free;
+			//					};
+			//					ppatch.global_bus.keysValuesDo { arg bname, bobj;
+			//						[bname, bobj].debug("pattern bus free");
+			//						bobj.free;
+			//					};
+			//					"fin cleanup".debug;
+			//				}.defer(free_defer_time + s.latency); 
+			//			}
+			//		}
+			//	)
+			//);
 			"bla3".debug;
 			"$$$$$$$$$$$$$$$$$$$$ make_modulator_pattern: END".debug;
 		});
+		Pfset({}, pspawner, { "CLEAN".debug; self[\cleanup_function].value });
 	}
 
 
