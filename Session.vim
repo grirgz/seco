@@ -58,7 +58,7 @@ set suffixes=.bak,~,.swp,.o,.info,.aux,.log,.dvi,.bbl,.blg,.brf,.cb,.ind,.idx,.i
 set tabstop=4
 set undodir=~/.vim/undo
 set undofile
-set window=40
+set window=18
 let s:so_save = &so | let s:siso_save = &siso | set so=0 siso=0
 let v:this_session=expand("<sfile>:p")
 silent only
@@ -75,7 +75,7 @@ badd +570 ~/share/SuperCollider/quarks/ixiViews/classes/ParaSpace.sc
 badd +544 eventscore.sc
 badd +216 player.sc
 badd +1 crap25.sc
-badd +2977 param.sc
+badd +3720 param.sc
 badd +7 ~/.vim/UltiSnips-2.1/UltiSnips/supercollider.snippets
 badd +178 node_manager.sc
 badd +2 side.sc
@@ -142,12 +142,12 @@ inoremap <buffer> <silent> " =AutoPairsInsert('"')
 inoremap <buffer> <silent> ' =AutoPairsInsert('''')
 inoremap <buffer> <silent> ( =AutoPairsInsert('(')
 inoremap <buffer> <silent> ) =AutoPairsInsert(')')
-onoremap <buffer> <silent> ð :call AutoPairsToggle()
-xnoremap <buffer> <silent> ð :call AutoPairsToggle()
-nnoremap <buffer> <silent> ð :call AutoPairsToggle()
-onoremap <buffer> <silent> î :call AutoPairsJump()
-xnoremap <buffer> <silent> î :call AutoPairsJump()
 nnoremap <buffer> <silent> î :call AutoPairsJump()
+xnoremap <buffer> <silent> î :call AutoPairsJump()
+onoremap <buffer> <silent> î :call AutoPairsJump()
+nnoremap <buffer> <silent> ð :call AutoPairsToggle()
+xnoremap <buffer> <silent> ð :call AutoPairsToggle()
+onoremap <buffer> <silent> ð :call AutoPairsToggle()
 snoremap <buffer> <silent> î :call AutoPairsJump()
 snoremap <buffer> <silent> ð :call AutoPairsToggle()
 inoremap <buffer> <silent> [ =AutoPairsInsert('[')
@@ -258,7 +258,7 @@ setlocal nowinfixheight
 setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
-let s:l = 105 - ((26 * winheight(0) + 19) / 39)
+let s:l = 105 - ((12 * winheight(0) + 9) / 18)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
@@ -412,7 +412,7 @@ setlocal nowinfixheight
 setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
-let s:l = 28 - ((19 * winheight(0) + 19) / 39)
+let s:l = 28 - ((8 * winheight(0) + 8) / 17)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
@@ -566,7 +566,7 @@ setlocal nowinfixheight
 setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
-let s:l = 18 - ((17 * winheight(0) + 19) / 39)
+let s:l = 18 - ((7 * winheight(0) + 8) / 17)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
@@ -720,7 +720,7 @@ setlocal nowinfixheight
 setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
-let s:l = 1954 - ((19 * winheight(0) + 19) / 39)
+let s:l = 1954 - ((8 * winheight(0) + 8) / 17)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
@@ -874,13 +874,13 @@ setlocal nowinfixheight
 setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
-let s:l = 738 - ((19 * winheight(0) + 19) / 39)
+let s:l = 738 - ((8 * winheight(0) + 8) / 17)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
 738
 normal! 04l
-tabedit param.sc
+tabedit classinstr.sc
 set splitbelow splitright
 set nosplitbelow
 set nosplitright
@@ -918,12 +918,8 @@ inoremap <buffer> <silent> " =AutoPairsInsert('"')
 inoremap <buffer> <silent> ' =AutoPairsInsert('''')
 inoremap <buffer> <silent> ( =AutoPairsInsert('(')
 inoremap <buffer> <silent> ) =AutoPairsInsert(')')
-nnoremap <buffer> <silent> î :call AutoPairsJump()
-xnoremap <buffer> <silent> î :call AutoPairsJump()
-onoremap <buffer> <silent> î :call AutoPairsJump()
-nnoremap <buffer> <silent> ð :call AutoPairsToggle()
-xnoremap <buffer> <silent> ð :call AutoPairsToggle()
-onoremap <buffer> <silent> ð :call AutoPairsToggle()
+noremap <buffer> <silent> î :call AutoPairsJump()
+noremap <buffer> <silent> ð :call AutoPairsToggle()
 inoremap <buffer> <silent> [ =AutoPairsInsert('[')
 inoremap <buffer> <silent> ] =AutoPairsInsert(']')
 inoremap <buffer> <silent> ` =AutoPairsInsert('`')
@@ -1032,12 +1028,12 @@ setlocal nowinfixheight
 setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
-let s:l = 3720 - ((19 * winheight(0) + 19) / 39)
+let s:l = 35 - ((2 * winheight(0) + 8) / 17)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-3720
-normal! 06l
+35
+normal! 02l
 tabedit player.sc
 set splitbelow splitright
 set nosplitbelow
@@ -1186,7 +1182,7 @@ setlocal nowinfixheight
 setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
-let s:l = 1966 - ((12 * winheight(0) + 19) / 39)
+let s:l = 1966 - ((5 * winheight(0) + 8) / 17)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt

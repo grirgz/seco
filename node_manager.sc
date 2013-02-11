@@ -962,7 +962,7 @@
 
 					nodename.debug("pm: play_node: already playing, unmuting children");
 					children.do { arg child;
-						child.mute(false);
+						child.temp_mute(false);
 					};
 				} {
 					if( self.children_nodes.includes(nodename) ) {
@@ -970,7 +970,7 @@
 						/////==== already playing as a children: unmuting ====/////
 
 						nodename.debug("pm: play_node: unmute");
-						play_action = { node.mute(false); };
+						play_action = { node.temp_mute(false); };
 						self.get_clock.play(play_action, self.get_quant);
 
 						self.expset_manager.get_nodes_to_stop(nodename, self.children_nodes.union(self.top_nodes.keys)).do { arg node_to_stop;
@@ -999,9 +999,9 @@
 						// unmuting
 
 						children.do { arg child;
-							child.mute(false);
+							child.temp_mute(false);
 						};
-						node.mute(false);
+						node.temp_mute(false);
 
 						// playing
 
@@ -1030,7 +1030,7 @@
 						sc.put(\stopped, {
 							nodename.debug("pm: stop handler called");
 							self.top_nodes.removeAt(nodename);
-							node.mute(false);
+							node.temp_mute(false);
 							node.set_playing_state(\stop);
 							children.do { arg child;
 								self.children_nodes.remove(child.uname);
@@ -1063,7 +1063,7 @@
 				} {
 					if( self.children_nodes.includes(nodename) ) {
 						nodename.debug("pm: stop_node: mute");
-						stop_action = { node.mute(true) };
+						stop_action = { node.temp_mute(true) };
 					} {
 						nodename.debug("pm: stop_node: not playing, individually stopping children");
 						children = ~find_children.(main, node);
@@ -1090,20 +1090,20 @@
 			self.top_nodes.keys.union(self.children_nodes).do { arg nname;
 				if(nodename != nname) {
 					~notNildo.(main.get_node(nname), { arg node;
-						if(node.muted.not) {
+						if(node.temp_muted.not) {
 							smn.add(nname);
-							node.mute(true);
+							node.temp_mute(true);
 						}
 					});
 				}
 			};
 			self.solomuted_nodes = self.solomuted_nodes.union(smn);
-			main.get_node(nodename).mute(false);
+			main.get_node(nodename).temp_mute(false);
 		},
 
 		unsolo_node: { arg self;
 			self.solomuted_nodes.do { arg nname;
-				main.get_node(nname).mute(false);
+				main.get_node(nname).temp_mute(false);
 			};
 			self.solomuted_nodes = Set.new;
 		},

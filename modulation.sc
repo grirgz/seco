@@ -15,7 +15,7 @@
 
 		self.make_gui;
 
-		self.label.string = "%: %".format(controller.parent_player_ctrl.name, controller.param_ctrl.name);
+		self.label.string = "%: %".format(controller.parent_player_ctrl.get_label, controller.param_ctrl.name);
 
 		debug("class_modulated_param_view.new");
 		
@@ -189,7 +189,7 @@
 		player = self.player_display.get_current_player;
 		player.uname.debug("class_modulator_header_view: selected_slot: player uname");
 		if(player.notNil) {
-			self.label.string = player.uname;
+			self.label.string = player.get_label;
 			self.label.string.debug("class_modulator_header_view: selected_slot: self.label");
 			if(player.modulation.notNil) {
 				if(self.modresponder.notNil) {
@@ -241,6 +241,9 @@
 		self.player_display = { player_display };
 
 		self.make_gui;
+		~make_class_responder.(self, self.param_group.layout, self.player_display, [
+			\player
+		]);
 
 		~make_class_responder.(self, self.param_group.layout, self.modulation_ctrl, [
 			\modulator
@@ -255,24 +258,44 @@
 		var nodename;
 		self.modulation_ctrl.selected_slot.debug("class_modulator_body_basic: selected_slot: mod: selected_slot");
 		self.modulation_ctrl.get_modulator_node(self.modulation_ctrl.selected_slot).uname.debug("selected_slot: modnode name");
-		self.set_controller(self.modulation_ctrl.get_modulator_node(self.player_display.selected_slot));
+		//self.set_controller(self.modulation_ctrl.get_modulator_node(self.player_display.selected_slot));
 		self.show_body_layout;
 	},
 
 	modulator: { arg self;
 		self.modulation_ctrl.selected_slot.debug("class_modulator_body_basic: modulator: selected_slot");
 		self.modulation_ctrl.get_modulator_node(self.modulation_ctrl.selected_slot).uname.debug("modulator: modnode name");
-		self.set_controller(self.modulation_ctrl.get_modulator_node(self.player_display.selected_slot));
+		//self.set_controller(self.modulation_ctrl.get_modulator_node(self.player_display.selected_slot));
 		self.show_body_layout;
 	},
 
-	set_controller: { arg self, player;
+	//set_controller: { arg self, player;
+	//	self.get_controller = { player };
+	//	self.param_group.paramview_list.do { arg view, idx;
+	//		var param_name;
+	//		var param, display;
+	//		param_name = self.player_display.get_param_name_by_display_idx(idx);
+	//		param_name.debug("class_modulator_body_basic: set_controller: param_name");
+	//		[self.player_display.current_player.uname, player.uname].debug("class_modulator_body_basic: set_controller: current_player, controller");
+	//		if(param_name.notNil) {
+	//			param = player.get_arg(param_name);
+	//			display = self.player_display.make_param_display(param);
+	//			view.set_param(param, display);
+	//		} {
+	//			view.clear_view;
+	//		}
+	//	};
+	//},
+
+	player: { arg self;
+		var player = self.player_display.get_current_player;
 		self.get_controller = { player };
 		self.param_group.paramview_list.do { arg view, idx;
 			var param_name;
 			var param, display;
 			param_name = self.player_display.get_param_name_by_display_idx(idx);
 			param_name.debug("class_modulator_body_basic: set_controller: param_name");
+			[self.player_display.current_player.uname, player.uname].debug("class_modulator_body_basic: set_controller: current_player, controller");
 			if(param_name.notNil) {
 				param = player.get_arg(param_name);
 				display = self.player_display.make_param_display(param);
@@ -290,29 +313,32 @@
 
 	show_body_layout: { arg self;
 		var extplayer = self.player_display.get_current_player.external_player;
-		self.player_display.get_current_player.uname.debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: curplayer");
-		self.player_display.set_keydown_responder(\modulator);
-		if(extplayer.notNil and: { self.show_custom_view }) {
-			// FIXME: external player should have custom gui
-			self.stack_layout.index = 1;
-			extplayer.make_layout;
-			self.custom_view.children.do(_.remove);
-			debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: before cusheader");
-			//self.custom_header_view = ~class_modulator_header_view.new_without_responders(myself.controller); 
-			debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: after cusheader");
-			//self.tab_custom_view.layout_(
-			//	VLayout(
-			//		[self.custom_header_view.layout, stretch:0],
-			//		extplayer.layout,
-			//	)
-			//);
-			//self.custom_header_view.selected_slot;
-			self.custom_view.layout = extplayer.layout;
-			debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: after view cusheader");
-			debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: last view cusheader");
-		} {
-			self.stack_layout.index = 0;
-		}
+		Task{
+			var extlayout;
+			self.player_display.get_current_player.uname.debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: curplayer");
+			self.player_display.set_keydown_responder(\modulator);
+			if(extplayer.notNil and: { self.show_custom_view }) {
+				// FIXME: external player should have custom gui
+				self.stack_layout.index = 1;
+				extlayout = extplayer.make_layout;
+				self.custom_view.children.do(_.remove);
+				debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: before cusheader");
+				//self.custom_header_view = ~class_modulator_header_view.new_without_responders(myself.controller); 
+				debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: after cusheader");
+				//self.tab_custom_view.layout_(
+				//	VLayout(
+				//		[self.custom_header_view.layout, stretch:0],
+				//		extplayer.layout,
+				//	)
+				//);
+				//self.custom_header_view.selected_slot;
+				self.custom_view.layout = extlayout;
+				debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: after view cusheader");
+				debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: last view cusheader");
+			} {
+				self.stack_layout.index = 0;
+			}
+		}.play(AppClock)
 		
 	},
 
@@ -529,7 +555,7 @@
 	set_current_player: { arg self, player, index;
 		// set player object
 		var oldplayer;
-		player.uname.debug("XXXXX player_display: set_current_player");
+		[if(self.current_player.notNil) {self.current_player.uname}, player.uname].debug("XXXXX player_display: set_current_player: cur, new");
 		if(self.current_player != player) {
 			//if(index.notNil) {
 			//	self.get_current_group.select_child_at(index);
@@ -539,7 +565,9 @@
 			//if(oldplayer.notNil) {
 			//	main.freeze_do { oldplayer.get_arg(\amp).changed(\selected); };
 			//};
+			
 			self.current_player = player;
+			self.current_player.uname.debug("set_current_player: player set");
 			//self.assign_midi;
 			//main.freeze_do { self.changed(\player); };
 			self.changed(\player)
@@ -555,7 +583,7 @@
 
 	set_keydown_responder: { arg self, key;
 		if(self.window.notNil) {
-			self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(key);
+			self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(key, self);
 		} {
 			debug("Cant set keydown responder: window is nil")
 		}

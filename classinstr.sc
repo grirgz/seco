@@ -14,18 +14,9 @@
 
 		self.controller = { controller };
 		self.display = { display };
-		self.make_gui;
-
-		~make_class_responder.(self, self.namelabel, self.controller, [
-			\val, \label,
-		]);
-
 		modmixer = self.controller.get_player.modulation.get_modulation_mixer(self.controller.name);
 		self.modmixer = { modmixer };
-
-		~make_class_responder.(self, self.namelabel, modmixer, [
-			\range, \connection
-		]);
+		self.make_gui;
 	
 		self;
 	},
@@ -145,7 +136,9 @@
 		var label;
 		var knob;
 		var vallabel;
-		self.layout = VLayout(
+		var layout;
+		//self.layout = VLayout(
+		layout = VLayout(
 			label = StaticText.new
 				.font_(Font("Arial",11))
 				.string_(self.controller.label ?? self.controller.name);
@@ -186,7 +179,22 @@
 		self.knob = knob;
 		self.vallabel = vallabel;
 		//self.layout.minHeight = 65;
-		self.layout;
+		//layout.minHeight = 65;
+		0.01.wait;
+		self.layout = layout;
+
+		~make_class_responder.(self, self.namelabel, self.controller, [
+			\val, \label,
+		]);
+
+
+		~make_class_responder.(self, self.namelabel, self.modmixer, [
+			\range, \connection
+		]);
+		layout;
+
+		//StaticText.new.string_("FUCK");
+		//HLayout.new
 	},
 );
 
@@ -269,6 +277,7 @@
 		self.namelabel = label;
 		self.knob = knob;
 		self.vallabel = vallabel;
+		0.01.wait;
 		//self.layout.minHeight = 65;
 		self.layout;
 	},
@@ -301,6 +310,7 @@
 		self.layout = self.popup;
 
 		~make_class_responder.(self, self.popup, self.controller, [ \val, \menu_items ]);
+		0.01.wait;
 		self;
 	},
 
@@ -344,7 +354,7 @@
 		"ON EST LZ".debug;
 		vframe = View.new;
 		//self.fader = Slider.new
-		{
+		//{
 
 		self.knobs = self.knobs_ctrl.collect { arg ctrl;
 			~class_ci_modknob_view.new(ctrl, self.display);
@@ -413,6 +423,7 @@
 		};
 		vframe.layout.margins = 5;
 		header.margins = 3;
+		self.layout = vframe;
 		//vframe.layout.spacing = 1;
 
 		if(self.fader_ctrl.notNil) {
@@ -422,9 +433,9 @@
 
 		};
 
-		}.defer( rrand(1,4) );
+		//}.defer( rrand(1,4) );
+		0.01.wait;
 
-		self.layout = vframe;
 		self.layout;
 	},
 );
@@ -486,19 +497,21 @@
 
 	make_gui: { arg self;
 		var win;
-		win = Window.new;
-		self.make_layout;
-		win.layout = self.layout;
-		self.window = win;
-		self.make_bindings;
-		//FIXME: set on focus
-		self.set_all_bus_mode(true);
-		self.window.view.onClose = self.window.view.onClose.addFunc({
-			debug("CLOSING");
-			self.set_all_bus_mode(false)
-		});
-		self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\classinstr);
-		win.front;
+		Task{
+			win = Window.new("Edit %".format(self.get_player.get_label));
+			self.make_layout;
+			win.layout = self.layout;
+			self.window = win;
+			self.make_bindings;
+			//FIXME: set on focus
+			self.set_all_bus_mode(true);
+			self.window.view.onClose = self.window.view.onClose.addFunc({
+				debug("CLOSING");
+				self.set_all_bus_mode(false)
+			});
+			self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\classinstr, self);
+			win.front;
+		}.play(AppClock)
 	},
 
 	save_data: { arg self;
@@ -550,33 +563,33 @@
 			self.get_main.panels.side.get_shared_bindings ++
 			self.get_main.panels.side.get_windows_bindings ++ [
 
-			[\close_window, {
+			[\close_window, { arg self;
 				self.window.close;
 			}],
 
-			[\play_selected, {
+			[\play_selected, { arg self;
 				self.get_player.play_node;
 			}], 
 
-			[\stop_selected, {
+			[\stop_selected, { arg self;
 				self.get_player.stop_node;
 			}],
 
-			[\edit_selected_param, {
+			[\edit_selected_param, { arg self;
 				if(~global_controller.current_param.notNil) {
 					debug("class_instr: edit_selected_param");
 					~class_player_display.edit_param_value(self.get_main, self.get_player, ~global_controller.current_param);
 				}
 			}],
 
-			[\assign_midi_knob, {
+			[\assign_midi_knob, { arg self;
 				if(~global_controller.current_param.notNil) {
 					var param = ~global_controller.current_param;
 					self.get_main.panels.side[\binding_assign_midi_knob].(param);
 				};
 			}],
 
-			[\panic, {
+			[\panic, { arg self;
 				self.get_main.panic;
 			}],
 		])
@@ -934,7 +947,7 @@
 		self.namer = { namer };
 		self.synthdef_name = \ci_oscfader;
 
-		self.osc = ~class_ci_osc.new(main, player, self.make_namer("rah_"));
+		self.osc = ~class_ci_osc.new(main, player, self.make_namer);
 
 		self.build_data;
 	
@@ -1029,7 +1042,7 @@
 		self.namer = { namer };
 		self.synthdef_name = \ci_oscfader;
 
-		self.osc = input_class.new(main, player, self.make_namer("rah_"));
+		self.osc = input_class.new(main, player, self.make_namer);
 
 		self.build_data;
 	
@@ -1408,13 +1421,17 @@
 		var faders = [\ampcomp, \velocity_mix];
 		var frame_view;
 		var env_view;
-		self.knobs = knobs.collect { arg name;
+		var layout;
+		var knobs_layouts;
+		knobs_layouts = knobs.collect { arg name;
 			~class_ci_modknob_view.new(self.data[name]).layout;
+			//ModKnob.new.asView;
 		};
 		self.faders = faders.collect { arg name;
 			~class_ci_modslider_view.new(self.data[name], Rect(0,0,30,100)).layout;
 		};
-		self.layout = VLayout(
+		//self.layout = VLayout(
+		layout = VLayout(
 			HLayout(*
 				self.faders ++
 				[
@@ -1422,7 +1439,8 @@
 				]
 			),
 			HLayout(*
-				self.knobs
+				knobs_layouts
+				//[HLayout.new]
 			)
 		);
 		knobs.do { arg name;
@@ -1440,7 +1458,8 @@
 				}
 			), true)
 		};
-		self.layout;
+		//self.layout;
+		layout;
 	},
 
 	synthfun: { arg self;
@@ -1957,7 +1976,7 @@
 		self.synthdef_name = \ci_moscfaderfilter;
 		self.simple_args = (gate:1, doneAction:2);
 
-		self.osc = ~class_ci_oscfader.new(main, player, self.make_namer("bla_"));
+		self.osc = ~class_ci_oscfader.new(main, player, self.make_namer);
 		self.filter = ~class_ci_filter.new(main, player);
 		self.master = ~class_ci_master_env.new(main, player);
 
@@ -2004,9 +2023,9 @@
 	},
 );
 
-~class_ci_osc3filter2 = (
+~class_ci_gens_filter2 = (
 	parent: ~class_instr,
-	new: { arg self, main, player, namer;
+	new: { arg self, main, player, namer, oscs;
 		self = self.deepCopy;
 
 		self.get_main = { main };
@@ -2015,13 +2034,8 @@
 		self.synthdef_name = \ci_osc3filter2;
 		self.simple_args = (freq:\void, gate:1, doneAction:2);
 
-		self.oscs = 3.collect { arg idx;
-			~class_ci_oscfader.new(main, player, self.make_namer("osc%_".format(idx)));
-		};
-		self.oscs = self.oscs ++ [
-			//~class_ci_noise.new(main, player, self.make_namer("noise1_"));
-			~class_ci_wrapfader.new(main, player, self.make_namer("noise1_"), ~class_ci_noise);
-		];
+		self.oscs = oscs;
+
 		self.filters = 2.collect { arg idx;
 			~class_ci_filter.new(main, player, self.make_namer("filter%_".format(idx)));
 		};
@@ -2253,7 +2267,7 @@
 							if(idx == 3) { //FIXME: hardcoded
 								self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\effects);
 							} {
-								self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\classinstr);
+								self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\classinstr, self);
 							}
 						})
 				}
@@ -2419,7 +2433,165 @@
 	},
 );
 
-~class_ci_noise3filter2 = (
+~class_ci_tabs_modfx = (
+	
+	new: { arg self, classinstr, main, player, tabs;
+		self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.classinstr = { classinstr };
+		self.dummy_param = ~class_param_static_controller.new("dummy", \freq.asSpec);
+		self.tabs = tabs;
+
+		self;
+		
+	},
+
+	make_layout: { arg self;
+		self.make_tab_panel;
+	},
+
+	make_layout_effects: { arg self;
+		self.fx_ctrl = ~class_embeded_effects_controller.new(self.get_main, self.get_player);
+		self.fx_ctrl.window = { self.classinstr.window };
+		self.fx_ctrl.layout;
+	},
+
+	make_tab_panel: { arg self;
+		var header, body, layout;
+		var content;
+		var modview;
+		var custom_view = View.new;
+		var tab_views = List.new;
+		self.tab_custom_view = custom_view;
+		self.modulation_controller = ~class_embeded_modulation_controller.new(self.get_main, self.get_player, nil, self.dummy_param);
+		self.modulation_controller.make_bindings;
+		self.modulation_controller.window = { self.classinstr.window };
+		modview = ~class_embeded_modulation_view.new(self.modulation_controller);
+		self.modulation_controller.main_view = modview;
+
+		//content = [
+		//	"Master Env", self.master.make_layout_env,
+		//	"Routing", self.make_layout_routing,
+		//	"Voices", self.make_layout_voices,
+		//	"Effects", self.make_layout_effects,
+		//];
+		content = 
+			self.tabs ++ [
+
+			//"Master Env", {  self.master.make_layout_env },
+			//"Routing", {  self.make_layout_routing },
+			//"Voices", {  self.make_layout_voices },
+			"Effects", {  self.make_layout_effects }, // should be last
+		];
+		self.tabs_count = content.size/2;
+		content = content.clump(2).flop;
+		debug("NUIT 1");
+		body = StackLayout(*
+			content[1].collect { arg co;
+				//View.new.layout_(co)
+				var view;
+				view = View.new;
+				tab_views.add(view);
+				view;
+			} ++ [
+				View.new.layout_(modview.body_layout),
+				//custom_view,
+			]
+		);
+		tab_views.do { arg view, idx;
+			//{
+				view.layout = content[1][idx].value
+			//}.defer( 1+idx )
+		};
+		debug("NUIT 2");
+		layout = VLayout(
+			HLayout(*
+				content[0].collect { arg co, idx;
+					debug("NUIT 3");
+					Button.new
+						.states_([[co]])
+						.action_({ 
+							body.index = idx;
+							if(idx == (self.tabs_count-1)) { 
+								self.classinstr.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\effects);
+							} {
+								self.classinstr.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\classinstr, self);
+							}
+						})
+				}
+			),
+			modview.tab_layout,
+			body,
+		
+		);
+		debug("NUIT 4");
+		self.tab_panel_stack_layout = body;
+		modview.show_body_layout = { arg myself;
+			debug("modview: show_body_layout");
+			self.tab_panel_stack_layout.index = self.tabs_count;
+		};
+		layout;
+	},
+
+);
+
+~class_ci_moscfilter_modfx = (
+	parent: ~class_ci_moscfilter,
+	new: { arg self, main, player;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.synthdef_name = \ci_moscfilter;
+		self.simple_args = (gate:1, doneAction:2);
+
+		self.osc = ~class_ci_osc.new(main, player);
+		self.filter = ~class_ci_filter.new(main, player);
+		self.master = ~class_ci_master_dadsr.new(main, player);
+
+		self.tab_panel = ~class_ci_tabs_modfx.new(self, main, player, 
+			[
+				"Master Env", {  self.master.make_layout_env },
+			]
+		);
+
+		self.build_data;
+	
+		self;
+	},
+
+	make_layout: { arg self;
+		var layout = ~class_ci_moscfilter[\make_layout].(self);
+		self.layout = VLayout(
+			layout,
+			self.tab_panel.make_layout,
+			nil,
+		)
+		
+	},
+
+
+);
+
+~class_ci_osc3filter2 = (
+	new: { arg self, main, player, namer;
+		var oscs;
+		oscs = 3.collect { arg idx;
+			~class_ci_oscfader.new(main, player, self.make_namer("osc%_".format(idx)));
+		};
+		oscs = oscs ++ [
+			//~class_ci_noise.new(main, player, self.make_namer("noise1_"));
+			~class_ci_wrapfader.new(main, player, self.make_namer("noise1_"), ~class_ci_noise);
+		];
+
+
+		~class_ci_gens_filter2.new(main, player, namer, oscs);
+	
+
+	},
+	
 
 );
 
@@ -2430,6 +2602,7 @@
 	osc: ~class_ci_osc,
 	mosc: ~class_ci_mosc,
 	moscfilter: ~class_ci_moscfilter,
+	moscfilter_modfx: ~class_ci_moscfilter_modfx,
 	moscfaderfilter: ~class_ci_moscfaderfilter,
 	osc3filter2: ~class_ci_osc3filter2,
 	dadsr_kr: ~class_ci_dadsr_kr,

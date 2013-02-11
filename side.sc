@@ -2003,8 +2003,13 @@
 					self.get_current_player.stop_node(true);
 				}],
 
-				[\mute_selected, {
-					self.get_current_player.mute;
+				[\toggle_mute_selected, {
+					var player = self.get_current_player;
+					if(player.muted) {
+						self.get_current_player.mute(false);
+					} {
+						self.get_current_player.mute(true);
+					}
 				}],
 
 				[\unmute_selected, {
@@ -2359,6 +2364,7 @@
 				\mute_selected,
 				\play_group,
 				\stop_group,
+				\toggle_solo_selected,
 				"set_global_mode.liveplay",
 				"set_global_mode.param",
 				"set_global_mode.group",

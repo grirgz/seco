@@ -8,6 +8,7 @@ s.waitForBoot{
 	\osc1,
 	"ci mosc",
 	"ci moscfilter",
+	"ci moscfilter_modfx",
 	"ci moscfaderfilter",
 	"ci osc3filter2",
 	"ci sin",
@@ -56,6 +57,7 @@ s.waitForBoot{
 ~seq.append_samplelib_from_path("sounds/hydrogen/GMkit" );
 ~seq.append_samplelib_from_path("sounds/hydrogen/HardElectro1" );
 
+Mdef.samplekit(\deskkick, 20.collect{arg i; "/home/ggz/Musique/recording" +/+ i ++ ".wav"});
 
 Mdef.side_gui;
 
@@ -153,3 +155,23 @@ Mdef.node("ci osc3filter2_l1066").modulation.get_modulation_mixers.keys
 Mdef.node("ci osc3filter2_l1066").modulation.get_modulation_mixer(\filter1_arg1).get_slots[0].name
 Mdef.node("ci osc3filter2_l1066").modulation.get_modulation_mixer(\ampcomp).get_slots
 Mdef.node("ci osc3filter2_l1066").modulation.get_modulation_mixers.keysValuesDo { arg key, val; [key, val.get_slots].debug; }
+
+
+
+(
+ Task{
+ 	debug("bla");
+	1.wait;
+	w=Window.new;
+	~s= StaticText.new(w);
+	w.front;
+	1.wait;
+	~s.string = "blaaa";
+
+
+
+	debug("rah")
+
+ }.play(AppClock)
+)
+AppClock

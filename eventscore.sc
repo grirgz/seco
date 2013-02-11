@@ -350,10 +350,16 @@
 			}.asList;
 		},
 
-		is_note_playing_at_abstime: { arg self, abstime;
+		is_note_playing_at_abstime: { arg self, abstime, constraint;
 			self.notes.any { arg no;
 				(abstime >= no.time) and: {
-					abstime < (no.time + no.sustain)
+					abstime < (no.time + no.sustain) and: {
+						if(constraint.notNil) {
+							constraint.(no)
+						} {
+							true
+						}
+					}
 				}
 			};
 		},

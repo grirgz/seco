@@ -276,6 +276,701 @@
 	},
 );
 
+~class_piano_roll_editor = (
+	parent: ~class_basic_track_view,
+	piano_band_size_x: 30,
+	roll_size: 1500@1500,
+	beat_size_x: 50,
+	block_size_y: { arg self; self.roll_size.y/128 },
+	track_size_y: { arg self; self.block_size_y },
+	view_size_x: 1500,
+	view_size_y: 1500,
+	block_dict: Dictionary.new,
+	moving_notes: List.new,
+	//roll_size: 400@400,
+
+	update_sizes: { arg self;
+		var controller = self.controller;
+		self.handle_size = 12;
+		self.view_size = (1500@(self.handle_size * 128));
+		self.view_size1 = 1@1;
+		self.track_size = self.view_size-self.handle_size;
+		self.track_size1 = (1-(self.handle_size/self.view_size.x)) @ (1-(self.handle_size/self.view_size.y));
+		self.scaling = Point(self.track_size1.x/controller.display.gridlen, 1);
+		self.offset = Point(controller.display.offset*self.scaling.x,0);
+		self.beatlen = (self.track_size.x/self.controller.display.gridlen);
+		[self.beatlen, self.controller.display.gridlen].debug("class_basic_track_view: update_sizes: beatlen, gridlen");
+		//self.gridstep1 = controller.display.gridstep * (self.view_size1.x/self.controller.display.gridlen);
+		self.gridstep1 = Point(
+			controller.display.gridstep.x * (self.track_size1.x/self.controller.display.gridlen),
+			self.view_size1.y/128
+		);
+	},
+
+	new: { arg self, parent, controller;
+		self = self.deepCopy;
+
+		self.parent_view = parent;
+		self.init(parent, controller);
+		self.notes;
+	
+		self;
+	},
+
+	init: { arg self, parent, controller;
+		debug("class_basic_track_view.new");
+		self.controller = { arg self; controller };
+		self.update_sizes;
+		self.parent_view = parent;
+		self.as_view = self.make_gui;
+		self.main_responder = ~make_class_responder.(self, self.scrollview, controller, [
+			\notes, \background
+		]);
+		self.main_responder = ~make_class_responder.(self, self.scrollview, controller.display, [
+			\gridstep, \gridlen
+		]);
+		//self.main_responder = ~make_class_responder.(self, self.parent_view, controller.display, [
+		//	\gridstep, \gridlen
+		//]);
+	},
+
+	midinote_to_notename: { arg self, midinote;
+		var notenames = [ "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" ];
+		var octave = ((midinote / 12)).asInteger;
+		var name = notenames[ midinote % 12 ];
+		name ++ octave.asString;
+		//midinote.asString;
+	
+	},
+
+	//note_to_point: { arg self, note;
+	//	var x, y;
+	//	y = note.midinote * self.block_size_y;
+	//	x = note.time * self.beat_size_x;
+	//	x@y;
+	//},
+
+	note_to_point: { arg self, note;
+		// TODO: spec unmapping
+		Point(note.time*self.scaling.x,  1-(note.midinote /128));
+	},
+
+	point_to_notepoint: { arg self, point;
+		var x, y;
+		x = point.x / self.scaling.x;
+		//x = point.x/self.beat_size_x;
+		y = (1-point.y);
+		y = y * 128;
+		x@y;
+	},
+
+	mouse_down_action: { arg self;
+		{ arg view, x, y, modifiers, buttonNumber, clickCount;
+			var pos, notepos;
+			var round_notepos;
+			var trunc_notepos;
+			trunc_notepos = {
+				var pos, notepos;
+				pos = x@y;
+				pos = pos/self.view_size;
+				pos.x = pos.x.trunc(self.gridstep1.x);
+				pos.y = pos.y.trunc(self.gridstep1.y);
+				pos.debug("mouse_down_action: pos");
+				notepos = self.point_to_notepoint(pos);
+				notepos
+			};
+			self.current_modifiers = modifiers;
+
+			[modifiers, buttonNumber].debug("mouse_down_action: buttonNumber");
+			// 0 left, 1: right, 2: middle
+			~mouse_responder.(modifiers, buttonNumber, clickCount, (
+						create_note: {
+							notepos = trunc_notepos.();
+							self.controller.add_note(notepos);
+						},
+						remove_note: {
+							notepos = trunc_notepos.();
+							self.controller.remove_note(notepos);
+						},
+						set_end: {
+							pos = x@y;
+							pos = pos/self.view_size;
+							pos.x = pos.x.round(self.gridstep1.x);
+							pos.debug("mouse_down_action: set_end: pos");
+							notepos = self.point_to_notepoint(pos);
+							notepos.debug("mouse_down_action: set_end: notepos");
+							self.controller.set_end(notepos.x);
+						},
+			));
+		}
+	},
+
+	mouse_up_action: { arg self;
+		{ arg view, x, y, modifiers, buttonNumber, clickCount;
+			var newx, newy, notepoint;
+			var block, current_pos;
+			self.current_modifiers = nil;
+			self.moving_notes.do { arg snum;
+				block = self.block_dict[snum];
+				[block, nil, notepoint].debug("block point notepoint");
+				current_pos = self.timeline.getNodeLoc1(snum);
+				newx = current_pos[0].clip(0,1).trunc(self.gridstep1.x);
+				newx.debug("newx");
+				newy = current_pos[1].clip(0,1-self.margin).trunc(1/128);
+				[block, newx@newy, notepoint].debug("block point notepoint");
+				notepoint = self.point_to_notepoint(newx@newy);
+				[block, newx@newy, notepoint].debug("block point notepoint");
+				self.controller.move_note(block, notepoint.x, notepoint.y);
+			};
+			self.moving_notes = List.new;
+		}
+	},
+
+	mouse_move_action: { arg self;
+		{ arg view, x, y, modifiers;
+		};
+	},
+
+	node_track_action2: { arg self;
+		var tl = self.timeline;
+		{ arg node;
+			var new_midinote, new_time;
+			var newx, newy;
+			var current_pos;
+			var block;
+
+			current_pos = tl.getNodeLoc1(node.spritenum);
+
+			newx = current_pos[0].trunc(self.gridstep1.x);
+			newy = current_pos[1].trunc(self.gridstep1.y);
+
+			new_time = ( current_pos[0].trunc(self.beat_size_x)/self.beat_size_x ).asInteger;
+			new_midinote = ( current_pos[1].trunc(self.track_size_y)/self.track_size_y ).asInteger;
+
+			block = self.block_dict[node.spritenum];
+			self.controller.move_note(block, new_time, new_midinote);
+			tl.setNodeLoc_( node.spritenum, newx, newy );
+		}
+	},
+
+	node_track_action: { arg self;
+		var tl = self.timeline;
+		{ arg node;
+			var new_midinote, new_time;
+			var newx, newy;
+			var current_pos;
+			var block;
+			var notepoint;
+			var temp_pos;
+
+			self.margin = 0;
+			//self.margin = self.handle_size;
+
+			current_pos = tl.getNodeLoc1(node.spritenum);
+
+			//newx = current_pos[0].trunc(self.beat_size_x);
+			//newy = current_pos[1].trunc(self.track_size_y);
+			current_pos.debug("current_pos");
+			temp_pos = self.timeline.paraNodes[node.spritenum].temp;
+			temp_pos.debug("temp_pos");
+			//if(temp_pos.x == 0) {
+			//	current_pos.debug("current_pos == 0");
+			//	newx = temp_pos.x;
+			//} {
+			//	newx = current_pos[0].clip(0,1).trunc(self.gridstep1.x);
+			//};
+			newx = current_pos[0].clip(0,1).trunc(self.gridstep1.x);
+			newx.debug("newx");
+			newy = current_pos[1].clip(0,1-self.margin).trunc(1/128);
+
+			self.current_modifiers.debug("current_modifiers");
+			notepoint = self.point_to_notepoint(newx@newy);
+			notepoint.debug("notepoint");
+			if(self.current_modifiers.notNil and: { self.current_modifiers.isShift }) {
+				//resize
+				var temp_notepoint = self.point_to_notepoint(temp_pos);
+				var newlen = newx - temp_pos.x + self.gridstep1.x;
+				var newsustain = notepoint.x - temp_notepoint.x + self.controller.display.gridstep.x;
+				newlen = newlen * self.track_size.x;
+				newlen = newlen.abs;
+				newsustain = newsustain.clip(0.01,20);
+				[newlen, newsustain].debug("newlen, newsustain");
+				block = self.block_dict[node.spritenum];
+				self.controller.set_note_key(block, \sustain, newsustain);
+				self.timeline.paraNodes[node.spritenum].setLen = newlen;
+				tl.setNodeLoc1_( node.spritenum, temp_pos.x, temp_pos.y );
+			
+			} {
+				//move
+				debug("move");
+				
+				self.moving_notes.add(node.spritenum);
+				tl.setNodeLoc1_( node.spritenum, newx, newy );
+
+			}
+			
+		}
+	},
+
+	make_piano_roll: { arg self;
+		self.piano_roll = UserView.new(nil, Rect(0,0,self.piano_band_size_x, self.track_size.y));
+		self.piano_roll.minSize = self.piano_band_size_x@ self.track_size.y;
+		self.piano_roll.background = Color.yellow;
+		self.piano_roll.drawFunc_({
+			
+			128.do { arg y;
+				var yy;
+				//y = 128 - y;
+				yy = self.handle_size * y;
+				Pen.stringInRect(self.midinote_to_notename(128 - y), Rect(0,yy,self.piano_band_size_x,yy+self.handle_size))
+			};
+
+		});
+		self.piano_roll;
+	},
+
+	draw_background_function: { arg self, size, beatlen;
+		{
+			var i;
+			//size = size ?? (self.track_size_x@self.track_size_y);
+			size = self.roll_size;
+			//beatlen = beatlen ?? self.beatlen;
+			beatlen = self.beatlen;
+			// x lines
+			~draw_stepx_grid.(size, beatlen, self.controller.display.gridstep);
+			~draw_beat_grid.(size, beatlen);
+
+			// end line
+
+			//i = self.controller.get_end / 2;
+			i = self.controller.get_end;
+			if(i.notNil) {
+				Pen.color = Color.red;
+				Pen.line((i*self.beatlen)@0, (i*self.beatlen)@( self.track_size.y )); Pen.stroke
+			};
+		}
+	},
+
+	make_note_view: { arg self;
+		var timeline;
+		"0".debug;
+		self.timeline = ParaTimeline.new(self.parent_view, Rect(0,0,self.view_size.x,self.view_size.y));
+		timeline = self.timeline;
+		//self.timeline.userView.background = Color.yellow;
+		timeline.userView.minSize = self.view_size;
+		//self.timeline.maxHeight = 30;
+		timeline.mouseDownAction = self.mouse_down_action;
+		timeline.mouseUpAction = self.mouse_up_action;
+		timeline.mouseMoveAction = self.mouse_move_action;
+		timeline.nodeTrackAction = self.node_track_action;
+		"1".debug;
+		timeline.setBackgrDrawFunc_({
+			var i;
+			Pen.color = Color.gray(0.5);
+			128.do { arg y;
+				var yy = self.handle_size * y;
+				if(y % 12 == 0) {
+					//y.debug("y 12");
+					Pen.color = Color.gray(0.4);
+				} {
+					//y.debug("y");
+					Pen.color = Color.gray(0.8);
+				};
+				Pen.line(0@yy, self.track_size.x@yy);
+				Pen.stroke;
+			};
+			Pen.use {
+				self.draw_background_function.();
+			};
+			////Pen.stroke;
+			//Pen.use {
+			//	~draw_beat_grid.((self.roll_size.x-self.piano_band_size_x)@self.roll_size.y, self.beat_size_x)
+			//};
+			//i = self.controller.get_end;
+			//if(i.notNil) {
+			//	Pen.color = Color.red;
+			//	Pen.line((i*self.beat_size_x)@0, (i*self.beat_size_x)@( self.roll_size.y )); Pen.stroke
+			//};
+		});
+	},
+
+	notes: { arg self, controller;
+		var tl;
+		var stext;
+		var spritenum = 0;
+		var notes;
+		controller = controller ?? self.controller;
+
+		controller.get_notes.debug("class_basic_track_view: notes");
+
+		self.timeline.clearSpace;
+
+		self.block_dict = Dictionary.new;
+	
+		notes = controller.get_notes;
+		self.scan_notes(notes);
+
+		notes.do { arg note;
+			var pos;
+			note.debug("class_basic_track_view: notes: note");
+			if(note.type != \rest) {
+				pos = self.note_to_point(note);
+
+				self.timeline.createNode1(pos.x, pos.y);
+				self.timeline.setNodeSize_(spritenum, self.handle_size);
+				self.timeline.paraNodes[spritenum].setLen = note.sustain * self.beatlen;
+				self.timeline.paraNodes[spritenum].temp = pos;
+
+				self.block_dict[spritenum] = note;
+				spritenum = spritenum + 1;
+
+			}
+
+		};
+
+
+
+	},
+
+	make_gui: { arg self;
+		var canvas;
+		//self.scrollview = ScrollView.new(self.parent_view, Rect(0,0,500,500));
+		self.scrollview = ScrollView.new;
+		self.scrollview.minHeight_(600);
+		canvas = View.new;
+		self.make_piano_roll;
+		self.make_note_view;
+		self.timeline.userView;
+		self.layout_view = HLayout.new(
+			self.piano_roll,
+			self.timeline.userView
+		);
+		canvas.layout = self.layout_view;
+		self.scrollview.canvas = canvas;
+		self.scrollview;
+		self.layout = VLayout(
+			self.scrollview,
+			Button.new,
+		);
+		self.layout;
+	},
+);
+
+~class_sampleline_track_view = (
+	parent: ~class_basic_track_view,
+	piano_band_size_x: 30,
+	roll_size: 800@1500,
+	beat_size_x: 50,
+	block_size_y: { arg self; self.roll_size.y/self.get_noterange },
+	track_size_y: { arg self; self.block_size_y },
+	view_size_x: 800,
+	view_size_y: 1500,
+	block_dict: Dictionary.new,
+	moving_notes: List.new,
+	//roll_size: 400@400,
+
+	get_noterange: { arg self;
+		self.controller.noterange[1] - self.controller.noterange[0]
+	},
+
+	update_sizes: { arg self;
+		var controller = self.controller;
+		self.handle_size = 12;
+		self.view_size = (self.view_size_x@(self.handle_size * self.get_noterange));
+		self.view_size1 = 1@1;
+		self.track_size = self.view_size-self.handle_size;
+		self.track_size1 = (1-(self.handle_size/self.view_size.x)) @ (1-(self.handle_size/self.view_size.y));
+		self.scaling = Point(self.track_size1.x/controller.display.gridlen, 1);
+		self.offset = Point(controller.display.offset*self.scaling.x,0);
+		self.beatlen = (self.track_size.x/self.controller.display.gridlen);
+		[self.beatlen, self.controller.display.gridlen].debug("class_basic_track_view: update_sizes: beatlen, gridlen");
+		//self.gridstep1 = controller.display.gridstep * (self.view_size1.x/self.controller.display.gridlen);
+		self.gridstep1 = Point(
+			controller.display.gridstep.x * (self.track_size1.x/self.controller.display.gridlen),
+			self.view_size1.y/self.get_noterange
+		);
+	},
+
+	new: { arg self, parent, controller;
+		self = self.deepCopy;
+
+		self.parent_view = parent;
+		self.init(parent, controller);
+		self.notes;
+	
+		self;
+	},
+
+	init: { arg self, parent, controller;
+		debug("class_basic_track_view.new");
+		self.controller = { arg self; controller };
+		self.update_sizes;
+		self.parent_view = parent;
+		self.as_view = self.make_gui;
+		self.main_responder = ~make_class_responder.(self, self.timeline.userView, controller, [
+			\notes, \background
+		]);
+		self.main_responder = ~make_class_responder.(self, self.timeline.userView, controller.display, [
+			\gridstep, \gridlen
+		]);
+		//self.main_responder = ~make_class_responder.(self, self.parent_view, controller.display, [
+		//	\gridstep, \gridlen
+		//]);
+	},
+
+	note_to_point: { arg self, note;
+		// TODO: spec unmapping
+		// TODO: fix noterange
+		note.debug("class_sampleline_track_view: note_to_point: note");
+		Point(note.time*self.scaling.x,  (note[self.controller.notekey] / self.get_noterange));
+	},
+
+	point_to_notepoint: { arg self, point;
+		var x, y;
+		x = point.x / self.scaling.x;
+		//x = point.x/self.beat_size_x;
+		//y = (1-point.y);
+		y = point.y;
+		y = y * self.get_noterange;
+		x@y;
+	},
+
+	mouse_down_action: { arg self;
+		{ arg view, x, y, modifiers, buttonNumber, clickCount;
+			var pos, notepos;
+			var round_notepos;
+			var trunc_notepos;
+			trunc_notepos = {
+				var pos, notepos;
+				pos = x@y;
+				pos = pos/self.view_size;
+				pos.x = pos.x.trunc(self.gridstep1.x);
+				pos.y = pos.y.trunc(self.gridstep1.y);
+				pos.debug("mouse_down_action: pos");
+				notepos = self.point_to_notepoint(pos);
+				notepos
+			};
+			self.current_modifiers = modifiers;
+
+			[modifiers, buttonNumber].debug("mouse_down_action: buttonNumber");
+			// 0 left, 1: right, 2: middle
+			~mouse_responder.(modifiers, buttonNumber, clickCount, (
+						create_note: {
+							notepos = trunc_notepos.();
+							self.controller.add_note(notepos);
+						},
+						remove_note: {
+							notepos = trunc_notepos.();
+							self.controller.remove_note(notepos);
+						},
+						set_end: {
+							pos = x@y;
+							pos = pos/self.view_size;
+							pos.x = pos.x.round(self.gridstep1.x);
+							pos.debug("mouse_down_action: set_end: pos");
+							notepos = self.point_to_notepoint(pos);
+							notepos.debug("mouse_down_action: set_end: notepos");
+							self.controller.set_end(notepos.x);
+						},
+			));
+		}
+	},
+
+	mouse_up_action: { arg self;
+		{ arg view, x, y, modifiers, buttonNumber, clickCount;
+			var newx, newy, notepoint;
+			var block, current_pos;
+			self.current_modifiers = nil;
+			self.moving_notes.do { arg snum;
+				block = self.block_dict[snum];
+				[block, nil, notepoint].debug("block point notepoint");
+				current_pos = self.timeline.getNodeLoc1(snum);
+				newx = current_pos[0].clip(0,1).trunc(self.gridstep1.x);
+				newx.debug("newx");
+				newy = current_pos[1].clip(0,1-self.margin).trunc(1/self.get_noterange);
+				[block, newx@newy, notepoint].debug("block point notepoint");
+				notepoint = self.point_to_notepoint(newx@newy);
+				[block, newx@newy, notepoint].debug("block point notepoint");
+				self.controller.move_note(block, notepoint.x, notepoint.y);
+			};
+			self.moving_notes = List.new;
+		}
+	},
+
+	mouse_move_action: { arg self;
+		{ arg view, x, y, modifiers;
+		};
+	},
+
+	node_track_action: { arg self;
+		var tl = self.timeline;
+		{ arg node;
+			var new_midinote, new_time;
+			var newx, newy;
+			var current_pos;
+			var block;
+			var notepoint;
+			var temp_pos;
+
+			self.margin = 0;
+			//self.margin = self.handle_size;
+
+			current_pos = tl.getNodeLoc1(node.spritenum);
+
+			//newx = current_pos[0].trunc(self.beat_size_x);
+			//newy = current_pos[1].trunc(self.track_size_y);
+			current_pos.debug("current_pos");
+			temp_pos = self.timeline.paraNodes[node.spritenum].temp;
+			temp_pos.debug("temp_pos");
+			//if(temp_pos.x == 0) {
+			//	current_pos.debug("current_pos == 0");
+			//	newx = temp_pos.x;
+			//} {
+			//	newx = current_pos[0].clip(0,1).trunc(self.gridstep1.x);
+			//};
+			newx = current_pos[0].clip(0,1).trunc(self.gridstep1.x);
+			newx.debug("newx");
+			newy = current_pos[1].clip(0,1-self.margin).trunc(1/self.get_noterange);
+
+			self.current_modifiers.debug("current_modifiers");
+			notepoint = self.point_to_notepoint(newx@newy);
+			notepoint.debug("notepoint");
+			if(self.current_modifiers.notNil and: { self.current_modifiers.isShift }) {
+				//resize
+				var temp_notepoint = self.point_to_notepoint(temp_pos);
+				var newlen = newx - temp_pos.x + self.gridstep1.x;
+				var newsustain = notepoint.x - temp_notepoint.x + self.controller.display.gridstep.x;
+				newlen = newlen * self.track_size.x;
+				newlen = newlen.abs;
+				newsustain = newsustain.clip(0.01,20);
+				[newlen, newsustain].debug("newlen, newsustain");
+				block = self.block_dict[node.spritenum];
+				self.controller.set_note_key(block, \sustain, newsustain);
+				self.timeline.paraNodes[node.spritenum].setLen = newlen;
+				tl.setNodeLoc1_( node.spritenum, temp_pos.x, temp_pos.y );
+			
+			} {
+				//move
+				debug("move");
+				
+				self.moving_notes.add(node.spritenum);
+				tl.setNodeLoc1_( node.spritenum, newx, newy );
+
+			}
+			
+		}
+	},
+
+	draw_background_function: { arg self, size, beatlen;
+		{
+			var i;
+			//size = size ?? (self.track_size_x@self.track_size_y);
+			size = self.roll_size;
+			//beatlen = beatlen ?? self.beatlen;
+			beatlen = self.beatlen;
+			// x lines
+			~draw_stepx_grid.(size, beatlen, self.controller.display.gridstep);
+			~draw_beat_grid.(size, beatlen);
+
+			// end line
+
+			//i = self.controller.get_end / 2;
+			i = self.controller.get_end;
+			if(i.notNil) {
+				Pen.color = Color.red;
+				Pen.line((i*self.beatlen)@0, (i*self.beatlen)@( self.track_size.y )); Pen.stroke
+			};
+		}
+	},
+
+	make_note_view: { arg self;
+		var timeline;
+		"0".debug;
+		self.timeline = ParaTimeline.new(self.parent_view, Rect(0,0,self.view_size.x,self.view_size.y));
+		timeline = self.timeline;
+		//self.timeline.userView.background = Color.yellow;
+		timeline.userView.minSize = self.view_size;
+		//self.timeline.maxHeight = 30;
+		timeline.mouseDownAction = self.mouse_down_action;
+		timeline.mouseUpAction = self.mouse_up_action;
+		timeline.mouseMoveAction = self.mouse_move_action;
+		timeline.nodeTrackAction = self.node_track_action;
+		"1".debug;
+		timeline.setBackgrDrawFunc_({
+			var i;
+			Pen.color = Color.gray(0.5);
+			self.get_noterange.do { arg y;
+				var yy = self.handle_size * y;
+				if(y % 12 == 0) {
+					//y.debug("y 12");
+					Pen.color = Color.gray(0.4);
+				} {
+					//y.debug("y");
+					Pen.color = Color.gray(0.8);
+				};
+				Pen.line(0@yy, self.track_size.x@yy);
+				Pen.stroke;
+			};
+			Pen.use {
+				self.draw_background_function.();
+			};
+			////Pen.stroke;
+			//Pen.use {
+			//	~draw_beat_grid.((self.roll_size.x-self.piano_band_size_x)@self.roll_size.y, self.beat_size_x)
+			//};
+			//i = self.controller.get_end;
+			//if(i.notNil) {
+			//	Pen.color = Color.red;
+			//	Pen.line((i*self.beat_size_x)@0, (i*self.beat_size_x)@( self.roll_size.y )); Pen.stroke
+			//};
+		});
+	},
+
+	notes: { arg self, controller;
+		var tl;
+		var stext;
+		var spritenum = 0;
+		var notes;
+		controller = controller ?? self.controller;
+
+		controller.get_notes.debug("class_basic_track_view: notes");
+
+		self.timeline.clearSpace;
+
+		self.block_dict = Dictionary.new;
+	
+		notes = controller.get_notes;
+		self.scan_notes(notes);
+
+		notes.do { arg note;
+			var pos;
+			note.debug("class_basic_track_view: notes: note");
+			if(note.type != \rest) {
+				pos = self.note_to_point(note);
+
+				self.timeline.createNode1(pos.x, pos.y);
+				self.timeline.setNodeSize_(spritenum, self.handle_size);
+				self.timeline.paraNodes[spritenum].setLen = note.sustain * self.beatlen;
+				self.timeline.paraNodes[spritenum].temp = pos;
+
+				self.block_dict[spritenum] = note;
+				spritenum = spritenum + 1;
+
+			}
+
+		};
+
+
+
+	},
+
+	make_gui: { arg self;
+		self.make_note_view;
+		self.layout = self.timeline.userView;
+		self.layout;
+	},
+);
+
 ~class_note_track_view = (
 	parent: ~class_basic_track_view,
 	
@@ -782,6 +1477,50 @@
 
 );
 
+~class_note_track_controller = (
+
+	new: { arg self, node, display;
+		self = self.deepCopy;
+
+		//self.display = (
+		//	gridlen: 16,
+		//	gridstep: 1/4,
+		//);
+		self.display = display;
+		
+		self.get_node = node;
+		self.scoreset = node.get_arg(\noteline).get_scoreset;
+	
+		self;
+	},
+
+	set_end: { arg self, val;
+		self.scoreset.get_notescore.set_end(val);
+		self.scoreset.update_notes;
+		self.changed(\background);
+	},
+
+	get_end: { arg self;
+		self.scoreset.get_notescore.get_end.debug("get_end");
+		self.scoreset.get_notescore.get_end - self.scoreset.get_notescore.abs_start
+	},
+
+	get_notescore: { arg self;
+		self.scoreset.get_notescore;
+	},
+
+	get_notes: { arg self;
+		self.get_notescore.get_abs_notes;
+	},
+
+
+	make_gui: { arg self, parent;
+		self.track_view = ~class_note_track_view.new(parent, self);
+		self.track_view.as_view;
+	},
+
+);
+
 ~class_stepline_track_controller = (
 
 	new: { arg self, node, display;
@@ -902,6 +1641,211 @@
 		self.track_view.as_view;
 	},
 
+);
+
+~class_piano_track_controller = (
+	new: { arg self, node, display;
+		self = self.deepCopy;
+
+		//self.display = (
+		//	gridlen: 16,
+		//	gridstep: 1/4,
+		//);
+		//self = self.deepCopy;
+	
+		//self.notescore = ~make_notescore.();
+		//self.notescore.set_notes(~default_noteline3);
+		self.display = display;
+		
+		self.get_node = {node};
+		self.scoreset = node.get_arg(\noteline).get_scoreset;
+
+		self;
+	},
+
+	make_gui: { arg self;
+		//self.window = Window.new("Piano roll", Rect(100,100,600,600));
+		//self.parent_view = self.window;
+		self.parent_view = nil;
+		self.roll = ~class_piano_roll_editor.new(self.parent_view, self);
+		self.layout = self.roll.layout;
+		self.layout;
+		//self.window.front;
+	
+	},
+
+	get_notescore: { arg self;
+		self.scoreset.get_notescore;
+	},
+
+	get_notes: { arg self;
+		self.current_notes = self.scoreset.notescore.get_abs_notes;
+		self.current_notes.debug("get_notes");
+	},
+
+	move_note: { arg self, note, time, midinote;
+		note.time = time;
+		note.midinote = midinote;
+		self.scoreset.get_notescore.set_abs_notes(self.current_notes);
+		self.scoreset.update_notes;
+	},
+
+	set_note_key: { arg self, note, key, val;
+		note[key] = val;
+		self.scoreset.get_notescore.set_abs_notes(self.current_notes);
+		self.scoreset.update_notes;
+	},
+
+	remove_note: { arg self, notepoint;
+		var cons;
+		[notepoint.x].debug("class_step_track_controller: remove_note");
+		cons = { arg no;
+			no.midinote == notepoint.y;
+		};
+		self.get_notescore.remove_notes_playing_at_abstime(notepoint.x, cons);
+		self.scoreset.update_notes;
+		self.changed(\notes);
+	},
+
+	add_note: { arg self, notepoint, sustain=0.5;
+		var note;
+		var midinote;
+		var abstime;
+		abstime = notepoint.x;
+		midinote = notepoint.y;
+		[abstime, sustain].debug("class_step_track_controller: add_note");
+		if(abstime < self.get_end) {
+			note = (
+				midinote: midinote,
+				sustain: self.display.gridstep.x,
+			);
+			self.get_notescore.add_note(note, abstime);
+			self.get_notescore.debug("add_note: get_notes");
+			self.get_notescore.notes.debug("add_note: notescore.notes");
+			self.scoreset.update_notes;
+			self.changed(\notes);
+		} {
+			debug("class_step_track_controller: past end: noop");
+		}
+
+	},
+
+	set_end: { arg self, val;
+		val.debug("controller: set_end");
+		self.scoreset.get_notescore.set_end(val);
+		self.scoreset.update_notes;
+		self.changed(\background);
+		self.changed(\notes);
+	},
+
+	get_end: { arg self;
+		self.scoreset.get_notescore.get_end.debug("get_end");
+		self.scoreset.get_notescore.get_end - self.scoreset.get_notescore.abs_start
+	},
+
+);
+
+~class_sampleline_track_controller = (
+	new: { arg self, node, display;
+		self = self.deepCopy;
+
+		//self.display = (
+		//	gridlen: 16,
+		//	gridstep: 1/4,
+		//);
+		//self = self.deepCopy;
+	
+		//self.notescore = ~make_notescore.();
+		//self.notescore.set_notes(~default_noteline3);
+		self.display = display;
+		
+		self.get_node = {node};
+		self.scoreset = node.get_arg(\sampleline).get_scoreset;
+		self.notekey = \slotnum;
+		self.noterange = [0,8];
+
+		self;
+	},
+
+	make_gui: { arg self;
+		//self.window = Window.new("Piano roll", Rect(100,100,600,600));
+		//self.parent_view = self.window;
+		self.parent_view = nil;
+		self.roll = ~class_sampleline_track_view.new(self.parent_view, self);
+		self.layout = self.roll.layout;
+		self.layout;
+		//self.window.front;
+	
+	},
+
+	get_notescore: { arg self;
+		self.scoreset.get_notescore;
+	},
+
+	get_notes: { arg self;
+		self.current_notes = self.scoreset.notescore.get_abs_notes;
+		self.current_notes.debug("get_notes");
+	},
+
+	move_note: { arg self, note, time, noteval;
+		note.time = time;
+		note[self.notekey] = noteval;
+		self.scoreset.get_notescore.set_abs_notes(self.current_notes);
+		self.scoreset.update_notes;
+	},
+
+	set_note_key: { arg self, note, key, val;
+		note[key] = val;
+		self.scoreset.get_notescore.set_abs_notes(self.current_notes);
+		self.scoreset.update_notes;
+	},
+
+	remove_note: { arg self, notepoint;
+		var cons;
+		[notepoint.x].debug("class_step_track_controller: remove_note");
+		cons = { arg no;
+			no[self.notekey] == notepoint.y;
+		};
+		self.get_notescore.remove_notes_playing_at_abstime(notepoint.x, cons);
+		self.scoreset.update_notes;
+		self.changed(\notes);
+	},
+
+	add_note: { arg self, notepoint, sustain=0.5;
+		var note;
+		var keyval;
+		var abstime;
+		abstime = notepoint.x;
+		keyval = notepoint.y;
+		[abstime, sustain].debug("class_step_track_controller: add_note");
+		if(abstime < self.get_end) {
+			note = (
+				sustain: self.display.gridstep.x,
+			);
+			note[self.notekey] = keyval;
+			self.get_notescore.add_note(note, abstime);
+			self.get_notescore.debug("add_note: get_notes");
+			self.get_notescore.notes.debug("add_note: notescore.notes");
+			self.scoreset.update_notes;
+			self.changed(\notes);
+		} {
+			debug("class_step_track_controller: past end: noop");
+		}
+
+	},
+
+	set_end: { arg self, val;
+		val.debug("controller: set_end");
+		self.scoreset.get_notescore.set_end(val);
+		self.scoreset.update_notes;
+		self.changed(\background);
+		self.changed(\notes);
+	},
+
+	get_end: { arg self;
+		self.scoreset.get_notescore.get_end.debug("get_end");
+		self.scoreset.get_notescore.get_end - self.scoreset.get_notescore.abs_start
+	},
 );
 
 ~default_curveline = [ // FIXME: crash when no notes
@@ -1026,7 +1970,7 @@
 			~class_note_track_controller.new(node, display);
 		},
 		\sampleline, {
-			~class_note_track_controller.new(node, display);
+			~class_sampleline_track_controller.new(node, display);
 		}
 	);
 
@@ -1280,486 +2224,5 @@
 //////////////////////////////////// piano roll editor
 
 
-~class_piano_track_controller = (
-	new: { arg self, node, display;
-		self = self.deepCopy;
-
-		//self.display = (
-		//	gridlen: 16,
-		//	gridstep: 1/4,
-		//);
-		//self = self.deepCopy;
-	
-		//self.notescore = ~make_notescore.();
-		//self.notescore.set_notes(~default_noteline3);
-		self.display = display;
-		
-		self.get_node = {node};
-		self.scoreset = node.get_arg(\noteline).get_scoreset;
-
-		self;
-	},
-
-	make_gui: { arg self;
-		//self.window = Window.new("Piano roll", Rect(100,100,600,600));
-		//self.parent_view = self.window;
-		self.parent_view = nil;
-		self.roll = ~class_piano_roll_editor.new(self.parent_view, self);
-		self.layout = self.roll.layout;
-		self.layout;
-		//self.window.front;
-	
-	},
-
-	get_notescore: { arg self;
-		self.scoreset.get_notescore;
-	},
-
-	get_notes: { arg self;
-		self.current_notes = self.scoreset.notescore.get_abs_notes;
-		self.current_notes.debug("get_notes");
-	},
-
-	move_note: { arg self, note, time, midinote;
-		note.time = time;
-		note.midinote = midinote;
-		self.scoreset.get_notescore.set_abs_notes(self.current_notes);
-		self.scoreset.update_notes;
-	},
-
-	set_note_key: { arg self, note, key, val;
-		note[key] = val;
-		self.scoreset.get_notescore.set_abs_notes(self.current_notes);
-		self.scoreset.update_notes;
-	},
-
-	remove_note: { arg self, notepoint;
-		var cons;
-		[notepoint.x].debug("class_step_track_controller: remove_note");
-		cons = { arg no;
-			no.midinote == notepoint.y;
-		};
-		self.get_notescore.remove_notes_playing_at_abstime(notepoint.x, cons);
-		self.scoreset.update_notes;
-		self.changed(\notes);
-	},
-
-	add_note: { arg self, notepoint, sustain=0.5;
-		var note;
-		var midinote;
-		var abstime;
-		abstime = notepoint.x;
-		midinote = notepoint.y;
-		[abstime, sustain].debug("class_step_track_controller: add_note");
-		if(abstime < self.get_end) {
-			note = (
-				midinote: midinote,
-				sustain: self.display.gridstep.x,
-			);
-			self.get_notescore.add_note(note, abstime);
-			self.get_notescore.debug("add_note: get_notes");
-			self.get_notescore.notes.debug("add_note: notescore.notes");
-			self.scoreset.update_notes;
-			self.changed(\notes);
-		} {
-			debug("class_step_track_controller: past end: noop");
-		}
-
-	},
-
-	set_end: { arg self, val;
-		val.debug("controller: set_end");
-		self.scoreset.get_notescore.set_end(val);
-		self.scoreset.update_notes;
-		self.changed(\background);
-		self.changed(\notes);
-	},
-
-	get_end: { arg self;
-		self.scoreset.get_notescore.get_end.debug("get_end");
-		self.scoreset.get_notescore.get_end - self.scoreset.get_notescore.abs_start
-	},
-
-);
-
-~class_piano_roll_editor = (
-	parent: ~class_basic_track_view,
-	piano_band_size_x: 30,
-	roll_size: 1500@1500,
-	beat_size_x: 50,
-	block_size_y: { arg self; self.roll_size.y/128 },
-	track_size_y: { arg self; self.block_size_y },
-	view_size_x: 1500,
-	view_size_y: 1500,
-	block_dict: Dictionary.new,
-	moving_notes: List.new,
-	//roll_size: 400@400,
-
-	update_sizes: { arg self;
-		var controller = self.controller;
-		self.handle_size = 12;
-		self.view_size = (1500@(self.handle_size * 128));
-		self.view_size1 = 1@1;
-		self.track_size = self.view_size-self.handle_size;
-		self.track_size1 = (1-(self.handle_size/self.view_size.x)) @ (1-(self.handle_size/self.view_size.y));
-		self.scaling = Point(self.track_size1.x/controller.display.gridlen, 1);
-		self.offset = Point(controller.display.offset*self.scaling.x,0);
-		self.beatlen = (self.track_size.x/self.controller.display.gridlen);
-		[self.beatlen, self.controller.display.gridlen].debug("class_basic_track_view: update_sizes: beatlen, gridlen");
-		//self.gridstep1 = controller.display.gridstep * (self.view_size1.x/self.controller.display.gridlen);
-		self.gridstep1 = Point(
-			controller.display.gridstep.x * (self.track_size1.x/self.controller.display.gridlen),
-			self.view_size1.y/128
-		);
-	},
-
-	new: { arg self, parent, controller;
-		self = self.deepCopy;
-
-		self.parent_view = parent;
-		self.init(parent, controller);
-		self.notes;
-	
-		self;
-	},
-
-	init: { arg self, parent, controller;
-		debug("class_basic_track_view.new");
-		self.controller = { arg self; controller };
-		self.update_sizes;
-		self.parent_view = parent;
-		self.as_view = self.make_gui;
-		self.main_responder = ~make_class_responder.(self, self.scrollview, controller, [
-			\notes, \background
-		]);
-		self.main_responder = ~make_class_responder.(self, self.scrollview, controller.display, [
-			\gridstep, \gridlen
-		]);
-		//self.main_responder = ~make_class_responder.(self, self.parent_view, controller.display, [
-		//	\gridstep, \gridlen
-		//]);
-	},
-
-	midinote_to_notename: { arg self, midinote;
-		var notenames = [ "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" ];
-		var octave = ((midinote / 12)).asInteger;
-		var name = notenames[ midinote % 12 ];
-		name ++ octave.asString;
-		//midinote.asString;
-	
-	},
-
-	//note_to_point: { arg self, note;
-	//	var x, y;
-	//	y = note.midinote * self.block_size_y;
-	//	x = note.time * self.beat_size_x;
-	//	x@y;
-	//},
-
-	note_to_point: { arg self, note;
-		// TODO: spec unmapping
-		Point(note.time*self.scaling.x,  1-(note.midinote /128));
-	},
-
-	point_to_notepoint: { arg self, point;
-		var x, y;
-		x = point.x / self.scaling.x;
-		//x = point.x/self.beat_size_x;
-		y = (1-point.y);
-		y = y * 128;
-		x@y;
-	},
-
-	mouse_down_action: { arg self;
-		{ arg view, x, y, modifiers, buttonNumber, clickCount;
-			var pos, notepos;
-			var round_notepos;
-			var trunc_notepos;
-			trunc_notepos = {
-				var pos, notepos;
-				pos = x@y;
-				pos = pos/self.view_size;
-				pos.x = pos.x.trunc(self.gridstep1.x);
-				pos.y = pos.y.trunc(self.gridstep1.y);
-				pos.debug("mouse_down_action: pos");
-				notepos = self.point_to_notepoint(pos);
-				notepos
-			};
-			self.current_modifiers = modifiers;
-
-			[modifiers, buttonNumber].debug("mouse_down_action: buttonNumber");
-			// 0 left, 1: right, 2: middle
-			~mouse_responder.(modifiers, buttonNumber, clickCount, (
-						create_note: {
-							notepos = trunc_notepos.();
-							self.controller.add_note(notepos);
-						},
-						remove_note: {
-							notepos = trunc_notepos.();
-							self.controller.remove_note(notepos);
-						},
-						set_end: {
-							pos = x@y;
-							pos = pos/self.view_size;
-							pos.x = pos.x.round(self.gridstep1.x);
-							pos.debug("mouse_down_action: set_end: pos");
-							notepos = self.point_to_notepoint(pos);
-							notepos.debug("mouse_down_action: set_end: notepos");
-							self.controller.set_end(notepos.x);
-						},
-			));
-		}
-	},
-
-	mouse_up_action: { arg self;
-		{ arg view, x, y, modifiers, buttonNumber, clickCount;
-			var newx, newy, notepoint;
-			var block, current_pos;
-			self.current_modifiers = nil;
-			self.moving_notes.do { arg snum;
-				block = self.block_dict[snum];
-				[block, nil, notepoint].debug("block point notepoint");
-				current_pos = self.timeline.getNodeLoc1(snum);
-				newx = current_pos[0].clip(0,1).trunc(self.gridstep1.x);
-				newx.debug("newx");
-				newy = current_pos[1].clip(0,1-self.margin).trunc(1/128);
-				[block, newx@newy, notepoint].debug("block point notepoint");
-				notepoint = self.point_to_notepoint(newx@newy);
-				[block, newx@newy, notepoint].debug("block point notepoint");
-				self.controller.move_note(block, notepoint.x, notepoint.y);
-			};
-			self.moving_notes = List.new;
-		}
-	},
-
-	mouse_move_action: { arg self;
-		{ arg view, x, y, modifiers;
-		};
-	},
-
-	node_track_action2: { arg self;
-		var tl = self.timeline;
-		{ arg node;
-			var new_midinote, new_time;
-			var newx, newy;
-			var current_pos;
-			var block;
-
-			current_pos = tl.getNodeLoc1(node.spritenum);
-
-			newx = current_pos[0].trunc(self.gridstep1.x);
-			newy = current_pos[1].trunc(self.gridstep1.y);
-
-			new_time = ( current_pos[0].trunc(self.beat_size_x)/self.beat_size_x ).asInteger;
-			new_midinote = ( current_pos[1].trunc(self.track_size_y)/self.track_size_y ).asInteger;
-
-			block = self.block_dict[node.spritenum];
-			self.controller.move_note(block, new_time, new_midinote);
-			tl.setNodeLoc_( node.spritenum, newx, newy );
-		}
-	},
-
-	node_track_action: { arg self;
-		var tl = self.timeline;
-		{ arg node;
-			var new_midinote, new_time;
-			var newx, newy;
-			var current_pos;
-			var block;
-			var notepoint;
-			var temp_pos;
-
-			self.margin = 0;
-			//self.margin = self.handle_size;
-
-			current_pos = tl.getNodeLoc1(node.spritenum);
-
-			//newx = current_pos[0].trunc(self.beat_size_x);
-			//newy = current_pos[1].trunc(self.track_size_y);
-			current_pos.debug("current_pos");
-			temp_pos = self.timeline.paraNodes[node.spritenum].temp;
-			temp_pos.debug("temp_pos");
-			//if(temp_pos.x == 0) {
-			//	current_pos.debug("current_pos == 0");
-			//	newx = temp_pos.x;
-			//} {
-			//	newx = current_pos[0].clip(0,1).trunc(self.gridstep1.x);
-			//};
-			newx = current_pos[0].clip(0,1).trunc(self.gridstep1.x);
-			newx.debug("newx");
-			newy = current_pos[1].clip(0,1-self.margin).trunc(1/128);
-
-			self.current_modifiers.debug("current_modifiers");
-			notepoint = self.point_to_notepoint(newx@newy);
-			notepoint.debug("notepoint");
-			if(self.current_modifiers.notNil and: { self.current_modifiers.isShift }) {
-				//resize
-				var temp_notepoint = self.point_to_notepoint(temp_pos);
-				var newlen = newx - temp_pos.x + self.gridstep1.x;
-				var newsustain = notepoint.x - temp_notepoint.x + self.controller.display.gridstep.x;
-				newlen = newlen * self.track_size.x;
-				newlen = newlen.abs;
-				newsustain = newsustain.clip(0.01,20);
-				[newlen, newsustain].debug("newlen, newsustain");
-				block = self.block_dict[node.spritenum];
-				self.controller.set_note_key(block, \sustain, newsustain);
-				self.timeline.paraNodes[node.spritenum].setLen = newlen;
-				tl.setNodeLoc1_( node.spritenum, temp_pos.x, temp_pos.y );
-			
-			} {
-				//move
-				debug("move");
-				
-				self.moving_notes.add(node.spritenum);
-				tl.setNodeLoc1_( node.spritenum, newx, newy );
-
-			}
-			
-		}
-	},
-
-	make_piano_roll: { arg self;
-		self.piano_roll = UserView.new(nil, Rect(0,0,self.piano_band_size_x, self.track_size.y));
-		self.piano_roll.minSize = self.piano_band_size_x@ self.track_size.y;
-		self.piano_roll.background = Color.yellow;
-		self.piano_roll.drawFunc_({
-			
-			128.do { arg y;
-				var yy;
-				//y = 128 - y;
-				yy = self.handle_size * y;
-				Pen.stringInRect(self.midinote_to_notename(128 - y), Rect(0,yy,self.piano_band_size_x,yy+self.handle_size))
-			};
-
-		});
-		self.piano_roll;
-	},
-
-	draw_background_function: { arg self, size, beatlen;
-		{
-			var i;
-			//size = size ?? (self.track_size_x@self.track_size_y);
-			size = self.roll_size;
-			//beatlen = beatlen ?? self.beatlen;
-			beatlen = self.beatlen;
-			// x lines
-			~draw_stepx_grid.(size, beatlen, self.controller.display.gridstep);
-			~draw_beat_grid.(size, beatlen);
-
-			// end line
-
-			//i = self.controller.get_end / 2;
-			i = self.controller.get_end;
-			if(i.notNil) {
-				Pen.color = Color.red;
-				Pen.line((i*self.beatlen)@0, (i*self.beatlen)@( self.track_size.y )); Pen.stroke
-			};
-		}
-	},
-
-	make_note_view: { arg self;
-		var timeline;
-		"0".debug;
-		self.timeline = ParaTimeline.new(self.parent_view, Rect(0,0,self.view_size.x,self.view_size.y));
-		timeline = self.timeline;
-		//self.timeline.userView.background = Color.yellow;
-		timeline.userView.minSize = self.view_size;
-		//self.timeline.maxHeight = 30;
-		timeline.mouseDownAction = self.mouse_down_action;
-		timeline.mouseUpAction = self.mouse_up_action;
-		timeline.mouseMoveAction = self.mouse_move_action;
-		timeline.nodeTrackAction = self.node_track_action;
-		"1".debug;
-		timeline.setBackgrDrawFunc_({
-			var i;
-			Pen.color = Color.gray(0.5);
-			128.do { arg y;
-				var yy = self.handle_size * y;
-				if(y % 12 == 0) {
-					//y.debug("y 12");
-					Pen.color = Color.gray(0.4);
-				} {
-					//y.debug("y");
-					Pen.color = Color.gray(0.8);
-				};
-				Pen.line(0@yy, self.track_size.x@yy);
-				Pen.stroke;
-			};
-			Pen.use {
-				self.draw_background_function.();
-			};
-			////Pen.stroke;
-			//Pen.use {
-			//	~draw_beat_grid.((self.roll_size.x-self.piano_band_size_x)@self.roll_size.y, self.beat_size_x)
-			//};
-			//i = self.controller.get_end;
-			//if(i.notNil) {
-			//	Pen.color = Color.red;
-			//	Pen.line((i*self.beat_size_x)@0, (i*self.beat_size_x)@( self.roll_size.y )); Pen.stroke
-			//};
-		});
-	},
-
-	notes: { arg self, controller;
-		var tl;
-		var stext;
-		var spritenum = 0;
-		var notes;
-		controller = controller ?? self.controller;
-
-		controller.get_notes.debug("class_basic_track_view: notes");
-
-		self.timeline.clearSpace;
-
-		self.block_dict = Dictionary.new;
-	
-		notes = controller.get_notes;
-		self.scan_notes(notes);
-
-		notes.do { arg note;
-			var pos;
-			note.debug("class_basic_track_view: notes: note");
-			if(note.type != \rest) {
-				pos = self.note_to_point(note);
-
-				self.timeline.createNode1(pos.x, pos.y);
-				self.timeline.setNodeSize_(spritenum, self.handle_size);
-				self.timeline.paraNodes[spritenum].setLen = note.sustain * self.beatlen;
-				self.timeline.paraNodes[spritenum].temp = pos;
-
-				self.block_dict[spritenum] = note;
-				spritenum = spritenum + 1;
-
-			}
-
-		};
-
-
-
-	},
-
-	make_gui: { arg self;
-		var canvas;
-		//self.scrollview = ScrollView.new(self.parent_view, Rect(0,0,500,500));
-		self.scrollview = ScrollView.new;
-		self.scrollview.minHeight_(600);
-		canvas = View.new;
-		self.make_piano_roll;
-		self.make_note_view;
-		self.timeline.userView;
-		self.layout_view = HLayout.new(
-			self.piano_roll,
-			self.timeline.userView
-		);
-		canvas.layout = self.layout_view;
-		self.scrollview.canvas = canvas;
-		self.scrollview;
-		self.layout = VLayout(
-			self.scrollview,
-			Button.new,
-		);
-		self.layout;
-	},
-);
 
 

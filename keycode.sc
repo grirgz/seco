@@ -667,11 +667,11 @@
 		~parse_action_bindings.(self, panel, actions);
 	},
 
-	get_kb_responder: { arg self, name;
+	get_kb_responder: { arg self, name, ctrl;
 		name.debug("giving panel responder");
 
 		if(GUI.current == QtGUI) {
-			self.qt_get_kb_responder(name);
+			self.qt_get_kb_responder(name, ctrl);
 		} {
 			{ arg view, char, modifiers, u, k; 
 				[name, modifiers, u, k].debug("KEYBOARD INPUT (name, mod, unicode, keycode(not used))");
@@ -680,7 +680,7 @@
 		}
 	},
 
-	qt_get_kb_responder: { arg self, name;
+	qt_get_kb_responder: { arg self, name, ctrl;
 		name.debug("giving panel responder (qt)");
 		{ arg view, char, modifiers, u, k; 
 			var res;
@@ -688,7 +688,7 @@
 
 			res = ~qt_keycode_to_keysymbol.(view, char, modifiers, u, k);
 			if( res.notNil ) {
-				self.handle_key(name, [\kb] ++ res);
+				self.handle_key(name, [\kb] ++ res, ctrl);
 			} {
 				"~qt_keycode_to_keysymbol yielded no result".debug;
 			}
@@ -778,7 +778,7 @@
 		if(fun.isNil, { "handle_key: nil function".warn; nil }, { fun.value; 1 })
 	},
 
-	handle_key: { arg self, panel, shortcut;
+	handle_key: { arg self, panel, shortcut, ctrl;
 		var fun;
 		//self.kb_handler.debug("handle_key: kb_handler");
 		[panel, shortcut.asCompileString].debug("current shortcut panel");
@@ -789,7 +789,11 @@
 			fun = self.kb_handler[panel][shortcut];
 			
 			//[fun, fun.def, fun.def.sourceCode].debug("function");
-			if(fun.isNil, { "handle_key: nil function".warn; nil }, { fun.value; 1 })
+			if(fun.isNil, { 
+				"handle_key: nil function".warn; nil 
+			}, { 
+				fun.value(ctrl); 1
+			})
 		} {
 			panel.debug("ERROR: bindings of panel are not defined");
 		};

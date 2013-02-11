@@ -22,6 +22,7 @@
 	sourcewrapper: nil,
 	playing_state: \stop,
 	muted: false,
+	temp_muted: false,
 	available_modes: [\stepline, \noteline, \scoreline, \sampleline],
 	archive_param_data: [\control, \stepline, \adsr, \noteline, \scoreline, \nodeline, \sampleline, \buf, \wavetable],
 	archive_data: [\current_mode, \sourcewrapper, \instrname, \defname, \name, \uname, \kind, \subkind, \bank],
@@ -50,6 +51,14 @@
 
 		self.init(data);
 		self;
+	},
+
+	get_label: { arg self;
+		if(self.name != self.uname) {
+			"% (%)".format(self.name, self.uname)
+		} {
+			"%".format(self.name)
+		}
 	},
 
 	init: { arg self, data;
@@ -179,7 +188,7 @@
 
 		list.add(\elapsed); list.add(Ptime.new);
 		list.add(\current_mode); list.add(Pfunc({ self.get_mode }));
-		list.add(\muted); list.add(Pfunc({ self.muted }));
+		list.add(\muted); list.add(Pfunc({ self.muted or: self.temp_muted }));
 		prio.difference(reject).do { arg key;
 			if(self.data[key].notNil) {
 				list.add(key); list.add( self.data[key].vpattern );
@@ -212,7 +221,7 @@
 		var val;
 		arglist.add(\current_mode);
 		arglist.add(Pfunc{ self.get_mode });
-		arglist.add(\muted); arglist.add(Pfunc({ self.muted }));
+		arglist.add(\muted); arglist.add(Pfunc({ self.muted or: self.temp_muted }));
 		([\repeat] ++ self.available_modes ++ [\sustain, \stretchdur, \segdur,  \dur, \type]).do { arg key;
 			if(self.data[key].notNil) {
 				val = self.get_arg(key);
@@ -275,7 +284,7 @@
 	},
 
 	get_playing_state: { arg self;
-		switch(self.muted,
+		switch(self.muted or: self.temp_muted,
 			true, {
 				switch(self.playing_state,
 					\play, { \mute },
@@ -420,6 +429,9 @@
 					self.select_param(val);
 				};
 				self.current_mode = val;
+				self.data.keysValuesDo { arg key, datum;
+					datum.update_vpattern;
+				};
 				self.changed(\mode);
 			};
 		};
@@ -775,6 +787,17 @@
 		if(val != self.muted) {
 			self.muted = val;
 			if(self.is_audiotrack) {
+				self.data[\amp].bus.mute(val);
+			};
+			self.changed(\redraw_node);
+		}
+	},
+
+	temp_mute: { arg self, val=true;
+		if(val != self.temp_muted) {
+			self.temp_muted = val;
+			if(self.is_audiotrack) {
+				//FIXME: temp_mute on audiotrack ?
 				self.data[\amp].bus.mute(val);
 			};
 			self.changed(\redraw_node);
@@ -1168,7 +1191,7 @@
 		var list = List[];
 		var prio, reject;
 
-		list.add(\muted); list.add(Pfunc({ player.muted }));
+		list.add(\muted); list.add(Pfunc({ player.muted or: player.temp_muted }));
 		list.add(\type); list.add(
 			Pfunc({ arg ev;
 				if(ev[\muted]) {
@@ -1321,6 +1344,7 @@
 ~make_empty_player = (
 	name: \voidplayer,
 	uname: \voidplayer,
+	get_label: "voidplayer",
 	get_playing_state: \stop,
 	kind: \player
 );
