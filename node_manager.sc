@@ -461,8 +461,12 @@
 						};
 					
 					},
+					\cut, {
+						main.model.clipboard
+					},
 					{
 						main.model.clipboard_action_kind.debug("paste_node: paste kind not implemented");
+						nil
 					}
 				);
 			};

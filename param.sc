@@ -1988,7 +1988,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 };
 
 
-~make_buf_param = { arg name, default_value, player, spec;
+~make_buf_param = { arg name, default_value, player, spec, channels=\stereo;
 
 	var param;
 
@@ -1997,6 +1997,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		name: name,
 		classtype: \buf,
 		current_kind: \sample,
+		channels: channels,
 		has_custom_buffer: false,
 		spec: nil,
 		selected: 0,
@@ -2056,7 +2057,11 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 		new_buffer: { arg self, path;
 			[player.uid, path].debug("new_buffer: player.uname, path");
-			self.buffer = BufferPool.get_sample(player.uid, path);
+			if(self.channels == \mono) {
+				self.buffer = BufferPool.get_mono_sample(player.uid, path);
+			} {
+				self.buffer = BufferPool.get_forced_stereo_sample(player.uid, path);
+			}
 		},
 
 		set_custom_buffer: { arg self, buf, name;

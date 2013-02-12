@@ -178,6 +178,9 @@
 		["add_modenv", \kb, \ctrlalt, "o"], // debug
 		["rename_player", \kb, \ctrlalt, "r"],
 
+		["enter_selected_subgroup", \kb, 0, \end],
+		["go_parent_group", \kb, 0, \home],
+
 		//["edit_external_player", \kb, \alt, "e"],
 		//["open_timeline", \kb, \ctrlalt, "l"],
 		//["edit_group_tracks", \kb, \alt, "g"],

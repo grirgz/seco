@@ -462,6 +462,7 @@
 		paths = [
 			// put here path to directory containing wavetable files (simple short .wav)
 			"~/Musique/archwavetable/Architecture Waveforms 2010 Wav24/Architecture Waveforms 2010 Wav24",
+			"~/Musique/Arty_Wavetable_Pack/",
 		];
 
 		librarylist = [

@@ -304,6 +304,9 @@
 		{ [\bufnum].includes(param_name)|| param_name.asString.containsStringAt(0,"bufnum_") } {
 			~make_bufnum_view.(info_layout, controller.make_param_display(param), param);
 		}
+		{ [\mbufnum].includes(param_name)|| param_name.asString.containsStringAt(0,"mbufnum_") } {
+			~make_bufnum_view.(info_layout, controller.make_param_display(param), param);
+		}
 		{ [\segdur, \stretchdur].includes(param_name) } {
 			//if(player.noteline, {
 				~make_simple_control_view.(info_layout, controller.make_param_display(param), param);
@@ -915,6 +918,8 @@
 		archive_data: [\model],
 		param_types: param_types,
 
+		group_path: List.new,
+
 		get_main: { arg self; main },
 
 		model: (
@@ -1492,6 +1497,7 @@
 						//curplayer = self.current_group.get_view_children[ curplayer_index ];
 						//self.set_current_player(curplayer, curplayer_index);
 						main.freeze_do { self.changed(\nodegroup); };
+						true; // no error
 				} {
 					group.kind.debug("Error: node is not a kind of group");
 				};
@@ -1565,6 +1571,28 @@
 		
 		},
 
+		////////// group browsing
+
+		enter_selected_subgroup: { arg self;
+			var group;
+			var oldgroup;
+			var res;
+			group = self.get_current_player;
+			oldgroup = self.get_current_group.uname;
+			res = self.set_current_group(group);
+			self.group_path.debug("group_path");
+			if(res.notNil) {
+				self.group_path.add(oldgroup);
+			}
+		},
+
+		go_parent_group: { arg self;
+			var gname = self.group_path.pop;
+			self.group_path.debug("group_path");
+			if(gname.notNil) {
+				self.set_current_group(main.get_node(gname));
+			}
+		},
 
 		//////////
 
@@ -1832,6 +1860,14 @@
 			main.commands.parse_action_bindings(\side, 
 				self.get_windows_bindings ++
 				self.get_shared_bindings ++ [
+
+				[\enter_selected_subgroup, {
+					self.enter_selected_subgroup;
+				}],
+
+				[\go_parent_group, {
+					self.go_parent_group;
+				}],
 
 				[\rename_player, {
 					var player = self.get_current_player;
@@ -2151,6 +2187,12 @@
 							}
 
 						},
+						\cut, {
+							nodename = main.node_manager.paste_node;
+							if(nodename.notNil) {
+								group.set_name_of_selected_child(nodename);
+							}
+						}
 					);
 				}],
 

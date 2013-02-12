@@ -113,6 +113,15 @@
 								};
 								self.to_destruct.add(dict[name]); //FIXME: make it real
 							}
+							{ (name == \mbufnum) || name.asString.containsStringAt(0, "mbufnum_") } {
+								// mono bufnum
+								dict[name] = ~make_buf_param.(name, "sounds/default.wav", self, ~get_special_spec.(name, self.defname), \mono);
+								if(dict[\samplekit].isNil) { // prevent multiple creation
+									dict[\samplekit] = ~make_samplekit_param.(\samplekit);
+									dict[\sampleline] = ~make_sampleline_param.(\sampleline);
+								};
+								self.to_destruct.add(dict[name]); //FIXME: make it real
+							}
 							//default
 							{ true } { 
 								dict[name] = ~make_control_param.(
@@ -179,7 +188,7 @@
 		var list = List[];
 		var prio, reject;
 		prio = [\repeat, \instrument, \stretchdur] ++ self.available_modes ++ [
-			\type, \samplekit, \bufnum, \dur, \segdur, \legato, \sustain
+			\type, \samplekit, \mbufnum, \bufnum, \dur, \segdur, \legato, \sustain
 		];
 		reject = [];
 		if(self.is_effect) {
@@ -303,18 +312,19 @@
 	////////////////// live playing
 
 	get_piano: { arg self, kind=\normal;
+		// FIXME: handle mono bufnum
 		var exclu, list = List[];
 		exclu = [
 			\instrument, \noteline, \scoreline, \sampleline, \samplekit, \repeat, \stretchdur, \stepline, 
 			\type, \dur, \segdur, \legato, \sustain,
-			\amp, \bufnum, \freq,
+			\amp, \bufnum, \mbufnum, \freq,
 		];
 		self.data.keys.difference(exclu).do { arg key;
 			var val = self.data[key].vpiano ?? self.data[key].vpattern;
 			list.add(key); list.add( val ) 
 		};
 		if(kind == \nsample) {
-				[\freq, \bufnum].do { arg paramname;
+				[\freq, \bufnum, \mbufnum].do { arg paramname;
 					if(self.data[paramname].notNil) {
 						list.add(paramname); list.add( self.data[paramname].vpiano ?? self.data[paramname].vpattern );
 					};
@@ -1326,11 +1336,20 @@
 			player = ~class_cinstr_player.new(main, instr, data)
 		}
 		{ instr.isSymbolWS || instr.isString } {
-			if(instr == \modenv) {
-				player = ~class_modenv_player.new(main, instr, data);
-			} {
-				player = ~make_player_from_synthdef.(main,instr, data);
-			};
+			switch(instr,
+				\modenv, {
+					player = ~class_modenv_player.new(main, instr, data);
+				},
+				\seqnode, {
+					player = ~make_seqplayer.(main);
+				},
+				\parnode, {
+					player = ~make_parplayer.(main);
+				},
+				{
+					player = ~make_player_from_synthdef.(main,instr, data);
+				}
+			);
 		} 
 		{ instr.isFunction } {
 			// FIXME: instr should be a symbol or string

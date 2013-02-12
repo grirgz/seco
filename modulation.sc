@@ -524,10 +524,10 @@
 	param_types: (
 		param_field_group: List[\dur, \segdur, \stretchdur, \repeat],
 		param_slider_group: List[\amp, \legato, \pan, \attack, \sustain, \release],
-		param_status_group: List[\amp, \dur, \segdur, \stretchdur, \repeat, \bufnum, \samplekit],
+		param_status_group: List[\amp, \dur, \segdur, \stretchdur, \repeat, \mbufnum, \bufnum, \samplekit],
 		param_order: List[\sustain, \pan, \attack, \release, \adsr, \freq],
 		param_mode: [\scoreline, \stepline, \noteline, \sampleline, \nodeline],
-		param_no_midi: { arg self; self.param_field_group ++ [\bufnum, \samplekit] ++ self.param_mode; },
+		param_no_midi: { arg self; self.param_field_group ++ [\mbufnum, \bufnum, \samplekit] ++ self.param_mode; },
 		param_reject: { arg self; [\out, \instrument, \tsustain, \type, \gate, \agate, \t_trig, \doneAction] ++ self.param_mode; },
 	),
 
