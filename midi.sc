@@ -272,12 +272,12 @@
 		block: { arg self;
 			var midi_val, param_val;
 
-			param.name.debug("get_midi_control_handler: block:param");
+			//param.name.debug("get_midi_control_handler: block:param");
 			midi_val = self.get_midi_norm_val;
-			param.get_norm_val.debug("get_midi_control_handler: block:param normaval2");
-			param.name.debug("get_midi_control_handler: block:param2");
+			//param.get_norm_val.debug("get_midi_control_handler: block:param normaval2");
+			//param.name.debug("get_midi_control_handler: block:param2");
 			param_val = param.get_norm_val;
-			param.name.debug("get_midi_control_handler: block:param3");
+			//param.name.debug("get_midi_control_handler: block:param3");
 
 			case 
 				{ midi_val > param_val } {
@@ -298,7 +298,7 @@
 		get_param: { arg self; param }, // DEBUG purpose
 
 		refresh: { arg self;
-			param.name.debug("get_midi_control_handler: refresh");
+			//param.name.debug("get_midi_control_handler: refresh");
 			self.block;
 			param.changed(\label);
 			param.changed(\midi_val, self.get_midi_val);

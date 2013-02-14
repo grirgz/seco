@@ -546,7 +546,7 @@ if(~silent_control_bus.isNil) {
 
 			livenodepool: Dictionary.new,
 
-			bus_mode_enabled: true,
+			bus_mode_enabled: false,
 
 		),
 

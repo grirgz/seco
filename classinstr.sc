@@ -6,6 +6,94 @@
 	current_param: nil,
 );
 
+~class_ci_simpleknob_view = (
+	new: { arg self, controller, display;
+		var modmixer;
+		self = self.deepCopy;
+
+		self.controller = { controller };
+		self.display = { display };
+		self.make_gui;
+	
+		self;
+	},
+
+	////////// responders
+
+	val: { arg self;
+		{
+			self.vallabel.string = self.controller.get_val.asFloat.asStringPrec(~general_sizes.float_precision);
+			self.knob.value = self.controller.get_norm_val;
+		}.defer;
+	},
+
+	label: { arg self;
+		self.controller.label.debug("class_ci_modknob_view: LABEL");
+		self.controller.name.debug("class_ci_modknob_view: LABEL2");
+		self.namelabel.string = self.controller.label ?? self.controller.name;
+	},
+
+
+	/////////// methods
+
+	make_gui: { arg self;
+		var label;
+		var knob;
+		var vallabel;
+		var layout;
+		//self.layout = VLayout(
+		layout = VLayout(
+			label = StaticText.new
+				.font_(Font("Arial",11))
+				.string_(self.controller.label ?? self.controller.name);
+				[label, stretch:0, align:\center],
+			knob = Knob.new; 
+				knob.action_({ 
+					self.controller.set_norm_val(knob.value)
+				});
+				knob.asView.debug("VIEW");
+				knob.asView.minSize_(50@50);
+				[knob.asView, stretch: 0, align:\center],
+			vallabel = StaticText.new
+				.string_("12354")
+				.font_(Font("Arial",11))
+				.align_(\center)
+				//.minWidth_(75);
+				;
+				[vallabel, stretch:0, align:\center],
+			nil
+		).spacing_(0).margins_(0);
+
+		//knob.focusGainedAction = { arg me;
+		//	me.background = Color.gray(0.6);
+		//	~global_controller.current_param = self.controller;
+		//};
+
+		//knob.focusLostAction = { arg me;
+		//	try {
+		//		me.background = Color.clear;
+		//	}
+		//	//~global_controller.current_param = self.controller;
+		//};
+
+
+		self.namelabel = label;
+		self.knob = knob;
+		self.vallabel = vallabel;
+		//self.layout.minHeight = 65;
+		//layout.minHeight = 65;
+		0.01.wait;
+		self.layout = layout;
+
+		~make_class_responder.(self, self.namelabel, self.controller, [
+			\val, \label,
+		]);
+
+		layout;
+
+	},
+);
+
 ~class_ci_modknob_view = (
 	range_val: 0,
 	new: { arg self, controller, display;
@@ -495,6 +583,28 @@
 		self;
 	},
 
+	make_control_params: { arg self, params_data;
+		params_data.collect { arg datum;
+			var name, spec, default;
+			#name, spec, default = datum;
+			spec = if(spec.isNil) {
+				if(self.get_specs[name].notNil) {
+					self.get_specs[name]
+				} {
+					if(name.asSpec.notNil) {
+						name.asSpec;
+					} {
+						\widefreq.asSpec;
+					}
+				}
+			} {
+				spec.asSpec;
+			};
+			default = default ?? { spec.default };
+			[name, ~make_control_param.(self.get_main, self.get_player, name, \scalar, default, spec)];
+		}.flat;
+	},
+
 	make_gui: { arg self;
 		var win;
 		Task{
@@ -710,11 +820,13 @@
 
 	get_synthargs: { arg self, args=();
 		var i;
-		i = ();
+		i = args.copy;
 		self.data.keysValuesDo { arg name, datum;
 			var control_name;
-			control_name = self.abs_namer(name);
-			i[name] = args[name] ?? control_name.kr(datum.default_value);
+			if(i[name].isNil) {
+				control_name = self.abs_namer(name);
+				i[name] = control_name.kr(datum.default_value);
+			}
 		};
 		self.simple_args.keysValuesDo { arg name, def;
 			if(i[name].isNil) {
@@ -1385,10 +1497,11 @@
 	parent: ~class_instr,
 	args_prefix: "",
 	args_suffix: "",
-	new: { arg self, main, player;
+	new: { arg self, main, player, namer;
 		self = self.deepCopy;
 
 		self.get_main = { main };
+		self.namer = { namer };
 		self.get_player = { player };
 		self.synthdef_name = \ci_dadsr;
 		self.build_data;
@@ -1481,6 +1594,67 @@
 		}
 	
 	},
+);
+
+~class_ci_dadsr_operator = (
+	parent: ~class_ci_dadsr,
+
+	make_layout: { arg self;
+		var knobs = [\velocity_mix, \delay, \attack_time, \decay_time, \sustain_level, \release_time, \curve];
+		var frame_view;
+		var env_view;
+		var layout;
+		var knobs_layouts;
+		knobs_layouts = knobs.collect { arg name;
+			~class_ci_simpleknob_view.new(self.data[name]).layout;
+		};
+		layout = 
+			HLayout(*
+				[env_view = EnvelopeView.new] ++
+				knobs_layouts
+			);
+		knobs.do { arg name;
+			~make_view_responder.(env_view, self.data[name], (
+				val: {
+					env_view.setEnv( Env.dadsr(
+						self.data[\delay].get_val,
+						self.data[\attack_time].get_val,
+						self.data[\decay_time].get_val,
+						self.data[\sustain_level].get_val,
+						self.data[\release_time].get_val,
+						1,
+						self.data[\curve].get_val
+					) )
+				}
+			), true)
+		};
+		layout;
+	},
+
+	synthfun: { arg self;
+		{ arg args;
+			var i = self.get_synthargs(args);
+			var sig;
+			args.debug("SYY args");
+			i.doneAction.debug("SYY donac");
+
+			i.doneAction.poll;
+
+			sig = EnvGen.ar(Env.dadsr(
+				i.delay,
+				i.attack_time,
+				i.decay_time,
+				i.sustain_level,
+				i.release_time,
+				1,
+				i.curve
+			), i.gate, doneAction:i.doneAction);
+			sig;
+
+		}
+	
+	},
+
 );
 
 ~class_ci_dadsr_kr = (
@@ -1769,6 +1943,292 @@
 		}
 	
 	},
+);
+
+~class_ci_operator = (
+	parent: ~class_instr,
+	new: { arg self, main, player, namer;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.namer = { namer };
+
+		self.dadsr = ~class_ci_dadsr_operator.new(main, player, self.make_namer);
+		//self.dadsr = ~class_ci_dadsr.new(main, player);
+
+		self.build_data;
+		self.simple_args = (freq:\void, gate:1, doneAction:2);
+	
+		self;
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		var specs = self.get_specs;
+		debug("~class_ci_operator: build_data");
+		self.help_build_data(
+			[
+				self.make_control_params([
+					[\amp, \amp, 0.5],
+					[\pan, \pan, 0.0],
+					//[\velocity, \unipolar, 0.0],
+					[\ratio, ControlSpec(0.0000001, 20, \exp, 0, 1), 1],
+					[\offset, ControlSpec(0.0000001, 18000, \exp, 0, 1), 0],
+				]),
+				self.dadsr
+			],
+			[
+				(
+					enabled: ~class_param_static_controller.new(\enabled, specs[\onoff], 1),
+				)
+			]
+		)
+	},
+
+	make_layout: { arg self, fader;
+		var knobs = [\amp, \pan, \ratio, \offset];
+		var frame_view;
+		var frame;
+		self.knobs = knobs.collect { arg name;
+			~class_ci_simpleknob_view.new(self.data[name]).layout;
+		};
+		frame = View.new;
+		frame.background = Color.gray(0.5);
+		frame.layout = HLayout(*
+			[StaticText.new.string_("Op A") ] ++
+			self.knobs ++
+			self.dadsr.make_layout
+		);
+		
+		self.layout = frame;
+		self.layout;
+	},
+
+	synthfun: { arg self;
+		{ arg in=0, args;
+			var i = self.get_synthargs(args);
+			var sig;
+			var freq;
+			"class_ci_operator: synthfun".debug;
+			
+			freq = (i.freq * i.ratio + i.offset);
+
+			sig = SinOsc.ar(freq * (1 + in));
+			sig = sig * self.dadsr.synthfun.((doneAction:0));
+			sig = sig * i.amp;
+			//sig.poll;
+			sig = self.bypass(i.enabled, sig, DC.ar(0));
+			sig;
+
+		}
+	
+	},
+
+);
+
+~class_ci_op_matrix = (
+	parent: ~class_instr,
+
+	new: { arg self, main, player, namer;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.namer = { namer };
+		"maisou1".debug;
+
+		self.op_names = ["A","B","C","D","E", "F"];
+		self.operators = self.op_names.collect { arg name;
+		//self.operators = ["A"].collect { arg name;
+			~class_ci_operator.new(main, player, self.make_namer("op%_".format(name)))
+		};
+		"maisou2".debug;
+
+		self.master = ~class_ci_master_dadsr.new(main, player);
+		"maisou3".debug;
+
+		self.build_data;
+		"maisou4".debug;
+		self.simple_args = (gate:1, doneAction:2);
+		"maisou5".debug;
+	
+		self;
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		var specs = self.get_specs;
+		debug("~class_ci_op_matrix: build_data");
+		self.help_build_data(
+			self.operators ++ [
+				//self.make_control_params([
+				//	[\amp, \amp, 0.1]
+				//]) ++ [
+				[
+					opmatrix: ~class_param_opmatrix_controller.new(\opmatrix, \unipolar, self.op_names.size@(self.op_names.size+2)),
+				],
+				self.master,
+			],
+			self.operators ++ [
+
+			]
+		)
+	},
+
+	make_layout: { arg self;
+		var opcount = self.op_names.size;
+		var make_cell;
+		var make_opcell;
+
+		"makelayout1".debug;
+
+		make_cell = { arg x, y;
+			var val;
+			val = self.data[\opmatrix].get_cell_val(x,y);
+			if(val == -1) {
+				val == ""
+			};
+			NumberBox.new
+				.value_( val )
+				//.string_("")
+				.clipLo_(0)
+				.clipHi_(1)
+				.step_(0.01)
+				.scroll_step_(0.1)
+				.ctrl_scale_(0.1)
+				.minDecimals_(2)
+				.maxDecimals_(3)
+				.action_({ arg field;
+					var val;
+					if(field.value == 0) {
+						field.background = Color.white;
+					} {
+						field.background = Color.gray(0.5);
+					};
+					val = field.value;
+					self.data[\opmatrix].set_cell_val(x,y, val)
+				})
+		};
+
+		make_opcell = { arg x, y;
+			View.new
+				.layout_( HLayout(
+					StaticText.new.string_(self.op_names[y]),
+					make_cell.(x, y)
+				))
+				.background_(Color.gray)
+				//.minWidth_(150)
+		};
+		"makelayout2".debug;
+
+		self.matrix_layout = GridLayout.rows(*
+			opcount.collect { arg y;
+				opcount.collect { arg x;
+					if(x == y) {
+						make_opcell.(x,y);
+					} {
+						make_cell.(x,y);
+					};
+				};
+			} ++ [
+				opcount.collect { arg x;
+					make_cell.(x,opcount);
+				},
+				opcount.collect { arg x;
+					make_cell.(x,opcount+1);
+				},
+			];
+		);
+		"makelayout2h".debug;
+
+		self.oplayout = VLayout(*
+			self.operators.collect({ arg op; op.make_layout }),
+		);
+		self.layout = HLayout(
+			self.oplayout,
+			VLayout(
+				self.matrix_layout,
+				self.master.make_layout,
+				self.master.make_layout_env,
+				nil,
+			),
+			nil
+		);
+		"makelayout3h".debug;
+		self.layout;
+	},
+
+	synthfun: { arg self;
+		{ arg args;
+			var i;
+			var sig;
+			var op_ins, op_outs;
+			var opcount = self.op_names.size;
+			var ops = Array.newClear(opcount);
+			var opmatrix;
+			opmatrix = \opmatrix.kr(
+				Array.fill(opcount * (opcount + 2), 0);
+			);
+			if(args.isNil) { args = () };
+			args[\opmatrix] =  opmatrix;
+			i = self.get_synthargs(args);
+			"class_ci_op_matrix: synthfun".debug;
+
+			op_ins = LocalIn.ar(opcount);
+			self.operators.do { arg op, idx;
+				var in = 0;
+				idx.debug("op do idx");
+				idx.do { arg i;
+					var sfactor;
+					var factor;
+					sfactor = self.data[\opmatrix].get_cell_val(i, idx);
+					if(sfactor >= 0) {
+						factor = opmatrix[i + (idx * opcount)];
+						in = in + (ops[i] * factor)
+					}
+				};
+				(opcount - idx).do { arg i;
+					var sfactor;
+					var factor;
+					sfactor = self.data[\opmatrix].get_cell_val(i + idx, idx);
+					if(sfactor >= 0) {
+						factor = opmatrix[i + idx + (idx * opcount)];
+						in = in + (op_ins[i+idx] * factor)
+					}
+				};
+				ops[idx] = op.synthfun.(in, args);
+			};
+			"fin".debug;
+			LocalOut.ar(ops);
+
+			"fin2".debug;
+			sig = 0;
+			opcount.do { arg idx;
+				var factor;
+				var sfactor;
+				sfactor = self.data[\opmatrix].get_cell_val(idx, opcount);
+				if(sfactor >= 0) {
+					factor = opmatrix[opcount * opcount + idx];
+					sig = sig + ( ops[idx] * factor );
+				};
+			};
+			"fin3".debug;
+
+			//sig = self.operators[0].synthfun.(0, args);
+			sig = self.master.synthfun.(sig);
+			"fin4".debug;
+
+			//sig = sig * i.amp;
+
+			sig;
+
+		}
+	
+	},
+
 );
 
 //////////////////////////////////////////////////////
@@ -2606,6 +3066,8 @@
 	moscfaderfilter: ~class_ci_moscfaderfilter,
 	osc3filter2: ~class_ci_osc3filter2,
 	dadsr_kr: ~class_ci_dadsr_kr,
+	op_matrix: ~class_ci_op_matrix,
+
 );
 
 //////////////////////////////////////////////////////

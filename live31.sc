@@ -2,12 +2,14 @@
 s.waitForBoot{
 //"/home/ggz/code/sc/abcparser.sc".load;
 //"/home/ggz/code/sc/seco/classinstr.sc".load;
+Window.closeAll;
 ~seq = Mdef.force_init(true);
 ~synthlib = [
 	\seqnode,
 	\parnode,
 	\audiotrack_expander,
 	\osc1,
+	"ci op_matrix",
 	"ci mosc",
 	"ci moscfilter",
 	"ci moscfilter_modfx",
@@ -325,4 +327,28 @@ SoundFile.use("~/Musique/beast.wav".standardizePath, { arg f;
 	f.numChannels.debug("numchan");
 
 })
+)
+
+
+{ SinOsc.ar(500) }.play
+
+
+
+(
+
+)
+
+(
+
+
+
+)
+
+
+(
+w = Window.new.front;
+a = TextField(w, Rect(10, 10, 150, 20));
+a.string = "hi there";
+a.action = {arg field; field.value.postln; };
+
 )

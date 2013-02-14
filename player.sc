@@ -850,9 +850,11 @@
 		//self.external_player.build_synthdef;
 		self.init(data);
 
+		"on est la2".debug;
 		self.data[\dur].select_cell(2);
 		//self.data[\repeat].set_val(0);
 
+		"on est la3".debug;
 		self;
 	},
 
@@ -867,11 +869,15 @@
 	uname_: { arg self, uname;
 		//self.external_player.synthdef_name_suffix = "_"++uname.replace("passive ", "");
 		self.external_player.synthdef_name_suffix = "_"++uname;
+		"BEFORE".debug;
 		self.external_player.build_synthdef;
+		"AFTER".debug;
 		self.defname = self.external_player.synthdef_name;
+		"BUoUUU".debug;
 		self[\uname] = uname;
 		self.build_sourcepat;
 		self.build_real_sourcepat;
+		"BUUUU".debug;
 	},
 
 	save_data: { arg self, options;

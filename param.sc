@@ -3495,7 +3495,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		},
 
 		get_norm_val: { arg self;
-			self.current_kind.debug("control_param.get_norm_val: self.current_kind");
+			//self.current_kind.debug("control_param.get_norm_val: self.current_kind");
 			self[self.current_kind].get_norm_val
 		},
 
@@ -4289,6 +4289,55 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	},
 );
 
+~class_param_opmatrix_controller = (
+	parent: ~class_param_controller,
+	new: { arg self, name, spec, size;
+		self = self.deepCopy;
+		
+		self.opmatrix = Array.fill(size.y, {
+			Array.fill(size.x, { 0 })
+		});
+	
+		self;
+	},
+
+	save_data: { arg self;
+		var data = IdentityDictionary.new;
+		self.archive_data.do { arg key;
+			data[key] = self[key]
+		};
+		data;
+	},
+
+	load_data: { arg self, data;
+		data.keysValuesDo { arg key, val;
+			self[key] = val;
+		}
+	},
+
+	get_cell_val: { arg self, x, y;
+		self.opmatrix[y][x];
+	},
+
+	set_cell_val: { arg self, x, y, val;
+		self.opmatrix[y][x] = val;
+	},
+
+	vpiano: { arg self;
+		{
+			self.get_val;
+		}
+	},
+
+	vpattern: { arg self;
+		Pfunc{
+			[
+				self.opmatrix.flat
+			]
+		}
+	},
+);
+
 ~class_param_tsustain_controller = (
 	parent: ~class_param_controller,
 	archive_data: [\name],
@@ -4331,9 +4380,9 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			var val;
 			~general_sizes.safe_inf.do {
 				val = ev[self.player_node.get_mode][self.key_name];
-				val.debug("class_param_scorekey_controller.vpattern: val");
+				//val.debug("class_param_scorekey_controller.vpattern: val");
 				if(val.isNil) {
-					ev.debug("class_param_scorekey_controller: ev");
+					//ev.debug("class_param_scorekey_controller: ev");
 					val = 0;
 				};
 				ev = val.yield;
@@ -4414,6 +4463,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		self.buffer = Buffer.alloc(s, ~general_sizes.wavetable_buffer_size);
 
 		self.wt_range_controller = ~class_param_wavetable_range_controller.new(\wt_range);
+		//self.wt_classic_controller = ~class_param_wavetable_classic_osc_controller.new(\wt_classic);
 		self.wt_pos_ctrl = wt_pos;
 
 		self.set_curve(self.model.val);
@@ -4492,17 +4542,18 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				~class_load_wavetable_dialog.new(apply_action, cancel_action);
 			}
 		} {
-			if(self.model.val_uname == \custom) {
-				was_custom = true;
-			}; 
+
+			//if(self.model.val_uname == \custom) {
+			//	was_custom = true;
+			//}; 
 			~load_curve_in_wavetable_buffer.(self.buffer, self.wtman.get_wavetable(curve));
 			self.model.val_uname = curve;
 			self.model.val = curve_idx;
 
 			self.set_buffer_range(0);
-			if(was_custom) {
-				self.main_controller.update_arg(self.model.uname);
-			}
+			//if(was_custom) {
+			//	self.main_controller.update_arg(self.model.uname);
+			//}
 		};
 	},
 
