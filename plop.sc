@@ -50,3 +50,9 @@ b = a <> Pbind(
 b = Psetpre(\freq, Pseq([300, 400, 500], 2), b);
 b.play
 )
+
+
+
+(
+{ SoundIn.ar(0) }.play
+)

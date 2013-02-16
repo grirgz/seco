@@ -985,11 +985,13 @@
 		var main = self.get_main;
 		var player = self.get_player;
 		var specs = self.get_specs;
-		var wt, wt_range, wt_pos;
+		var wt, wt_range, wt_classic, wt_pos;
 		self.synthdef_name.debug("%%%%%%%%%%%%%%%%%%%%%%%%%%% build data");
 		wt_pos = ~make_control_param.(main, player, \wt_pos, \scalar, 0, \unipolar.asSpec.copy);
 		wt = ~class_param_wavetable_controller.new(player, \wt, wt_pos);
 		wt_range = wt.get_wt_range_controller;
+		wt_classic = wt.get_wt_classic_controller;
+
 		
 		self.ordered_args = [
 			freq: ~make_control_param.(main, player, \freq, \scalar, 200, \freq.asSpec),
@@ -1002,6 +1004,7 @@
 		self.static_data = IdentityDictionary.newFrom((
 			spectrum: ~class_param_kind_chooser_controller.new(\spectrum, self.get_spectrum_variants),
 			wt_range: wt_range,
+			wt_classic: wt_classic,
 			enabled: ~class_param_static_controller.new(\enabled, specs[\onoff], 1),
 		));
 		self.data = IdentityDictionary.newFrom(self.ordered_args);
@@ -1034,6 +1037,7 @@
 				wt:i.wt,
 				wt_position:i.wt_pos,
 				wt_range:i.wt_range,
+				wt_classic:i.wt_classic,
 				spectrum:i.spectrum,
 				intensity:i.intensity,
 				amp:i.oscamp, 
@@ -1947,12 +1951,13 @@
 
 ~class_ci_operator = (
 	parent: ~class_instr,
-	new: { arg self, main, player, namer;
+	new: { arg self, main, player, namer, name="Op A";
 		self = self.deepCopy;
 
 		self.get_main = { main };
 		self.get_player = { player };
 		self.namer = { namer };
+		self.name = name;
 
 		self.dadsr = ~class_ci_dadsr_operator.new(main, player, self.make_namer);
 		//self.dadsr = ~class_ci_dadsr.new(main, player);
@@ -1967,6 +1972,10 @@
 		var main = self.get_main;
 		var player = self.get_player;
 		var specs = self.get_specs;
+		var wt, wt_range, wt_classic;
+		wt =  ~class_param_wavetable_controller.new(player, \wt, nil, true);
+		wt_range = wt.get_wt_range_controller;
+		wt_classic = wt.get_wt_classic_controller;
 		debug("~class_ci_operator: build_data");
 		self.help_build_data(
 			[
@@ -1976,12 +1985,16 @@
 					//[\velocity, \unipolar, 0.0],
 					[\ratio, ControlSpec(0.0000001, 20, \exp, 0, 1), 1],
 					[\offset, ControlSpec(0.0000001, 18000, \exp, 0, 1), 0],
-				]),
+				]) ++ [
+					wt: wt
+				],
 				self.dadsr
 			],
 			[
 				(
 					enabled: ~class_param_static_controller.new(\enabled, specs[\onoff], 1),
+					wt_classic: wt_classic,
+					wt_range: wt_range,
 				)
 			]
 		)
@@ -1997,7 +2010,13 @@
 		frame = View.new;
 		frame.background = Color.gray(0.5);
 		frame.layout = HLayout(*
-			[StaticText.new.string_("Op A") ] ++
+			[
+				VLayout(
+					StaticText.new.string_(self.name),
+					~class_ci_popup_view.new(self.data[\wt]).layout
+
+				)
+			] ++
 			self.knobs ++
 			self.dadsr.make_layout
 		);
@@ -2014,215 +2033,24 @@
 			"class_ci_operator: synthfun".debug;
 			
 			freq = (i.freq * i.ratio + i.offset);
+			freq = freq * (1 + in);
 
-			sig = SinOsc.ar(freq * (1 + in));
+			//sig = SinOsc.ar(freq * (1 + in));
+			sig = Instr(\ci_oscillator).value((
+				midinote:freq.cpsmidi, 
+				detune:0,
+				wt:i.wt,
+				wt_position:0,
+				wt_range:0,
+				wt_classic:i.wt_classic,
+				spectrum:\normal,
+				intensity:0,
+				amp:i.amp, 
+			));
 			sig = sig * self.dadsr.synthfun.((doneAction:0));
-			sig = sig * i.amp;
+			//sig = sig * i.amp;
 			//sig.poll;
 			sig = self.bypass(i.enabled, sig, DC.ar(0));
-			sig;
-
-		}
-	
-	},
-
-);
-
-~class_ci_op_matrix = (
-	parent: ~class_instr,
-
-	new: { arg self, main, player, namer;
-		self = self.deepCopy;
-
-		self.get_main = { main };
-		self.get_player = { player };
-		self.namer = { namer };
-		"maisou1".debug;
-
-		self.op_names = ["A","B","C","D","E", "F"];
-		self.operators = self.op_names.collect { arg name;
-		//self.operators = ["A"].collect { arg name;
-			~class_ci_operator.new(main, player, self.make_namer("op%_".format(name)))
-		};
-		"maisou2".debug;
-
-		self.master = ~class_ci_master_dadsr.new(main, player);
-		"maisou3".debug;
-
-		self.build_data;
-		"maisou4".debug;
-		self.simple_args = (gate:1, doneAction:2);
-		"maisou5".debug;
-	
-		self;
-	},
-
-	build_data: { arg self;
-		var main = self.get_main;
-		var player = self.get_player;
-		var specs = self.get_specs;
-		debug("~class_ci_op_matrix: build_data");
-		self.help_build_data(
-			self.operators ++ [
-				//self.make_control_params([
-				//	[\amp, \amp, 0.1]
-				//]) ++ [
-				[
-					opmatrix: ~class_param_opmatrix_controller.new(\opmatrix, \unipolar, self.op_names.size@(self.op_names.size+2)),
-				],
-				self.master,
-			],
-			self.operators ++ [
-
-			]
-		)
-	},
-
-	make_layout: { arg self;
-		var opcount = self.op_names.size;
-		var make_cell;
-		var make_opcell;
-
-		"makelayout1".debug;
-
-		make_cell = { arg x, y;
-			var val;
-			val = self.data[\opmatrix].get_cell_val(x,y);
-			if(val == -1) {
-				val == ""
-			};
-			NumberBox.new
-				.value_( val )
-				//.string_("")
-				.clipLo_(0)
-				.clipHi_(1)
-				.step_(0.01)
-				.scroll_step_(0.1)
-				.ctrl_scale_(0.1)
-				.minDecimals_(2)
-				.maxDecimals_(3)
-				.action_({ arg field;
-					var val;
-					if(field.value == 0) {
-						field.background = Color.white;
-					} {
-						field.background = Color.gray(0.5);
-					};
-					val = field.value;
-					self.data[\opmatrix].set_cell_val(x,y, val)
-				})
-		};
-
-		make_opcell = { arg x, y;
-			View.new
-				.layout_( HLayout(
-					StaticText.new.string_(self.op_names[y]),
-					make_cell.(x, y)
-				))
-				.background_(Color.gray)
-				//.minWidth_(150)
-		};
-		"makelayout2".debug;
-
-		self.matrix_layout = GridLayout.rows(*
-			opcount.collect { arg y;
-				opcount.collect { arg x;
-					if(x == y) {
-						make_opcell.(x,y);
-					} {
-						make_cell.(x,y);
-					};
-				};
-			} ++ [
-				opcount.collect { arg x;
-					make_cell.(x,opcount);
-				},
-				opcount.collect { arg x;
-					make_cell.(x,opcount+1);
-				},
-			];
-		);
-		"makelayout2h".debug;
-
-		self.oplayout = VLayout(*
-			self.operators.collect({ arg op; op.make_layout }),
-		);
-		self.layout = HLayout(
-			self.oplayout,
-			VLayout(
-				self.matrix_layout,
-				self.master.make_layout,
-				self.master.make_layout_env,
-				nil,
-			),
-			nil
-		);
-		"makelayout3h".debug;
-		self.layout;
-	},
-
-	synthfun: { arg self;
-		{ arg args;
-			var i;
-			var sig;
-			var op_ins, op_outs;
-			var opcount = self.op_names.size;
-			var ops = Array.newClear(opcount);
-			var opmatrix;
-			opmatrix = \opmatrix.kr(
-				Array.fill(opcount * (opcount + 2), 0);
-			);
-			if(args.isNil) { args = () };
-			args[\opmatrix] =  opmatrix;
-			i = self.get_synthargs(args);
-			"class_ci_op_matrix: synthfun".debug;
-
-			op_ins = LocalIn.ar(opcount);
-			self.operators.do { arg op, idx;
-				var in = 0;
-				idx.debug("op do idx");
-				idx.do { arg i;
-					var sfactor;
-					var factor;
-					sfactor = self.data[\opmatrix].get_cell_val(i, idx);
-					if(sfactor >= 0) {
-						factor = opmatrix[i + (idx * opcount)];
-						in = in + (ops[i] * factor)
-					}
-				};
-				(opcount - idx).do { arg i;
-					var sfactor;
-					var factor;
-					sfactor = self.data[\opmatrix].get_cell_val(i + idx, idx);
-					if(sfactor >= 0) {
-						factor = opmatrix[i + idx + (idx * opcount)];
-						in = in + (op_ins[i+idx] * factor)
-					}
-				};
-				ops[idx] = op.synthfun.(in, args);
-			};
-			"fin".debug;
-			LocalOut.ar(ops);
-
-			"fin2".debug;
-			sig = 0;
-			opcount.do { arg idx;
-				var factor;
-				var sfactor;
-				sfactor = self.data[\opmatrix].get_cell_val(idx, opcount);
-				if(sfactor >= 0) {
-					factor = opmatrix[opcount * opcount + idx];
-					sig = sig + ( ops[idx] * factor );
-				};
-			};
-			"fin3".debug;
-
-			//sig = self.operators[0].synthfun.(0, args);
-			sig = self.master.synthfun.(sig);
-			"fin4".debug;
-
-			//sig = sig * i.amp;
-
 			sig;
 
 		}
@@ -2494,7 +2322,7 @@
 		self.synthdef_name = \ci_osc3filter2;
 		self.simple_args = (freq:\void, gate:1, doneAction:2);
 
-		self.oscs = oscs;
+		self.oscs = oscs.(self);
 
 		self.filters = 2.collect { arg idx;
 			~class_ci_filter.new(main, player, self.make_namer("filter%_".format(idx)));
@@ -3038,20 +2866,224 @@
 ~class_ci_osc3filter2 = (
 	new: { arg self, main, player, namer;
 		var oscs;
-		oscs = 3.collect { arg idx;
-			~class_ci_oscfader.new(main, player, self.make_namer("osc%_".format(idx)));
+		var make_oscs = { arg self;
+			oscs = 3.collect { arg idx;
+				~class_ci_oscfader.new(main, player, self.make_namer("osc%_".format(idx)));
+			};
+			oscs = oscs ++ [
+				//~class_ci_noise.new(main, player, self.make_namer("noise1_"));
+				~class_ci_wrapfader.new(main, player, self.make_namer("noise1_"), ~class_ci_noise);
+			];
+
 		};
-		oscs = oscs ++ [
-			//~class_ci_noise.new(main, player, self.make_namer("noise1_"));
-			~class_ci_wrapfader.new(main, player, self.make_namer("noise1_"), ~class_ci_noise);
-		];
 
 
-		~class_ci_gens_filter2.new(main, player, namer, oscs);
+		~class_ci_gens_filter2.new(main, player, namer, make_oscs);
 	
 
 	},
+);
+
+~class_ci_op_matrix = (
+	parent: ~class_instr,
+
+	new: { arg self, main, player, namer;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.namer = { namer };
+		"maisou1".debug;
+
+		self.op_names = ["A","B","C","D","E", "F"];
+		self.operators = self.op_names.collect { arg name;
+		//self.operators = ["A"].collect { arg name;
+			~class_ci_operator.new(main, player, self.make_namer("op%_".format(name)))
+		};
+		"maisou2".debug;
+
+		self.master = ~class_ci_master_dadsr.new(main, player);
+		"maisou3".debug;
+
+		self.build_data;
+		"maisou4".debug;
+		self.simple_args = (gate:1, doneAction:2);
+		"maisou5".debug;
 	
+		self;
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		var specs = self.get_specs;
+		debug("~class_ci_op_matrix: build_data");
+		self.help_build_data(
+			self.operators ++ [
+				//self.make_control_params([
+				//	[\amp, \amp, 0.1]
+				//]) ++ [
+				[
+					opmatrix: ~class_param_opmatrix_controller.new(\opmatrix, \unipolar, self.op_names.size@(self.op_names.size+2)),
+				],
+				self.master,
+			],
+			self.operators ++ [
+
+			]
+		)
+	},
+
+	make_layout: { arg self;
+		var opcount = self.op_names.size;
+		var make_cell;
+		var make_opcell;
+
+		"makelayout1".debug;
+
+		make_cell = { arg x, y;
+			var val;
+			val = self.data[\opmatrix].get_cell_val(x,y);
+			if(val == -1) {
+				val == ""
+			};
+			NumberBox.new
+				.value_( val )
+				//.string_("")
+				.clipLo_(0)
+				.clipHi_(1)
+				.step_(0.01)
+				.scroll_step_(0.1)
+				.ctrl_scale_(0.1)
+				.minDecimals_(2)
+				.maxDecimals_(3)
+				.action_({ arg field;
+					var val;
+					if(field.value == 0) {
+						field.background = Color.white;
+					} {
+						field.background = Color.gray(0.5);
+					};
+					val = field.value;
+					self.data[\opmatrix].set_cell_val(x,y, val)
+				})
+		};
+
+		make_opcell = { arg x, y;
+			View.new
+				.layout_( HLayout(
+					StaticText.new.string_(self.op_names[y]),
+					make_cell.(x, y)
+				))
+				.background_(Color.gray)
+				//.minWidth_(150)
+		};
+		"makelayout2".debug;
+
+		self.matrix_layout = GridLayout.rows(*
+			opcount.collect { arg y;
+				opcount.collect { arg x;
+					if(x == y) {
+						make_opcell.(x,y);
+					} {
+						make_cell.(x,y);
+					};
+				};
+			} ++ [
+				opcount.collect { arg x;
+					make_cell.(x,opcount);
+				},
+				opcount.collect { arg x;
+					make_cell.(x,opcount+1);
+				},
+			];
+		);
+		"makelayout2h".debug;
+
+		self.oplayout = VLayout(*
+			self.operators.collect({ arg op; op.make_layout }),
+		);
+		self.layout = HLayout(
+			self.oplayout,
+			VLayout(
+				self.matrix_layout,
+				self.master.make_layout,
+				self.master.make_layout_env,
+				nil,
+			),
+			nil
+		);
+		"makelayout3h".debug;
+		self.layout;
+	},
+
+	synthfun: { arg self;
+		{ arg args;
+			var i;
+			var sig;
+			var op_ins, op_outs;
+			var opcount = self.op_names.size;
+			var ops = Array.newClear(opcount);
+			var opmatrix;
+			opmatrix = \opmatrix.kr(
+				Array.fill(opcount * (opcount + 2), 0);
+			);
+			if(args.isNil) { args = () };
+			args[\opmatrix] =  opmatrix;
+			i = self.get_synthargs(args);
+			"class_ci_op_matrix: synthfun".debug;
+
+			op_ins = LocalIn.ar(opcount);
+			self.operators.do { arg op, idx;
+				var in = 0;
+				idx.debug("op do idx");
+				idx.do { arg i;
+					var sfactor;
+					var factor;
+					sfactor = self.data[\opmatrix].get_cell_val(i, idx);
+					if(sfactor >= 0) {
+						factor = opmatrix[i + (idx * opcount)];
+						in = in + (ops[i] * factor)
+					}
+				};
+				(opcount - idx).do { arg i;
+					var sfactor;
+					var factor;
+					sfactor = self.data[\opmatrix].get_cell_val(i + idx, idx);
+					if(sfactor >= 0) {
+						factor = opmatrix[i + idx + (idx * opcount)];
+						in = in + (op_ins[i+idx] * factor)
+					}
+				};
+				ops[idx] = op.synthfun.(in, args);
+			};
+			"fin".debug;
+			LocalOut.ar(ops);
+
+			"fin2".debug;
+			sig = 0;
+			opcount.do { arg idx;
+				var factor;
+				var sfactor;
+				sfactor = self.data[\opmatrix].get_cell_val(idx, opcount);
+				if(sfactor >= 0) {
+					factor = opmatrix[opcount * opcount + idx];
+					sig = sig + ( ops[idx] * factor );
+				};
+			};
+			"fin3".debug;
+
+			//sig = self.operators[0].synthfun.(0, args);
+			sig = self.master.synthfun.(sig);
+			"fin4".debug;
+
+			//sig = sig * i.amp;
+
+			sig;
+
+		}
+	
+	},
 
 );
 
@@ -3074,7 +3106,7 @@
 ////////////// Instrs
 //////////////////////////////////////////////////////
 
-Instr(\ci_oscillator, { arg spectrum, wt_range=0, amp=0.1, midinote=200, wt=0, detune=0.0, wt_position=0, intensity=1;
+Instr(\ci_oscillator, { arg spectrum, wt_range=0, wt_classic=\void, amp=0.1, midinote=200, wt=0, detune=0.0, wt_position=0, intensity=1;
 	var ou, endfreq;
 	var formantfreq;
 	var mul = 1;
@@ -3092,10 +3124,14 @@ Instr(\ci_oscillator, { arg spectrum, wt_range=0, amp=0.1, midinote=200, wt=0, d
 			mul = SinOsc.ar(formantfreq);
 		}
 	);
-	if(wt_range == 0) {
-		ou = Osc.ar(wt, endfreq) * mul;
+	if(wt_classic != \void) {
+		ou = Instr(\ci_classic_oscillator).value((kind:wt_classic, freq:endfreq)) * mul;
 	} {
-		ou = VOsc.ar(wt+(wt_position.clip(0,wt_range)), endfreq) * mul;
+		if(wt_range == 0) {
+			ou = Osc.ar(wt, endfreq) * mul;
+		} {
+			ou = VOsc.ar(wt+(wt_position.clip(0,wt_range)), endfreq) * mul;
+		};
 	};
 	switch(spectrum,
 		\wrap, {
@@ -3117,7 +3153,28 @@ Instr(\ci_oscillator, { arg spectrum, wt_range=0, amp=0.1, midinote=200, wt=0, d
 	ou = ou * amp;
 	//[freq, detune, amp].debug("p_oscillator: frq, detune, amp");
 	ou;
-}, [NonControlSpec(), NonControlSpec()]);
+}, [NonControlSpec(), NonControlSpec(), NonControlSpec()]);
+
+Instr(\ci_classic_oscillator, { arg kind=\void, freq=200, phase=0, width=0.5;
+	switch(kind,
+		\SinOsc, {
+			SinOsc.ar(freq, phase)
+		},
+		\LFSaw, {
+			LFSaw.ar(freq, phase)
+		},
+		\LFPulse, {
+			LFPulse.ar(freq, phase)
+		},
+		\LFTri, {
+			LFTri.ar(freq, phase)
+		},
+		{
+			"WARNING: ci_classic_oscillator: kind not found".debug;
+			SinOsc.ar(freq, phase)
+		}
+	);
+}, [NonControlSpec()]);
 
 Instr(\ci_filter, { arg in, kind, arg1, arg2, arg3, freq;
 	var sig;

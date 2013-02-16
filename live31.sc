@@ -352,3 +352,8 @@ a.string = "hi there";
 a.action = {arg field; field.value.postln; };
 
 )
+
+
+~class_ci_osc3filter2.new(Mdef.main, )
+
+Mdef.node("ci osc3filter2_l1005").external_player.get_static_data.keys

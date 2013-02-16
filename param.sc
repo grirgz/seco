@@ -4452,18 +4452,25 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		val_uname: "curve name",
 	),
 
-	new: { arg self, player, name, wt_pos;
+	new: { arg self, player, name, wt_pos, single=false;
+		var cosc_variants;
 		self = self.deepCopy;
 		self.name = name;
 		self.get_player = { player };
+		self.single_wavetable = single;
 		player.uname.debug("class_param_wavetable_controller: uname");
 		//player.get_main.debug("class_param_wavetable_controller: main");
 		self.wtman = player.get_main.wavetable_manager;
-		self.menu_items = self.wtman.get_names ++ [\custom];
+
+
 		self.buffer = Buffer.alloc(s, ~general_sizes.wavetable_buffer_size);
 
 		self.wt_range_controller = ~class_param_wavetable_range_controller.new(\wt_range);
-		//self.wt_classic_controller = ~class_param_wavetable_classic_osc_controller.new(\wt_classic);
+		self.wt_classic_controller = ~class_param_wavetable_classic_osc_controller.new(\wt_classic);
+		cosc_variants = self.wt_classic_controller.get_variants;
+		self.classic_osc_size = cosc_variants.size;
+		self.menu_items = cosc_variants ++ self.wtman.get_names ++ [\custom];
+
 		self.wt_pos_ctrl = wt_pos;
 
 		self.set_curve(self.model.val);
@@ -4499,6 +4506,10 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		self.wt_range_controller;
 	},
 
+	get_wt_classic_controller: { arg self;
+		self.wt_classic_controller;
+	},
+
 	set_wt_pos_controller: { arg self, val;
 		self.wt_pos_ctrl = val;
 	},
@@ -4508,7 +4519,9 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		self.wt_range_controller.set_val(range);
 		//osc_pos_ctrl = self.main_controller.get_arg("osc%_wt_pos".format(self.model.indexes).asSymbol);
 		////osc_pos_ctrl.debug("osc_wt_pos ctrl");
-		self.wt_pos_ctrl.spec.maxval = self.model.buffer_range - 0.0001;
+		if(self.wt_pos_ctrl.notNil) {
+			self.wt_pos_ctrl.spec.maxval = self.model.buffer_range - 0.0001;
+		}
 	},
 
 	set_curve: { arg self, curve_idx, load=false;
@@ -4539,18 +4552,23 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			if(load) {
 				apply_action.(self.model.pathlist);
 			} {
-				~class_load_wavetable_dialog.new(apply_action, cancel_action);
+				~class_load_wavetable_dialog.new(apply_action, cancel_action, nil, self.single_wavetable);
 			}
 		} {
 
 			//if(self.model.val_uname == \custom) {
 			//	was_custom = true;
 			//}; 
-			~load_curve_in_wavetable_buffer.(self.buffer, self.wtman.get_wavetable(curve));
+			if(curve_idx < self.classic_osc_size) {
+				self.wt_classic_controller.set_val(curve);
+			} {
+				self.wt_classic_controller.set_val(\void);
+				~load_curve_in_wavetable_buffer.(self.buffer, self.wtman.get_wavetable(curve));
+			};
 			self.model.val_uname = curve;
 			self.model.val = curve_idx;
-
 			self.set_buffer_range(0);
+
 			//if(was_custom) {
 			//	self.main_controller.update_arg(self.model.uname);
 			//}
@@ -4681,8 +4699,10 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	},
 
 	set_val: { arg self, val;
-		self.val = val;	
-		self.changed(\val)
+		if(self.val != val) {
+			self.val = val;	
+			self.changed(\val)
+		}
 	},
 
 	get_val: { arg self;
@@ -4700,6 +4720,36 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	
 		self;
 	},
+);
+
+~class_param_wavetable_classic_osc_controller = (
+	// static
+	parent: ~class_param_static_controller,
+	spec: \unipolar.asSpec.copy,
+
+	get_variants: { arg self;
+		[
+			\SinOsc,
+			\LFSaw,
+			\LFPulse,
+			\LFTri,
+		]
+	},
+
+	new: { arg self, name;
+		self = self.deepCopy;
+		self.name = name;
+	
+		self;
+	},
+
+	//set_val: { arg self, val;
+	//	[self.val, val].debug("class_param_wavetable_controller: set_val");
+	//	if(val != self.val) {
+	//		self.val = val;	
+	//		self.changed(\val)
+	//	}
+	//},
 );
 
 ~class_param_ienv_controller = (
