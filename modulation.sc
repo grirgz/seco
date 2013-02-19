@@ -527,6 +527,7 @@
 		param_status_group: List[\amp, \dur, \segdur, \stretchdur, \repeat, \mbufnum, \bufnum, \samplekit],
 		param_order: List[\sustain, \pan, \attack, \release, \adsr, \freq],
 		param_mode: [\scoreline, \stepline, \noteline, \sampleline, \nodeline],
+		param_kinds: [\scalar, \seq, \seg, \modulation, \synchrone, \bus, \recordbus, \pkey],
 		param_no_midi: { arg self; self.param_field_group ++ [\mbufnum, \bufnum, \samplekit] ++ self.param_mode; },
 		param_reject: { arg self; [\out, \instrument, \tsustain, \type, \gate, \agate, \t_trig, \doneAction] ++ self.param_mode; },
 	),
@@ -1757,8 +1758,16 @@
 					idx = idx + 1;
 					mixerarglist = (mixerarglist ++ [
 						(\in++idx).asSymbol, Pfunc{ arg ev;
+							var node;
 							[in_bus_name, modstruct, idx].debug("mixer: in");
-							if(mainplayer.modulation.get_modulator_node(modstruct.name).modulation.notNil and: { modstruct.muted != true }) {
+							if(
+								node = mainplayer.modulation.get_modulator_node(modstruct.name);
+								node.notNil and: {
+									node.modulation.notNil and: { 
+										modstruct.muted != true 
+									}
+								}
+							) {
 								if(mainplayer.modulation.get_modulator_node(modstruct.name).modulation.mod_kind == \pattern) {
 									ev[\ppatch].global_bus[in_bus_name];
 								} {

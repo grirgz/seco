@@ -90,6 +90,8 @@ Mdef.samplekit(\castor, [
 ]);
 )
 
+Mdef.main.model.bus_mode_enabled = true
+
 Mdef.main.save_project("live31.tintin");
 Mdef.main.load_project("live31.tintin");
 
@@ -117,6 +119,12 @@ Mdef.main.load_project("live31.perc");
 Mdef.main.save_project("live31.perc2");
 Mdef.main.load_project("live31.perc2");
 
+Mdef.main.save_project("live31.reg1");
+Mdef.main.load_project("live31.reg1");
+
+Mdef.main.save_project("live31.reg2");
+Mdef.main.load_project("live31.reg2");
+
 Debug.enableDebug = true;
 Debug.enableDebug = false;
 
@@ -124,7 +132,14 @@ s.latency = 3
 s.latency = 1.2
 s.latency = 1.0
 s.latency = 0.2
+s.latency = 0.4
+s.latency = 0.6
+s.latency
 
+Mdef.node(\s1_part1_sect1_var3).children
+Mdef.node("ci osc3filter2_l1013").uname
+Mdef.node("ci osc3filter2_l1020").modulation.modulation_mixers.keysValuesDo { arg key, val; [key, val.get_slots].debug }
+Mdef.node("ci dadsr_kr_l1014")
 
 (
 SynthDef(\osc1, { arg out, gate=1, freq=300, amp=0.1, ffreq=200, rq=0.1, attack=0.1, release=0.1, doneAction=2;
@@ -161,7 +176,7 @@ SynthDef(\zegrainer, { arg out=0, amp=0.1, gate=1, pan=0, freq=200, mbufnum,
 	rate = Demand.kr(clk, 0, Dseq([0.5,1,2],inf)) * rate;
 	ou = TGrains.ar(2, clk, bufnum, rate, pos, dur, pan, 0.1);
 	ou = ou * EnvGen.ar(Env.adsr(0.005,0.1,0.8,0.5),gate,doneAction:doneAction);
-	ou = Pan2.ar(ou, pan, amp * 2);
+	ou = Pan2.ar(ou, pan, amp * 8);
 	Out.ar(out, ou);
 }, metadata: (specs:(
 	gdur: ControlSpec(0.000001,2,\exp,0,0.1),
@@ -357,3 +372,6 @@ a.action = {arg field; field.value.postln; };
 ~class_ci_osc3filter2.new(Mdef.main, )
 
 Mdef.node("ci osc3filter2_l1005").external_player.get_static_data.keys
+
+
+

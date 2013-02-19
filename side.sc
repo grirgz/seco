@@ -100,6 +100,7 @@
 						\seq, { "seq" },
 						\seg, { "sg" },
 						\scalar, { "sca" },
+						\synchrone, { "syn" },
 						\bus, { "bus" },
 						\modulation, { "mod" },
 						\recordbus, { "rbu" },

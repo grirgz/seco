@@ -25,7 +25,7 @@
 	temp_muted: false,
 	available_modes: [\stepline, \noteline, \scoreline, \sampleline],
 	archive_param_data: [\control, \stepline, \adsr, \noteline, \scoreline, \nodeline, \sampleline, \buf, \wavetable],
-	archive_data: [\current_mode, \sourcewrapper, \instrname, \defname, \name, \uname, \kind, \subkind, \bank],
+	archive_data: [\sourcewrapper, \instrname, \defname, \name, \uname, \kind, \subkind, \bank],
 	effects: List.new,
 	is_effect: false,
 	ccbus_set: IdentitySet.new,

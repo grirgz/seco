@@ -1,55 +1,41 @@
- live31.sc  + modulation.sc                                                                                                                                                                               X
-SynthDef(\osc1, { arg out, gate=1, freq, amp=0.1, ffreq=200, rq=0.1, attack=0.1, doneAction=2;
-    var sig = LFSaw.ar(freq);
-    var env = EnvGen.kr(Env.adsr(attack,0.1,1,0.1), gate, doneAction:doneAction);
-    sig = RLPF.ar(sig, ffreq, rq);
-    //sig = sig + SinOsc.ar(ffreq);
-    ffreq.poll;
-    sig = sig * env;
-    sig = sig ! 2;
-    sig = sig * amp;
-    Out.ar(out, sig);
-}).add;
+ live31.sc  + crap44.sc                                                                                                                        X
 
-SynthDef(\comb1, { arg in, out, attack, gate=1, doneAction=2;
-    var sig = EnvGen.kr(Env.adsr(attack,0.1,1,0.1), gate, doneAction:doneAction);
-    Out.kr(out, sig);
-}).add;
+(
+SynthDef( "conv-test", { arg kernel, trig=0;
+        var input;
+
+        input=Impulse.ar(1);
+
+        //must have power of two framesize
+        Out.ar(0,Convolution2.ar(input,kernel,trig,2048, 0.5)!2);
+}).send(s)
 
 )
-~fs = \freq.asMap
+
 (
-~make_modmixer = { arg name, rate=\kr, spec;
-    var sdname = (\modulation_mixer_ ++ name).asSymbol;
-    sdname.debug("make_modmixer");
-
-    SynthDef(sdname, { arg carrier, out, in1=0, range1=0, in2=0, range2=0, in3=0, range3=0;
-        var sig1, sig2, sig3;
+SynthDef( "conv-test", { arg kernel, trig=0;
+        var input;
         var sig;
-        var inrate;
-        "bla".debug;
-        inrate = { arg ... args; In.performList(rate, args) };
-        "blai".debug;
-        sig1 = inrate.(in1);
-        "blaii".debug;
-        sig2 = inrate.(in2);
-        sig3 = inrate.(in3);
-        "blauii".debug;
 
-        sig = [
-            spec.unmap(carrier),
-            sig1 * range1,
-            sig2 * range2,
-            sig3 * range3,
-        ].sum;
-        sig = spec.map(sig);
-        //sig.poll;
-        Out.perform(rate, out, sig);
+        input=SoundIn.ar([2,3]);
+        sig = Convolution2.ar(input,kernel,trig,2048, 0.5)/8;
+        sig = SelectX.ar(MouseX.kr(0,1), [sig, input]);
 
-    }).add;
-    sdname;
-};
+        //must have power of two framesize
+        Out.ar(0,sig);
+}).send(s)
 
-    ~mod = (
-        name: \plop,
-"/tmp/sclang-pipe" [Périph.] 1L, 18C ajouté(s)                                                                                                                                           31,17          5%
+)
+
+b = Buffer.read(s, "/home/ggz/Musique/ir/King Tubby/kingtubby-fm1a.wav")
+b = Buffer.read(s, "/home/ggz/Musique/ir/King Tubby/classic-fm1a.wav")
+b = Buffer.read(s, "/home/ggz/Musique/ir/King Tubby/kingtubby-tm1a.wav")
+
+x = Synth.new("conv-test",[\kernel,b.bufnum]);
+
+// changing the buffer number:
+x.set(\kernel,b.bufnum);
+x.set(\trig,0);
+x.set(\trig,1); // after this trigger, the change will take effect.
+x.set(\kernel,d.bufnum);
+"/tmp/sclang-pipe" [Périph.] 1L, 71C ajouté(s)                                                                                112,59        61%

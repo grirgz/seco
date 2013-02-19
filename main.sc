@@ -573,7 +573,7 @@ if(~silent_control_bus.isNil) {
 			var node;
 			//name.debug("========get_node name");
 			node = self.model.livenodepool[name];
-			if(node.isNil) { ("Node not found:"+name).error };
+			if(node.isNil) { ("Node not found:"+name).error; };
 			//node.debug("========get_node node");
 			node;
 		},

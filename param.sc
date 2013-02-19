@@ -580,8 +580,12 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 	validate_action = { 
 		var val = tf_val.value;
+		var env, res;
 		if(val.size > 0) {
-			param.set_val(val.interpret.asFloat.debug("la valeur"));
+			env = (t:main.play_manager.get_tempo);
+			res = env.use({val.interpret.asFloat});
+			res.debug("la valeur");
+			param.set_val(res);
 		};
 	};
 	close_window = {
@@ -609,6 +613,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	tf_val.keyDownAction = key_responder;
 	vlayout.keyDownAction = key_responder;
 	
+	// FIXME: doublon code with side.sc:make_mini_param_view
 	param_responder = { arg display; (
 		selected: { arg self;
 			if(display.selected == 1) {
@@ -642,6 +647,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 						\seq, { "seq" },
 						\seg, { "sg" },
 						\scalar, { "sca" },
+						\synchrone, { "syn" },
 						\bus, { "bus" },
 						\recordbus, { "rbu" },
 						\preset, { "pre" },
@@ -3057,7 +3063,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		pkey_mode: false,
 		muted: false,
 		archive_data: [\name, \classtype, \current_kind, \spec, \selected, \selected_cell, \default_val, \noteline, \muted, \pkey_mode],
-		archive_kind: [\seq, \scalar, \preset, \bus, \recordbus],
+		archive_kind: [\seq, \scalar, \preset, \bus, \synchrone, \recordbus], // modulation use scalar data
 
 		get_player: { arg self;
 			player
@@ -3092,7 +3098,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			};
 			self.archive_kind.do { arg kind;
 				[\val, \selected_cell, \record].do { arg key;
-					if(data[kind][key].notNil) {
+					if(data[kind].notNil and: {data[kind][key].notNil}) {
 						self[kind][key] = data[kind][key];
 					}
 				}
@@ -3249,12 +3255,9 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			},
 
 			set_norm_val: { arg self, norm_val;
-				self.val = param.spec.map(norm_val);
-				if(self.bus_mode) {
-					self.bus.set(self.val)
-				};
-				param.changed(\val, 0);
+				self.set_val( param.spec.map(norm_val) )
 			},
+
 			get_norm_val: { arg self;
 				param.spec.unmap(self.val);
 			},
@@ -3278,6 +3281,50 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			get_selected_cell: { arg self; 0 },
 			add_cells: {},
 			remove_cells: {}
+		),
+
+		synchrone: (
+			muted: false,
+			selected_cell: 0, // always 0
+			val: if(default_value.isArray, { default_value[0] }, { default_value }),
+
+			set_val: { arg self, val, idx=nil;
+				self.val = val;
+				param.changed(\val, 0);
+			},
+
+			get_val: { arg self; 
+				self.val
+			},
+
+			set_norm_val: { arg self, norm_val;
+				self.set_val( param.spec.map(norm_val) )
+			},
+
+			get_norm_val: { arg self;
+				param.spec.unmap(self.val);
+			},
+
+			mute: { arg self, val;
+				// effect bypassing with mix
+				if(self.muted != val) {
+					self.muted = val;
+					if(val) {
+						self.oldval = self.val;
+						self.set_val(0);
+					} {
+						self.set_val(self.oldval);
+					}
+				}
+			},
+
+			get_cells: { arg self; [self.val] },
+
+			select_cell: { arg self, idx; param.seq.selected_cell = idx }, // when changing kind, correct cell is selected in colselect mode
+			get_selected_cell: { arg self; 0 },
+			add_cells: {},
+			remove_cells: {}
+		
 		),
 
 		modulation: (
@@ -3670,6 +3717,11 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 									}
 								}
 							};
+						},
+						\synchrone, {
+							{ arg self, ev;
+								ev = (self.synchrone.get_val / thisThread.clock.tempo).yield;
+							}
 						},
 						\seq, {
 							{ arg self, ev;

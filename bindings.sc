@@ -151,6 +151,7 @@
 		["edit_modulator", \kb, \alt, "m"],
 		["change_param_kind", \kb, \altshift, "s"],
 		["remove_effect", \kb, \shift, \f3],
+		["edit_selected_param", \kb, 0, \npenter],
 	],
 	modulator: 
 		~common_bindings.side_shared ++
