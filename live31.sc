@@ -351,10 +351,31 @@ SoundFile.use("~/Musique/beast.wav".standardizePath, { arg f;
 
 (
 
+~b = BufferPool.get_forced_stereo_sample(\bla, "/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/kick_Dry_b.flac")
+~b2 = BufferPool.get_forced_stereo_sample(\bla, "/home/ggz/Musique/beast.wav")
+~b3 = BufferPool.get_forced_stereo_sample(\bla, "sounds/a11wlk01.wav")
 )
-
+~b2
+~b3
 (
 
+ Ndef(\plop, {
+ 	var bufsig;
+	var bufnum = ~b2;
+	var phase, phase2;
+	var osc;
+
+	osc = SinOsc.ar(MouseX.kr(0.2,500));
+	phase = osc * 0.001;
+	//osc = phase * osc;
+	phase2 = SinOsc.ar(MouseX.kr(0.2,500)) * 0.0001;
+	phase = phase + phase2 + MouseY.kr(0.2,0.25);
+
+	bufsig = BufRd.ar(2, bufnum, phase*BufFrames.ir(bufnum), 1);
+	bufsig;
+	//SinOsc.ar(100)
+
+ }).play
 
 
 )

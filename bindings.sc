@@ -112,6 +112,12 @@
 		["stop_timeline", \kb, 0, \f6],
 		["close_timeline", \kb, 0, \escape],
 	],
+	track_notes: [
+		["remove_notes", \kb, 0, \delete],
+		["copy_notes", \kb, \ctrl, "c"],
+		["cut_notes", \kb, \ctrl, "x"],
+		["paste_notes", \kb, \ctrl, "v"],
+	],
 	group_tracks: 
 		~common_bindings.side_shared ++
 		~common_bindings.grid_display ++
