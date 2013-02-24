@@ -326,6 +326,9 @@
 		self.main_responder = ~make_class_responder.(self, self.scrollview, controller, [
 			\notes, \background
 		]);
+		self.main_responder = ~make_class_responder.(self, self.scrollview, controller.get_node.get_arg(\noteline), [
+			\notes
+		]);
 		self.main_responder = ~make_class_responder.(self, self.scrollview, controller.display, [
 			\gridstep, \gridlen
 		]);
@@ -380,6 +383,7 @@
 				notepos
 			};
 			self.current_modifiers = modifiers;
+			self.current_mouse_down_pos = trunc_notepos.();
 
 			[modifiers, buttonNumber].debug("mouse_down_action: buttonNumber");
 			// 0 left, 1: right, 2: middle
@@ -454,7 +458,84 @@
 						self.controller.refresh;
 					}
 
-				}]
+				}],
+
+				[\copy_notes, {
+					var timeline = self.timeline;
+					self.clipboard_notes = List.new;
+					timeline.selNodes.do({ arg node;
+						self.clipboard_notes.add(self.block_dict[node.spritenum] );
+					});
+					self.clipboard_notes.debug("copied notes");
+				
+				}],
+				[\cut_notes, {
+					var timeline = self.timeline;
+					self.clipboard_notes = List.new;
+					timeline.selNodes.do({ arg node;
+						self.clipboard_notes.add(self.block_dict[node.spritenum] );
+					});
+					self.clipboard_notes.debug("copied notes");
+				
+					timeline.selNodes.do({arg box; 
+						[box].debug("key_down_action: selNodes do box");
+						timeline.paraNodes.copy.do({arg node, i; 
+							[node, i].debug("key_down_action: paraNodes do");
+							if(box === node, {
+								[node, i, box, node.spritenum, box.spritenum, timeline.getNodeLoc1(node.spritenum)].debug("key_down_action:  do");
+								self.remove_note(timeline.getNodeLoc(node.spritenum), false);
+								//timeline.deleteNode(i);
+							});
+						})
+					});
+					if(timeline.selNodes.size > 0) {
+						self.controller.refresh;
+					}
+				}],
+				[\paste_notes, {
+					var first_note;
+					if(self.clipboard_notes.size > 0) {
+						first_note = self.clipboard_notes[0];
+						
+						self.clipboard_notes.do { arg note;
+							if(note.time < first_note.time) {
+								first_note = note;
+							}
+						};
+						self.clipboard_notes.do { arg note;
+							var notepoint = Point.new;
+							notepoint.x = note.time - first_note.time + self.current_mouse_down_pos.x;
+							notepoint.y = note.midinote;
+							notepoint.debug("pasted note");
+							self.controller.add_note(notepoint, note.sustain);
+						};
+					};
+				}],
+				[\paste_notes_in_place, {
+					var first_note, first_pitch;
+					if(self.clipboard_notes.size > 0) {
+						first_note = self.clipboard_notes[0];
+						first_pitch = self.clipboard_notes[0];
+						
+						self.clipboard_notes.do { arg note;
+							if(note.time < first_note.time) {
+								first_note = note;
+							}
+						};
+						self.clipboard_notes.do { arg note;
+							if(note.midinote < first_pitch.midinote) {
+								first_pitch = note;
+							}
+						};
+						self.clipboard_notes.do { arg note;
+							var notepoint = Point.new;
+							notepoint.x = note.time - first_note.time + self.current_mouse_down_pos.x;
+							notepoint.y = note.midinote - first_pitch.midinote + self.current_mouse_down_pos.y;
+							notepoint.debug("pasted note in place");
+							self.controller.add_note(notepoint, note.sustain);
+						};
+					};
+				}],
 			]
 
 		)
@@ -1813,17 +1894,18 @@
 		}
 	},
 
-	add_note: { arg self, notepoint, sustain=0.5;
+	add_note: { arg self, notepoint, sustain=nil;
 		var note;
 		var midinote;
 		var abstime;
 		abstime = notepoint.x;
 		midinote = notepoint.y;
+		sustain = sustain ?? self.display.gridstep.x;
 		[abstime, sustain].debug("class_step_track_controller: add_note");
 		if(abstime < self.get_end) {
 			note = (
 				midinote: midinote,
-				sustain: self.display.gridstep.x,
+				sustain: sustain,
 			);
 			self.get_notescore.add_note(note, abstime);
 			self.get_notescore.debug("add_note: get_notes");

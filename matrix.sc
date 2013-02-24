@@ -53,6 +53,9 @@
 				ps_col_layout.background = ~editplayer_color_scheme.control;
 
 				col.do { arg label;
+					if(controller[\data_to_string].notNil) { // backward compat
+						label = controller.data_to_string(label)
+					};
 					~make_cell.(ps_col_layout, label);
 				};
 			}
@@ -85,6 +88,10 @@
 
 
 ~class_matrix_chooser = (
+	// TODO: rewrite that shit
+	// datalist should be raw object and view should use function data_to_string
+	// selected should have args : data, address
+	// action should have args: data, address, idx
 	new: { arg self, action, winname="Matrix";
 		var parent;
 		self = self.deepCopy;
@@ -111,7 +118,7 @@
 
 	model: (
 		datalist: [],
-		selection: nil,
+		selection: nil, // is an address
 		bank: 0,
 		matrix_size: 8@4,
 	),
@@ -146,6 +153,11 @@
 	},
 
 	get_cell_by_address: { arg self, ad;
+		// deprecated
+		self.model.datalist[ self.address_to_index(ad) ];
+	},
+
+	get_data_by_address: { arg self, ad;
 		self.model.datalist[ self.address_to_index(ad) ];
 	},
 
@@ -164,7 +176,7 @@
 			oldsel = self.model.selection;
 			self.model.selection = sel;
 			self.changed(\selection, oldsel);
-			self.selected(self.get_cell_by_address(sel), self.window, sel);
+			self.selected(self.get_data_by_address(sel), sel);
 		});
 	},
 
@@ -291,15 +303,23 @@
 
 	// to be overloaded
 
-	selected: { arg self, sel, win, address;
-		sel.debug("selected");
-		if(self.oldsel == sel, {
-			self[\action].(sel);
-			win.close;
+	data_to_string: { arg self, data;
+		data.asString;
+	},
+
+	selected: { arg self, data, address;
+		var newname;
+		var idx;
+		idx = self.address_to_index(address);
+		if(idx.notNil && {self.oldsel == idx}, {
+			self[\action].(data, address, idx);
+			self.stop_selection;
+			self.window.close;
 		}, {
-			self.oldsel = sel;	
+			self.oldsel = idx;	
 		});
 	},
+
 );
 
 ~class_samplekit_chooser = (
@@ -327,23 +347,20 @@
 		self.nodegroup.identityHash.debug("class_sample_chooser: init: nodegroup: identityHash");
 		self.param_name = param_name;
 
-		main.samplekit_manager.get_samplelist_from_samplekit(samplekit).do { arg sam;
-			self.samples[PathName.new(sam).fileName] = sam;
-			samplelist.add(PathName.new(sam).fileName);
-		};
-		self.set_datalist( samplelist );
+		//main.samplekit_manager.get_samplelist_from_samplekit(samplekit).do { arg sam;
+		//	self.samples[PathName.new(sam).fileName] = sam;
+		//	samplelist.add(PathName.new(sam).fileName);
+		//};
+		self.set_datalist(
+			//samplelist 
+			main.samplekit_manager.get_samplelist_from_samplekit(samplekit)
+		);
 		self.show_window;
 		self;
 	},
 
-	selected: { arg self, sel, win, address;
-		sel.debug("selected");
-		if(self.oldsel == sel, {
-			self[\action].(self.samples[sel]);
-			win.close;
-		}, {
-			self.oldsel = sel;	
-		});
+	data_to_string: { arg self, data;
+		PathName.new(data).fileName
 	},
 
 	play_selection: { arg self, sel, win, ad;
@@ -377,7 +394,7 @@
 	parent: ~class_matrix_chooser,
 
 	new: { arg self, main, action;
-		self = self.parent[\new].(self, action, "Choose samplekit");
+		self = self.parent[\new].(self, action, "Choose node");
 
 		self.model.part_bank = 0;
 		self.model.section_bank = 0;
@@ -482,7 +499,7 @@
 ~class_player_preset_chooser = (
 	
 	parent: ~class_matrix_chooser,
-	new: { arg self, main, player, name, action;
+	new: { arg self, main, player, name, kind, action;
 		var datalist;
 		self = self.parent[\new].(self, action, name);
 
@@ -497,12 +514,20 @@
 			if( d == \empty ) { d } { d.name }
 		};
 
+		if(kind == \save) {
+			self[\selected] = self[\selected_and_rename];
+		};
+
 		self.get_main = { arg self; main };
 		self.get_player = { player };
 		self.set_datalist(datalist);
 		self.show_window;
 		self;
 	},
+
+	//data_to_string: { arg self, data;
+	//	if( data == \empty ) { data } { data.name }
+	//},
 
 	play_selection: { arg self;
 		var sel = self.model.selection;
@@ -540,15 +565,36 @@
 		};
 	},
 
-	selected: { arg self, sel, win, address;
-		var offset;
-		offset = self.address_to_index(self.model.selection);
-		sel.debug("selected");
-		if(self.oldsel == sel, {
-			self[\action].(sel, offset);
-			win.close;
+	//selected: { arg self, sel, win, address;
+	//	var offset;
+	//	offset = self.address_to_index(self.model.selection);
+	//	[self.oldsel, sel].debug("selected: oldsel, sel");
+	//	if(self.oldsel == sel, {
+	//		self[\action].(sel, offset);
+	//		win.close;
+	//	}, {
+	//		self.oldsel = sel;	
+	//	});
+	//},
+
+	selected_and_rename: { arg self, data, address;
+		var newname;
+		var idx;
+		idx = self.address_to_index(address);
+		if(idx.notNil && {self.oldsel == idx}, {
+			// confirm by rename
+			var oldname = self.get_selected_cell.asString; //should use data_to_string ?
+			if(oldname == "empty") {
+				oldname = self.get_player.name
+			};
+			~edit_value.(oldname, { arg newname; 
+				//self.set_cell(self.model.selection, newname);
+				self.stop_selection;
+				self.window.close;
+				self[\action].(newname, address, idx);
+			})
 		}, {
-			self.oldsel = sel;	
+			self.oldsel = idx;	
 		});
 	},
 

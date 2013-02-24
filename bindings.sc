@@ -58,6 +58,8 @@
 		["play_group", \kb, \ctrl, \f5],
 		["stop_group", \kb, \ctrl, \f6],
 		["assign_midi_knob", \kb, \ctrlalt, "k"],
+		["forward_in_record_history", \kb, 0, \end],
+		["backward_in_record_history", \kb, 0, \home],
 	
 	],
 );
@@ -117,6 +119,7 @@
 		["copy_notes", \kb, \ctrl, "c"],
 		["cut_notes", \kb, \ctrl, "x"],
 		["paste_notes", \kb, \ctrl, "v"],
+		["paste_notes_in_place", \kb, \ctrlalt, "v"],
 	],
 	group_tracks: 
 		~common_bindings.side_shared ++
@@ -254,8 +257,8 @@
 		["select_section", \kb, \alt, \kbnumpad],
 		["select_part", \kb, \ctrlalt, \kbnumpad],
 
-		["forward_in_record_history", \kb, 0, \right],
-		["backward_in_record_history", \kb, 0, \left],
+		//["forward_in_record_history", \kb, 0, \right],
+		//["backward_in_record_history", \kb, 0, \left],
 
 		["set_edit_mode.matrix", \kb, \ctrl,  \f10],
 		["set_edit_mode.params", \kb, \ctrl,  \f9],

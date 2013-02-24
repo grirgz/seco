@@ -125,6 +125,9 @@ Mdef.main.load_project("live31.reg1");
 Mdef.main.save_project("live31.reg2");
 Mdef.main.load_project("live31.reg2");
 
+Mdef.main.save_project("live31.dark");
+Mdef.main.load_project("live31.dark");
+
 Debug.enableDebug = true;
 Debug.enableDebug = false;
 
@@ -136,10 +139,16 @@ s.latency = 0.4
 s.latency = 0.6
 s.latency
 
+Mdef.main.model.latency = 0
+
 Mdef.node(\s1_part1_sect1_var3).children
 Mdef.node("ci osc3filter2_l1013").uname
 Mdef.node("ci osc3filter2_l1020").modulation.modulation_mixers.keysValuesDo { arg key, val; [key, val.get_slots].debug }
 Mdef.node("ci dadsr_kr_l1014")
+Mdef.main.panels.side.select_slot(1)
+Mdef.main.panels.side.reload_selected_slot
+Mdef.main.freeze_do { Mdef.main.panels.side.changed(\player) }
+Mdef.node("osc1_l1031").changed()
 
 (
 SynthDef(\osc1, { arg out, gate=1, freq=300, amp=0.1, ffreq=200, rq=0.1, attack=0.1, release=0.1, doneAction=2;

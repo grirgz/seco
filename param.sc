@@ -3658,9 +3658,10 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				\amp, { // FIXME: handle sampleline; does pseg/bus need velocity adjusting ?
 					{ arg ev;
 						ev.debug("make_control_param: update_vpattern: amp");
-						if(ev[mode].velocity.notNil) {
-							main.calcveloc(self.scalar.get_val,(ev[mode].velocity ?? 0.5));	
-						}
+						//if(ev[mode].velocity.notNil) {
+						//	main.calcveloc(self.scalar.get_val,(ev[mode].velocity ?? 0.5));	
+						//}
+						nil // velocity should be handled in synthdef
 					};
 				},
 				\sustain, {
@@ -4596,6 +4597,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				self.model.val_uname = curve;
 				self.model.val = curve_idx;
 				//self.main_controller.update_arg(self.model.uname);
+				self.wt_classic_controller.set_val(\void);
 				self.changed(\val);
 			};
 			cancel_action = {

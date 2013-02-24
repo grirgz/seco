@@ -1720,6 +1720,40 @@
 					self.timeline.make_gui;
 				}],
 
+				[\forward_in_record_history, {
+					var player = self.get_current_player;
+					var nline;
+					if(player.is_audiotrack) {
+						nline = player.get_arg(\bufnum);
+						nline.forward_in_record_history;
+					} {
+						if(player.get_mode != \stepline) {
+							nline = player.get_arg(player.get_mode);
+							nline.scoreset.forward_in_history;
+							if(main.play_manager.node_is_playing(player).not) {
+								nline.forward_to_next_notescore;
+							}
+						};
+					}
+				}],
+
+				[\backward_in_record_history, {
+					var player = self.get_current_player;
+					var nline;
+					if(player.is_audiotrack) {
+						nline = player.get_arg(\bufnum);
+						nline.backward_in_record_history;
+					} {
+						if(player.get_mode != \stepline) {
+							nline = player.get_arg(player.get_mode);
+							nline.scoreset.backward_in_history;
+							if(main.play_manager.node_is_playing(player).not) {
+								nline.forward_to_next_notescore;
+							}
+						};
+					}
+				}],
+
 			 ]
 		
 		},
@@ -2094,39 +2128,6 @@
 
 
 
-				[\forward_in_record_history, {
-					var player = self.get_current_player;
-					var nline;
-					if(player.is_audiotrack) {
-						nline = player.get_arg(\bufnum);
-						nline.forward_in_record_history;
-					} {
-						if(player.get_mode != \stepline) {
-							nline = player.get_arg(player.get_mode);
-							nline.scoreset.forward_in_history;
-							if(main.play_manager.node_is_playing(player).not) {
-								nline.forward_to_next_notescore;
-							}
-						};
-					}
-				}],
-
-				[\backward_in_record_history, {
-					var player = self.get_current_player;
-					var nline;
-					if(player.is_audiotrack) {
-						nline = player.get_arg(\bufnum);
-						nline.backward_in_record_history;
-					} {
-						if(player.get_mode != \stepline) {
-							nline = player.get_arg(player.get_mode);
-							nline.scoreset.backward_in_history;
-							if(main.play_manager.node_is_playing(player).not) {
-								nline.forward_to_next_notescore;
-							}
-						};
-					}
-				}],
 
 				[\edit_selected_param, {
 					self.edit_selected_param;

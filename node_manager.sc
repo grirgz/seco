@@ -229,12 +229,25 @@
 			pl.uname;
 		},
 
-		load_libnode: { arg self, action;
+		load_default_preset: { arg self, nodename;
+			var preset;
+			var player;
+			player = main.get_node(nodename);
+			preset = main.model.presetlib[player.instrname][0];
+			if(preset.notNil and:{ preset.name == "default" }) {
+				player.load_data_preset(preset);
+			}
+		},
+
+		load_libnode: { arg self, action, load_default_preset=true;
 			~choose_libnode.(main, { arg libnodename, livenodename; 
 				var nodename;
 				"load_libnode: first func".debug;
 				self.default_newnode = [\libnode, libnodename];
 				nodename = main.make_livenode_from_libnode(libnodename);
+				if(load_default_preset) {
+					self.load_default_preset(nodename);
+				};
 				action.(nodename)
 
 			}, { arg livenodename;
@@ -259,9 +272,9 @@
 		},
 
 		save_preset: { arg self, player;
-			~class_player_preset_chooser.new(main, player, "SAVE preset", { arg sel, offset;
+			~class_player_preset_chooser.new(main, player, "SAVE preset", \save, { arg sel, ad, offset;
 				var name;
-				if( sel == \empty ) {
+				if( sel.asSymbol == \empty ) {
 					name = player.defname ++ "_c" ++ UniqueID.next;
 				} {
 					name = sel;
@@ -275,18 +288,20 @@
 
 		load_preset: { arg self, player;
 
-			~class_player_preset_chooser.new(main, player, "LOAD preset", { arg sel, offset;
+			~class_player_preset_chooser.new(main, player, "LOAD preset", \load, { arg sel, ad, offset;
 				// load action
 				var uname, name;
 				if( sel == \empty ) {
-					"load_column_preset: Can't load empty preset".error;
+					"load_preset: Can't load empty preset".error;
 				} {
 					uname = player.uname;
 					name = player.name;
 					player.load_data_preset(main.model.presetlib[player.instrname][offset]);
 					player.name = name;
 					player.uname = uname;
-				}
+					main.panels.side.reload_selected_slot; // FIXME: refresh others panels
+				};
+
 			});
 			
 		},

@@ -636,7 +636,8 @@
 			debug("scoreset: load_data");
 			self.history = List.new;
 			data[\history].do { arg nsdata, idx;
-				var ns = ~make_notescore.value.load_data(nsdata);
+				var ns = ~make_notescore.value;
+				ns.load_data(nsdata);
 				self[\history].add(ns);
 				if(idx == data[\notescore]) {
 					self[\notescore] = ns;
