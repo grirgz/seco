@@ -1580,11 +1580,321 @@
 	//
 	//},
 
-	update_modulation_pattern: { arg self;
+	update_modulation_pattern: { arg self, source_pattern;
+		var out_bus = 0;
+		var mainplayer = self.player;
+		var str;
+		var main_note_pat;
+		var mixer_list = List.new;
+		var note_modulator_list = List.new;
+		var pattern_modulator_list = List.new;
+		var effect_list = List.new;
+		var effect_pat_list = List.new;
+		var effect_inbus_list = List.new;
+		var effect_outbus_list = List.new;
+		var synth_out_bus;
+		//var ppatch;
+		var rate = \kr;
+		var make_note_out_bus;
+		var make_modulator_pattern, make_mixer_pattern;
+		var walk_modulators;
+		var done_modulators = Set.new;
+		var allocator_note_pattern;
+		var note_bus_alloc_list = List.new;
+		var pattern_bus_alloc_list = List.new;
+		var pattern_control_bus_alloc_list = List.new;
+		var clean_started = false;
+		var cleanup_function;
+		///////// building effects patterns
+
+		effect_list = mainplayer.effects.effect_list.reject({ arg ef; 
+			ef.isNil or: {
+				mainplayer.get_main.get_node(ef).muted
+			}
+		});
+
+		if(effect_list.size == 0) {
+			synth_out_bus = \out_bus;
+		} {
+			//ppatch.global_bus[\synth] = Bus.audio(s, 2);
+			pattern_bus_alloc_list.add(\synth);
+			//synth_out_bus = ppatch.global_bus[\synth];
+			synth_out_bus = \synth;
+			effect_inbus_list.add(\synth);
+			(effect_list.size - 1).do { arg idx;
+				//var bus = Bus.audio(s, 2);
+				var bus;
+				bus = "effect_%".format(idx).asSymbol;
+				pattern_bus_alloc_list.add(bus);
+				//ppatch.global_bus["effect_%".format(idx).asSymbol] = bus;
+				effect_outbus_list.add(bus);
+				effect_inbus_list.add(bus);
+			};
+			effect_outbus_list.add(\out_bus);
+		};
+
+		effect_list.do { arg effect_name, idx;
+			var effect = mainplayer.get_main.get_node(effect_name);
+			effect_pat_list.add( 
+				Pbind(
+					\group, Pfunc{ arg ev; ev[\ppatch].global_group[\effects] },
+					\addAction, \addToTail,
+					\in, Pfunc{ arg ev; ev[\ppatch].global_group[effect_inbus_list[idx]] },
+					\out, Pfunc{ arg ev; ev[\ppatch].global_group[effect_outbus_list[idx]] },
+				) <>
+				effect.sourcepat 
+				//<>
+				//Pbind(
+				//	\ppatch, Pfunc{ppatch},
+				//)
+			)
+		};
+
+		///////// functions
+
+
+		//make_note_out_bus = { arg key, group_name;
+		//	note_bus_alloc_list = 
+		//	Pfunc{ arg ev;
+		//		//var brate = if(rate == \kr) { \control } { \audio };
+		//		var brate = \control;
+		//		var bus = Bus.alloc(brate, s, 1);
+		//		var pp = ev[\ppatch];
+		//		//var pp = ppatch;
+		//		var group;
+		//		[key, group_name].debug("make_note_out_bus: key, group_name");
+		//		pp.note_bus[key] = bus;
+		//		group = Group.new(pp.global_group[group_name]);
+		//		ev[\group] = group;
+		//		pp.note_group[key] = group;
+		//		bus;
+		//	}
+		//};
+
+		make_note_out_bus = { arg key, group_name;
+			note_bus_alloc_list.add(key);
+			Pfunc{ arg ev;
+				var brate = \control;
+				//var bus = Bus.alloc(brate, s, 1);
+				var pp = ev[\ppatch];
+				var group;
+				[key, group_name].debug("make_note_out_bus: key, group_name");
+				group = Group.new(pp.global_group[group_name]);
+				ev[\group] = group;
+				pp.note_group[key] = group;
+				pp.note_bus[key];
+			}
+		};
+
+		make_modulator_pattern = { arg player, mod, key;
+			var modpat;
+			var out_bus_name;
+			var brate = if(rate == \kr) { \control } { \audio };
+			// key is modulator source slot index
+			out_bus_name = "mod_%_%".format(player.uname, mod.uname).asSymbol;
+
+			if(mod.modulation.mod_kind == \pattern) {
+				//ppatch.global_bus[out_bus_name] = Bus.alloc(brate, s, 1);
+				pattern_control_bus_alloc_list.add(out_bus_name); //FIXME what about audio rate modulation ?
+
+				modpat = Pmono(mod.get_arg(\instrument).get_val,
+						//\ppatch, Pfunc{ppatch},
+						\group, Pfunc{ arg ev; ev[\ppatch].global_group[\modulator] },
+						\out, Pfunc{ arg ev; ev[\ppatch].global_bus[out_bus_name] }
+					) <> mod.sourcepat;
+					//<> Pbind(\ppatch, Pfunc{ppatch});
+			} {
+				modpat = Pbind(
+						//\ppatch, Pfunc{ppatch},
+						\out, make_note_out_bus.(out_bus_name, \modulator)
+					) <> player.get_dur_pattern <> mod.sourcepat;
+					//<> Pbind(\ppatch, Pfunc{ppatch});
+			};
+			modpat;
+
+		};
+
+		make_mixer_pattern = { arg player, key, modmixer, kind=\normal;
+			// key is pattern key name which is modulated
+			var mixer;
+			var mixer_synthdef_name;
+			var mixerarglist = List.new;
+			var mixer_group_name;
+			var out_bus_name;
+			var spec;
+
+			//if(kind == \normal) {
+			//	mixer_group_name = \mixer;
+			//} {
+			//	mixer_group_name = \fbmixer;
+			//};
+			mixer_group_name = \mixer;
+
+			spec = player.get_arg(key).spec;
+
+			mixer_synthdef_name = ~make_modmixer.(key, rate, spec, kind);
+			out_bus_name = "mixer_%_%".format(player.uname, key).asSymbol;
+
+			mixerarglist = List[
+				\instrument, mixer_synthdef_name,
+				//\ppatch, Pfunc{ppatch},
+				\carrier, Pfunc{ player.get_arg(key).get_val },
+				\out, make_note_out_bus.(out_bus_name, mixer_group_name),
+			];
+
+			modmixer.get_slots.keysValuesDo { arg slotidx, modstruct, idx;
+				var in_bus_name = "mod_%_%".format(mainplayer.uname, mainplayer.modulation.get_modulator_name(modstruct.name)).asSymbol;
+				idx = idx + 1;
+				mixerarglist = (mixerarglist ++ [
+					(\in++idx).asSymbol, Pfunc{ arg ev;
+						var node;
+						[in_bus_name, modstruct, idx].debug("mixer: in");
+						if(
+							node = mainplayer.modulation.get_modulator_node(modstruct.name);
+							node.notNil and: {
+								node.modulation.notNil and: { 
+									modstruct.muted != true 
+								}
+							}
+						) {
+							if(mainplayer.modulation.get_modulator_node(modstruct.name).modulation.mod_kind == \pattern) {
+								ev[\ppatch].global_bus[in_bus_name];
+							} {
+								ev[\ppatch].note_bus[in_bus_name];
+							}
+						} {
+							~silent_control_bus;
+							// FIXME: is it a problem to return nil here ?
+						}
+					},
+					(\range++idx).asSymbol, Pfunc{modstruct.range}
+				]).asList;
+			};
+			mixerarglist.debug("make_mixer_pattern: mixerarglist");
+			mixer = Pbind(*mixerarglist) <> mainplayer.get_dur_pattern;
+			mixer_list.add(mixer);
+		};
+
+		///////// building modulators and mixer patterns
+
+		walk_modulators = { arg player, kind=\feedback;
+			player.modulation.get_modulation_mixers.keysValuesDo { arg key, modmixer;
+				if(modmixer.get_slots.size > 0) {
+					var can_make_mixer = false;
+					modmixer.get_slots.keysValuesDo { arg slotidx, modstruct, idx;
+						var modname = mainplayer.modulation.get_modulators[modstruct.name];
+						var modnode = mainplayer.get_main.get_node(modname);
+						if(modname.notNil) {
+							can_make_mixer = true;
+							if(done_modulators.includesEqual(modname).not) {
+								done_modulators = done_modulators.add(modname);
+								if(modnode.modulation.mod_kind == \pattern) {
+									pattern_modulator_list.add( make_modulator_pattern.(mainplayer, modnode) )
+								} {
+									note_modulator_list.add( make_modulator_pattern.(mainplayer, modnode) )
+								};
+								walk_modulators.(modnode);
+							}
+						}
+					};
+					if(can_make_mixer) {
+						make_mixer_pattern.( player, key, modmixer, kind );
+					}
+				};
+			};
+		};
+
+		walk_modulators.( mainplayer, \normal );
+
+
+
+
+		//walk_modulators = { arg player, kind=\feedback;
+		//	player.modulation.get_modulators.keysValuesDo { arg key, modname;
+		//		var modnode = player.get_main.get_node(modname);
+		//		if(modnode.mod_kind == \pattern) {
+		//			pattern_modulator_list.add( make_modulator_pattern.(mainplayer, modnode, key) )
+		//		} {
+		//			note_modulator_list.add( make_modulator_pattern.(mainplayer, modnode, key) )
+		//		};
+		//		walk_modulators.( modnode );
+		//	};
+
+		//	player.modulation.get_modulation_mixers.keysValuesDo { arg key, modmixer;
+		//		make_mixer_pattern.( player, key, modmixer, kind )
+		//	}
+		//};
+
+
+
+		///////// building main pattern
+
+		main_note_pat = Pbind(
+				//\ppatch, Pfunc{ppatch},
+				\doneAction, 14,
+				\out, Pfunc { arg ev; synth_out_bus },
+				\group, Pfunc { arg ev;
+					var pp = ev[\ppatch];
+					var group;
+					var note_group;
+					var note_bus;
+					//var freq = ev[\freq].value(ev);
+					debug("synth: group");
+					group = Group.new(pp.global_group[\synth]);
+					group.register;
+					pp.note_group[mainplayer.name] = group;
+					note_group = pp.note_group.copy;
+					note_bus = pp.note_bus.copy;
+					group.addDependant({ arg grp, status;
+						[grp, status].debug("dependant");
+						if(status == \n_end) {
+							"main_note_pat: freeing".debug;
+							note_group.keysValuesDo { arg gname, gobj;
+								[gname, gobj].debug("main_note_pat: free note group");
+								if(gname != mainplayer.name) {
+									gobj.free
+								}
+							};
+							note_bus.keysValuesDo { arg bname, bobj;
+								[bname, bobj].debug("main_note_pat: free note bus");
+								bobj.free;
+							};
+							grp.releaseDependants;
+						}
+					});
+					group;
+				}
+			) <> source_pattern;
+			//<> Pbind(\ppatch, Pfunc{ppatch});
+	
+		allocator_note_pattern = mainplayer.get_dur_pattern <> Pbind(
+			\type, \rest,
+			//\ppatch, Pfunc{ppatch},
+			\alloc, Pfunc{ arg ev;
+				//ev[\ppatch].note_bus = IdentityDictionary.new;
+				//ev[\ppatch].note_group = IdentityDictionary.new;
+				note_bus_alloc_list.do { arg key;
+					key.debug("alloc note bus");
+					ev[\ppatch].note_bus[key] = Bus.control(s, 1);
+				}
+			}
+		);
+
+		[pattern_modulator_list, note_modulator_list, mixer_list, effect_pat_list].debug("pat, not, mix, eff");
+
+		self.pattern_modulator_list = pattern_modulator_list;
+		self.note_modulator_list = note_modulator_list;
+		self.mixer_list = mixer_list;
+		self.effect_pat_list = effect_pat_list;
+		self.allocator_note_pattern = allocator_note_pattern;
+		self.pattern_bus_alloc_list = pattern_bus_alloc_list;
+		self.pattern_control_bus_alloc_list = pattern_control_bus_alloc_list;
+
+		//self.cleanup_function = cleanup_function;
 
 	},
 
-	make_modulation_pattern: { arg self, source_pattern;
+	make_modulation_pattern: { arg self; //, source_pattern;
 		var free_defer_time = 1; // FIXME: hardcoded
 		var out_bus = 0;
 		var mainplayer = self.player;
@@ -1610,13 +1920,15 @@
 			var note_bus_alloc_list = List.new;
 			var clean_started = false;
 			var cleanup_function;
+			var ppatch_pattern;
 			"$$$$$$$$$$$$$$$$$$$$ make_modulator_pattern: START".debug;
 
 			ppatch = (
+				clean_started: false,
 				note_bus: Dictionary.new,
 				note_group: Dictionary.new,
-				global_bus: Dictionary.new,
-				global_group: Dictionary.new,
+				global_bus: Dictionary[\out_bus -> out_bus],
+				global_group: Dictionary.newFrom(),
 				get_mod_bus: { arg ppself, prefix, name;
 					var bus;
 					bus = ppself.note_bus["mixer_%_%".format(prefix, name).asSymbol];
@@ -1627,303 +1939,55 @@
 						nil
 					}
 				},
+				cleanup_function: { arg self;
+					var ppatch = self;
+					"cleanup".debug;
+					spawner.suspendAll;
+					if(self.clean_started.not) {
+					//if(true) {
+						self.clean_started = true;
+						"sched cleanup".debug;
+						{
+							//spawner.suspendAll;
+							mainplayer.name.debug("defered cleanup");
+							ppatch.note_bus.keysValuesDo { arg bname, bobj;
+								[bname, bobj].debug("free bus");
+								bobj.free;
+							};
+							ppatch.global_group.keysValuesDo { arg gname, gobj;
+								[gname, gobj].debug("pattern group free");
+								gobj.free;
+							};
+							ppatch.global_bus.keysValuesDo { arg bname, bobj;
+								[bname, bobj].debug("pattern bus free");
+								bobj.free;
+							};
+							"fin cleanup".debug;
+						}.defer(free_defer_time + s.latency); 
+					}
+				};
 
 			);
 
-			///////// building effects patterns
-
-			effect_list = mainplayer.effects.effect_list.reject({ arg ef; 
-				ef.isNil or: {
-					mainplayer.get_main.get_node(ef).muted
-				}
-			});
-
-			if(effect_list.size == 0) {
-				synth_out_bus = out_bus;
-			} {
-				ppatch.global_bus[\synth] = Bus.audio(s, 2);
-				synth_out_bus = ppatch.global_bus[\synth];
-				effect_inbus_list.add(ppatch.global_bus[\synth]);
-				(effect_list.size - 1).do { arg idx;
-					var bus = Bus.audio(s, 2);
-					ppatch.global_bus["effect_%".format(idx).asSymbol] = bus;
-					effect_outbus_list.add(bus);
-					effect_inbus_list.add(bus);
-				};
-				effect_outbus_list.add(out_bus);
-			};
-
-			effect_list.do { arg effect_name, idx;
-				var effect = mainplayer.get_main.get_node(effect_name);
-				effect_pat_list.add( 
-					Pbind(
-						\group, Pfunc{ arg ev; ev[\ppatch].global_group[\effects] },
-						\addAction, \addToTail,
-						\in, effect_inbus_list[idx],
-						\out, effect_outbus_list[idx],
-					) <>
-					effect.sourcepat <>
-					Pbind(
-						\ppatch, Pfunc{ppatch},
-					)
-				)
-			};
-
-			///////// functions
-
-
-			//make_note_out_bus = { arg key, group_name;
-			//	note_bus_alloc_list = 
-			//	Pfunc{ arg ev;
-			//		//var brate = if(rate == \kr) { \control } { \audio };
-			//		var brate = \control;
-			//		var bus = Bus.alloc(brate, s, 1);
-			//		var pp = ev[\ppatch];
-			//		//var pp = ppatch;
-			//		var group;
-			//		[key, group_name].debug("make_note_out_bus: key, group_name");
-			//		pp.note_bus[key] = bus;
-			//		group = Group.new(pp.global_group[group_name]);
-			//		ev[\group] = group;
-			//		pp.note_group[key] = group;
-			//		bus;
-			//	}
-			//};
-
-			make_note_out_bus = { arg key, group_name;
-				note_bus_alloc_list.add(key);
-				Pfunc{ arg ev;
-					var brate = \control;
-					//var bus = Bus.alloc(brate, s, 1);
-					var pp = ev[\ppatch];
-					var group;
-					[key, group_name].debug("make_note_out_bus: key, group_name");
-					group = Group.new(pp.global_group[group_name]);
-					ev[\group] = group;
-					pp.note_group[key] = group;
-					pp.note_bus[key];
-				}
-			};
-
-			make_modulator_pattern = { arg player, mod, key;
-				var modpat;
-				var out_bus_name;
-				var brate = if(rate == \kr) { \control } { \audio };
-				// key is modulator source slot index
-				out_bus_name = "mod_%_%".format(player.uname, mod.uname).asSymbol;
-
-				if(mod.modulation.mod_kind == \pattern) {
-					ppatch.global_bus[out_bus_name] = Bus.alloc(brate, s, 1);
-					modpat = Pmono(mod.get_arg(\instrument).get_val,
-							//\ppatch, Pfunc{ppatch},
-							\group, Pfunc{ arg ev; ppatch.global_group[\modulator] },
-							\out, Pfunc{ arg ev; ppatch.global_bus[out_bus_name] }
-						) <> mod.sourcepat <> Pbind(\ppatch, Pfunc{ppatch});
-				} {
-					modpat = Pbind(
-							//\ppatch, Pfunc{ppatch},
-							\out, make_note_out_bus.(out_bus_name, \modulator)
-						) <> player.get_dur_pattern <> mod.sourcepat <> Pbind(\ppatch, Pfunc{ppatch});
-				};
-				modpat;
-
-			};
-
-			make_mixer_pattern = { arg player, key, modmixer, kind=\normal;
-				// key is pattern key name which is modulated
-				var mixer;
-				var mixer_synthdef_name;
-				var mixerarglist = List.new;
-				var mixer_group_name;
-				var out_bus_name;
-				var spec;
-
-				//if(kind == \normal) {
-				//	mixer_group_name = \mixer;
-				//} {
-				//	mixer_group_name = \fbmixer;
-				//};
-				mixer_group_name = \mixer;
-
-				spec = player.get_arg(key).spec;
-
-				mixer_synthdef_name = ~make_modmixer.(key, rate, spec, kind);
-				out_bus_name = "mixer_%_%".format(player.uname, key).asSymbol;
-
-				mixerarglist = List[
-					\instrument, mixer_synthdef_name,
-					\ppatch, Pfunc{ppatch},
-					\carrier, Pfunc{ player.get_arg(key).get_val },
-					\out, make_note_out_bus.(out_bus_name, mixer_group_name),
-				];
-
-				modmixer.get_slots.keysValuesDo { arg slotidx, modstruct, idx;
-					var in_bus_name = "mod_%_%".format(mainplayer.uname, mainplayer.modulation.get_modulator_name(modstruct.name)).asSymbol;
-					idx = idx + 1;
-					mixerarglist = (mixerarglist ++ [
-						(\in++idx).asSymbol, Pfunc{ arg ev;
-							var node;
-							[in_bus_name, modstruct, idx].debug("mixer: in");
-							if(
-								node = mainplayer.modulation.get_modulator_node(modstruct.name);
-								node.notNil and: {
-									node.modulation.notNil and: { 
-										modstruct.muted != true 
-									}
-								}
-							) {
-								if(mainplayer.modulation.get_modulator_node(modstruct.name).modulation.mod_kind == \pattern) {
-									ev[\ppatch].global_bus[in_bus_name];
-								} {
-									ev[\ppatch].note_bus[in_bus_name];
-								}
-							} {
-								~silent_control_bus;
-								// FIXME: is it a problem to return nil here ?
-							}
-						},
-						(\range++idx).asSymbol, Pfunc{modstruct.range}
-					]).asList;
-				};
-				mixerarglist.debug("make_mixer_pattern: mixerarglist");
-				mixer = Pbind(*mixerarglist) <> mainplayer.get_dur_pattern;
-				mixer_list.add(mixer);
-			};
-
-			///////// building modulators and mixer patterns
-
-			walk_modulators = { arg player, kind=\feedback;
-				player.modulation.get_modulation_mixers.keysValuesDo { arg key, modmixer;
-					if(modmixer.get_slots.size > 0) {
-						var can_make_mixer = false;
-						modmixer.get_slots.keysValuesDo { arg slotidx, modstruct, idx;
-							var modname = mainplayer.modulation.get_modulators[modstruct.name];
-							var modnode = mainplayer.get_main.get_node(modname);
-							if(modname.notNil) {
-								can_make_mixer = true;
-								if(done_modulators.includesEqual(modname).not) {
-									done_modulators = done_modulators.add(modname);
-									if(modnode.modulation.mod_kind == \pattern) {
-										pattern_modulator_list.add( make_modulator_pattern.(mainplayer, modnode) )
-									} {
-										note_modulator_list.add( make_modulator_pattern.(mainplayer, modnode) )
-									};
-									walk_modulators.(modnode);
-								}
-							}
-						};
-						if(can_make_mixer) {
-							make_mixer_pattern.( player, key, modmixer, kind );
-						}
-					};
-				};
-			};
-
-			walk_modulators.( mainplayer, \normal );
-
-
-
-
-			//walk_modulators = { arg player, kind=\feedback;
-			//	player.modulation.get_modulators.keysValuesDo { arg key, modname;
-			//		var modnode = player.get_main.get_node(modname);
-			//		if(modnode.mod_kind == \pattern) {
-			//			pattern_modulator_list.add( make_modulator_pattern.(mainplayer, modnode, key) )
-			//		} {
-			//			note_modulator_list.add( make_modulator_pattern.(mainplayer, modnode, key) )
-			//		};
-			//		walk_modulators.( modnode );
-			//	};
-
-			//	player.modulation.get_modulation_mixers.keysValuesDo { arg key, modmixer;
-			//		make_mixer_pattern.( player, key, modmixer, kind )
-			//	}
-			//};
-
-
-
-			///////// building main pattern
-
-			main_note_pat = Pbind(
-					//\ppatch, Pfunc{ppatch},
-					\doneAction, 14,
-					\out, Pfunc { arg ev; synth_out_bus },
-					\group, Pfunc { arg ev;
-						var pp = ev[\ppatch];
-						var group;
-						var note_group;
-						var note_bus;
-						//var freq = ev[\freq].value(ev);
-						debug("synth: group");
-						group = Group.new(pp.global_group[\synth]);
-						group.register;
-						pp.note_group[mainplayer.name] = group;
-						note_group = pp.note_group.copy;
-						note_bus = pp.note_bus.copy;
-						group.addDependant({ arg grp, status;
-							[grp, status].debug("dependant");
-							if(status == \n_end) {
-								"main_note_pat: freeing".debug;
-								note_group.keysValuesDo { arg gname, gobj;
-									[gname, gobj].debug("main_note_pat: free note group");
-									if(gname != mainplayer.name) {
-										gobj.free
-									}
-								};
-								note_bus.keysValuesDo { arg bname, bobj;
-									[bname, bobj].debug("main_note_pat: free note bus");
-									bobj.free;
-								};
-								grp.releaseDependants;
-							}
-						});
-						group;
-					}
-				) <> source_pattern <> Pbind(\ppatch, Pfunc{ppatch});
-		
-			allocator_note_pattern = mainplayer.get_dur_pattern <> Pbind(
-				\type, \rest,
-				\ppatch, Pfunc{ppatch},
-				\alloc, Pfunc{ arg ev;
-					//ev[\ppatch].note_bus = IdentityDictionary.new;
-					//ev[\ppatch].note_group = IdentityDictionary.new;
-					note_bus_alloc_list.do { arg key;
-						key.debug("alloc note bus");
-						ev[\ppatch].note_bus[key] = Bus.control(s, 1);
-					}
-				}
+			ppatch_pattern = Pbind(
+				\ppatch, Pfunc{ppatch}
 			);
 
-			[pattern_modulator_list, note_modulator_list, mixer_list, effect_pat_list].debug("pat, not, mix, eff");
+			pattern_modulator_list = self.pattern_modulator_list;
+			note_modulator_list = self.note_modulator_list;
+			mixer_list = self.mixer_list;
+			effect_pat_list = self.effect_pat_list;
+			allocator_note_pattern = self.allocator_note_pattern;
 
-			cleanup_function = {
-				"cleanup".debug;
-				spawner.suspendAll;
-				if(clean_started.not) {
-				//if(true) {
-					clean_started = true;
-					"sched cleanup".debug;
-					{
-						//spawner.suspendAll;
-						mainplayer.name.debug("defered cleanup");
-						ppatch.note_bus.keysValuesDo { arg bname, bobj;
-							[bname, bobj].debug("free bus");
-							bobj.free;
-						};
-						ppatch.global_group.keysValuesDo { arg gname, gobj;
-							[gname, gobj].debug("pattern group free");
-							gobj.free;
-						};
-						ppatch.global_bus.keysValuesDo { arg bname, bobj;
-							[bname, bobj].debug("pattern bus free");
-							bobj.free;
-						};
-						"fin cleanup".debug;
-					}.defer(free_defer_time + s.latency); 
-				}
+			///////// creating global busses
+
+			self.pattern_bus_alloc_list.do { arg key;
+				ppatch.global_bus[key] = Bus.audio(s, 2);
 			};
 
-			self.cleanup_function = cleanup_function;
+			self.pattern_control_bus_alloc_list.do { arg key;
+				ppatch.global_bus[key] = Bus.control(s);
+			};
 
 			///////// creating global groups
 
@@ -1945,21 +2009,21 @@
 			///////////////////// spawning
 
 			if([pattern_modulator_list, note_modulator_list, mixer_list, effect_pat_list].any{ arg li; li.size > 0 }) {
-				spawner.par(allocator_note_pattern);
+				spawner.par(allocator_note_pattern <> ppatch_pattern);
 			};
 
 			pattern_modulator_list.do { arg pat;
-				spawner.par(pat);
+				spawner.par(pat <> ppatch_pattern);
 			};
 			note_modulator_list.do { arg pat;
-				spawner.par(pat);
+				spawner.par(pat <> ppatch_pattern);
 			};
 			"bla0".debug;
 			mixer_list.do { arg pat;
-				spawner.par(pat);
+				spawner.par(pat <> ppatch_pattern);
 			};
 			effect_pat_list.do { arg pat;
-				spawner.par(pat);
+				spawner.par(pat <> ppatch_pattern);
 			};
 			//spawner.par(Ppar(note_modulator_list));
 			//spawner.par(Ppar(mixer_list));
@@ -1994,7 +2058,7 @@
 			spawner.par(
 				Pfset({},
 					main_note_pat,
-					{ "INNER CLEAN".debug; cleanup_function.value; }
+					{ "INNER CLEAN".debug; ppatch.cleanup_function; }
 				)
 			);
 
@@ -2034,7 +2098,7 @@
 			"bla3".debug;
 			"$$$$$$$$$$$$$$$$$$$$ make_modulator_pattern: END".debug;
 		});
-		Pfset({}, pspawner, { "CLEAN".debug; self[\cleanup_function].value });
+		//Pfset({}, pspawner, { "CLEAN".debug; self[\cleanup_function].value });
 	}
 
 

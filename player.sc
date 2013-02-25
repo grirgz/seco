@@ -750,7 +750,8 @@
 		res.debug("REAL_SOURCEPAT");
 		//res.postcs;
 
-		res = self.modulation.make_modulation_pattern(res);
+		self.modulation.update_modulation_pattern(res);
+		res = self.modulation.make_modulation_pattern;
 
 		// add bus setting
 		//if(self.ccbus_set.size > 0) {
