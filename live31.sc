@@ -141,6 +141,17 @@ s.latency
 
 Mdef.main.model.latency = 0
 
+(
+	~midinote_to_notename = { arg midinote;
+		var notenames = [ "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" ];
+		var octave = ((midinote / 12)).asInteger;
+		var name = notenames[ midinote % 12 ];
+		name ++ octave.asString;
+		//midinote.asString;
+	
+	}
+)
+~midinote_to_notename.(64)
 Mdef.node(\s1_part1_sect1_var3).children
 Mdef.node("ci osc3filter2_l1013").uname
 Mdef.node("ci osc3filter2_l1020").modulation.modulation_mixers.keysValuesDo { arg key, val; [key, val.get_slots].debug }

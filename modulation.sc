@@ -1580,6 +1580,10 @@
 	//
 	//},
 
+	update_modulation_pattern: { arg self;
+
+	},
+
 	make_modulation_pattern: { arg self, source_pattern;
 		var free_defer_time = 1; // FIXME: hardcoded
 		var out_bus = 0;

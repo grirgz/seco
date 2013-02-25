@@ -232,10 +232,15 @@
 		load_default_preset: { arg self, nodename;
 			var preset;
 			var player;
+			var name, uname;
 			player = main.get_node(nodename);
+			name = player.name;
+			uname = player.uname;
 			preset = main.model.presetlib[player.instrname][0];
 			if(preset.notNil and:{ preset.name == "default" }) {
 				player.load_data_preset(preset);
+				player.name = name;
+				player.uname = uname;
 			}
 		},
 

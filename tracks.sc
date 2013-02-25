@@ -287,6 +287,7 @@
 	view_size_y: 1500,
 	block_dict: Dictionary.new,
 	moving_notes: Set.new,
+	resizing_notes: Set.new,
 	//roll_size: 400@400,
 
 	update_sizes: { arg self;
@@ -570,6 +571,7 @@
 	},
 
 	mouse_up_action: { arg self;
+		var tl = self.timeline;
 		{ arg view, x, y, modifiers, buttonNumber, clickCount;
 			var newx, newy, notepoint;
 			var block, current_pos;
@@ -587,7 +589,42 @@
 				[block, newx@newy, notepoint].debug("block point notepoint");
 				self.controller.move_note(block, notepoint.x, notepoint.y);
 			};
+			self.resizing_notes.do { arg snum;
+				var temp_notepoint;
+				var newsustain;
+				var new_midinote, new_time;
+				var newx, newy;
+				var current_pos;
+				var block;
+				var notepoint;
+				var temp_pos;
+
+
+				self.margin = 0; // FIXME: wtf here ?
+
+				//current_pos = tl.getNodeLoc1(snum);
+				current_pos = x@y / self.view_size;
+				current_pos.debug("mouse_up_action: x, y");
+
+				temp_pos = self.timeline.paraNodes[snum].temp;
+				//newx = current_pos[0].clip(0,1).trunc(self.gridstep1.x);
+				//newy = current_pos[1].clip(0,1-self.margin).trunc(1/128);
+				newx = current_pos.x.clip(0,1).trunc(self.gridstep1.x);
+				newy = current_pos.y.clip(0,1-self.margin).trunc(1/128);
+
+				notepoint = self.point_to_notepoint(newx@newy);
+
+				temp_notepoint = self.point_to_notepoint(temp_pos);
+				[notepoint.x, temp_notepoint.x, self.controller.display.gridstep.x].debug("notepooint, temp_notepoint, gridstepx");
+				newsustain = notepoint.x - temp_notepoint.x + self.controller.display.gridstep.x;
+
+				newsustain = newsustain.clip(0.01,20);
+				block = self.block_dict[snum];
+				self.controller.set_note_key(block, \sustain, newsustain);
+			
+			};
 			self.moving_notes = Set.new;
+			self.resizing_notes = Set.new;
 		}
 	},
 
@@ -633,43 +670,25 @@
 			var notepoint;
 			var temp_pos;
 
-			self.margin = 0;
-			//self.margin = self.handle_size;
+			self.margin = 0; // FIXME: wtf here ?
 
 			current_pos = tl.getNodeLoc1(node.spritenum);
 
-			//newx = current_pos[0].trunc(self.beat_size_x);
-			//newy = current_pos[1].trunc(self.track_size_y);
-			current_pos.debug("current_pos");
 			temp_pos = self.timeline.paraNodes[node.spritenum].temp;
-			temp_pos.debug("temp_pos");
-			//if(temp_pos.x == 0) {
-			//	current_pos.debug("current_pos == 0");
-			//	newx = temp_pos.x;
-			//} {
-			//	newx = current_pos[0].clip(0,1).trunc(self.gridstep1.x);
-			//};
 			newx = current_pos[0].clip(0,1).trunc(self.gridstep1.x);
-			newx.debug("newx");
 			newy = current_pos[1].clip(0,1-self.margin).trunc(1/128);
 
-			self.current_modifiers.debug("current_modifiers");
 			notepoint = self.point_to_notepoint(newx@newy);
-			notepoint.debug("notepoint");
+
 			if(self.current_modifiers.notNil and: { self.current_modifiers.isShift }) {
 				//resize
-				var temp_notepoint = self.point_to_notepoint(temp_pos);
+				//FIXME: bug when multiple notes selected
 				var newlen = newx - temp_pos.x + self.gridstep1.x;
-				var newsustain = notepoint.x - temp_notepoint.x + self.controller.display.gridstep.x;
 				newlen = newlen * self.track_size.x;
 				newlen = newlen.abs;
-				newsustain = newsustain.clip(0.01,20);
-				[newlen, newsustain].debug("newlen, newsustain");
-				block = self.block_dict[node.spritenum];
-				self.controller.set_note_key(block, \sustain, newsustain);
-				self.timeline.paraNodes[node.spritenum].setLen = newlen;
+				self.resizing_notes = [node.spritenum];
 				tl.setNodeLoc1_( node.spritenum, temp_pos.x, temp_pos.y );
-			
+				self.timeline.paraNodes[node.spritenum].setLen = newlen;
 			} {
 				//move
 				debug("move");
@@ -771,9 +790,10 @@
 		var stext;
 		var spritenum = 0;
 		var notes;
-		controller = controller ?? self.controller;
+		//controller = controller ?? self.controller;
+		controller = self.controller;
 
-		controller.get_notes.debug("class_basic_track_view: notes");
+		controller.get_notes.debug("class_piano_roll_editor: notes");
 
 		self.timeline.clearSpace;
 
@@ -784,7 +804,7 @@
 
 		notes.do { arg note;
 			var pos;
-			note.debug("class_basic_track_view: notes: note");
+			note.debug("class_piano_roll_editor: notes: note");
 			if(note.type != \rest) {
 				pos = self.note_to_point(note);
 
@@ -1837,7 +1857,7 @@
 
 	refresh: { arg self;
 		self.scoreset.update_notes;
-		self.changed(\notes);
+		//self.changed(\notes);
 	},
 
 	make_gui: { arg self;
@@ -1869,14 +1889,22 @@
 	},
 
 	move_note: { arg self, note, time, midinote;
+		self.current_notes.do { arg no, i; [i, no].debug("before move_note: note") };
 		note.time = time;
+		[note.midinote, midinote].debug("move_note: moving note before, new midinote");
 		note.midinote = midinote;
+		note.midinote.debug("move_note: moving note after");
+		self.current_notes.do { arg no, i; [i, no].debug("after move_note: note") };
 		self.scoreset.get_notescore.set_abs_notes(self.current_notes);
 		self.scoreset.update_notes;
 	},
 
 	set_note_key: { arg self, note, key, val;
+		self.current_notes.do { arg no, i; [i, no].debug("before set_note_key: note") };
+		note.debug("set_note_key: before");
 		note[key] = val;
+		note.debug("set_note_key: after");
+		self.current_notes.do { arg no, i; [i, no].debug("after set_note_key: note") };
 		self.scoreset.get_notescore.set_abs_notes(self.current_notes);
 		self.scoreset.update_notes;
 	},
@@ -1889,8 +1917,9 @@
 		};
 		self.get_notescore.remove_notes_playing_at_abstime(notepoint.x, cons);
 		if(update) {
-			self.scoreset.update_notes;
-			self.changed(\notes);
+			self.refresh
+			//self.scoreset.update_notes;
+			//self.changed(\notes);
 		}
 	},
 
@@ -1910,8 +1939,9 @@
 			self.get_notescore.add_note(note, abstime);
 			self.get_notescore.debug("add_note: get_notes");
 			self.get_notescore.notes.debug("add_note: notescore.notes");
-			self.scoreset.update_notes;
-			self.changed(\notes);
+			self.refresh;
+			//self.scoreset.update_notes;
+			//self.changed(\notes);
 		} {
 			debug("class_step_track_controller: past end: noop");
 		}
@@ -1921,9 +1951,10 @@
 	set_end: { arg self, val;
 		val.debug("controller: set_end");
 		self.scoreset.get_notescore.set_end(val);
-		self.scoreset.update_notes;
+		//self.scoreset.update_notes;
 		self.changed(\background);
-		self.changed(\notes);
+		//self.changed(\notes);
+		self.refresh;
 	},
 
 	get_end: { arg self;
