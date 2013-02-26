@@ -302,7 +302,8 @@
 				view.set_param(param, display);
 			} {
 				view.clear_view;
-			}
+			};
+			0.01.wait;
 		};
 	},
 
@@ -400,7 +401,8 @@
 			idx.debug("class_modulation_view: selected_slot");
 			butlay[1].states_([
 				[self.controller.get_modulator_name_from_source_slot(idx) ?? "-", Color.black, if(self.controller.is_slot_selected(idx)) { Color.gray } { Color.white }]
-			])
+			]);
+			0.3.wait;
 		};
 	},
 
@@ -509,7 +511,8 @@
 			idx.debug("class_modulation_view: selected_slot");
 			butlay[1].states_([
 				[self.controller.get_modulator_name_from_source_slot(idx) ?? "-", Color.black, if(self.controller.is_slot_selected(idx)) { Color.gray } { Color.white }]
-			])
+			]);
+			0.3.wait;
 		};
 	},
 );
@@ -1149,6 +1152,10 @@
 		data;
 	},
 
+	update_modulation_pattern: { arg self;
+		self.get_player.modulation.update_modulation_pattern;
+	},
+
 	load_data: { arg self, data, options;
 		var main;
 		main = self.get_player.get_main;
@@ -1187,6 +1194,7 @@
 
 	set_effect: { arg self, idx, effect_node_name;
 		self.effect_list[idx] = effect_node_name;
+		self.update_modulation_pattern;
 	},
 
 	get_effect: { arg self, idx;
@@ -1197,6 +1205,7 @@
 		//var tmp = self.effect_list.removeAt(idx_source);
 		//self.effect_list.insert(idx_dest, tmp);
 		self.effect_list.swap(idx_source, idx_dest);
+		self.update_modulation_pattern;
 	},
 
 	vpattern: { arg self;
@@ -1226,6 +1235,10 @@
 		self.slots = Dictionary.new;
 
 		self;
+	},
+
+	update_modulation_pattern: { arg self;
+		self.player.modulation.update_modulation_pattern;
 	},
 
 	save_data: { arg self;
@@ -1289,6 +1302,7 @@
 	mute_slot: { arg self, target_slot, val=true;
 		self.slots[target_slot].muted = val;
 		//self.slots[target_slot.dump].muted.debug("class_modulation_mixer_controller: mute_slot: slot muted");
+		self.update_modulation_pattern;
 		self.changed(\connection, target_slot);
 	},
 
@@ -1304,6 +1318,7 @@
 			self.slots[target_slot] = (range:0)
 		};
 		self.slots[target_slot].name = source_slot;
+		self.update_modulation_pattern;
 		self.changed(\connection, target_slot);
 	},
 
@@ -1311,6 +1326,7 @@
 		if(self.slots[target_slot].notNil) {
 			self.slots[target_slot].name = nil;
 		};
+		self.update_modulation_pattern;
 		self.changed(\connection, target_slot);
 	},
 
@@ -1485,6 +1501,7 @@
 
 	set_modulator_name: { arg self, idx, mod_name;
 		self.modulators[idx] = mod_name;
+		self.update_modulation_pattern;
 		self.changed(\modulator, idx);
 	},
 
@@ -1580,7 +1597,7 @@
 	//
 	//},
 
-	update_modulation_pattern: { arg self, source_pattern;
+	update_modulation_pattern: { arg self, source_pattern=nil;
 		var out_bus = 0;
 		var mainplayer = self.player;
 		var str;
@@ -1606,6 +1623,10 @@
 		var clean_started = false;
 		var cleanup_function;
 		///////// building effects patterns
+		"%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% update_modulation_pattern: START".debug;
+
+		source_pattern = self.source_pattern ?? source_pattern;
+		self.source_pattern = source_pattern;
 
 		effect_list = mainplayer.effects.effect_list.reject({ arg ef; 
 			ef.isNil or: {
@@ -1639,8 +1660,8 @@
 				Pbind(
 					\group, Pfunc{ arg ev; ev[\ppatch].global_group[\effects] },
 					\addAction, \addToTail,
-					\in, Pfunc{ arg ev; ev[\ppatch].global_group[effect_inbus_list[idx]] },
-					\out, Pfunc{ arg ev; ev[\ppatch].global_group[effect_outbus_list[idx]] },
+					\in, Pfunc{ arg ev; ev[\ppatch].global_bus[effect_inbus_list[idx]] },
+					\out, Pfunc{ arg ev; ev[\ppatch].global_bus[effect_outbus_list[idx]] },
 				) <>
 				effect.sourcepat 
 				//<>
@@ -1832,7 +1853,7 @@
 		main_note_pat = Pbind(
 				//\ppatch, Pfunc{ppatch},
 				\doneAction, 14,
-				\out, Pfunc { arg ev; synth_out_bus },
+				\out, Pfunc { arg ev; ev[\ppatch].global_bus[synth_out_bus] },
 				\group, Pfunc { arg ev;
 					var pp = ev[\ppatch];
 					var group;
@@ -1848,18 +1869,24 @@
 					group.addDependant({ arg grp, status;
 						[grp, status].debug("dependant");
 						if(status == \n_end) {
-							"main_note_pat: freeing".debug;
-							note_group.keysValuesDo { arg gname, gobj;
-								[gname, gobj].debug("main_note_pat: free note group");
-								if(gname != mainplayer.name) {
-									gobj.free
-								}
-							};
-							note_bus.keysValuesDo { arg bname, bobj;
-								[bname, bobj].debug("main_note_pat: free note bus");
-								bobj.free;
-							};
-							grp.releaseDependants;
+							fork{
+
+								"main_note_pat: freeing".debug;
+								note_group.keysValuesDo { arg gname, gobj;
+									[gname, gobj].debug("main_note_pat: free note group");
+									if(gname != mainplayer.name) {
+										gobj.free
+									};
+									0.01.wait;
+
+								};
+								note_bus.keysValuesDo { arg bname, bobj;
+									[bname, bobj].debug("main_note_pat: free note bus");
+									bobj.free;
+									0.01.wait;
+								};
+								grp.releaseDependants;
+							}
 						}
 					});
 					group;
@@ -1887,10 +1914,14 @@
 		self.mixer_list = mixer_list;
 		self.effect_pat_list = effect_pat_list;
 		self.allocator_note_pattern = allocator_note_pattern;
+
 		self.pattern_bus_alloc_list = pattern_bus_alloc_list;
 		self.pattern_control_bus_alloc_list = pattern_control_bus_alloc_list;
 
+		self.main_note_pat = main_note_pat;
+
 		//self.cleanup_function = cleanup_function;
+		"%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% update_modulation_pattern: STOP".debug;
 
 	},
 
@@ -1921,14 +1952,17 @@
 			var clean_started = false;
 			var cleanup_function;
 			var ppatch_pattern;
+			var panic_safeguard;
 			"$$$$$$$$$$$$$$$$$$$$ make_modulator_pattern: START".debug;
+
 
 			ppatch = (
 				clean_started: false,
+				panic_called: false,
 				note_bus: Dictionary.new,
 				note_group: Dictionary.new,
 				global_bus: Dictionary[\out_bus -> out_bus],
-				global_group: Dictionary.newFrom(),
+				global_group: Dictionary.new,
 				get_mod_bus: { arg ppself, prefix, name;
 					var bus;
 					bus = ppself.note_bus["mixer_%_%".format(prefix, name).asSymbol];
@@ -1950,13 +1984,16 @@
 						{
 							//spawner.suspendAll;
 							mainplayer.name.debug("defered cleanup");
+							if(self.panic_called.not) {
+								ppatch.global_group.keysValuesDo { arg gname, gobj;
+									[gname, gobj].debug("pattern group free");
+									gobj.free;
+								};
+							};
+							CmdPeriod.remove(panic_safeguard);
 							ppatch.note_bus.keysValuesDo { arg bname, bobj;
 								[bname, bobj].debug("free bus");
 								bobj.free;
-							};
-							ppatch.global_group.keysValuesDo { arg gname, gobj;
-								[gname, gobj].debug("pattern group free");
-								gobj.free;
 							};
 							ppatch.global_bus.keysValuesDo { arg bname, bobj;
 								[bname, bobj].debug("pattern bus free");
@@ -1969,6 +2006,10 @@
 
 			);
 
+			panic_safeguard = { ppatch.panic_called = true };
+			CmdPeriod.add(panic_safeguard);
+
+
 			ppatch_pattern = Pbind(
 				\ppatch, Pfunc{ppatch}
 			);
@@ -1979,7 +2020,12 @@
 			effect_pat_list = self.effect_pat_list;
 			allocator_note_pattern = self.allocator_note_pattern;
 
+			main_note_pat = self.main_note_pat;
+
 			///////// creating global busses
+
+			self.pattern_bus_alloc_list.debug("pattern_bus_alloc_list");
+			self.pattern_control_bus_alloc_list.debug("pattern_control_bus_alloc_list");
 
 			self.pattern_bus_alloc_list.do { arg key;
 				ppatch.global_bus[key] = Bus.audio(s, 2);
@@ -2007,6 +2053,8 @@
 			};
 
 			///////////////////// spawning
+
+			[pattern_modulator_list, note_modulator_list, mixer_list, effect_pat_list].debug("pat, not, mix, eff");
 
 			if([pattern_modulator_list, note_modulator_list, mixer_list, effect_pat_list].any{ arg li; li.size > 0 }) {
 				spawner.par(allocator_note_pattern <> ppatch_pattern);
@@ -2057,7 +2105,7 @@
 			
 			spawner.par(
 				Pfset({},
-					main_note_pat,
+					main_note_pat <> ppatch_pattern,
 					{ "INNER CLEAN".debug; ppatch.cleanup_function; }
 				)
 			);
@@ -2234,14 +2282,15 @@
 				var param_name;
 				var param, display;
 				param_name = self.player_display.get_param_name_by_display_idx(idx);
-				param_name.debug("class_modulator_body_basic: set_controller: param_name");
+				param_name.debug("class_effect_body_basic_view: set_controller: param_name");
 				if(param_name.notNil) {
 					param = player.get_arg(param_name);
 					display = self.player_display.make_param_display(param);
 					view.set_param(param, display);
 				} {
 					view.clear_view;
-				}
+				};
+				0.35.wait;
 			};
 		}
 	},
@@ -2304,6 +2353,7 @@
 			[VLayout(*
 				self.controller.effects_ctrl.effects_number.collect { arg idx;
 					var mv = ~class_effect_mini_view.new(self.controller, idx);
+					0.3.wait;
 					self.mini_views.add(mv);
 					mv.layout;
 				} ++ [nil]
@@ -2379,7 +2429,8 @@
 		var player;
 		player = self.get_player_at(idx);
 		if(player.notNil) {
-			player.mute(player.muted.not)
+			player.mute(player.muted.not);
+			self.effects_ctrl.update_modulation_pattern;
 		}
 	},
 

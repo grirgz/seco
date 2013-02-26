@@ -415,4 +415,19 @@ a.action = {arg field; field.value.postln; };
 Mdef.node("ci osc3filter2_l1005").external_player.get_static_data.keys
 
 
+(
+~pc = {"bla".postln;};
+CmdPeriod.add(~pc);
+CmdPeriod.remove(~pc);
+)
 
+
+(
+var bla = "blo";
+var bli = { bla.postln; };
+bli.value;
+bla = "rah";
+bli.value;
+
+
+)

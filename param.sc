@@ -3638,6 +3638,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			var pat_val, score_val;
 			kind = self.current_kind;
 			mode = player.get_mode;
+			self.name.debug("class_param_controller: update_vpattern");
 			score_val = switch(self.name,
 				\dur, {
 					{ arg ev;

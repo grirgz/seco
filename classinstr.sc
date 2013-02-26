@@ -82,7 +82,7 @@
 		self.vallabel = vallabel;
 		//self.layout.minHeight = 65;
 		//layout.minHeight = 65;
-		0.01.wait;
+		0.02.wait;
 		self.layout = layout;
 
 		~make_class_responder.(self, self.namelabel, self.controller, [
@@ -216,6 +216,7 @@
 						self.modmixer.set_range(idx, ro);
 					};
 			};
+			0.01.wait;
 			self.slots
 		).margins_(1).spacing_(0)
 	},
@@ -362,6 +363,17 @@
 			[self.make_modslots, stretch:0, align:\center],
 			nil
 		);
+		knob.rangeview.focusGainedAction = { arg me;
+			//"fader focusGainedAction".debug;
+			me.background = Color.gray(0.6);
+			~global_controller.current_param = self.controller;
+		};
+		knob.rangeview.focusLostAction = { arg me;
+			try {
+				me.background = Color.clear;
+			}
+		};
+
 		self.namelabel = label;
 		self.knob = knob;
 		self.vallabel = vallabel;
@@ -1552,7 +1564,7 @@
 			HLayout(*
 				self.faders ++
 				[
-					env_view = EnvelopeView.new
+					env_view = EnvelopeView.new; 0.01.wait; env_view
 				]
 			),
 			HLayout(*
@@ -2540,7 +2552,8 @@
 		);
 		tab_views.do { arg view, idx;
 			//{
-				view.layout = content[1][idx].value
+				view.layout = content[1][idx].value;
+				0.01.wait;
 			//}.defer( 1+idx )
 		};
 		debug("NUIT 2");
@@ -2548,6 +2561,7 @@
 			HLayout(*
 				content[0].collect { arg co, idx;
 					debug("NUIT 3");
+					0.02.wait;
 					Button.new
 						.states_([[co]])
 						.action_({ 

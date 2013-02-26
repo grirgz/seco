@@ -21,7 +21,28 @@
 ~draw_stepx_grid = { arg size, beatlen, gridstep;
 	var gridstepx = gridstep.x*beatlen;
 	(size.x/gridstepx).asInteger.do{|i| 
-		Pen.color = Color.gray;
+		case
+			{ gridstep.x <= (1/8) } {
+				case
+					{i%4==0} {
+						Pen.color = Color.new255(139, 69, 19);
+					}
+					{
+						Pen.color = Color.gray;
+					}
+			}
+			{ gridstep.x <= (1/32) } {
+				case
+					{i%32==0} {
+						Pen.color = Color.new255(119, 179, 19);
+					}
+					{
+						Pen.color = Color.gray;
+					}
+			}
+			{
+				Pen.color = Color.gray;
+			};
 		Pen.line((i*gridstepx)@0, (i*gridstepx)@( size.y ));
 		Pen.stroke
 	};
@@ -333,9 +354,36 @@
 		self.main_responder = ~make_class_responder.(self, self.scrollview, controller.display, [
 			\gridstep, \gridlen
 		]);
+
+		self.autofit_view_to_notes;
+
 		//self.main_responder = ~make_class_responder.(self, self.parent_view, controller.display, [
 		//	\gridstep, \gridlen
 		//]);
+	},
+
+	autofit_view_to_notes: { arg self;
+		var posy;
+		self.init_scan_notes(self.controller.get_notes);
+		posy = self.view_size.y - ((12 + self.maxnote) * self.handle_size);
+		self.scrollview.visibleOrigin = 0@posy;
+	
+	},
+
+	init_scan_notes: { arg self, notes;
+		var minnote=127, maxnote=0, totaldur=0;
+		notes.do { arg no, idx;
+			[idx, no].debug("calcul totaldur: note");
+			if(no.midinote.isSymbolWS.not, {
+				minnote = min(no.midinote, minnote);
+				maxnote = max(no.midinote, maxnote);
+			});
+			//totaldur = no.dur + totaldur
+		};
+		self.minnote = minnote;
+		self.maxnote = maxnote;
+		//self.block_size_y = min(self.track_size_y/(maxnote - minnote), 10);
+	
 	},
 
 	midinote_to_notename: { arg self, midinote;

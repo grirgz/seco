@@ -45,11 +45,21 @@ SynthDef(\comb1, { arg in, out, mix=0.5, maxdelaytime=0.4, delaytime=0.4, decayt
 	Out.ar(out, sig);
 }).store;
 
-SynthDef(\modenv, { |out, val=0, t_trig=1, gate=1, tsustain, curve=0, doneAction=0|
-       var start = In.kr(out, 1);
+//SynthDef(\modenv, { |out, val=0, t_trig=1, gate=1, tsustain, curve=0, doneAction=0|
+//       var start = In.kr(out, 1);
+//	   var sig;
+//	   start.poll;
+//	   sig = EnvGen.kr(Env([start, val], [tsustain], curve), t_trig, doneAction: doneAction);
+//	   //sig.poll;
+//       ReplaceOut.kr(out, sig);
+//}).store;
+SynthDef(\modenv, { |out, firstsynth=0, firstval=0, t_trig=1, gate=1, tsustain, val=0, curve=0, doneAction=0|
+       var start = Select.kr(firstsynth, [In.kr(out, 1), firstval]);
 	   var sig;
 	   //start.poll;
+	   //sig = EnvGen.kr(Env([start, val], [tsustain], curve), t_trig, doneAction: doneAction);
 	   sig = EnvGen.kr(Env([start, val], [tsustain], curve), t_trig, doneAction: doneAction);
+	   //sig = VarLag.kr(val, tsustain);
 	   //sig.poll;
        ReplaceOut.kr(out, sig);
 }).store;

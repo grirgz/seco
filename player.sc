@@ -586,11 +586,21 @@
 	load_data_preset: { arg self, data;
 		var options = IdentityDictionary.new;
 		options[\copy_subplayers] = true;
+		options[\dont_overwrite_uname] = true;
 		self.load_data(data, options)
 	},
 
 	load_data: { arg self, data, options;
 		var argdat;
+		var archive_data;
+		options = options ?? IdentityDictionary.new;
+
+		if(options[\dont_overwrite_uname].notNil and: { options[\dont_overwrite_uname].notNil }) {
+			archive_data = self.archive_data.reject { arg key; [\uname, \name].includes(key) };
+		} {
+			archive_data = self.archive_data
+		};
+
 		self.get_args.do { arg key;
 			argdat = self.get_arg(key);	
 			if(self.archive_param_data.includes(argdat.classtype), {
@@ -601,7 +611,7 @@
 		};
 		self.modulation.load_data(data.modulation, options);
 		self.effects.load_data(data.effects, options);
-		self.archive_data.do { arg key;
+		archive_data.do { arg key;
 			if(data[key].notNil) {
 				self[key] = data[key]
 			}
@@ -771,7 +781,8 @@
 	},
 
 	vpattern_loop: { arg self;
-		Pn(self.vpattern, ~general_sizes.safe_inf);
+		//Pn(self.vpattern, ~general_sizes.safe_inf);
+		Pn(self.vpattern, 2); // debug
 		//self.vpattern; //debug
 	},
 

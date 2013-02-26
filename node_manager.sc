@@ -299,11 +299,11 @@
 				if( sel == \empty ) {
 					"load_preset: Can't load empty preset".error;
 				} {
-					uname = player.uname;
-					name = player.name;
+					//uname = player.uname;
+					//name = player.name;
 					player.load_data_preset(main.model.presetlib[player.instrname][offset]);
-					player.name = name;
-					player.uname = uname;
+					//player.name = name;
+					//player.uname = uname;
 					main.panels.side.reload_selected_slot; // FIXME: refresh others panels
 				};
 
