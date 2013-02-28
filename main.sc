@@ -348,6 +348,7 @@ if(~silent_control_bus.isNil) {
 	"tracks",
 	"modulation",
 	"side",
+	"nodematrix",
 ].do { arg file;
 	("Loading " ++ file ++".sc...").inform;
 	(~seco_dir_path +/+ file++".sc").load;
@@ -532,7 +533,7 @@ if(~silent_control_bus.isNil) {
 			velocity_ratio: 0.3,
 			velocity_ratio_pad: 0.7,
 
-			latency: 0.2,
+			latency: 0.0,
 
 			nodelib: List.new,
 			modnodelib: List.new,

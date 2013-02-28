@@ -174,6 +174,7 @@
 		dur: 2.0
 	),
 ];
+
 ~event_rel_to_abs = { arg li;	
 	var res = List.new, elm, time;
 	0.for(li.size-1) { arg x;
@@ -543,6 +544,22 @@
 	)
 };
 
+~make_empty_notescore = {
+	var ns, notes;
+	notes = [
+		(
+			midinote: \rest,
+			type: \rest,
+			sustain: 0.1,
+			velocity: 0.8,
+			dur: 1
+		)
+	];
+	ns = ~make_notescore.();
+	ns.set_notes(notes);
+	ns;
+};
+
 ~make_scoreset = {
 	var scoreset = (
 		notes: List.new,
@@ -599,6 +616,8 @@
 		history_len: 8,
 		history: List.new,
 		history_index: 0,
+		sheets: List.newClear(9),
+		current_sheet: 0,
 		archive_data: [\history_index, \history_len],
 
 
@@ -1227,6 +1246,27 @@
 
 		get_notequant: { arg self, val;
 			self.notescore.notequant;
+		},
+
+
+		///////////// sheets management
+
+		set_current_sheet: { arg self, ns;
+			self.sheets[self.current_sheet] = ns;
+			self.set_notescore(ns);
+		},
+
+		get_current_sheet: { arg self;
+			var ns;
+			ns = self.sheets[self.current_sheet];
+			if(ns.isNil) {
+				~make_empty_notescore.();
+			};
+		},
+
+		select_sheet: { arg self, index;
+			self.current_sheet = index;
+			self.set_notescore(self.get_current_sheet);
 		},
 
 	)

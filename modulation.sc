@@ -171,15 +171,16 @@
 		// FIXME: same modulation_ctrl
 		~make_class_responder.(self, self.label, self.modulation_ctrl, [
 			\modulator
-		]);
+		], false); // false to debug
 		~make_class_responder.(self, self.label, self.modulation_ctrl, [
 			\selected_slot
-		]);
+		], false); // false to debug
 		
 	},
 
 	modulator: { arg self;
 		//self.label.string = self.player_display.get_current_player.uname;
+		"$$ modulator responder call selected_slot".debug;
 		self.selected_slot;
 	},
 
@@ -303,7 +304,7 @@
 			} {
 				view.clear_view;
 			};
-			0.01.wait;
+			//0.01.wait;
 		};
 	},
 
@@ -318,6 +319,7 @@
 			var extlayout;
 			self.player_display.get_current_player.uname.debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: curplayer");
 			self.player_display.set_keydown_responder(\modulator);
+			//0.1.wait;
 			if(extplayer.notNil and: { self.show_custom_view }) {
 				// FIXME: external player should have custom gui
 				self.stack_layout.index = 1;
@@ -344,23 +346,24 @@
 	},
 
 	make_gui: { arg self;
-		debug("class_modulator_body_basic: make_gui");
+		debug("class_modulator_body_basic: make_gui 1");
 		self.param_group = ~make_mini_param_group_widget.(nil, 3, ());
 		self.param_group_layout = VLayout.new;
 		self.param_group_layout.add(self.param_group.layout);
-		debug("class_modulator_body_basic: make_gui");
-		//self.layout = VLayout.new;
+		//0.1.wait;
+		debug("class_modulator_body_basic: make_gui 2");
 		self.custom_view = View.new;
-		debug("class_modulator_body_basic: make_gui");
+		//0.1.wait;
+		debug("class_modulator_body_basic: make_gui 3");
 		self.stack_layout = StackLayout(
 			View.new.layout_(self.param_group_layout),
 			self.custom_view;
 		);
-		debug("class_modulator_body_basic: make_gui");
-		//stack_layout.index = 0;
+		//0.1.wait;
+		debug("class_modulator_body_basic: make_gui 4");
 		self.show_body_layout;
-		//self.layout.add(self.param_group.layout);
-		debug("class_modulator_body_basic: make_gui");
+		//0.1.wait;
+		debug("class_modulator_body_basic: make_gui 5");
 		self.layout = self.stack_layout;
 		self.layout
 	}
@@ -402,7 +405,7 @@
 			butlay[1].states_([
 				[self.controller.get_modulator_name_from_source_slot(idx) ?? "-", Color.black, if(self.controller.is_slot_selected(idx)) { Color.gray } { Color.white }]
 			]);
-			0.3.wait;
+			//0.3.wait;
 		};
 	},
 
@@ -441,11 +444,15 @@
 	make_gui: { arg self;
 		self.layout = VLayout(
 			self.make_tabs,
+			//0.1.wait;
 			HLayout(
 				self.mod_param = ~class_modulated_param_view.new(self.controller); self.mod_param.layout,
+				//0.1.wait;
 				[VLayout(
 					self.mod_header = ~class_modulator_header_view.new(self.controller); self.mod_header.layout,
+					//0.1.wait;
 					self.mod_body = ~class_modulator_body_basic.new(self.controller); self.mod_body.layout,
+					//0.1.wait;
 				), stretch:1]
 			)
 		);
@@ -512,7 +519,7 @@
 			butlay[1].states_([
 				[self.controller.get_modulator_name_from_source_slot(idx) ?? "-", Color.black, if(self.controller.is_slot_selected(idx)) { Color.gray } { Color.white }]
 			]);
-			0.3.wait;
+			//0.3.wait;
 		};
 	},
 );
@@ -1877,13 +1884,13 @@
 									if(gname != mainplayer.name) {
 										gobj.free
 									};
-									0.01.wait;
+									//0.01.wait;
 
 								};
 								note_bus.keysValuesDo { arg bname, bobj;
 									[bname, bobj].debug("main_note_pat: free note bus");
 									bobj.free;
-									0.01.wait;
+									//0.01.wait;
 								};
 								grp.releaseDependants;
 							}
@@ -2290,7 +2297,7 @@
 				} {
 					view.clear_view;
 				};
-				0.35.wait;
+				//0.35.wait;
 			};
 		}
 	},
@@ -2353,7 +2360,7 @@
 			[VLayout(*
 				self.controller.effects_ctrl.effects_number.collect { arg idx;
 					var mv = ~class_effect_mini_view.new(self.controller, idx);
-					0.3.wait;
+					//0.3.wait;
 					self.mini_views.add(mv);
 					mv.layout;
 				} ++ [nil]

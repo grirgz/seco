@@ -63,6 +63,8 @@
 	paramval.background = ~color_scheme.control;
 	paramval.stringColor = Color.white;
 
+	0.01.wait;
+
 	param_responder = { arg display; (
 		selected: { arg self;
 			param_view.selected(display.selected == 1);

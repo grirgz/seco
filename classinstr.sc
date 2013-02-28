@@ -82,7 +82,7 @@
 		self.vallabel = vallabel;
 		//self.layout.minHeight = 65;
 		//layout.minHeight = 65;
-		0.02.wait;
+		0.01.wait;
 		self.layout = layout;
 
 		~make_class_responder.(self, self.namelabel, self.controller, [
@@ -2345,6 +2345,15 @@
 		self.master = ~class_ci_master_dadsr.new(main, player);
 		self.modules = [self.master] ++ self.oscs ++ self.filters ++ self.insertfxs;
 
+		self.tab_panel = ~class_ci_tabs_modfx.new(self, main, player, 
+			[
+				"Master Env", {  self.master.make_layout_env },
+				"Routing", {  self.make_layout_routing },
+				"Voices", {  self.make_layout_voices },
+				//"Effects", {  self.make_layout_effects },
+			]
+		);
+
 		self.build_data;
 	
 		self;
@@ -2498,19 +2507,17 @@
 		)
 	},
 
-	make_layout_effects: { arg self;
-		self.fx_ctrl = ~class_embeded_effects_controller.new(self.get_main, self.get_player);
-		self.fx_ctrl.window = { self.window };
-		self.fx_ctrl.layout;
-	},
-
-	make_layout_modulation: { arg self;
-		self.fx_ctrl = ~class_embeded_effects_controller.new(self.get_main, self.get_player);
-		self.fx_ctrl.window = { self.window };
-		self.fx_ctrl.layout;
-	},
+	//make_layout_effects: { arg self;
+	//	self.fx_ctrl = ~class_embeded_effects_controller.new(self.get_main, self.get_player);
+	//	self.fx_ctrl.window = { self.window };
+	//	self.fx_ctrl.layout;
+	//},
 
 	make_tab_panel: { arg self;
+		self.tab_panel.make_layout;
+	},
+
+	make_tab_panel_OLD: { arg self;
 		var header, body, layout;
 		var content;
 		var modview;
@@ -2553,7 +2560,7 @@
 		tab_views.do { arg view, idx;
 			//{
 				view.layout = content[1][idx].value;
-				0.01.wait;
+				//0.01.wait;
 			//}.defer( 1+idx )
 		};
 		debug("NUIT 2");
@@ -2561,7 +2568,7 @@
 			HLayout(*
 				content[0].collect { arg co, idx;
 					debug("NUIT 3");
-					0.02.wait;
+					//0.02.wait;
 					Button.new
 						.states_([[co]])
 						.action_({ 
@@ -2615,10 +2622,12 @@
 
 	make_layout: { arg self;
 		self.layout = HLayout(
+				debug("****************************************** LAYOUT oscs");
 			VLayout(*
 				self.oscs.collect({arg x;[x.make_layout, stretch:0]}) ++
 				[[nil, stretch:1]]
 			),
+				debug("****************************************** LAYOUT filters");
 			VLayout(*
 				[HLayout(
 					HLayout(
@@ -2629,11 +2638,13 @@
 						),
 						~class_ci_modslider_view.new(self.data[\filtermix]).layout,
 					),
+						debug("****************************************** LAYOUT master");
 					VLayout(*
 						[
 							[self.master.make_layout, stretch:0],
 						] ++
 						//[self.make_layout_routing, stretch:0],
+							debug("****************************************** LAYOUT fx");
 						[HLayout(*
 							self.insertfxs.collect(_.make_layout)
 						)] ++
@@ -2642,7 +2653,10 @@
 						]
 					)
 				)] ++
-				[[self.make_tab_panel, stretch:0]] ++
+				[[
+						debug("****************************************** LAYOUT tabs");
+					self.make_tab_panel, stretch:0
+				]] ++
 				[nil]
 			),
 			VLayout(

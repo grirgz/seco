@@ -142,6 +142,13 @@ s.latency
 Mdef.main.model.latency = 0
 
 (
+"~/code/sc/seco/nodematrix.sc".standardizePath.load;
+~nmp = ~class_nodematrix_panel.new;
+~w = ~nmp.make_gui;
+
+)
+
+(
 	~midinote_to_notename = { arg midinote;
 		var notenames = [ "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" ];
 		var octave = ((midinote / 12)).asInteger;
