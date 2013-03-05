@@ -1536,23 +1536,31 @@
 
 	make_gui: { arg self;
 		self.vlayout = VLayout.new;
+		self.labels = Dictionary.new;
+		self.track_responders.do{ arg resp; resp.remove };
+		self.track_responders = List.new;
 		self.controller.get_tracks.do { arg track;
 			var hlayout;
+			var resp;
+			var label;
 			hlayout = HLayout(
 				[
-					StaticText.new
-						.string_(" "++track.get_node.name)
+					label = StaticText.new
+						.string_("void")
 						.minSize_(200@30)
 						.maxSize_(200@30)
 						.background_(Color.gray(0.5)),
 					stretch: 0,
 					align:\center
 				],
-				//track.make_gui(self.window)
-				track.make_gui
+				track.make_gui;
 			);
-			//hlayout = track.make_gui(self.window);
-			//self.vlayout.add(track.make_gui(self.window), 0, \topLeft)
+			resp = ~make_view_responder.(label, track, (
+				label: {
+					label.string = " "++(track.get_label ?? track.get_node.name);
+				}
+			));
+			self.track_responders.add(resp);
 			self.vlayout.add(hlayout, 0, \topLeft)
 		};
 		self.vlayout.add(nil, 1);
@@ -1903,9 +1911,13 @@
 		self;
 	},
 
+	get_label: { arg self;
+		"% (sheet %)".format(self.get_node.name, self.scoreset.get_current_sheet_index + 1);
+	},
+
 	refresh: { arg self;
 		self.scoreset.update_notes;
-		//self.changed(\notes);
+		self.changed(\label);
 	},
 
 	make_gui: { arg self;
@@ -2440,15 +2452,22 @@
 		self.display = display;
 		//self.display = ~class_track_display.new;
 
+
+		self.make_tracks;
+
 	
 		self;
 	},
 
-	get_tracks: { arg self;
-		var res = List.new;
+	make_tracks: { arg self;
 		var player = self.get_player;
-		res.add(~class_piano_track_controller.new(player, self.display));
-		res;
+		self.tracks = [
+			~class_piano_track_controller.new(player, self.display);
+		]
+	},
+
+	get_tracks: { arg self;
+		self.tracks;
 	},
 
 	make_bindings: { arg self;
@@ -2460,6 +2479,24 @@
 			[\close_window, {
 				self.window.close;
 			
+			}],
+
+			[\select_scoresheet, 8, { arg i;
+				self.get_player.get_scoreset.select_sheet(i);
+				self.tracks[0].changed(\label);
+			}],
+
+			[\save_scoresheet, {
+				var player = self.get_player;
+				~class_scoresheet_chooser.new(self.get_main, player, { arg data, ad, idx;
+					var sheet;
+					var scoreset = player.get_scoreset;
+					var ns;
+					ns = scoreset.get_notescore;
+					scoreset.set_sheet(idx, ns);
+					self.get_player.get_scoreset.select_sheet(idx);
+					self.tracks[0].changed(\label);
+				});
 			}],
 
 			[\play_selected, {

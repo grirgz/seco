@@ -1771,6 +1771,23 @@
 					self.window.front;
 				}],
 
+				[\open_nodematrix_panel, {
+					var group = self.get_current_group;
+					//var display = self.track_display;
+					make_window.(\nodematrix_controller, 
+						{ 
+							self.nodematrix_controller.parent_node != group
+						},
+						{
+							var panel;
+							panel = ~class_nodematrix_panel.new(self.get_main);
+							panel.set_parent_node(group);
+							panel;
+
+						}
+					);
+				}],
+
 				[\edit_group_tracks, {
 					var group = self.get_current_group;
 					var display = self.track_display;

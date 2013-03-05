@@ -143,10 +143,20 @@ Mdef.main.model.latency = 0
 
 (
 "~/code/sc/seco/nodematrix.sc".standardizePath.load;
-~nmp = ~class_nodematrix_panel.new;
+~nmp = ~class_nodematrix_panel.new(Mdef.main);
 ~w = ~nmp.make_gui;
+~nmp.set_parent_node(Mdef.node(\s1_part1_sect1_var1))
 
 )
+
+(
+~nmp = ~class_nodematrix_panel.new(Mdef.main);
+~w = ~nmp.make_gui;
+~nmp.set_parent_node(Mdef.node(\s1_part1_sect1_var1))
+
+)
+Mdef.node(\s1_part1_sect1_var1)
+Mdef.node_by_index(0).kind
 
 (
 	~midinote_to_notename = { arg midinote;

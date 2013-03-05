@@ -1003,7 +1003,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	paraspace.userView.minSize = width@height;
 
 	ps_bg_drawf = { arg wid, he, dur, numsep;
-		var vdur = dur - param.get_start_silence - param.get_end_silence;
+		var vdur = dur - (param.get_start_silence ?? 0) - (param.get_end_silence ?? 0);
 		var sepsize = wid/numsep;
 		var xcursor = 0;
 		{

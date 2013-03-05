@@ -245,6 +245,14 @@
 		Pbind(* arglist )
 	},
 
+	get_scoreset: { arg self;
+		var mode = self.get_mode;
+		if(mode == \stepline) {
+			mode = \scoreline
+		};
+		self.get_arg(mode).get_scoreset;
+	},
+
 	destructor: { arg self;
 		// FIXME: implement it correctly
 		self.to_destruct.do { arg i;
@@ -770,7 +778,8 @@
 		//	res = Ppar( list )
 		//};
 
-		self.real_sourcepat = res.trace; //DEBUG
+		//self.real_sourcepat = res.trace; //DEBUG
+		self.real_sourcepat = res;
 		//self.real_sourcepat = res.postcs.trace; //DEBUG
 		//self.real_sourcepat = res.postcs;
 	},
@@ -781,8 +790,8 @@
 	},
 
 	vpattern_loop: { arg self;
-		//Pn(self.vpattern, ~general_sizes.safe_inf);
-		Pn(self.vpattern, 2); // debug
+		Pn(self.vpattern, ~general_sizes.safe_inf);
+		//Pn(self.vpattern, 2); // debug
 		//self.vpattern; //debug
 	},
 
@@ -1437,6 +1446,7 @@
 		playlist: List.new,
 		playing_state: \stop,
 		muted: false,
+		get_main: { main },
 		selected_child: \none,
 		selected_child_index: 0,
 		expset_mode: false,

@@ -40,6 +40,7 @@
 	],
 	panels: [
 		["show_side_panel", \kb, \alt, "s"],
+		["open_nodematrix_panel", \kb, \alt, "n"],
 		["edit_modulator", \kb, \alt, "m"],
 		["edit_effects", \kb, \alt, "f"],
 		["edit_line_tracks", \kb, \alt, "q"],
@@ -73,6 +74,20 @@
 			["remove_selected", \kb, \alt, \delete],
 			["select_cell", \kb, 0, \kbpad8x4_flat],
 			["create_batch", \kb, \alt, "c"],
+	],
+	nodematrix: 
+		//~common_bindings.playing ++
+		~common_bindings.panels ++
+		//~common_bindings.side_shared ++
+		~common_bindings.windowing ++
+		[
+			["select_cell",							\kb, 0, \kbpad8x4_flat],
+			["play_cell",							\kb, 0, \f5],
+			["play_row",							\kb, \ctrl, \f5],
+			["play_part",							\kb, \ctrlshift, \f5],
+			["stop_cell",							\kb, 0, \f6],
+			["stop_part",							\kb, \ctrlshift, \f6],
+			["panic",								\kb, 0, \f8],
 	],
 	editplayer: [
 		["select_cell",							\kb, 0, \kbnumline],
@@ -147,6 +162,8 @@
 			["increase_gridstep_y", \kb, \ctrl, "j"],
 			["decrease_gridlen", \kb, 0, "l"],
 			["increase_gridlen", \kb, 0, "h"],
+			["select_scoresheet", \kb, \alt, \kbnumline],
+			["save_scoresheet", \kb, 0, \f2],
 		],
 	effects:
 		~common_bindings.side_shared ++

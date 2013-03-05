@@ -336,6 +336,7 @@ if(~silent_control_bus.isNil) {
 	"param",
 	"samplelib",
 	"node_manager",
+	"gui",
 	"classinstr",
 	"player",
 	"matrix",
@@ -548,6 +549,8 @@ if(~silent_control_bus.isNil) {
 			livenodepool: Dictionary.new,
 
 			bus_mode_enabled: true,
+
+			is_stop_using_quant: false,
 
 		),
 

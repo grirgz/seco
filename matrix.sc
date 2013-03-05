@@ -2,10 +2,10 @@
 
 (
 
-~make_cell = { arg parent, label;
+~make_matrix_cell = { arg parent, label;
 	var bt;
 
-	bt = GUI.button.new(parent, Rect(50,50,200,30));
+	bt = GUI.button.new(parent, Rect(0,0,160,30));
 	bt.states = [
 		[ label, Color.black, Color.white],
 		[ label, Color.white, Color.black],
@@ -24,22 +24,23 @@
 	cell.value = val;
 };
 
-~in_range = { arg datalist, address;
+~matrix_cell_in_range = { arg datalist, address;
 	if(address.isNil, {
 		false;
 	}, {
-		((address.bank * 32) + (address.x * 4) + address.y) < datalist.size
+		((address.bank * 32) + (address.y * 8) + address.x) < datalist.size
 	})
 };
 
 ~matrix_view = { arg parent, controller, matrix_size;
 
 	var sl_layout, ps_col_layout, curbank, address;
-	var width = 1350;
+	var width = 1050;
 
 	matrix_size = matrix_size ?? (8@4);
 
-	sl_layout = GUI.hLayoutView.new(parent, Rect(0,0,width,60*6));
+	//sl_layout = GUI.hLayoutView.new(parent, Rect(0,0,width,60*6));
+	sl_layout = GUI.vLayoutView.new(parent, Rect(0,0,1400,60*6));
 
 	//parent.view.background = ~editplayer_color_scheme.background;
 	~make_view_responder.(sl_layout, controller, (
@@ -48,23 +49,25 @@
 			controller.model.debug("rederaw");
 			sl_layout.removeAll;
 			sl_layout.focus(true);
-			controller.model.datalist.clump(matrix_size.y).clump(matrix_size.x)[controller.model.bank].do { arg col;
-				ps_col_layout = GUI.vLayoutView.new(sl_layout, Rect(0,0,(160),60*6));
+			//controller.model.datalist.clump(matrix_size.y).clump(matrix_size.x)[controller.model.bank].do { arg col;
+			controller.model.datalist.clump(matrix_size.x).clump(matrix_size.y)[controller.model.bank].do { arg col;
+				//ps_col_layout = GUI.vLayoutView.new(sl_layout, Rect(0,0,(160),60*6));
+				ps_col_layout = GUI.hLayoutView.new(sl_layout, Rect(0,0,11,30));
 				ps_col_layout.background = ~editplayer_color_scheme.control;
 
 				col.do { arg label;
 					if(controller[\data_to_string].notNil) { // backward compat
 						label = controller.data_to_string(label)
 					};
-					~make_cell.(ps_col_layout, label);
+					~make_matrix_cell.(ps_col_layout, label);
 				};
 			}
 		},
 
 		cell: { arg obj, msg, ad, label;
 			
-			if(~in_range.(controller.model.datalist, ad), {
-				~set_cell_label.(sl_layout.children[ad.x].children[ad.y], label)
+			if(~matrix_cell_in_range.(controller.model.datalist, ad), {
+				~set_cell_label.(sl_layout.children[ad.y].children[ad.x], label)
 			});
 
 		},
@@ -73,12 +76,13 @@
 			var sel = controller.model.selection;
 
 			sel.debug("selection");
+			~matrix_cell_in_range.(controller.model.datalist, sel).debug("selection in range");
 
-			if(~in_range.(controller.model.datalist, oldsel), {
-				sl_layout.children[oldsel.x].children[oldsel.y].value = 0;
+			if(~matrix_cell_in_range.(controller.model.datalist, oldsel), {
+				sl_layout.children[oldsel.y].children[oldsel.x].value = 0;
 			});
-			if(~in_range.(controller.model.datalist, sel), {
-				sl_layout.children[sel.x].children[sel.y].value = 1;
+			if(~matrix_cell_in_range.(controller.model.datalist, sel), {
+				sl_layout.children[sel.y].children[sel.x].value = 1;
 			});
 		}
 		
@@ -130,7 +134,7 @@
 	},
 
 	coor_to_index: { arg self, x, y, bank;
-		(bank * self.model.matrix_size.x * self.model.matrix_size.y) + (x * self.model.matrix_size.y) + y;
+		(bank * self.model.matrix_size.x * self.model.matrix_size.y) + (y * self.model.matrix_size.x) + x;
 	},
 
 	refresh: { arg self;
@@ -172,7 +176,7 @@
 			y: y,
 			bank: self.model.bank
 		);
-		if(~in_range.(self.model.datalist, sel), {
+		if(~matrix_cell_in_range.(self.model.datalist, sel), {
 			oldsel = self.model.selection;
 			self.model.selection = sel;
 			self.changed(\selection, oldsel);
@@ -615,6 +619,38 @@
 
 );
 
+~class_scoresheet_chooser = (
+
+	parent: ~class_matrix_chooser,
+	my_datalist: [\scalar, \seq, \seg, \modulation, \synchrone, \bus, \recordbus, \pkey],
+	//my_datalist: ~class_player_display.param_types.param_kinds, // FIXME: should be defined in one place
+
+	new: { arg self, main, player, action;
+		var scoreset;
+		var sheets;
+		var datalist;
+		self = self.parent[\new].(self, action, "Choose kind");
+
+		scoreset = player.get_scoreset;
+
+		self.get_main = { arg self; main };
+
+		sheets = scoreset.get_sheets;
+		datalist = sheets.collect { arg sh, i;
+			if(sh.isNil) {
+				"sheet % (void)".format(i+1)
+			} {
+				"sheet %".format(i+1)
+			}
+		};
+
+		self.set_datalist(datalist);
+		self.show_window;
+		self;
+	},
+
+);
+
 /////////////////////// old matrix code
 
 ~make_matrix = { arg main, callbacks, winname="Matrix";
@@ -634,7 +670,7 @@
 		kb_handler: Dictionary.new,
 
 		address_to_index: { arg self, ad;
-			(ad.bank * 32) + (ad.x * 4) + ad.y;
+			(ad.bank * 32) + (ad.y * 8) + ad.x;
 		},
 
 		refresh: { arg self;
@@ -653,11 +689,14 @@
 		},
 
 		get_cell_xy: { arg self, x, y;
-			self.model.datalist[ (self.model.bank * 32) + (x * 4) + y ];
+			var ad = (
+				x: x, y: y, bank: self.model.bank
+			);
+			self.model.datalist[ self.address_to_index(ad) ];
 		},
 
 		get_cell_by_address: { arg self, ad;
-			self.model.datalist[ (ad.bank * 32) + (ad.x * 4) + ad.y ];
+			self.model.datalist[ self.address_to_index(ad) ];
 		},
 
 		get_selected_cell: { arg self;
@@ -665,17 +704,19 @@
 		},
 
 		set_selection: { arg self, x, y;
-			var sel, oldsel;
-			sel =  (
+			var ad, oldsel;
+			ad =  (
 				x: x,
 				y: y,
 				bank: self.model.bank
 			);
-			if(~in_range.(self.model.datalist, sel), {
+			ad.debug("set_selection");
+			~matrix_cell_in_range.(self.model.datalist, ad).debug("set_selection: in range");
+			if(~matrix_cell_in_range.(self.model.datalist, ad), {
 				oldsel = self.model.selection;
-				self.model.selection = sel;
+				self.model.selection = ad;
 				self.changed(\selection, oldsel);
-				callbacks.selected(self.get_cell_by_address(sel), self.window, sel);
+				callbacks.selected(self.get_cell_by_address(ad), self.window, ad);
 			});
 		},
 
