@@ -778,8 +778,8 @@
 		//	res = Ppar( list )
 		//};
 
-		//self.real_sourcepat = res.trace; //DEBUG
-		self.real_sourcepat = res;
+		self.real_sourcepat = res.trace; //DEBUG
+		//self.real_sourcepat = res;
 		//self.real_sourcepat = res.postcs.trace; //DEBUG
 		//self.real_sourcepat = res.postcs;
 	},

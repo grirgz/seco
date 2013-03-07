@@ -158,23 +158,31 @@
 	samplekit_bank: ~samplekit_bank,
 	sampledict: Dictionary.new,
 
-	slot_to_bufnum: { arg self, slot, samplekit;
+	slot_to_bufnum: { arg self, slot, samplekit, channels=\stereo;
 		var path;
+		var bufnum;
 		[slot, samplekit].debug("slot_to_bufnum");
 		if(slot == \rest) {
-			BufferPool.get_sample(\samplekit, ~empty_sample_path).bufnum; // FIXME: find a way to not play at all;
+			//BufferPool.get_sample(\samplekit, ~empty_sample_path).bufnum; // FIXME: find a way to not play at all;
+			path =  ~empty_sample_path;
 		} {
 			if(self.samplekit_bank[samplekit].isNil or: {self.samplekit_bank[samplekit][slot].isNil}) {
 				samplekit.debug("error: samplekit_manager: slot_to_bufnum: no such samplekit or slotnum!");
-				BufferPool.get_sample(\samplekit, ~empty_sample_path).bufnum; // FIXME: find a way to not play at all;
+				path =  ~empty_sample_path;
 			} {
 				path = self.samplekit_bank[samplekit][slot];
 				if(path.isString.not) {
 					path = path[0]
 				};
-				BufferPool.get_sample(\samplekit, path).bufnum;		
 			}
 		};
+		if(channels == \mono) {
+			bufnum = BufferPool.get_mono_sample(\samplekit, path).bufnum;		
+		} {
+			bufnum = BufferPool.get_forced_stereo_sample(\samplekit, path).bufnum;		
+		};
+		[ path, channels, bufnum].debug("slot_to_bufnum: channels");
+		bufnum;
 	},
 
 	// TODO: use it

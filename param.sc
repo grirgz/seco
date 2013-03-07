@@ -2141,8 +2141,8 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 							} {
 								slotnum = ev[\sampleline].slotnum;
 							};
-							~samplekit_manager.slot_to_bufnum(slotnum, ev[\samplekit]).debug("bufnum::::");
-							ev = ~samplekit_manager.slot_to_bufnum(slotnum, ev[\samplekit]).yield;
+							//~samplekit_manager.slot_to_bufnum(slotnum, ev[\samplekit], channels).debug("bufnum::::");
+							ev = ~samplekit_manager.slot_to_bufnum(slotnum, ev[\samplekit], self.channels).yield;
 						},
 						// else
 						{

@@ -77,6 +77,17 @@
 			self.set_cell_state(old_pos, self.controller.get_cell_state(old_pos));
 			self.set_cell_state(pos, self.controller.get_cell_state(pos));
 			self.old_armed_cells[pos.x] = pos.y;
+		} {
+			var old_pos;
+			var row_index = pos;
+			self.old_armed_cells.do { arg old_posy, posx;
+				old_pos = posx @ old_posy;
+				pos = posx @ row_index;
+				self.set_cell_state(old_pos, self.controller.get_cell_state(old_pos));
+				self.set_cell_state(pos, self.controller.get_cell_state(pos));
+				self.old_armed_cells[pos.x] = pos.y;
+			
+			};
 		}
 	},
 
@@ -337,17 +348,21 @@
 
 	play_armed_cells: { arg self;
 		var node;
+		var pos;
 		self.arming_matrix.do { arg y, x;
-			node = self.get_child_node(x@y);
+			pos = Point(x, y);
+			node = self.get_child_node(pos);
 			node !? { node.play_node };
 		};
 	},
 
 	stop_armed_cells: { arg self, use_quant=true;
 		var node;
+		var pos;
 		self.arming_matrix.do { arg y, x;
-			node = self.get_child_node(x@y);
-			node !? { node.stop_node(use_quant) };
+			pos = Point(x, y);
+			node = self.get_child_node(pos);
+			node !? { node.stop_node(self.is_stop_using_quant) };
 		};
 	},
 
@@ -382,8 +397,9 @@
 		var posy = self.arming_matrix[col_index];
 		if(posy.notNil) {
 			node = self.get_child_node(col_index@posy);
-			node !? { node.stop_node };
+			node !? { node.stop_node(self.is_stop_using_quant) };
 			self.arming_matrix[col_index] = nil;
+			self.changed(\arming, col_index@posy)
 		};
 	},
 

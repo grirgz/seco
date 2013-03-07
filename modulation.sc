@@ -1771,7 +1771,9 @@
 			];
 
 			modmixer.get_slots.keysValuesDo { arg slotidx, modstruct, idx;
-				var in_bus_name = "mod_%_%".format(mainplayer.uname, mainplayer.modulation.get_modulator_name(modstruct.name)).asSymbol;
+				var in_bus_name;
+				mainplayer.name.debug("make_mixer_pattern: modmixer: mainplayer");
+				in_bus_name = "mod_%_%".format(mainplayer.uname, mainplayer.modulation.get_modulator_name(modstruct.name)).asSymbol;
 				idx = idx + 1;
 				mixerarglist = (mixerarglist ++ [
 					(\in++idx).asSymbol, Pfunc{ arg ev;
@@ -1809,10 +1811,11 @@
 			player.modulation.get_modulation_mixers.keysValuesDo { arg key, modmixer;
 				if(modmixer.get_slots.size > 0) {
 					var can_make_mixer = false;
+					mainplayer.name.debug("walk_modulators: mainplayer");
 					modmixer.get_slots.keysValuesDo { arg slotidx, modstruct, idx;
 						var modname = mainplayer.modulation.get_modulators[modstruct.name];
 						var modnode = mainplayer.get_main.get_node(modname);
-						if(modname.notNil) {
+						if(modname.notNil and: {modnode.notNil}) {
 							can_make_mixer = true;
 							if(done_modulators.includesEqual(modname).not) {
 								done_modulators = done_modulators.add(modname);

@@ -236,11 +236,13 @@
 			player = main.get_node(nodename);
 			name = player.name;
 			uname = player.uname;
-			preset = main.model.presetlib[player.instrname][0];
-			if(preset.notNil and:{ preset.name == "default" }) {
-				player.load_data_preset(preset);
-				player.name = name;
-				player.uname = uname;
+			if(main.model.presetlib[player.instrname].notNil) {
+				preset = main.model.presetlib[player.instrname][0];
+				if(preset.notNil and:{ preset.name == "default" }) {
+					player.load_data_preset(preset);
+					player.name = name;
+					player.uname = uname;
+				}
 			}
 		},
 

@@ -1534,256 +1534,10 @@
 );
 
 //////////////////////////////////////////////////////
-////////////// End Class Instrs
+////////////// Extensions Class Instrs
 //////////////////////////////////////////////////////
 
-~class_ci_sin = (
-	parent: ~class_instr,
-	args_prefix: "",
-	args_suffix: "",
-	new: { arg self, main, player;
-		self = self.deepCopy;
 
-		self.get_main = { main };
-		self.get_player = { player };
-		self.synthdef_name = \ci_sin;
-		self.build_data;
-
-		self.simple_args = (gate:1, doneAction:2);
-	
-		self;
-	},
-
-	build_data: { arg self;
-		var data = Dictionary.new;
-		var main = self.get_main;
-		var player = self.get_player;
-		self.ordered_args = [
-			freq: ~make_control_param.(main, player, \freq, \scalar, 200, \freq.asSpec),
-			detune: ~make_control_param.(main, player, \detune, \scalar, 64, \midinote.asSpec),
-		];
-		self.data = IdentityDictionary.newFrom(self.ordered_args);
-		self.data.copy;
-	},
-
-	make_layout: { arg self;
-		var knobs = [\freq, \detune];
-		self.knobs = knobs.collect { arg name;
-			~class_ci_modknob_view.new(self.data[name]);
-		};
-		self.layout = VLayout(
-			HLayout(
-				self.label = StaticText.new
-					.string_("Osc1");
-					self.label,
-			),
-			HLayout(*
-				self.knobs.collect(_.layout)
-			)
-		);
-		self.layout;
-	},
-
-	synthfun: { arg self;
-		//Instr(self.synthdef_name, { 
-		{ arg args;
-			//var input = Dictionary.new;
-			var i = self.get_synthargs(args);
-			var midinote;
-			var sig;
-
-			//self.data.keysValuesDo { arg name, datum;
-			//	input[name] = name.kr(datum.default_value);
-			//};
-			//sig = self.ci_lfo.synthfun.((freq1:freq));
-
-			sig = SinOsc.ar(
-				(i.freq.cpsmidi + i.detune).midicps
-			);
-			sig = sig * EnvGen.ar(Env.adsr(0.1,0.1,1,0.1), i.gate, doneAction:i.doneAction);
-			sig;
-
-		}
-	
-	},
-);
-
-~class_ci_mosc = (
-	parent: ~class_instr,
-	args_prefix: "",
-	args_suffix: "",
-	new: { arg self, main, player;
-		self = self.deepCopy;
-
-		self.get_main = { main };
-		self.get_player = { player };
-		self.synthdef_name = \ci_mosc;
-		self.simple_args = (gate:1, doneAction:2);
-
-		self.osc = ~class_ci_osc.new(main, player);
-		self.master = ~class_ci_master_env.new(main, player);
-
-		self.build_data;
-	
-		self;
-	},
-
-	build_data: { arg self;
-		var main = self.get_main;
-		var player = self.get_player;
-		self.ordered_args = self.master.ordered_args ++ self.osc.ordered_args;
-		self.static_data = self.osc.static_data;
-		self.data = IdentityDictionary.newFrom(self.ordered_args);
-		self.data.copy;
-	},
-
-	make_layout: { arg self;
-		var knobs = [\detune, \wt_pos, \intensity, \oscamp];
-		var frame_view;
-		self.knobs = knobs.collect { arg name;
-			self.data[name];
-		};
-		self.layout = HLayout(
-			[self.osc.make_layout, stretch:0],
-			[self.master.make_layout, stretch:0],
-			nil,
-		);
-		self.layout;
-	},
-
-	synthfun: { arg self;
-		{ arg args;
-			var i = self.get_synthargs(args);
-			var is = self.get_staticargs;
-			var sig;
-
-			sig = self.osc.synthfun.();
-			sig = self.master.synthfun.(sig);
-
-			sig;
-
-		}
-	
-	},
-);
-
-~class_ci_moscfilter = (
-	parent: ~class_instr,
-	args_prefix: "",
-	args_suffix: "",
-	new: { arg self, main, player;
-		self = self.deepCopy;
-
-		self.get_main = { main };
-		self.get_player = { player };
-		self.synthdef_name = \ci_moscfilter;
-		self.simple_args = (gate:1, doneAction:2);
-
-		self.osc = ~class_ci_osc.new(main, player);
-		self.filter = ~class_ci_filter.new(main, player);
-		self.master = ~class_ci_master_env.new(main, player);
-
-		self.build_data;
-	
-		self;
-	},
-
-	build_data: { arg self;
-		var main = self.get_main;
-		var player = self.get_player;
-		self.ordered_args = self.master.ordered_args ++ self.osc.ordered_args ++ self.filter.ordered_args;
-		self.static_data = IdentityDictionary.new;
-		self.static_data.putAll(self.osc.static_data);
-		self.static_data.putAll(self.filter.static_data);
-		self.data = IdentityDictionary.newFrom(self.ordered_args);
-		self.data.copy;
-	},
-
-	make_layout: { arg self;
-		self.layout = HLayout(
-			[self.osc.make_layout, stretch:0],
-			[self.filter.make_layout, stretch:0],
-			[self.master.make_layout, stretch:0],
-			nil,
-		);
-		self.layout;
-	},
-
-	synthfun: { arg self;
-		{ arg args;
-			var i = self.get_synthargs(args);
-			var is = self.get_staticargs;
-			var sig;
-
-			sig = self.osc.synthfun.();
-			sig = self.filter.synthfun.(sig);
-			sig = self.master.synthfun.(sig);
-
-			sig;
-
-		}
-	
-	},
-);
-
-~class_ci_moscfaderfilter = (
-	parent: ~class_instr,
-	args_prefix: "",
-	args_suffix: "",
-	new: { arg self, main, player;
-		self = self.deepCopy;
-
-		self.get_main = { main };
-		self.get_player = { player };
-		self.synthdef_name = \ci_moscfaderfilter;
-		self.simple_args = (gate:1, doneAction:2);
-
-		self.osc = ~class_ci_oscfader.new(main, player, self.make_namer);
-		self.filter = ~class_ci_filter.new(main, player);
-		self.master = ~class_ci_master_env.new(main, player);
-
-		self.build_data;
-	
-		self;
-	},
-
-	build_data: { arg self;
-		var main = self.get_main;
-		var player = self.get_player;
-		self.ordered_args = self.master.get_ordered_args ++ self.osc.get_ordered_args ++ self.filter.get_ordered_args;
-		self.static_data = IdentityDictionary.new;
-		self.static_data.putAll(self.osc.get_static_data);
-		self.static_data.putAll(self.filter.get_static_data);
-		self.data = IdentityDictionary.newFrom(self.ordered_args);
-		self.data.copy;
-	},
-
-	make_layout: { arg self;
-		self.layout = HLayout(
-			[self.osc.make_layout, stretch:0],
-			[self.filter.make_layout, stretch:0],
-			[self.master.make_layout, stretch:0],
-			nil,
-		);
-		self.layout;
-	},
-
-	synthfun: { arg self;
-		{ arg args;
-			var i = self.get_synthargs(args);
-			var is = self.get_staticargs;
-			var sig;
-
-			sig = self.osc.synthfun.();
-			//sig = self.filter.synthfun.(sig);
-			sig = self.master.synthfun.(sig);
-
-			sig;
-
-		}
-	
-	},
-);
 
 ~class_ci_gens_filter2 = (
 	parent: ~class_instr,
@@ -2214,7 +1968,7 @@
 ~class_ci_tabs_modfx = (
 	
 	new: { arg self, classinstr, main, player, tabs;
-		self.deepCopy;
+		self = self.deepCopy;
 
 		self.get_main = { main };
 		self.get_player = { player };
@@ -2240,48 +1994,33 @@
 		var header, body, layout;
 		var content;
 		var modview;
-		var custom_view = View.new;
 		var tab_views = List.new;
-		self.tab_custom_view = custom_view;
 		self.modulation_controller = ~class_embeded_modulation_controller.new(self.get_main, self.get_player, nil, self.dummy_param);
 		self.modulation_controller.make_bindings;
 		self.modulation_controller.window = { self.classinstr.window };
 		modview = ~class_embeded_modulation_view.new(self.modulation_controller);
 		self.modulation_controller.main_view = modview;
 
-		//content = [
-		//	"Master Env", self.master.make_layout_env,
-		//	"Routing", self.make_layout_routing,
-		//	"Voices", self.make_layout_voices,
-		//	"Effects", self.make_layout_effects,
-		//];
 		content = 
 			self.tabs ++ [
-
-			//"Master Env", {  self.master.make_layout_env },
-			//"Routing", {  self.make_layout_routing },
-			//"Voices", {  self.make_layout_voices },
-			"Effects", {  self.make_layout_effects }, // should be last
+				"Effects", {  self.make_layout_effects }, // should be last
 		];
 		self.tabs_count = content.size/2;
 		content = content.clump(2).flop;
 		debug("NUIT 1");
 		body = StackLayout(*
 			content[1].collect { arg co;
-				//View.new.layout_(co)
 				var view;
 				view = View.new;
 				tab_views.add(view);
 				view;
 			} ++ [
 				View.new.layout_(modview.body_layout),
-				//custom_view,
 			]
 		);
+		debug("NUIT 1.5");
 		tab_views.do { arg view, idx;
-			//{
-				view.layout = content[1][idx].value
-			//}.defer( 1+idx )
+			view.layout = content[1][idx].value
 		};
 		debug("NUIT 2");
 		layout = VLayout(
@@ -2315,6 +2054,270 @@
 
 );
 
+//////////////////////////////////////////////////////
+////////////// End Class Instrs
+//////////////////////////////////////////////////////
+
+~class_ci_sin = (
+	parent: ~class_instr,
+	args_prefix: "",
+	args_suffix: "",
+	new: { arg self, main, player;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.synthdef_name = \ci_sin;
+		self.build_data;
+
+		self.simple_args = (gate:1, doneAction:2);
+	
+		self;
+	},
+
+	build_data: { arg self;
+		var data = Dictionary.new;
+		var main = self.get_main;
+		var player = self.get_player;
+		self.ordered_args = [
+			freq: ~make_control_param.(main, player, \freq, \scalar, 200, \freq.asSpec),
+			detune: ~make_control_param.(main, player, \detune, \scalar, 64, \midinote.asSpec),
+		];
+		self.data = IdentityDictionary.newFrom(self.ordered_args);
+		self.data.copy;
+	},
+
+	make_layout: { arg self;
+		var knobs = [\freq, \detune];
+		self.knobs = knobs.collect { arg name;
+			~class_ci_modknob_view.new(self.data[name]);
+		};
+		self.layout = VLayout(
+			HLayout(
+				self.label = StaticText.new
+					.string_("Osc1");
+					self.label,
+			),
+			HLayout(*
+				self.knobs.collect(_.layout)
+			)
+		);
+		self.layout;
+	},
+
+	synthfun: { arg self;
+		//Instr(self.synthdef_name, { 
+		{ arg args;
+			//var input = Dictionary.new;
+			var i = self.get_synthargs(args);
+			var midinote;
+			var sig;
+
+			//self.data.keysValuesDo { arg name, datum;
+			//	input[name] = name.kr(datum.default_value);
+			//};
+			//sig = self.ci_lfo.synthfun.((freq1:freq));
+
+			sig = SinOsc.ar(
+				(i.freq.cpsmidi + i.detune).midicps
+			);
+			sig = sig * EnvGen.ar(Env.adsr(0.1,0.1,1,0.1), i.gate, doneAction:i.doneAction);
+			sig;
+
+		}
+	
+	},
+);
+
+~class_ci_mosc = (
+	parent: ~class_instr,
+	args_prefix: "",
+	args_suffix: "",
+	new: { arg self, main, player;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.synthdef_name = \ci_mosc;
+		self.simple_args = (gate:1, doneAction:2);
+
+		self.osc = ~class_ci_osc.new(main, player);
+		self.master = ~class_ci_master_env.new(main, player);
+
+		self.build_data;
+	
+		self;
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		self.ordered_args = self.master.ordered_args ++ self.osc.ordered_args;
+		self.static_data = self.osc.static_data;
+		self.data = IdentityDictionary.newFrom(self.ordered_args);
+		self.data.copy;
+	},
+
+	make_layout: { arg self;
+		var knobs = [\detune, \wt_pos, \intensity, \oscamp];
+		var frame_view;
+		self.knobs = knobs.collect { arg name;
+			self.data[name];
+		};
+		self.layout = HLayout(
+			[self.osc.make_layout, stretch:0],
+			[self.master.make_layout, stretch:0],
+			nil,
+		);
+		self.layout;
+	},
+
+	synthfun: { arg self;
+		{ arg args;
+			var i = self.get_synthargs(args);
+			var is = self.get_staticargs;
+			var sig;
+
+			sig = self.osc.synthfun.();
+			sig = self.master.synthfun.(sig);
+
+			sig;
+
+		}
+	
+	},
+);
+
+~class_ci_moscfilter = (
+	parent: ~class_instr,
+	args_prefix: "",
+	args_suffix: "",
+	new: { arg self, main, player;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.synthdef_name = \ci_moscfilter;
+		self.simple_args = (gate:1, doneAction:2);
+
+		self.osc = ~class_ci_osc.new(main, player);
+		self.filter = ~class_ci_filter.new(main, player);
+		self.master = ~class_ci_master_env.new(main, player);
+
+		self.build_data;
+	
+		self;
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		self.ordered_args = self.master.ordered_args ++ self.osc.ordered_args ++ self.filter.ordered_args;
+		self.static_data = IdentityDictionary.new;
+		self.static_data.putAll(self.osc.static_data);
+		self.static_data.putAll(self.filter.static_data);
+		self.data = IdentityDictionary.newFrom(self.ordered_args);
+		self.data.copy;
+	},
+
+	make_layout: { arg self;
+		self.layout = HLayout(
+			[self.osc.make_layout, stretch:0],
+			[self.filter.make_layout, stretch:0],
+			[self.master.make_layout, stretch:0],
+			nil,
+		);
+		self.layout;
+	},
+
+	synthfun: { arg self;
+		{ arg args;
+			var i = self.get_synthargs(args);
+			var is = self.get_staticargs;
+			var sig;
+
+			sig = self.osc.synthfun.();
+			sig = self.filter.synthfun.(sig);
+			sig = self.master.synthfun.(sig);
+
+			sig;
+
+		}
+	
+	},
+);
+
+~class_ci_moscfaderfilter = (
+	parent: ~class_instr,
+	args_prefix: "",
+	args_suffix: "",
+	new: { arg self, main, player;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.synthdef_name = \ci_moscfaderfilter;
+		self.simple_args = (gate:1, doneAction:2);
+
+		self.osc = ~class_ci_oscfader.new(main, player, self.make_namer);
+		self.filter = ~class_ci_filter.new(main, player);
+		self.master = ~class_ci_master_env.new(main, player);
+
+		self.build_data;
+	
+		self;
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		self.ordered_args = self.master.get_ordered_args ++ self.osc.get_ordered_args ++ self.filter.get_ordered_args;
+		self.static_data = IdentityDictionary.new;
+		self.static_data.putAll(self.osc.get_static_data);
+		self.static_data.putAll(self.filter.get_static_data);
+		self.data = IdentityDictionary.newFrom(self.ordered_args);
+		self.data.copy;
+	},
+
+	make_layout: { arg self;
+		self.layout = HLayout(
+			[self.osc.make_layout, stretch:0],
+			[self.filter.make_layout, stretch:0],
+			[self.master.make_layout, stretch:0],
+			nil,
+		);
+		self.layout;
+	},
+
+	synthfun: { arg self;
+		{ arg args;
+			var i = self.get_synthargs(args);
+			var is = self.get_staticargs;
+			var sig;
+
+			sig = self.osc.synthfun.();
+			//sig = self.filter.synthfun.(sig);
+			sig = self.master.synthfun.(sig);
+
+			sig;
+
+		}
+	
+	},
+);
+		~rah = (
+			new: { arg sel, funi;
+				sel = sel.deepCopy;
+				sel.funi = [funi];
+				sel;
+			},
+			make_layout: { arg sel;
+				sel.funi[0].value
+				//{self.master.make_layout_env}.value
+			}
+
+		);
+
 ~class_ci_moscfilter_modfx = (
 	parent: ~class_ci_moscfilter,
 	new: { arg self, main, player;
@@ -2346,11 +2349,46 @@
 			layout,
 			self.tab_panel.make_layout,
 			nil,
+		);
+		self.layout;
+		
+	},
+);
+
+~class_ci_oscmaster = (
+	parent: ~class_ci_moscfilter,
+	new: { arg self, main, player;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.synthdef_name = \ci_moscfilter;
+		self.simple_args = (gate:1, doneAction:2);
+
+		self.osc = ~class_ci_osc.new(main, player);
+		self.filter = ~class_ci_filter.new(main, player);
+		self.master = ~class_ci_master_dadsr.new(main, player);
+
+		//self.tab_panel = ~class_ci_tabs_modfx.new(self, main, player, 
+		//	[
+		//		"Master Env", {  self.master.make_layout_env },
+		//	]
+		//);
+
+		self.build_data;
+	
+		self;
+	},
+
+	make_layout: { arg self;
+		var layout = ~class_ci_moscfilter[\make_layout].(self);
+		self.layout = VLayout(
+			layout,
+			self.master.make_layout_env,
+			nil,
 		)
 		
 	},
-
-
 );
 
 ~class_ci_osc3filter2 = (
@@ -2581,6 +2619,7 @@
 
 ~classinstr_lib = (
 	sin: ~class_ci_sin,
+	oscmaster: ~class_ci_oscmaster,
 	osc: ~class_ci_osc,
 	mosc: ~class_ci_mosc,
 	moscfilter: ~class_ci_moscfilter,

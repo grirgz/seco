@@ -9,6 +9,7 @@ Window.closeAll;
 	\parnode,
 	\audiotrack_expander,
 	\osc1,
+	"ci oscmaster",
 	"ci op_matrix",
 	"ci mosc",
 	"ci moscfilter",
@@ -127,6 +128,9 @@ Mdef.main.load_project("live31.reg2");
 
 Mdef.main.save_project("live31.dark");
 Mdef.main.load_project("live31.dark");
+
+Mdef.main.save_project("live31.jeudi");
+Mdef.main.load_project("live31.jeudi");
 
 Debug.enableDebug = true;
 Debug.enableDebug = false;
@@ -448,3 +452,28 @@ bli.value;
 
 
 )
+
+
+BufferPool.get_forced_stereo_sample(\samplekit, "/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/kick_Dry_b.flac")
+
+
+Mdef.node_by_index(0).modulation.get_modulators.dump
+Mdef.node("lfo1_l1014")
+Mdef.node_by_index(0).modulation.get_modulator_name_from_source_slot(0)
+Mdef.node_by_index(0).modulation.get_modulator_name(0).dump
+
+Mdef.node_by_index(0).external_player.master.dadsr.dump
+Mdef.node_by_index(1).external_player.master.dadsr.data[\attack_time].get_val
+Mdef.node_by_index(0).external_player.master.dadsr.data[\attack_time].get_val
+Mdef.node_by_index(0).data[\attack_time].get_val
+Mdef.node_by_index(1).data[\attack_time].get_val
+
+
+
+Instance of Dictionary {    (0x1ecba1f0, gc=E4, fmt=00, flg=00, set=03)
+  instance variables [2]
+    array : instance of Array (0x14fc5690, size=32, set=5)
+    size : Integer 1
+}
+Dictionary[ (0 -> lfo1_l1014) ]
+
