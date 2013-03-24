@@ -1682,21 +1682,23 @@
 		},
 
 		get_shared_bindings: { arg self;
-			 [
+			var edit_knob_cc = [\knob, 8];
+
+			[
 				[\edit_master_volume, {
-					~make_master_volume_edit_view.(main, [\knob, 0]);
+					~make_master_volume_edit_view.(main, [\slider, 8]);
 				}],
 
 				[\edit_tempo, {
-					~make_tempo_edit_view.(main, [\knob, 0]);
+					~make_tempo_edit_view.(main, edit_knob_cc);
 				}],
 
 				[\edit_quant, {
-					~make_quant_edit_view.(main, [\knob, 0]);
+					~make_quant_edit_view.(main, edit_knob_cc);
 				}],
 
 				[\edit_barrecord, {
-					~make_barrecord_edit_view.(main, [\knob, 0]);
+					~make_barrecord_edit_view.(main, edit_knob_cc);
 				}],
 
 				[\edit_wrapper, {

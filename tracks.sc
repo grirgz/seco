@@ -1519,6 +1519,22 @@
 
 );
 
+~class_custom_env_track_view = (
+	parent: ~class_curve_track_view,
+
+	new: { arg self, parent, controller, notekey;
+		self = self.deepCopy;
+		self.controller = { controller };
+		self.notekey = notekey ?? self.notekey;
+		self.node_shape = "circle";
+		self.node_align = \center;
+		self.init(parent, controller);
+		self.timeline.refresh;
+		self;
+	},
+);
+
+
 ~class_multitrack_view = (
 	new: { arg self, controller;
 		self = self.deepCopy;
@@ -2231,6 +2247,48 @@
 		self.layout;
 	},
 
+);
+
+~class_custom_env_track_controller = (
+	parent: ~class_curve_track_controller,
+	new: { arg self, param, display, notekey;
+		self = self.deepCopy;
+
+		//self.display = (
+		//	gridlen: 16,
+		//	gridstep: (1/4)@0.1,
+		//	offset: 0@0,
+		//);
+		self.display = display;
+
+		self.notekey = notekey ?? \level;
+		
+		//self.get_node = {node};
+		self.get_param = {param};
+		self.notescore = param.get_notescore;
+		//self.scoreset = node.get_arg(\noteline).get_scoreset;
+		//self.scoreset = node.get_arg(\scoreline).get_scoreset;
+		//self.notescore = ~make_notescore.();
+		//self.notescore.set_notes(~default_curveline);
+		//self.notescore.set_end(16);
+	
+		self;
+	},
+
+	update_notes: { arg self;
+		//self.get_node.get_arg(\val).set_notes(self.notescore.get_rel_notes);
+		//self.get_node.get_arg(\noteline).get_scoreset.update_notes;
+		self.get_param.update_notes;
+		"class_custom_env_track_controller: update_notes".debug;
+	},
+
+	make_gui: { arg self, parent;
+		self.track_view = ~class_custom_env_track_view.new(parent, self, self.notekey);
+		//self.track_view = ~class_note_track_view.new(parent, self);
+		self.layout = self.track_view.layout;
+		self.layout.debug("class_custom_env_track_controller.layout");
+		self.layout;
+	},
 );
 
 /////////////////////////////// 

@@ -1,3 +1,4 @@
+// embedInStream dans un Prout
 (
 s.waitForBoot{
 //"/home/ggz/code/sc/abcparser.sc".load;
@@ -29,6 +30,11 @@ Window.closeAll;
 	\ss_comb,
 	\ss_combfreq,
 	\zegrainer,
+
+	\kick1,
+	\kick2,
+	\kick3,
+	\kicklank,
 ].collect({ arg i; i -> i });
 
 ~effectlib = [
@@ -38,6 +44,7 @@ Window.closeAll;
 	\p_chorus,
 	\p_delay,
 	\p_comb,
+	"ci insertfx3",
 ].collect({arg i; i -> i });
 
 ~modlib = [
@@ -47,6 +54,7 @@ Window.closeAll;
 	\lfo_asr,
 	\line1,
 	"ci dadsr_kr",
+	"ci custom_env",
 ].collect({arg i; i -> i });
 
 ~samplelib = [
@@ -64,6 +72,7 @@ Window.closeAll;
 ~seq.append_samplelib_from_path("sounds/hydrogen/HardElectro1" );
 
 Mdef.samplekit(\deskkick, 20.collect{arg i; "/home/ggz/Musique/recording" +/+ i ++ ".wav"});
+//Mdef.main.model.bus_mode_enabled = false;
 
 Mdef.side_gui;
 
@@ -92,6 +101,8 @@ Mdef.samplekit(\castor, [
 )
 
 Mdef.main.model.bus_mode_enabled = true
+Mdef.main.model.bus_mode_enabled = false
+Mdef.main.model.bus_mode_enabled
 
 Mdef.main.save_project("live31.tintin");
 Mdef.main.load_project("live31.tintin");
@@ -132,6 +143,9 @@ Mdef.main.load_project("live31.dark");
 Mdef.main.save_project("live31.jeudi");
 Mdef.main.load_project("live31.jeudi");
 
+Mdef.main.save_project("live31.lugubre");
+Mdef.main.load_project("live31.lugubre");
+
 Debug.enableDebug = true;
 Debug.enableDebug = false;
 
@@ -143,7 +157,7 @@ s.latency = 0.4
 s.latency = 0.6
 s.latency
 
-Mdef.main.model.latency = 0
+Mdef.main.model.latency = 0.1
 
 (
 "~/code/sc/seco/nodematrix.sc".standardizePath.load;
@@ -160,7 +174,11 @@ Mdef.main.model.latency = 0
 
 )
 Mdef.node(\s1_part1_sect1_var1)
-Mdef.node_by_index(0).kind
+Mdef.node("ci dadsr_kr_l1073").get_arg(\attack_time).get_val
+Mdef.node_by_index(0).get_arg(\attack_time).scalar
+
+~b = Bus.new(\control, 756, 1);
+~b.get({arg val; val.debug("val")})
 
 (
 	~midinote_to_notename = { arg midinote;
@@ -477,3 +495,14 @@ Instance of Dictionary {    (0x1ecba1f0, gc=E4, fmt=00, flg=00, set=03)
 }
 Dictionary[ (0 -> lfo1_l1014) ]
 
+
+
+(
+ Task({
+
+"bla".debug;
+0.2.wait;
+"bila".debug;
+ }).play;
+
+)

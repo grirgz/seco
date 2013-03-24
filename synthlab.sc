@@ -439,3 +439,23 @@ Pdef(\plop, Pbind(
 	\amp, 0.1
 )).play;
 );
+
+
+
+
+
+
+
+
+
+
+
+
+(
+SynthDef(\note_env, { arg out=0, gate=1, doneAction=2;
+	var ou;
+	var numlevels = 16;
+	ou = EnvGen.ar(\env.kr(Env([0,1,0] ++ (0!numlevels),[0.1,0.1] ++ (0!numlevels))),gate,doneAction:doneAction);
+	Out.ar(out, ou);
+}).add;
+)

@@ -629,11 +629,13 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		val: { arg self, msg, cellidx=0;
 			var newval;
 			name.debug("param_responder: val");
-			paramval.string = self.get_val(cellidx);
+			{
+				paramval.string = self.get_val(cellidx);
 
-			if(slider.notNil, {
-				slider.value = self.get_norm_val(cellidx);
-			});
+				if(slider.notNil, {
+					slider.value = self.get_norm_val(cellidx);
+				});
+			}.defer;
 		},
 
 		kind: { arg self;
@@ -661,10 +663,14 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			txt_midi_label.string = self.midi.label;
 		},
 		midi_val: { arg self, msg, val;
-			txt_midi_val.string = val;
+			{
+				txt_midi_val.string = val;
+			}.defer;
 		},
 		blocked: { arg self, msg, blocked;
-			txt_midi_val.background = if(blocked.not, { ~color_scheme.led_ok }, { ~editplayer_color_scheme.led });
+			{
+				txt_midi_val.background = if(blocked.not, { ~color_scheme.led_ok }, { ~editplayer_color_scheme.led });
+			}.defer;
 		},
 		recording: { arg self, msg, recording;
 			txt_midi_label.background = if(recording, { ~editplayer_color_scheme.led }, { Color.clear });
@@ -691,7 +697,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 };
 
 ~make_master_volume_edit_view = { arg main, midi_cc;
-	var param = ~make_master_volume_param.(main, \tempo);
+	var param = ~make_master_volume_param.(main, \volume);
 	~make_edit_number_view.(main, "Master Volume", param, midi_cc);
 };
 
@@ -3103,6 +3109,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 					}
 				}
 			};
+			self.scalar.set_val( data[\scalar][\val] ); // to update bus in bus mode
 			self[\seq][\initialized] = data.seq.initialized;
 			self.current_kind = nil; self.change_kind(data[\current_kind]);
 		},
@@ -3140,6 +3147,8 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			self.spec = val;
 			self.changed(\val);
 		},
+
+		///////////////////////// kinds
 
 		seq: (
 			val: if(default_value.isArray, { default_value.asList }, { (default_value ! bar_length).asList }),
@@ -3200,38 +3209,6 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				param.changed(\cells);
 			}
 		),
-
-		set_bus_mode: { arg self, val=true;
-			var reject = [\sustain, \dur, \repeat, \stepline, \segdur, \stretchdur];
-			if(reject.includes(self.name).not and: {self.get_main.model.bus_mode_enabled}) {
-				//if(val != self.scalar.bus_mode) {
-					[self.name, val, self.scalar.bus_mode, self.scalar.bus_mode_counter]
-						.debug("make_control_param: set_bus_mode: name, val, mode, count");
-					if(val) {
-						if(self.scalar.bus_mode_counter == 0) {
-							debug("make_control_param: set_bus_mode: make bus");
-							self.scalar.should_free_bus_mode = false;
-							self.scalar.bus = Bus.control(s,1);
-							self.scalar.bus.set(self.scalar.val);
-							self.scalar.bus_mode = true;
-							self.update_vpattern;
-						};
-						self.scalar.bus_mode_counter = self.scalar.bus_mode_counter + 1;
-					} {
-						self.scalar.bus_mode_counter = self.scalar.bus_mode_counter - 1;
-						if(self.scalar.bus_mode_counter == 0) {
-							debug("make_control_param: set_bus_mode: free bus");
-							self.scalar.bus_mode = false;
-							self.scalar.should_free_bus_mode = true;
-							//self.scalar.bus.free;
-							self.update_vpattern;
-							//self.scalar.bus = nil;
-						}
-					};
-
-				//};
-			}
-		},
 
 		scalar: (
 			//quoi: { "QUOI".debug; }.value,
@@ -3513,6 +3490,8 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		// preset subobject here
 		//		need a corresponding spec
 
+		/////////////////////////
+
 		select_param: { arg self;
 			self.selected = 1;
 			self.changed(\selected);
@@ -3588,6 +3567,38 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				[name, kind].debug("CHANGED KIND!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 				self.update_vpattern;
 				self.changed(\kind);
+			}
+		},
+
+		set_bus_mode: { arg self, val=true;
+			var reject = [\sustain, \dur, \repeat, \stepline, \segdur, \stretchdur];
+			if(reject.includes(self.name).not and: {self.get_main.model.bus_mode_enabled}) {
+				//if(val != self.scalar.bus_mode) {
+					[self.name, val, self.scalar.bus_mode, self.scalar.bus_mode_counter]
+						.debug("make_control_param: set_bus_mode: name, val, mode, count");
+					if(val) {
+						if(self.scalar.bus_mode_counter == 0) {
+							debug("make_control_param: set_bus_mode: make bus");
+							self.scalar.should_free_bus_mode = false;
+							self.scalar.bus = Bus.control(s,1);
+							self.scalar.bus.set(self.scalar.val);
+							self.scalar.bus_mode = true;
+							self.update_vpattern;
+						};
+						self.scalar.bus_mode_counter = self.scalar.bus_mode_counter + 1;
+					} {
+						self.scalar.bus_mode_counter = self.scalar.bus_mode_counter - 1;
+						if(self.scalar.bus_mode_counter == 0) {
+							debug("make_control_param: set_bus_mode: free bus");
+							self.scalar.bus_mode = false;
+							self.scalar.should_free_bus_mode = true;
+							//self.scalar.bus.free;
+							self.update_vpattern;
+							//self.scalar.bus = nil;
+						}
+					};
+
+				//};
 			}
 		},
 
@@ -4704,7 +4715,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	load_data: { arg self, data;
 		self.model.val = self.menu_items.detectIndex { arg item; item.uname == data.val_uname };
 		self.model.val_uname = data.val_uname;
-		self.set_property(\value, self.model.val);
+		self.changed(\val);
 	},
 
 
@@ -4898,3 +4909,59 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	},
 );
 
+// TODO: check if default notescore can be modified by notescore class
+~default_custom_env_notescore = [
+	(
+		level: 0,
+		dur: 0.1
+	),
+	(
+		level: 1,
+		dur: 0.1
+	),
+	(
+		level: 0,
+		dur: 0
+	),
+];
+
+~class_param_custom_env_controller = (
+	parent: ~class_param_controller,
+
+
+	new: { arg self, name;
+		var numlevels = 16;
+		self = self.deepCopy;
+		self.name = name;
+
+		self.default_value = Env([0,1,0] ++ (0!numlevels),[0.1,0.1] ++ (0!numlevels));
+
+		self.notescore = ~make_notescore.();
+		self.notescore.set_notes(~default_custom_env_notescore);
+
+		self;
+	},
+
+	get_notescore: { arg self;
+		self.notescore
+	},
+
+	notescore_to_env: { arg self, notescore;
+		var notes;
+		var levels = List.new, times = List.new;
+		notes = notescore.get_rel_notes;
+		notes.do { arg note;
+			times.add( note.dur );
+			levels.add( note.level );
+		};
+		Env(levels, times);
+	},
+
+	update_notes: { arg self;
+		self.env_object = self.notescore_to_env(self.notescore)
+	},
+
+	vpattern: { arg self;
+		Pfunc{ [ self.env_object ] }
+	},
+);

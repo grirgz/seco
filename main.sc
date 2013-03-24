@@ -321,6 +321,11 @@ if(~silent_control_bus.isNil) {
 	~silent_control_bus.set(0);
 };
 
+if(~silent_audio2_bus.isNil) {
+	~silent_audio2_bus = Bus.audio(s, 2);
+	~silent_audio2_bus.set(0);
+};
+
 // ==========================================
 // INCLUDES
 // ==========================================

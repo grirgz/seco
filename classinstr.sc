@@ -46,9 +46,13 @@
 	synthdef_name_suffix: "",
 	synthdef_basename: "s",
 	archive_data: [\synthdef_name_suffix],
+	is_effect: false,
 
 	new: { arg self, main, player;
 		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
 	
 		self;
 	},
@@ -119,6 +123,7 @@
 
 	set_all_bus_mode: { arg self, enable;
 		self.data.keysValuesDo { arg name, datum;
+			[name, datum.name].debug("class_instr.set_all_bus_mode: param name");
 			if(datum.classtype == \control) {
 				datum.set_bus_mode(enable);
 			}
@@ -288,6 +293,25 @@
 		self.param.putAll(self.static_data);
 	},
 
+	help_build_data2: { arg self, modules, datalist=[], static_datalist=();
+		//debug("BEGIN help_build_data2");
+		//self.ordered_args.debug("ordered_args");
+		modules.do { arg mod;
+			self.ordered_args = self.ordered_args ++ mod.get_ordered_args;
+			self.static_data.putAll( mod.get_static_data );
+		};
+		//self.ordered_args.do { arg x; x.debug("=========================\nordered_args"); };
+
+		self.ordered_args = self.ordered_args ++ datalist;
+		self.data.putAll(self.ordered_args);
+
+		self.static_data.putAll(static_datalist);
+
+		self.param = ();
+		self.param.putAll(self.data);
+		self.param.putAll(self.static_data);
+	},
+
 	get_synthargs: { arg self, args=();
 		var i;
 		i = args.copy;
@@ -309,6 +333,7 @@
 		};
 		self.static_data.keysValuesDo { arg name, datum;
 			i[name] = switch(datum.classtype,
+				[name, datum.name].debug("class_instr.get_synthargs: param name");
 				\kind_chooser, {
 					{ arg self; datum.get_val_uname; }
 				}, 
@@ -339,6 +364,7 @@
 
 	set_param_abs_labels: { arg self;
 		self.data.keysValuesDo { arg name, datum;
+			[name, datum.name].debug("class_instr.set_param_abs_labels: param name");
 			if(datum.classtype == \control) {
 				datum.set_abs_label(name);
 				datum.name = name;
@@ -349,7 +375,8 @@
 
 	build_synthdef: { arg self, rate=\ar;
 		var synthdef_name;
-		self.synthdef_name = self.synthdef_basename ++ self.synthdef_name_suffix;
+		//self.synthdef_name = self.synthdef_basename ++ self.synthdef_name_suffix;
+		self.synthdef_name = "%_%".format(self.synthdef_basename, self.get_player.uname);
 		self.synthdef_name.debug("REBUILD SYNTH");
 		rate = self.synth_rate ?? rate;
 		SynthDef(self.synthdef_name, { arg out=0;
@@ -359,7 +386,12 @@
 
 			Out.performList(rate, [out, sig]);
 
-		}).add
+		}).add;
+
+		if(self.is_effect) {
+			self.get_player.build_sourcepat_finalize;
+			self.get_player.build_real_sourcepat;
+		};
 	},
 );
 
@@ -1248,7 +1280,6 @@
 	synthfun: { arg self;
 		{ arg in, args;
 			var i = self.get_synthargs(args);
-			var is = self.get_staticargs;
 			var sig;
 
 			sig = Splay.ar(in, i.spread, i.amp, i.pan);
@@ -1533,6 +1564,68 @@
 
 );
 
+~class_ci_custom_env = (
+	parent: ~class_instr,
+	synth_rate: \kr,
+	new: { arg self, main, player, namer, name="Op A";
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.namer = { namer };
+		self.name = name;
+
+		self.build_data;
+		self.simple_args = (gate:1, doneAction:2);
+	
+		self;
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		var specs = self.get_specs;
+		var wt, wt_range, wt_classic;
+		var env = ~class_param_custom_env_controller.new(\env);
+
+		self.display = ~class_track_display.new;
+		self.custom_env_controller = ~class_custom_env_track_controller.new(env, self.display);
+
+		self.help_build_data(
+			[
+				[
+					env: env
+				]
+			],
+		)
+	},
+
+	make_layout: { arg self, fader;
+		var cenv_view;
+		cenv_view = self.custom_env_controller.make_gui;
+		self.layout = VLayout(
+			cenv_view;
+		);
+		
+		self.layout;
+	},
+
+	synthfun: { arg self;
+		{ arg in=0, args;
+			var i = self.get_synthargs(args);
+			var sig;
+			var numlevels = 16;
+
+			sig = EnvGen.ar(i.env, i.gate, doneAction:i.doneAction);
+
+			sig;
+
+		}
+	
+	},
+
+);
+
 //////////////////////////////////////////////////////
 ////////////// Extensions Class Instrs
 //////////////////////////////////////////////////////
@@ -1566,7 +1659,6 @@
 				"Master Env", {  self.master.make_layout_env },
 				"Routing", {  self.make_layout_routing },
 				"Voices", {  self.make_layout_voices },
-				//"Effects", {  self.make_layout_effects },
 			]
 		);
 
@@ -1585,6 +1677,19 @@
 		};
 		freq;
 	},
+
+	build_wtpos_spread_array: { arg self, i, wtrange, wtpos;
+		[wtrange, wtpos, i.enable_wtpos_spread, i.voices, i.wtpos_spread, i].debug("build_wtpos_spread_array");
+		if(i.enable_wtpos_spread == 1) {
+			var array = self.build_spread_array(i.voices);
+			(wtrange * array).debug("build_wtpos_spread_array: array");
+			wtpos = (wtpos + (i.wtpos_spread * wtrange * array));
+		} {
+			wtpos = wtpos ! i.voices;
+		};
+		wtpos;
+	},
+
 
 	get_route_insfx_variants: { arg self;
 		[
@@ -1630,6 +1735,7 @@
 			filtermix: filtermix,
 			filterparseq: filterparseq,
 			pitch_spread: ~make_control_param.(main, player, \pitch_spread, \scalar, 0, \bipolar.asSpec),
+			wtpos_spread: ~make_control_param.(main, player, \wtpos_spread, \scalar, 0, \bipolar.asSpec),
 		];
 		filtermix.set_label("Filter Mix");
 		filterparseq.set_label("Par Seq");
@@ -1639,6 +1745,7 @@
 			route_insertfx1: ~class_param_kind_chooser_controller.new(\route_insertfx1, self.get_route_insfx_variants, "Insert Fx 1"),
 			route_insertfx2: ~class_param_kind_chooser_controller.new(\route_insertfx2, self.get_route_insfx_variants, "Insert Fx 1"),
 			enable_pitch_spread: ~class_param_static_controller.new(\enable_pitch_spread, specs[\onoff], 0),
+			enable_wtpos_spread: ~class_param_static_controller.new(\enable_wtpos_spread, specs[\onoff], 0),
 			voices: ~class_param_static_controller.new(\enable_pitch_spread, ControlSpec(1,16,\lin,1), 1),
 		);
 
@@ -1705,6 +1812,21 @@
 				HLayout(
 					Button.new
 						.states_([["Off"],["On"]])
+						.value_(self.static_data[\enable_wtpos_spread].get_val)
+						.action_({ arg bt; 
+							self.static_data[\enable_wtpos_spread].set_val(bt.value);
+						}),
+					{
+						var slider;
+						slider = ~class_ci_modslider_view.new(self.data[\wtpos_spread],Rect(0,0,300,20));
+						slider.namelabel.minWidth_(100);
+						slider.layout;
+					}.value
+
+				),
+				HLayout(
+					Button.new
+						.states_([["Off"],["On"]])
 						.enabled_(false)
 						.value_(1)
 						,
@@ -1733,107 +1855,107 @@
 		self.tab_panel.make_layout;
 	},
 
-	make_tab_panel_OLD: { arg self;
-		var header, body, layout;
-		var content;
-		var modview;
-		var custom_view = View.new;
-		var tab_views = List.new;
-		self.tab_custom_view = custom_view;
-		self.modulation_controller = ~class_embeded_modulation_controller.new(self.get_main, self.get_player, nil, self.data[\filtermix]);
-		self.modulation_controller.make_bindings;
-		self.modulation_controller.window = { self.window };
-		modview = ~class_embeded_modulation_view.new(self.modulation_controller);
-		self.modulation_controller.main_view = modview;
+	//make_tab_panel_OLD: { arg self;
+	//	var header, body, layout;
+	//	var content;
+	//	var modview;
+	//	var custom_view = View.new;
+	//	var tab_views = List.new;
+	//	self.tab_custom_view = custom_view;
+	//	self.modulation_controller = ~class_embeded_modulation_controller.new(self.get_main, self.get_player, nil, self.data[\filtermix]);
+	//	self.modulation_controller.make_bindings;
+	//	self.modulation_controller.window = { self.window };
+	//	modview = ~class_embeded_modulation_view.new(self.modulation_controller);
+	//	self.modulation_controller.main_view = modview;
 
-		//content = [
-		//	"Master Env", self.master.make_layout_env,
-		//	"Routing", self.make_layout_routing,
-		//	"Voices", self.make_layout_voices,
-		//	"Effects", self.make_layout_effects,
-		//];
-		content = [
-			"Master Env", {  self.master.make_layout_env },
-			"Routing", {  self.make_layout_routing },
-			"Voices", {  self.make_layout_voices },
-			"Effects", {  self.make_layout_effects },
-		];
-		self.tabs_count = content.size/2;
-		content = content.clump(2).flop;
-		debug("NUIT 1");
-		body = StackLayout(*
-			content[1].collect { arg co;
-				//View.new.layout_(co)
-				var view;
-				view = View.new;
-				tab_views.add(view);
-				view;
-			} ++ [
-				View.new.layout_(modview.body_layout),
-				//custom_view,
-			]
-		);
-		tab_views.do { arg view, idx;
-			//{
-				view.layout = content[1][idx].value;
-				//0.01.wait;
-			//}.defer( 1+idx )
-		};
-		debug("NUIT 2");
-		layout = VLayout(
-			HLayout(*
-				content[0].collect { arg co, idx;
-					debug("NUIT 3");
-					//0.02.wait;
-					Button.new
-						.states_([[co]])
-						.action_({ 
-							body.index = idx;
-							if(idx == 3) { //FIXME: hardcoded
-								self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\effects);
-							} {
-								self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\classinstr, self);
-							}
-						})
-				}
-			),
-			modview.tab_layout,
-			body,
-		
-		);
-		debug("NUIT 4");
-		self.tab_panel_stack_layout = body;
-		modview.show_body_layout = { arg myself;
-			debug("modview: show_body_layout");
-			self.tab_panel_stack_layout.index = self.tabs_count;
-		};
-		//modview.show_body_layout = { arg myself;
-		//	var extplayer = myself.controller.get_current_player.external_player;
-		//	myself.controller.get_current_player.uname.debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: curplayer");
-		//	self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\modulator);
-		//	if(extplayer.notNil) {
-		//		// FIXME: external player should have custom gui
-		//		self.tab_panel_stack_layout.index = 5;
-		//		extplayer.make_layout;
-		//		self.tab_custom_view.children.do(_.remove);
-		//		debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: before cusheader");
-		//		self.custom_header_view = ~class_modulator_header_view.new_without_responders(myself.controller); 
-		//		debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: after cusheader");
-		//		self.tab_custom_view.layout_(
-		//			VLayout(
-		//				[self.custom_header_view.layout, stretch:0],
-		//				extplayer.layout,
-		//			)
-		//		);
-		//		self.custom_header_view.selected_slot;
-		//		debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: after view cusheader");
-		//		debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: last view cusheader");
-		//	} {
-		//		self.tab_panel_stack_layout.index = 4;
-		//	}
-		//};
-		layout;
-	},
+	//	//content = [
+	//	//	"Master Env", self.master.make_layout_env,
+	//	//	"Routing", self.make_layout_routing,
+	//	//	"Voices", self.make_layout_voices,
+	//	//	"Effects", self.make_layout_effects,
+	//	//];
+	//	content = [
+	//		"Master Env", {  self.master.make_layout_env },
+	//		"Routing", {  self.make_layout_routing },
+	//		"Voices", {  self.make_layout_voices },
+	//		"Effects", {  self.make_layout_effects },
+	//	];
+	//	self.tabs_count = content.size/2;
+	//	content = content.clump(2).flop;
+	//	debug("NUIT 1");
+	//	body = StackLayout(*
+	//		content[1].collect { arg co;
+	//			//View.new.layout_(co)
+	//			var view;
+	//			view = View.new;
+	//			tab_views.add(view);
+	//			view;
+	//		} ++ [
+	//			View.new.layout_(modview.body_layout),
+	//			//custom_view,
+	//		]
+	//	);
+	//	tab_views.do { arg view, idx;
+	//		//{
+	//			view.layout = content[1][idx].value;
+	//			//0.01.wait;
+	//		//}.defer( 1+idx )
+	//	};
+	//	debug("NUIT 2");
+	//	layout = VLayout(
+	//		HLayout(*
+	//			content[0].collect { arg co, idx;
+	//				debug("NUIT 3");
+	//				//0.02.wait;
+	//				Button.new
+	//					.states_([[co]])
+	//					.action_({ 
+	//						body.index = idx;
+	//						if(idx == 3) { //FIXME: hardcoded
+	//							self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\effects);
+	//						} {
+	//							self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\classinstr, self);
+	//						}
+	//					})
+	//			}
+	//		),
+	//		modview.tab_layout,
+	//		body,
+	//	
+	//	);
+	//	debug("NUIT 4");
+	//	self.tab_panel_stack_layout = body;
+	//	modview.show_body_layout = { arg myself;
+	//		debug("modview: show_body_layout");
+	//		self.tab_panel_stack_layout.index = self.tabs_count;
+	//	};
+	//	//modview.show_body_layout = { arg myself;
+	//	//	var extplayer = myself.controller.get_current_player.external_player;
+	//	//	myself.controller.get_current_player.uname.debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: curplayer");
+	//	//	self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\modulator);
+	//	//	if(extplayer.notNil) {
+	//	//		// FIXME: external player should have custom gui
+	//	//		self.tab_panel_stack_layout.index = 5;
+	//	//		extplayer.make_layout;
+	//	//		self.tab_custom_view.children.do(_.remove);
+	//	//		debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: before cusheader");
+	//	//		self.custom_header_view = ~class_modulator_header_view.new_without_responders(myself.controller); 
+	//	//		debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: after cusheader");
+	//	//		self.tab_custom_view.layout_(
+	//	//			VLayout(
+	//	//				[self.custom_header_view.layout, stretch:0],
+	//	//				extplayer.layout,
+	//	//			)
+	//	//		);
+	//	//		self.custom_header_view.selected_slot;
+	//	//		debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: after view cusheader");
+	//	//		debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: last view cusheader");
+	//	//	} {
+	//	//		self.tab_panel_stack_layout.index = 4;
+	//	//	}
+	//	//};
+	//	layout;
+	//},
 
 
 	make_layout: { arg self;
@@ -1854,13 +1976,13 @@
 						),
 						~class_ci_modslider_view.new(self.data[\filtermix]).layout,
 					),
-						debug("****************************************** LAYOUT master");
+						//debug("****************************************** LAYOUT master");
 					VLayout(*
 						[
 							[self.master.make_layout, stretch:0],
 						] ++
 						//[self.make_layout_routing, stretch:0],
-							debug("****************************************** LAYOUT fx");
+							//debug("****************************************** LAYOUT fx");
 						[HLayout(*
 							self.insertfxs.collect(_.make_layout)
 						)] ++
@@ -1885,14 +2007,12 @@
 	insert_effect: { arg self, i, in, pos;
 		if(i.route_insertfx1 == pos) {
 			//TODO: ktr, arg3
-			self.insertfxs[0].synthfun.(in);
-		} {
-			if(i.route_insertfx2 == pos) {
-				self.insertfxs[1].synthfun.(in);
-			} {
-				in;
-			}
-		}
+			in = self.insertfxs[0].synthfun.(in);
+		};
+		if(i.route_insertfx2 == pos) {
+			in = self.insertfxs[1].synthfun.(in);
+		};
+		in;
 	},
 
 	synthfun: { arg self;
@@ -1911,8 +2031,13 @@
 
 			oscs = self.oscs.collect { arg osc;
 				var freq;
+				var wtpos;
 				freq = self.build_freq_spread_array(i, i.freq);
-				osc.synthfun.((freq:freq));
+				if(osc.static_data[\wt_range].notNil) {
+					var oscargs = osc.get_synthargs(args);
+					wtpos = self.build_wtpos_spread_array(i, oscargs.wt_range, oscargs.wt_pos);
+				};
+				osc.synthfun.((freq:freq, wt_pos:wtpos));
 			};
 			rsig = oscs[0];
 			oscs.debug("OSCS");
@@ -2615,6 +2740,77 @@
 
 );
 
+~class_ci_insertfx3 = (
+	parent: ~class_instr,
+	is_effect: true,
+
+	new: { arg self, main, player, namer;
+		self = self.deepCopy;
+
+		debug("waf1");
+		self.get_main = { main };
+		self.get_player = { player };
+		self.namer = { namer };
+
+		debug("waf2");
+		self.insertfxs = 3.collect { arg i;
+			debug("waf2_"++i);
+			~class_ci_insertfx.new(main, player, self.make_namer("fx%_".format(i)));
+		};
+		debug("waf3");
+
+		self.build_data;
+		debug("waf4");
+		//self.simple_args = (gate:1, doneAction:2);
+		self.simple_args = (gate:1, in: ~silent_audio2_bus.index);
+	
+		self;
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		var specs = self.get_specs;
+		debug("~class_ci_insertfx3: build_data");
+		self.help_build_data2(
+			self.insertfxs,
+			self.make_control_params([
+				[\mix, \unipolar, 0.5],
+			])
+		);
+		//self.data.keys.debug("class_ci_insertfx3: build_data: keys");
+		self.data.copy;
+	},
+
+	make_layout: { arg self;
+		self.layout = HLayout( *
+			self.insertfxs.collect { arg fx; fx.make_layout }
+		);
+		self.layout;
+	},
+
+	synthfun: { arg self;
+		{ arg args;
+			var i = self.get_synthargs(args);
+			var sig;
+			var in;
+			
+			in = In.ar(i.in, 2);
+
+			sig = in;
+
+			self.insertfxs.collect { arg fx;
+				sig = fx.synthfun.(sig, args)
+			};
+
+			sig = SelectX.ar(i.mix, [in, sig]);
+			sig;
+
+		}
+	
+	},
+);
+
 //////////////////////////////////////////////////////
 
 ~classinstr_lib = (
@@ -2626,8 +2822,16 @@
 	moscfilter_modfx: ~class_ci_moscfilter_modfx,
 	moscfaderfilter: ~class_ci_moscfaderfilter,
 	osc3filter2: ~class_ci_osc3filter2,
-	dadsr_kr: ~class_ci_dadsr_kr,
 	op_matrix: ~class_ci_op_matrix,
+
+	// modulators
+
+	dadsr_kr: ~class_ci_dadsr_kr,
+	custom_env: ~class_ci_custom_env,
+
+	// effects
+
+	insertfx3: ~class_ci_insertfx3,
 
 );
 
@@ -2641,6 +2845,7 @@ Instr(\ci_oscillator, { arg spectrum, wt_range=0, wt_classic=\void, amp=0.1, mid
 	var mul = 1;
 	endfreq = (midinote + detune).midicps;
 	//spectrum.debug("spectrum");
+	wt_position.debug("WT_POSITION");
 	switch(spectrum,
 		\bend, {
 			endfreq = SinOsc.ar(endfreq).range(0,8)*(intensity)*endfreq + endfreq;
@@ -2845,10 +3050,15 @@ Instr(\p_parashaper, { arg in, mix, drive;
 }, [\audio]);
 
 Instr(\p_hardclipper, { arg in, mix, drive;
+	/// FIXME: fucking too strange bug
 	var sig;
-	//TODO
+	//mix.poll;
 	drive = 1-drive;
-	sig = in.clip(0-drive, drive);
+	//sig = in.clip(0-drive, drive);
+	//drive = 0.001;
+	//sig = in.clip(0-drive,drive);
+	sig = Clip.ar(in, 0-drive, drive);
+	sig.poll;
 	SelectX.ar(mix, [in, sig]);
 }, [\audio]);
 
@@ -2953,7 +3163,8 @@ Instr(\p_comb, { arg in, mix, delay, offset, decay;
 	//CheckBadValues.ar(sig,0,1);
 	SelectX.ar(mix, [in, sig]);
 }, [\audio])
-.storeSynthDef([\ar], metadata:(
+//.storeSynthDef([\ar], metadata:(
+.storeSynthDef([], metadata:(
 	specs: (
 		delay: ControlSpec(0,4,\lin,0,0),
 		decay: ControlSpec(0,4,\lin,0,0),

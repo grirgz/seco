@@ -951,11 +951,13 @@
 	},
 
 	make_gui: { arg self;
-		self.make_bindings;
-		self.main_view = ~class_modulation_view.new(self);
-		self.window = self.main_view.window;
-		self.window.view.toFrontAction = { self.make_bindings };
-		self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\modulator);
+		Task({
+			self.make_bindings;
+			self.main_view = ~class_modulation_view.new(self);
+			self.window = self.main_view.window;
+			self.window.view.toFrontAction = { self.make_bindings };
+			self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\modulator);
+		}).play(AppClock);
 	},
 
 	make_bindings: { arg self;
@@ -2285,6 +2287,11 @@
 
 	player: { arg self;
 		var player = self.player_display.get_current_player;
+		debug("class_effect_body_basic_view: player responder");
+		self.update_param_group(player);
+	},
+
+	update_param_group: { arg self, player;
 		if(player.notNil) {
 			player.name.debug("class_effect_body_basic_view: player.name");
 			//player.data.keys.debug("class_effect_body_basic_view: player.data.keys");
@@ -2303,6 +2310,7 @@
 				//0.35.wait;
 			};
 		}
+		
 	},
 
 	make_gui: { arg self;
@@ -2311,6 +2319,72 @@
 		self.layout.add(self.param_group.layout);
 		self.layout
 	}
+
+);
+
+~class_effect_body_custom_view = (
+	parent: ~class_effect_body_basic_view,
+	show_custom_view: true,		
+
+	make_gui: { arg self;
+		
+		self.param_group = ~make_mini_param_group_widget.(nil, 3, ());
+		self.param_group_layout = VLayout.new;
+		self.param_group_layout.add(self.param_group.layout);
+
+		self.custom_view = View.new;
+
+		self.stack_layout = StackLayout(
+			View.new.layout_(self.param_group_layout),
+			self.custom_view;
+		);
+
+		self.show_body_layout;
+
+		self.layout = self.stack_layout;
+		self.layout
+	},
+
+	player: { arg self;
+		self.show_body_layout;
+	},
+
+	switch_body_view: { arg self;
+		self.show_custom_view = self.show_custom_view.not;
+		self.show_body_layout;
+	},
+
+	show_body_layout: { arg self;
+		var player = self.player_display.get_current_player;
+		var extplayer = player.external_player;
+		Task{
+			var extlayout;
+			debug("class_effect_body_custom_view: show_body_layout");
+			self.player_display.set_keydown_responder(\effects);
+			debug("class_effect_body_custom_view: show_body_layout1");
+
+			if(extplayer.notNil and: { self.show_custom_view }) {
+				debug("class_effect_body_custom_view: show_body_layout2");
+				// FIXME: external player should have custom gui
+				self.stack_layout.index = 1;
+				extlayout = extplayer.make_layout;
+				debug("class_effect_body_custom_view: show_body_layout3");
+
+				self.custom_view.children.do(_.remove);
+				debug("class_effect_body_custom_view: show_body_layout4");
+
+				self.custom_view.layout = extlayout;
+				debug("class_effect_body_custom_view: show_body_layout5");
+			} {
+				debug("class_effect_body_custom_view: show_body_layout6");
+				self.update_param_group(player);
+				debug("class_effect_body_custom_view: show_body_layout7");
+				self.stack_layout.index = 0;
+			};
+			debug("class_effect_body_custom_view: END show_body_layout");
+		}.play(AppClock)
+		
+	},
 
 );
 
@@ -2359,6 +2433,7 @@
 	make_gui: { arg self;
 		var dependant;
 		self.mini_views = List.new;
+		self.body_object = ~class_effect_body_custom_view.new(self.controller);
 		self.layout = HLayout(
 			[VLayout(*
 				self.controller.effects_ctrl.effects_number.collect { arg idx;
@@ -2368,7 +2443,8 @@
 					mv.layout;
 				} ++ [nil]
 			), stretch:0],
-			[~class_effect_body_basic_view.new(self.controller).layout, stretch:1]; 
+			//[~class_effect_body_basic_view.new(self.controller).layout, stretch:1]; 
+			[self.body_object.layout, stretch:1]; 
 
 		);
 
@@ -2473,10 +2549,12 @@
 
 
 	make_gui: { arg self;
-		self.make_bindings;
-		self.main_view = ~class_effects_view.new(self);
-		self.window = self.main_view.make_window;
-		self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\effects);
+		Task({
+			self.make_bindings;
+			self.main_view = ~class_effects_view.new(self);
+			self.window = self.main_view.make_window;
+			self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\effects);
+		}).play(AppClock);
 	},
 
 	make_bindings: { arg self;
@@ -2502,6 +2580,10 @@
 					self.set_current_player(self.get_main.get_node(nodename));
 					self.changed(\groupnode);
 				})
+			}],
+
+			[\switch_body_view, {
+				self.main_view.body_object.switch_body_view;
 			}],
 
 			[\edit_modulator, {

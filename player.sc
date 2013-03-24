@@ -217,8 +217,14 @@
 		//[\type, \stepline, \instrument].do { arg x; list.add(x); list.add(dict[x]) };
 		list.debug("maked pbind list");
 		//Pbind(*list).dump;
+		self.sourcepat_list = list;
+		self.build_sourcepat_finalize;
+	},
+
+	build_sourcepat_finalize: { arg self;
+		var list = self.sourcepat_list;
 		self.sourcepat = if(self.is_effect) {
-			Pmono(self.data[\instrument].vpattern, *list)
+			Pmono(self.data[\instrument].get_val, *list)
 		} {
 			//DebugPbind(*list); //debug
 			Pbind(*list); //debug
@@ -866,6 +872,7 @@
 		self.defname = self.external_player.synthdef_name;
 		self.external_player.init_top_classinstr;
 		self.to_destruct.add(self.external_player);
+		self.is_effect = self.external_player.is_effect ?? false;
 
 		"on est la".debug;
 		//self.external_player.build_synthdef;
@@ -889,13 +896,13 @@
 
 	uname_: { arg self, uname;
 		//self.external_player.synthdef_name_suffix = "_"++uname.replace("passive ", "");
+		self[\uname] = uname;
 		self.external_player.synthdef_name_suffix = "_"++uname;
 		"BEFORE".debug;
 		self.external_player.build_synthdef;
 		"AFTER".debug;
 		self.defname = self.external_player.synthdef_name;
 		"BUoUUU".debug;
-		self[\uname] = uname;
 		self.build_sourcepat;
 		self.build_real_sourcepat;
 		"BUUUU".debug;
