@@ -485,7 +485,11 @@
 				//main.get_node(self.parent_node.children[pos.y]).children[pos.x]
 			},
 			\parnode, {
-				self.get_group_node(pos.x).get_scoreset.select_sheet(pos.y);
+				var ss;
+				ss = self.get_group_node(pos.x).get_scoreset;
+				if(ss.notNil) {
+					ss.select_sheet(pos.y);
+				}
 			}
 		);
 	},
@@ -592,7 +596,7 @@
 			node = self.get_main.get_node(nodename);
 			switch(node.kind,
 				\player, {
-					scoreset = node.get_arg(\noteline).get_scoreset;
+					scoreset = node.get_scoreset;
 					if(scoreset.is_sheet_selected(pos.y)) {
 						state = \armed;
 					} {
@@ -640,6 +644,14 @@
 			self.get_main.panels.side.get_windows_bindings ++ [
 				[\select_cell, 32, { arg i;
 					self.select_cell_by_index(i)
+				}],
+
+				[\select_row, 8, { arg i;
+					self.select_row(i)
+				}],
+
+				[\select_column, 8, { arg i;
+					self.select_column(i)
 				}],
 
 				["play_cell", { 

@@ -2145,7 +2145,11 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 							if(ev[\slotnum].notNil) {
 								slotnum = ev[\slotnum];
 							} {
-								slotnum = ev[\sampleline].slotnum;
+								if(ev[\sampleline].type == \rest) {
+									slotnum = 0; // FIXME: should be silent sample
+								} {
+									slotnum = ev[\sampleline].slotnum;
+								}
 							};
 							//~samplekit_manager.slot_to_bufnum(slotnum, ev[\samplekit], channels).debug("bufnum::::");
 							ev = ~samplekit_manager.slot_to_bufnum(slotnum, ev[\samplekit], self.channels).yield;
@@ -2383,7 +2387,8 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			self.scoreset.set_next_notes_as_current_notes;
 		},
 
-		forward_to_next_notescore: {arg self;
+		forward_to_next_notescore: { arg self;
+			// called in get_note and midi:player_start_tempo_recording
 			self.scoreset.forward_to_next_notescore;
 		},
 
@@ -2405,6 +2410,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		},
 
 		get_note: { arg self, idx;
+			// FIXME: not used anymore, use whole notescore now
 			self.scoreset.get_note(self, idx);
 		},
 
@@ -4715,7 +4721,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	load_data: { arg self, data;
 		self.model.val = self.menu_items.detectIndex { arg item; item.uname == data.val_uname };
 		self.model.val_uname = data.val_uname;
-		self.changed(\val);
+		self.changed(\val)
 	},
 
 

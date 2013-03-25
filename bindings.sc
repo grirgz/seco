@@ -82,6 +82,9 @@
 		~common_bindings.windowing ++
 		[
 			["select_cell",							\kb, 0, \kbpad8x4_flat],
+			["select_row",							\kb, \alt, \kbnumline],
+			["select_column",						\kb, 0, \kbnumpad],
+			["select_cell",							\kb, 0, \kbpad8x4_flat],
 			["play_cell",							\kb, 0, \f5],
 			["play_row",							\kb, \ctrl, \f5],
 			["play_part",							\kb, \ctrlshift, \f5],
@@ -136,6 +139,11 @@
 		["paste_notes", \kb, \ctrl, "v"],
 		["paste_notes_in_place", \kb, \ctrlalt, "v"],
 	],
+	track_custom_env: 
+		~common_bindings.grid_display ++
+		[
+		
+		],
 	group_tracks: 
 		~common_bindings.side_shared ++
 		~common_bindings.grid_display ++
@@ -146,10 +154,12 @@
 		~common_bindings.side_shared ++
 		~common_bindings.panels ++
 		~common_bindings.grid_display ++
-		~common_bindings.playing ++ [
-		["close_window", \kb, 0, \escape],
-
-	],
+		~common_bindings.playing ++ 
+		[
+			["close_window", \kb, 0, \escape],
+			["select_scoresheet", \kb, \alt, \kbnumline],
+			["save_scoresheet", \kb, 0, \f2],
+		],
 	line_tracks: 
 		~common_bindings.side_shared ++
 		~common_bindings.playing ++ 
@@ -296,7 +306,8 @@
 
 
 		//["toggle_player_recording", \midi, 0, \record],
-		["toggle_player_recording", \midi, 0, \record],
+		["toggle_player_recording", \kb, \ctrlalt, "r"],
+		["midi.toggle_player_recording", \midi, 0, \record],
 		["toggle_param_recording", \midi, \hold, \record],
 
 		//["change_param_kind.seq",			\kb, \altshift, "q"],

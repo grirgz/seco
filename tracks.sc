@@ -124,6 +124,7 @@
 		self.timeline.mouseMoveAction = self.mouse_move_action;
 		self.timeline.nodeTrackAction = self.node_track_action;
 		self.timeline.setBackgrDrawFunc = self.draw_background_function;
+		self.timeline.keyDownAction = self.key_down_action;
 	},
 
 	/////// actions
@@ -171,6 +172,10 @@
 		}
 	},
 
+	key_down_action: { arg self;
+		{}
+	},
+
 	///////////
 
 	make_gui: { arg self;
@@ -179,6 +184,7 @@
 		self.notes;
 		//self.timeline.keyDownAction = self.controller.get_main.commands.get_kb_responder(\step_track);
 		self.layout = self.timeline.userView;
+		self.responder_anchor = self.timeline.userView;
 		self.layout;
 		//self.vlayout;
 	
@@ -274,6 +280,26 @@
 ~class_step_track_view = ( // scoreline
 	parent: ~class_basic_track_view,
 
+	init: { arg self, parent, controller;
+		debug("class_stepline_track_view.init");
+		self.controller = { arg self; controller };
+		self.update_sizes;
+		self.parent_view = parent;
+		self.as_view = self.make_gui;
+		self.main_responder = ~make_class_responder.(self, self.responder_anchor, controller, [
+			\notes, \background
+		]);
+		self.main_responder = ~make_class_responder.(self, self.responder_anchor, controller.get_node.get_arg(\scoreline), [
+			\notes
+		]);
+		self.main_responder = ~make_class_responder.(self, self.responder_anchor, controller.display, [
+			\gridstep, \gridlen
+		]);
+		//self.main_responder = ~make_class_responder.(self, self.parent_view, controller.display, [
+		//	\gridstep, \gridlen
+		//]);
+	},
+
 	note_to_length: { arg self, note;
 		//min(note.sustain, self.controller.display.gridstep.x) * self.beatlen;
 		note.sustain * self.beatlen;
@@ -297,6 +323,7 @@
 	},
 );
 
+// note editor
 ~class_piano_roll_editor = (
 	parent: ~class_basic_track_view,
 	piano_band_size_x: 30,
@@ -909,6 +936,36 @@
 	moving_notes: List.new,
 	//roll_size: 400@400,
 
+	new: { arg self, parent, controller;
+		self = self.deepCopy;
+
+		self.parent_view = parent;
+		self.init(parent, controller);
+		self.notes;
+	
+		self;
+	},
+
+	init: { arg self, parent, controller;
+		debug("class_basic_track_view.new");
+		self.controller = { arg self; controller };
+		self.update_sizes;
+		self.parent_view = parent;
+		self.as_view = self.make_gui;
+		self.main_responder = ~make_class_responder.(self, self.responder_anchor, controller, [
+			\notes, \background
+		]);
+		self.main_responder = ~make_class_responder.(self, self.responder_anchor, controller.get_node.get_arg(\sampleline), [
+			\notes
+		]);
+		self.main_responder = ~make_class_responder.(self, self.responder_anchor, controller.display, [
+			\gridstep, \gridlen
+		]);
+		//self.main_responder = ~make_class_responder.(self, self.parent_view, controller.display, [
+		//	\gridstep, \gridlen
+		//]);
+	},
+
 	get_noterange: { arg self;
 		self.controller.noterange[1] - self.controller.noterange[0]
 	},
@@ -929,33 +986,6 @@
 			controller.display.gridstep.x * (self.track_size1.x/self.controller.display.gridlen),
 			self.view_size1.y/self.get_noterange
 		);
-	},
-
-	new: { arg self, parent, controller;
-		self = self.deepCopy;
-
-		self.parent_view = parent;
-		self.init(parent, controller);
-		self.notes;
-	
-		self;
-	},
-
-	init: { arg self, parent, controller;
-		debug("class_basic_track_view.new");
-		self.controller = { arg self; controller };
-		self.update_sizes;
-		self.parent_view = parent;
-		self.as_view = self.make_gui;
-		self.main_responder = ~make_class_responder.(self, self.timeline.userView, controller, [
-			\notes, \background
-		]);
-		self.main_responder = ~make_class_responder.(self, self.timeline.userView, controller.display, [
-			\gridstep, \gridlen
-		]);
-		//self.main_responder = ~make_class_responder.(self, self.parent_view, controller.display, [
-		//	\gridstep, \gridlen
-		//]);
 	},
 
 	note_to_point: { arg self, note;
@@ -1128,6 +1158,7 @@
 		"0".debug;
 		self.timeline = ParaTimeline.new(self.parent_view, Rect(0,0,self.view_size.x,self.view_size.y));
 		timeline = self.timeline;
+		self.responder_anchor = self.timeline.userView;
 		//self.timeline.userView.background = Color.yellow;
 		timeline.userView.minSize = self.view_size;
 		//self.timeline.maxHeight = 30;
@@ -1522,6 +1553,10 @@
 ~class_custom_env_track_view = (
 	parent: ~class_curve_track_view,
 
+	key_down_action: { arg self;
+		self.controller.get_track_kb_responder;
+	},
+
 	new: { arg self, parent, controller, notekey;
 		self = self.deepCopy;
 		self.controller = { controller };
@@ -1608,6 +1643,7 @@
 	),
 ];
 
+// scoreline track controller
 ~class_step_track_controller = (
 
 	new: { arg self, node, display;
@@ -1626,6 +1662,14 @@
 		//self.notes.set_end(16);
 	
 		self;
+	},
+
+	get_label: { arg self;
+		"% (sheet %)".format(self.get_node.name, self.scoreset.get_current_sheet_index + 1);
+	},
+
+	refresh: { arg self;
+		self.changed(\label);
 	},
 
 	get_notescore: { arg self;
@@ -2062,6 +2106,10 @@
 		self;
 	},
 
+	refresh: { arg self;
+		self.changed(\label);
+	},
+
 	make_gui: { arg self;
 		//self.window = Window.new("Piano roll", Rect(100,100,600,600));
 		//self.parent_view = self.window;
@@ -2071,6 +2119,10 @@
 		self.layout;
 		//self.window.front;
 	
+	},
+
+	get_label: { arg self;
+		"% (sheet %)".format(self.get_node.name, self.scoreset.get_current_sheet_index + 1);
 	},
 
 	get_notescore: { arg self;
@@ -2251,7 +2303,7 @@
 
 ~class_custom_env_track_controller = (
 	parent: ~class_curve_track_controller,
-	new: { arg self, param, display, notekey;
+	new: { arg self, node, param, display, notekey;
 		self = self.deepCopy;
 
 		//self.display = (
@@ -2263,7 +2315,7 @@
 
 		self.notekey = notekey ?? \level;
 		
-		//self.get_node = {node};
+		self.get_node = {node};
 		self.get_param = {param};
 		self.notescore = param.get_notescore;
 		//self.scoreset = node.get_arg(\noteline).get_scoreset;
@@ -2275,6 +2327,17 @@
 		self;
 	},
 
+	get_track_kb_responder: { arg self;
+		self.get_node.get_main.commands.get_kb_responder(\track_custom_env)
+	},
+
+	set_track_bindings: { arg self;
+		var bindings;
+		bindings = self.display.get_bindings;
+		self.get_node.get_main.commands.parse_action_bindings(\track_custom_env, bindings);
+	},
+
+
 	update_notes: { arg self;
 		//self.get_node.get_arg(\val).set_notes(self.notescore.get_rel_notes);
 		//self.get_node.get_arg(\noteline).get_scoreset.update_notes;
@@ -2285,6 +2348,7 @@
 	make_gui: { arg self, parent;
 		self.track_view = ~class_custom_env_track_view.new(parent, self, self.notekey);
 		//self.track_view = ~class_note_track_view.new(parent, self);
+		self.set_track_bindings;
 		self.layout = self.track_view.layout;
 		self.layout.debug("class_custom_env_track_controller.layout");
 		self.layout;
@@ -2293,6 +2357,7 @@
 
 /////////////////////////////// 
 
+// node kind to score track
 ~make_recordline_track_controller = { arg node, display;
 	var ctrl;
 
@@ -2461,6 +2526,7 @@
 			};
 		
 		};
+		self.tracks = res;
 		res;
 	},
 
@@ -2473,6 +2539,24 @@
 			[\close_window, {
 				self.window.close;
 			
+			}],
+
+			[\select_scoresheet, 8, { arg i;
+				self.get_player.get_scoreset.select_sheet(i);
+				self.tracks[0].changed(\label);
+			}],
+
+			[\save_scoresheet, {
+				var player = self.get_player;
+				~class_scoresheet_chooser.new(self.get_main, player, { arg data, ad, idx;
+					var sheet;
+					var scoreset = player.get_scoreset;
+					var ns;
+					ns = scoreset.get_notescore;
+					scoreset.set_sheet(idx, ns);
+					self.get_player.get_scoreset.select_sheet(idx);
+					self.tracks[0].changed(\label);
+				});
 			}],
 
 			[\play_selected, {
@@ -2501,6 +2585,7 @@
 
 );
 
+// track group containing note editor
 ~class_line_tracks_controller = (
 	new: { arg self, main, player, display;
 		self = self.deepCopy;

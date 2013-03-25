@@ -1806,14 +1806,18 @@
 				[\edit_player_tracks, {
 					var player = self.get_current_player;
 					var display = self.track_display;
-					make_window.(\player_tracks_controller, 
-						{ 
-							self.player_tracks_controller.get_player != player
-						},
-						{
-							~class_player_tracks_controller.new(self.get_main, player, display);
-						}
-					);
+					if(player.name != \voidplayer) {
+						//FIXME: make_window() should be fixed to avoid this test
+					
+						make_window.(\player_tracks_controller, 
+							{ 
+								self.player_tracks_controller.get_player != player
+							},
+							{
+								~class_player_tracks_controller.new(self.get_main, player, display);
+							}
+						);
+					}
 				}],
 
 				[\edit_line_tracks, {
@@ -1835,17 +1839,19 @@
 						var player = self.get_current_player;
 						var param = self.get_selected_param;
 						param.debug("edit_modulator PARAM");
-						if(param.classtype == \control) {
-							make_window.(\modulation_controller, 
-								{ 
-									self.modulation_controller.param_ctrl != param
-								},
-								{
-									~class_modulation_controller.new(self.get_main, player, nil, param);
-								}
-							);
-						} {
-							param.classtype.debug("ERROR: param classtype can't be modulated");
+						if(param.notNil) {
+							if(param.classtype == \control) {
+								make_window.(\modulation_controller, 
+									{ 
+										self.modulation_controller.param_ctrl != param
+									},
+									{
+										~class_modulation_controller.new(self.get_main, player, nil, param);
+									}
+								);
+							} {
+								param.classtype.debug("ERROR: param classtype can't be modulated");
+							};
 						}
 					};
 					self[\edit_modulator_callback]
@@ -2430,6 +2436,7 @@
 				\play_group,
 				\stop_group,
 				\toggle_solo_selected,
+				"toggle_player_recording",
 				"set_global_mode.liveplay",
 				"set_global_mode.param",
 				"set_global_mode.group",

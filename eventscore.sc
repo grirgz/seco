@@ -625,6 +625,7 @@
 	current_sheet: 0,
 	buffer_sheet_index: 7,
 	archive_data: [\history_index, \history_len],
+	instant_history_mode: true,
 
 	new: { arg self, param;
 		self = self.deepCopy;
@@ -864,18 +865,33 @@
 	},
 
 	backward_in_history: { arg self;
-		self.history_index = (self.history_index + 1).clip(0, self.history.size);
-		self.set_next_notescore(self.history[self.history_index]);
+		var ns;
+		self.history_index = (self.history_index + 1).clip(0, self.history.size-1);
+		ns = self.history[self.history_index];
+		self.history_index.debug("backward_in_history: index");
+		if(self.instant_history_mode) {
+			self.set_sheet(self.buffer_sheet_index, ns);
+		} {
+			self.set_next_notescore(ns);
+		};
 		//self.history[self.history_index].debug("backward_in_history: notescore");
 	},
 	
 	forward_in_history: { arg self;
-		self.history_index = (self.history_index - 1).clip(0, self.history.size);
-		self.set_next_notescore(self.history[self.history_index]);
+		var ns;
+		self.history_index = (self.history_index - 1).clip(1, self.history.size-1);
+		ns = self.history[self.history_index];
+		self.history_index.debug("forward_in_history: index");
+		if(self.instant_history_mode) {
+			self.set_sheet(self.buffer_sheet_index, ns);
+		} {
+			self.set_next_notescore(ns);
+		};
 		//self.history[self.history_index].debug("forward_in_history: notescore");
 	},
 
 	set_next_notescore_history: { arg self, val, dur=nil;
+		// FIXME: only used in recordline param, why ?
 		self.add_to_history(val, dur);
 		if(dur.isNil) {
 			"set_next_notescore: dur is nil, wtf ?".debug;
@@ -908,15 +924,18 @@
 	},
 
 	set_next_notes_as_current_notes: { arg self;
+		// FIXME: not used anymore, deprecated ?
 		self.set_notes(self.next_notes);
 		self.next_notes = nil;
 		self.wait_note = nil;
 	},
 
 	forward_to_next_notescore: { arg self;
-		self.set_notescore(self.next_notescore);
-		self.next_notescore = nil;
-		self.wait_note = nil;
+		if(self.next_notescore.notNil) {
+			self.set_notescore(self.next_notescore);
+			self.next_notescore = nil;
+			self.wait_note = nil;
+		}
 	},
 
 	set_wait_note: { arg self, note;
@@ -929,6 +948,7 @@
 
 	get_note: { arg self, param, idx;
 		// notescore version
+		// FIXME: not used anymore, use whole notescore
 		var no;
 		if( self.notes.size > 0 && {param.muted.not}) {
 			if(idx == 0) {
@@ -1306,6 +1326,11 @@
 		self.sheets[idx] = ns.deepCopy;
 		[idx, self.sheets[idx].dump].debug("scoreset: set_sheet, after");
 		self.set_notescore(self.sheets[idx]);
+		self.changed(\scoresheet, idx);
+	},
+
+	set_sheet_only: { arg self, idx, ns;
+		self.sheets[idx] = ns.deepCopy;
 		self.changed(\scoresheet, idx);
 	},
 

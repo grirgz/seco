@@ -1589,7 +1589,7 @@
 		var env = ~class_param_custom_env_controller.new(\env);
 
 		self.display = ~class_track_display.new;
-		self.custom_env_controller = ~class_custom_env_track_controller.new(env, self.display);
+		self.custom_env_controller = ~class_custom_env_track_controller.new(self.get_player, env, self.display);
 
 		self.help_build_data(
 			[
