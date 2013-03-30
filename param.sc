@@ -4934,6 +4934,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 ~class_param_custom_env_controller = (
 	parent: ~class_param_controller,
 
+	classtype: \custom_env,
 
 	new: { arg self, name;
 		var numlevels = 16;
@@ -4947,6 +4948,24 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 		self;
 	},
+
+	save_data: { arg self;
+		var data = IdentityDictionary.new;
+		self.archive_data.do { arg key;
+			data[key] = self[key]
+		};
+		data[\notescore] = self.notescore.save_data;
+		data;
+	},
+
+	load_data: { arg self, data;
+		self.archive_data.do { arg key;
+			self[key] = data[key];
+		};
+		self.notescore.load_data( data[\notescore] );
+		self.update_notes;
+	},
+
 
 	get_notescore: { arg self;
 		self.notescore

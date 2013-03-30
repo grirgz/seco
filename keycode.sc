@@ -890,10 +890,10 @@
 		blist.do { arg binding;
 			var kc = ~get_keycode.(binding);
 			if(kc.isArray) {
-				[[panel] ++ ~string_to_symbol_list.(binding[0]), [ binding[1], ~get_modifer.(binding) ], ~get_keycode.(binding)].postcs;
+				//[[panel] ++ ~string_to_symbol_list.(binding[0]), [ binding[1], ~get_modifer.(binding) ], ~get_keycode.(binding)].postcs;
 				commands.array_set_shortcut([panel] ++ ~string_to_symbol_list.(binding[0]), [ binding[1], ~get_modifer.(binding) ], ~get_keycode.(binding))
 			} {
-				[[panel] ++ ~string_to_symbol_list.(binding[0]), [ binding[1], ~get_modifer.(binding), ~get_keycode.(binding) ]].postcs;
+				//[[panel] ++ ~string_to_symbol_list.(binding[0]), [ binding[1], ~get_modifer.(binding), ~get_keycode.(binding) ]].postcs;
 				commands.set_shortcut([panel] ++ ~string_to_symbol_list.(binding[0]), [ binding[1], ~get_modifer.(binding), ~get_keycode.(binding) ])
 			}
 		}
@@ -936,7 +936,7 @@ if(GUI.current == QtGUI) {
 
 	process_line = { arg action;
 		path = [panel] ++ ~string_to_symbol_list.(action[0]);
-		action.postcs;
+		//action.postcs;
 		if(action.last == \disabled) {
 			if(action[1].isInteger) {
 				commands.array_set_action(path, action[1], action[2]);

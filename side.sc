@@ -2141,6 +2141,17 @@
 					}
 				}],
 
+				[\toggle_freeze_recording, {
+					if(main.play_manager.freezer_mode) {
+						main.play_manager.freezer_mode = false;
+						debug("Disable freezer mode");
+					} {
+						debug("Enable freezer mode and start recording");
+						main.play_manager.freezer_mode = true;
+						main.play_manager.do_freeze_recording;
+					}
+				}],
+
 				[\toggle_param_recording, { 
 					if(main.play_manager.is_recording.not) {
 						main.node_manager.start_cc_recorder(self.get_current_player);

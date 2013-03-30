@@ -24,7 +24,7 @@
 	muted: false,
 	temp_muted: false,
 	available_modes: [\stepline, \noteline, \scoreline, \sampleline],
-	archive_param_data: [\control, \stepline, \adsr, \noteline, \scoreline, \nodeline, \sampleline, \buf, \wavetable],
+	archive_param_data: [\control, \stepline, \adsr, \noteline, \scoreline, \nodeline, \sampleline, \buf, \wavetable,\custom_env],
 	archive_data: [\sourcewrapper, \instrname, \defname, \name, \uname, \kind, \subkind, \bank],
 	effects: List.new,
 	is_effect: false,
@@ -916,8 +916,11 @@
 	},
 
 	load_data: { arg self, data, options;
-		self.external_player.load_data(data.external_data, options);
-		~class_synthdef_player[\load_data].(self, data, options);
+		self.external_player.freeze_build_synthdef_do {
+			~class_synthdef_player[\load_data].(self, data, options);
+			self.external_player.load_data(data.external_data, options);
+		};
+		self.external_player.rebuild_synthdef;
 	},
 
 	get_ordered_args: { arg self;
@@ -1177,6 +1180,7 @@
 		self.get_main = { arg self; main };
 		self.get_desc = { arg self; desc };
 
+
 		self.init(data);
 
 		self.modulation.set_mod_kind(\pattern);
@@ -1207,10 +1211,31 @@
 		self.data[\firstsynth] = nil;
 		self.data[\firstval] = nil;
 
+
 		self.build_sourcepat;
 		self.build_real_sourcepat;
 
+		self.make_fake_external_player;
+		debug("fin make_fake_external_player");
+
 		self;
+	},
+
+	make_fake_external_player: { arg self;
+		// fake external player to have custom gui
+		self.track_display = ~class_track_display.new;
+		self.curve_track_controller = ~class_curve_track_controller.new(self, self.track_display, \val);
+		self.external_player = (make_layout: { arg se; self.make_layout }); 
+
+	},
+
+	make_layout: { arg self;
+		 self.layout = VLayout(
+		 	self.curve_track_controller.make_gui
+		 );
+		 self.external_player.layout = self.layout;
+		 self.layout;
+		
 	},
 
 	load_data: { arg self, data, options;

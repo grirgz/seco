@@ -1,3 +1,32 @@
+//////////////////// tool synthdefs
+
+SynthDef(\freeze_recorder, { arg inbus=0, out=0, amp=1, gate=1, buffer, doneAction=2;
+	var ou;
+	var bufnum = buffer;
+	var env;
+	var in = In.ar(inbus, 2);
+	in = in * amp;
+	env =  EnvGen.kr(Env.asr(0.0001,1,0.0001), gate, doneAction:doneAction);
+	RecordBuf.ar(in, bufnum, doneAction: doneAction, loop: 0);
+}).store;
+
+SynthDef(\freeze_player, { arg out=0, amp=1, gate=1, doneAction=2, buffer;
+	var player,env;
+	var bufnum = buffer;
+	var speed = 1;
+	var pos = 0;
+	var loop = 0;
+	//env =  EnvGen.kr(Env.asr(0.0001,1,0.0001), gate, doneAction:doneAction);
+	player = PlayBuf.ar(2, bufnum, BufRateScale.kr(bufnum) * speed, 1, startPos: (pos*BufFrames.kr(bufnum)), doneAction:doneAction, loop: loop);
+	//player = player * env * amp;
+	player = player * amp;
+	Out.ar(out, player);
+
+}).store;
+
+
+
+
 //////////////////// modulators
 
 SynthDef(\lfo1, { arg out=0, freq=1, amp=1;

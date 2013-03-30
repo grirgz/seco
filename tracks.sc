@@ -1298,6 +1298,7 @@
 	
 	new: { arg self, parent, controller, notekey;
 		self = self.deepCopy;
+		self.margin = 0; // FIXME: wtf here ?
 		self.controller = { controller };
 		self.notekey = notekey ?? self.notekey;
 		self.node_shape = "circle";
@@ -1486,10 +1487,10 @@
 		var key = self.notekey;
 		notes.do { arg no, idx;
 			[idx, no].debug("calcul totaldur: note");
-			if(no[key].isSymbolWS.not, {
+			if(no[key].notNil and: {no[key].isSymbolWS.not}) {
 				minnote = min(no[key], minnote);
 				maxnote = max(no[key], maxnote);
-			});
+			};
 			//totaldur = no.dur + totaldur
 		};
 		self.minnote = minnote;
@@ -1536,6 +1537,9 @@
 
 	note_to_point: { arg self, note;
 		// TODO: spec unmapping
+		self.margin.debug("class_curve_track_controller:note_to_point:margin");
+		self.notekey.debug("class_curve_track_controller:note_to_point:notekey");
+		note[self.notekey].debug("class_curve_track_controller:note_to_point:note[notekey]");
 		Point(note.time*self.scaling.x, (1-note[self.notekey]).linlin(0,1,0,1-self.margin));
 	},
 

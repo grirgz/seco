@@ -361,6 +361,7 @@
 	};
 };
 
+
 ~do_record_session = { arg main, preclap_action, postclap_action, start_action, end_action, preend_action={}, kind=\limited;
 	var tc, supertc;
 	var session, supersession;
@@ -423,7 +424,7 @@
 			pman.visual_metronome_enabled = false;
 			pman.changed(\visual_metronome);
 			pman.visual_metronome_enabled = true;
-			main.play_manager.set_record_length(dur); // changed by pman.start_metronome
+			main.play_manager.set_record_length(dur); // dur was changed by pman.start_metronome
 			main.play_manager.start_new_session;
 			tc = main.play_manager.get_clock;
 			session.play(tc, quant:dur);
@@ -436,6 +437,7 @@
 ~make_midi_recorder = { arg player, main;
 	// notes interface: set_wait_note, set_next_notes, set_next_notes_as_current_notes // obsolete
 	var prec, livesynth, pman;
+	var freezep;
 	NoteOnResponder.removeAll;
 	NoteOffResponder.removeAll;
 	pman = main.play_manager;
@@ -454,6 +456,10 @@
 
 		start_overdubing: { arg self;
 
+		},
+
+		freezer_mode: { arg self;
+			pman.freezer_mode
 		},
 
 		player_start_tempo_recording: { arg self, finish_action={}, kind=\limited;
@@ -496,7 +502,7 @@
 							[self.notescore.abs_start, quantized_end, reclen].debug("end action: abs_start, quantized_end, reclen");
 						};
 						pman.get_record_length.debug("player_start_tempo_recording: end action: pman.get_record_length");
-						nline.set_next_notescore(self.notescore, reclen);
+						nline.set_next_notescore(self.notescore, reclen); // nline use scoreset.set_next_notescore_history
 						player.mute(false);
 						nline.changed(\recording, false);
 
@@ -556,6 +562,9 @@
 				},
 				start_action: { arg tclock;
 					self.tclock = tclock;
+					if(self.freezer_mode) {
+						pman.start_freeze_player;
+					};
 					self.start_immediate_recording;
 				},
 				end_action: {
@@ -569,8 +578,10 @@
 					//} {
 					//	"666666666666666666666666".debug("no pretrack");	
 					//};
-
 					self.stop_immediate_recording;
+					if(self.freezer_mode) {
+						pman.stop_freeze_player;
+					};
 					action.value;
 				},
 				preend_action: preend_action

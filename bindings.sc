@@ -310,6 +310,8 @@
 		["midi.toggle_player_recording", \midi, 0, \record],
 		["toggle_param_recording", \midi, \hold, \record],
 
+		["toggle_freeze_recording", \kb, \ctrlalt, "f"],
+
 		//["change_param_kind.seq",			\kb, \altshift, "q"],
 		//["change_param_kind.scalar",			\kb, \altshift, "s"],
 		//["change_param_kind.recordbus",			\kb, \altshift, "d"],

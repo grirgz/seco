@@ -47,6 +47,7 @@
 	synthdef_basename: "s",
 	archive_data: [\synthdef_name_suffix],
 	is_effect: false,
+	freeze_build_synthdef: false,
 
 	new: { arg self, main, player;
 		self = self.deepCopy;
@@ -82,19 +83,21 @@
 	make_gui: { arg self;
 		var win;
 		Task{
-			win = Window.new("Edit %".format(self.get_player.get_label));
-			self.make_layout;
-			win.layout = self.layout;
-			self.window = win;
-			self.make_bindings;
-			//FIXME: set on focus
-			self.set_all_bus_mode(true);
-			self.window.view.onClose = self.window.view.onClose.addFunc({
-				debug("CLOSING");
-				self.set_all_bus_mode(false)
-			});
-			self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\classinstr, self);
-			win.front;
+			self.freeze_build_synthdef_do {
+				win = Window.new("Edit %".format(self.get_player.get_label));
+				self.make_layout;
+				win.layout = self.layout;
+				self.window = win;
+				self.make_bindings;
+				//FIXME: set on focus
+				self.set_all_bus_mode(true);
+				self.window.view.onClose = self.window.view.onClose.addFunc({
+					debug("CLOSING");
+					self.set_all_bus_mode(false)
+				});
+				self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\classinstr, self);
+				win.front;
+			};
 		}.play(AppClock)
 	},
 
@@ -373,24 +376,33 @@
 		}
 	},
 
+	freeze_build_synthdef_do: { arg self, fun;
+		self.freeze_build_synthdef = true;
+		fun.();
+		self.freeze_build_synthdef = false;
+	},
+
 	build_synthdef: { arg self, rate=\ar;
 		var synthdef_name;
 		//self.synthdef_name = self.synthdef_basename ++ self.synthdef_name_suffix;
-		self.synthdef_name = "%_%".format(self.synthdef_basename, self.get_player.uname);
-		self.synthdef_name.debug("REBUILD SYNTH");
-		rate = self.synth_rate ?? rate;
-		SynthDef(self.synthdef_name, { arg out=0;
-			var sig;
+		if(self.freeze_build_synthdef.not) {
 
-			sig = self.synthfun.();
+			self.synthdef_name = "%_%".format(self.synthdef_basename, self.get_player.uname);
+			self.synthdef_name.debug("REBUILD SYNTH");
+			rate = self.synth_rate ?? rate;
+			SynthDef(self.synthdef_name, { arg out=0;
+				var sig;
 
-			Out.performList(rate, [out, sig]);
+				sig = self.synthfun.();
 
-		}).add;
+				Out.performList(rate, [out, sig]);
 
-		if(self.is_effect) {
-			self.get_player.build_sourcepat_finalize;
-			self.get_player.build_real_sourcepat;
+			}).add;
+
+			if(self.is_effect) {
+				self.get_player.build_sourcepat_finalize;
+				self.get_player.build_real_sourcepat;
+			};
 		};
 	},
 );
@@ -1194,7 +1206,7 @@
 		var player = self.get_player;
 		self.ordered_args = [
 			pan: ~make_control_param.(main, player, \pan, \scalar, 0, \pan.asSpec),
-			spread: ~make_control_param.(main, player, \spread, \scalar, 0, \unipolar.asSpec),
+			spread: ~make_control_param.(main, player, \spread, \scalar, 1, \unipolar.asSpec),
 			amp: ~make_control_param.(main, player, \amp, \scalar, 0.1, \amp.asSpec),
 		];
 		self.data = IdentityDictionary.newFrom(self.ordered_args);
@@ -1420,7 +1432,7 @@
 			[
 				(
 					kind: ~class_param_kind_chooser_controller.new(\kind, self.get_variants),
-					enabled: ~class_param_static_controller.new(\enabled, specs[\onoff], 1),
+					enabled: ~class_param_static_controller.new(\enabled, specs[\onoff], 0),
 				)
 			]
 		)
@@ -1567,7 +1579,7 @@
 ~class_ci_custom_env = (
 	parent: ~class_instr,
 	synth_rate: \kr,
-	new: { arg self, main, player, namer, name="Op A";
+	new: { arg self, main, player, namer, name="custom env";
 		self = self.deepCopy;
 
 		self.get_main = { main };

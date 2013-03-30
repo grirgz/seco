@@ -146,6 +146,12 @@ Mdef.main.load_project("live31.jeudi");
 Mdef.main.save_project("live31.lugubre");
 Mdef.main.load_project("live31.lugubre");
 
+Mdef.main.save_project("live31.zouk");
+Mdef.main.load_project("live31.zouk");
+
+Mdef.main.save_project("live31.mytest5");
+Mdef.main.load_project("live31.mytest5");
+
 Debug.enableDebug = true;
 Debug.enableDebug = false;
 
@@ -175,10 +181,21 @@ Mdef.main.model.latency = 0.1
 )
 Mdef.node(\s1_part1_sect1_var1)
 Mdef.node("ci dadsr_kr_l1073").get_arg(\attack_time).get_val
-Mdef.node_by_index(0).get_arg(\attack_time).scalar
+Mdef.node_by_index(0).get_arg(\noteline).get_scoreset.current_sheet
+Mdef.node_by_index(0).get_arg(\).get_scoreset.current_sheet
+~a = Mdef.node("ci custom_env_l1029").save_data
+~a.args.keys
+~b = Mdef.node_by_index(1).save_data
+~b.args.keys
+
+Mdef.main.model.livenodepool.keys
 
 ~b = Bus.new(\control, 756, 1);
 ~b.get({arg val; val.debug("val")})
+
+~a = Mdef.node("ci custom_env_l1033").external_player.build_synthdef
+~a = Mdef.node("ci custom_env_l1033").external_player.synthdef_name
+~a = Mdef.node("ci custom_env_l1033")[\uname]
 
 (
 	~midinote_to_notename = { arg midinote;

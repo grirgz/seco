@@ -1178,6 +1178,7 @@
 					var defname;
 					var node;
 					if(nodedata.notNil) {
+						// FIXME: can use clone instead, no ?
 						nodename = main.node_manager.make_livenode_from_libmodnode(nodedata.instrname);
 						node = main.get_node(nodename);
 						defname = node.defname;
@@ -2355,34 +2356,41 @@
 	},
 
 	show_body_layout: { arg self;
-		var player = self.player_display.get_current_player;
-		var extplayer = player.external_player;
-		Task{
-			var extlayout;
-			debug("class_effect_body_custom_view: show_body_layout");
-			self.player_display.set_keydown_responder(\effects);
-			debug("class_effect_body_custom_view: show_body_layout1");
+		var player;
+		var extplayer;
+		player = self.player_display.get_current_player;
 
-			if(extplayer.notNil and: { self.show_custom_view }) {
-				debug("class_effect_body_custom_view: show_body_layout2");
-				// FIXME: external player should have custom gui
-				self.stack_layout.index = 1;
-				extlayout = extplayer.make_layout;
-				debug("class_effect_body_custom_view: show_body_layout3");
+		if(player.notNil) {
+			extplayer = player.external_player;
 
-				self.custom_view.children.do(_.remove);
-				debug("class_effect_body_custom_view: show_body_layout4");
+			Task{
+				var extlayout;
+				debug("class_effect_body_custom_view: show_body_layout");
+				self.player_display.set_keydown_responder(\effects);
+				debug("class_effect_body_custom_view: show_body_layout1");
 
-				self.custom_view.layout = extlayout;
-				debug("class_effect_body_custom_view: show_body_layout5");
-			} {
-				debug("class_effect_body_custom_view: show_body_layout6");
-				self.update_param_group(player);
-				debug("class_effect_body_custom_view: show_body_layout7");
-				self.stack_layout.index = 0;
-			};
-			debug("class_effect_body_custom_view: END show_body_layout");
-		}.play(AppClock)
+				if(extplayer.notNil and: { self.show_custom_view }) {
+					debug("class_effect_body_custom_view: show_body_layout2");
+					// FIXME: external player should have custom gui
+					self.stack_layout.index = 1;
+					extlayout = extplayer.make_layout;
+					debug("class_effect_body_custom_view: show_body_layout3");
+
+					self.custom_view.children.do(_.remove);
+					debug("class_effect_body_custom_view: show_body_layout4");
+
+					self.custom_view.layout = extlayout;
+					debug("class_effect_body_custom_view: show_body_layout5");
+				} {
+					debug("class_effect_body_custom_view: show_body_layout6");
+					self.update_param_group(player);
+					debug("class_effect_body_custom_view: show_body_layout7");
+					self.stack_layout.index = 0;
+				};
+				debug("class_effect_body_custom_view: END show_body_layout");
+			}.play(AppClock)
+		
+		}
 		
 	},
 

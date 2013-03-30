@@ -616,7 +616,7 @@ if(~silent_audio2_bus.isNil) {
 			block { arg break; 
 				1000.do {
 					newname = makename.();
-					if( self.get_node(newname).isNil ) { break.value };
+					if( self.node_exists(newname).not ) { break.value };
 					newname.debug("Name exist already");
 				};
 				"make_livenodename_from_libnodename: Error, can't find free name".error;
@@ -794,6 +794,7 @@ if(~silent_audio2_bus.isNil) {
 				
 				self.model.project_path = nil;
 				proj.writeArchive(projpath++"/core");
+				"########## PROJECT % SAVED ###########".format(projpath).postln;
 			}
 
 		},
@@ -827,6 +828,7 @@ if(~silent_audio2_bus.isNil) {
 
 
 				self.refresh;
+				"########## PROJECT % LOADED ###########".format(projpath).postln;
 			}, {
 				("Project `"++name++"' can't be loaded").postln
 			});

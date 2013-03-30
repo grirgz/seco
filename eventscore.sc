@@ -654,21 +654,22 @@
 		self.history.do { arg ns, idx;
 			[ns, idx].debug("ns");
 			data[\history].add(ns.save_data);
-			if(ns === self.notescore) {
-				data[\notescore] = idx;
-				nsset = true;
-			};
-			if(ns === self.next_notescore) {
-				data[\next_notescore] = idx;
-				nnsset = true;
-			};
+			//if(ns === self.notescore) {
+			//	data[\notescore] = idx;
+			//	nsset = true;
+			//};
+			//if(ns === self.next_notescore) {
+			//	data[\next_notescore] = idx;
+			//	nnsset = true;
+			//};
 		};
-		if(nsset.not and:{self.notescore.notNil}) {
-			data[\notescore] = self[\notescore].save_data;
-		};
-		if(nnsset.not and: {self.next_notescore.notNil}) {
-			data[\next_notescore] = self[\next_notescore].save_data;
-		};
+		//if(nsset.not and:{self.notescore.notNil}) {
+		//	data[\notescore] = self[\notescore].save_data;
+		//};
+		//if(nnsset.not and: {self.next_notescore.notNil}) {
+		//	data[\next_notescore] = self[\next_notescore].save_data;
+		//};
+		self.set_sheet_only(self.buffer_sheet_index, self.notescore);
 		data[\sheets] = self.sheets.collect { arg sheet;
 			if(sheet.isNil) {
 				nil
@@ -691,21 +692,21 @@
 			var ns = ~make_notescore.value;
 			ns.load_data(nsdata);
 			self[\history].add(ns);
-			if(idx == data[\notescore]) {
-				self[\notescore] = ns;
-				nsset = true;
-			};
-			if(idx == data[\next_notescore]) {
-				self[\next_notescore] = ns;
-				nnsset = true;
-			};
+			//if(idx == data[\notescore]) {
+			//	self[\notescore] = ns;
+			//	nsset = true;
+			//};
+			//if(idx == data[\next_notescore]) {
+			//	self[\next_notescore] = ns;
+			//	nnsset = true;
+			//};
 		};
-		if(nsset.not and:{data[\notescore].notNil}) {
-			self[\notescore].load_data(data[\notescore]);
-		};
-		if(nnsset.not and:{data[\next_notescore].notNil}) {
-			self[\next_notescore].load_data(data[\next_notescore]);
-		};
+		//if(nsset.not and:{data[\notescore].notNil}) {
+		//	self[\notescore].load_data(data[\notescore]);
+		//};
+		//if(nnsset.not and:{data[\next_notescore].notNil}) {
+		//	self[\next_notescore].load_data(data[\next_notescore]);
+		//};
 		self.archive_data.do { arg key;
 			if(data[key].notNil) {
 				self[key] = data[key];
@@ -723,10 +724,14 @@
 				}
 			};
 			self.current_sheet = data[\current_sheet];
-			self.set_notescore(self.sheets[self.current_sheet]);
+			self.current_sheet.debug("scoreset.load_data:current_sheet");
+			self.sheets.debug("scoreset.load_data:current_sheet content");
+			self.select_sheet(self.current_sheet);
 		};
 		self.update_notes;
 	},
+
+	//////////////////////////////////////// processing
 
 	update_notes: { arg self;
 		var notes, qnotes;
@@ -801,239 +806,6 @@
 			res;
 		};
 		//res.debug("quantify_note output");
-	},
-
-	//get_notes: { arg self;
-	//	var no;
-	//	no = self.vnotes.deepCopy;
-	//	//no[0].dur+self.start_offset;
-	//	//no.last.dur+self.end_offset;
-	//	no;
-	//},
-
-	set_notes: { arg self, val;
-		self.notescore.set_notes(val);
-		self.update_notes;
-		//self.notes = val;
-		//self.update_note_dur;
-	},
-
-	set_notescore: { arg self, val;
-		self.notescore = val;
-		self.update_notes;
-	},
-
-	get_notescore: { arg self;
-		self.notescore;
-	},
-
-
-	set_next_notes: { arg self, val, dur=nil;
-		if(self.pat_finish_first.notNil) {
-			// le pattern a deja commencé, assigner les notes tout de suite
-			"**** set_next_notes: assigning next_notes as current notes immediately".debug;
-			self.set_notes(val);
-			self.pat_finish_first = nil;
-		} {
-			"**** set_next_notes: preparing next_notes".debug;
-			self.next_notes = val;
-		};
-		self.notes_dur = dur;
-	},
-
-	set_slice_dur: { arg self, dur;
-		self.slice_dur = dur;
-	},
-
-	add_to_history: { arg self, ns, slicedur=nil;
-		var slices;
-		if(slicedur.isNil) {
-			slices = [ns];
-		} {
-			slices = ns.split_in_slices(slicedur);
-		};
-		self.history = (slices.reverse ++ self.history).keep(self.history_len);
-		self.history_index = 0;
-	},
-
-	get_last_in_history: { arg self;
-		self.history[0];
-	},
-
-	get_current_in_history: { arg self;
-		self.history[self.history_index];
-	},
-
-	backward_in_history: { arg self;
-		var ns;
-		self.history_index = (self.history_index + 1).clip(0, self.history.size-1);
-		ns = self.history[self.history_index];
-		self.history_index.debug("backward_in_history: index");
-		if(self.instant_history_mode) {
-			self.set_sheet(self.buffer_sheet_index, ns);
-		} {
-			self.set_next_notescore(ns);
-		};
-		//self.history[self.history_index].debug("backward_in_history: notescore");
-	},
-	
-	forward_in_history: { arg self;
-		var ns;
-		self.history_index = (self.history_index - 1).clip(1, self.history.size-1);
-		ns = self.history[self.history_index];
-		self.history_index.debug("forward_in_history: index");
-		if(self.instant_history_mode) {
-			self.set_sheet(self.buffer_sheet_index, ns);
-		} {
-			self.set_next_notescore(ns);
-		};
-		//self.history[self.history_index].debug("forward_in_history: notescore");
-	},
-
-	set_next_notescore_history: { arg self, val, dur=nil;
-		// FIXME: only used in recordline param, why ?
-		self.add_to_history(val, dur);
-		if(dur.isNil) {
-			"set_next_notescore: dur is nil, wtf ?".debug;
-		};
-		if(self.pat_finish_first.notNil) {
-			// le pattern a deja commencé, assigner les notes tout de suite
-			"**** set_next_notes: assigning next_notes as current notes immediately".debug;
-			self.set_notescore(self.get_last_in_history);
-			self.pat_finish_first = nil;
-		} {
-			"**** set_next_notes: preparing next_notes".debug;
-			self.next_notescore = self.get_last_in_history;
-		};
-		self.notes_dur = dur;
-		self.slice_dur = dur;
-	},
-
-	set_next_notescore: { arg self, val, dur=nil;
-		if(self.pat_finish_first.notNil) {
-			// le pattern a deja commencé, assigner les notes tout de suite
-			"**** set_next_notes: assigning next_notes as current notes immediately".debug;
-			self.set_notescore(val);
-			self.pat_finish_first = nil;
-		} {
-			"**** set_next_notes: preparing next_notes".debug;
-			self.next_notescore = val;
-		};
-		self.notes_dur = dur;
-		//self.slice_dur = dur;
-	},
-
-	set_next_notes_as_current_notes: { arg self;
-		// FIXME: not used anymore, deprecated ?
-		self.set_notes(self.next_notes);
-		self.next_notes = nil;
-		self.wait_note = nil;
-	},
-
-	forward_to_next_notescore: { arg self;
-		if(self.next_notescore.notNil) {
-			self.set_notescore(self.next_notescore);
-			self.next_notescore = nil;
-			self.wait_note = nil;
-		}
-	},
-
-	set_wait_note: { arg self, note;
-		"**** nline: set_wait_note".debug;
-		self.wait_note = self.quantify_note(note);
-		self.wait_note[\first_note] = true;
-		self.wait_note.debug("wait_note");
-		note.debug("originial note");
-	},
-
-	get_note: { arg self, param, idx;
-		// notescore version
-		// FIXME: not used anymore, use whole notescore
-		var no;
-		if( self.notes.size > 0 && {param.muted.not}) {
-			if(idx == 0) {
-				// s'il y a deja des next_notes lorsque la note 0 arrive (debut du pattern), c'est que le record a fini _avant_ le pattern
-				// s'il n'y en a pas mais qu'il y a quand meme une wait_note c'est que le record va finir _apres_ le pattern
-				// s'il n'y a ni l'un ni l'autre, c'est que c'est un banale debut de pattern, et cela doit continuer normalement
-				if(self.next_notescore.notNil) {
-					"******** recording finish first, using next_notes as current notes".debug;
-					self.forward_to_next_notescore;
-				} {
-					if(self.wait_note.notNil) {
-						"********* recording not yet finished".debug;
-						"***** there is a wait note, using it as first note".debug;
-						no = self.wait_note;
-						self.wait_note = nil;
-						self.pat_finish_first = true;
-					} {
-						no = self.notes[idx].deepCopy;
-					};
-				}
-			} {
-				no = self.notes[idx].deepCopy;
-			};
-			no;
-		} {
-			if(param.muted) {
-				"noteline_param: get_note: muted!".inform;
-			} {
-				if(self.next_notescore.notNil) {
-						"setting next_notes when no notes found".debug;
-						self.forward_to_next_notescore;
-				};
-				"noteline_param: get_note: No notes".inform;
-			};
-			if(idx == 0) {
-				~empty_note;
-			} {
-				nil;
-			};
-		}
-	},
-	get_note2: { arg self, param, idx;
-		// note version
-		var no;
-		if( self.notes.size > 0 && {param.muted.not}) {
-			if(idx == 0) {
-				// s'il y a deja des next_notes lorsque la note 0 arrive (debut du pattern), c'est que le record a fini _avant_ le pattern
-				// s'il n'y en a pas mais qu'il y a quand meme une wait_note c'est que le record va finir _apres_ le pattern
-				// s'il n'y a ni l'un ni l'autre, c'est que c'est un banale debut de pattern, et cela doit continuer normalement
-				if(self.next_notes.notNil) {
-					"******** recording finish first, using next_notes as current notes".debug;
-					self.set_next_notes_as_current_notes;
-				} {
-					if(self.wait_note.notNil) {
-						"********* recording not yet finished".debug;
-						"***** there is a wait note, using it as first note".debug;
-						no = self.wait_note;
-						self.wait_note = nil;
-						self.pat_finish_first = true;
-					} {
-						no = self.notes[idx].deepCopy;
-					};
-				}
-			} {
-				no = self.notes[idx].deepCopy;
-			};
-			no;
-		} {
-			if(param.muted) {
-				"noteline_param: get_note: muted!".inform;
-			} {
-				if(self.next_notes.notNil) {
-						"setting next_notes when no notes found".debug;
-						self.set_notes(self.next_notes);
-						self.next_notes = nil;
-						self.wait_note = nil;
-				};
-				"noteline_param: get_note: No notes".inform;
-			};
-			if(idx == 0) {
-				~empty_note;
-			} {
-				nil;
-			};
-		}
 	},
 
 	total_dur: { arg self, notes;
@@ -1138,13 +910,13 @@
 
 			//#delta, idx = find_next.(self.notes[0].start_offset, self.notes);
 			//#prevdelta, previdx = find_prev.(self.notes[0].end_offset, self.notes);
-//				#delta, idx = find_next.(qnotes[0].start_offset, qnotes);
-//				#prevdelta, previdx = find_prev.(qnotes[0].end_offset, qnotes);
-//				[delta, idx, prevdelta, previdx].debug("delta, idx, prevdelta, previdx");
-//				qnotes[0].dur = qnotes[0].start_silence + delta;
-//				self.vnotes = [qnotes[0]] ++ qnotes[idx..previdx].deepCopy;
-//				self.vnotes[self.vnotes.lastIndex].dur = qnotes[0].end_silence + prevdelta;
-//				self.vnotes.debug("update_note_dur: vnotes");
+				//#delta, idx = find_next.(qnotes[0].start_offset, qnotes);
+				//#prevdelta, previdx = find_prev.(qnotes[0].end_offset, qnotes);
+				//[delta, idx, prevdelta, previdx].debug("delta, idx, prevdelta, previdx");
+				//qnotes[0].dur = qnotes[0].start_silence + delta;
+				//self.vnotes = [qnotes[0]] ++ qnotes[idx..previdx].deepCopy;
+				//self.vnotes[self.vnotes.lastIndex].dur = qnotes[0].end_silence + prevdelta;
+				//self.vnotes.debug("update_note_dur: vnotes");
 			self.changed(\notes);
 		} {
 			if(self.notes.size == 2) {
@@ -1163,6 +935,191 @@
 			}
 		};
 	},
+
+	strip_note: { arg self, no;
+		var resno = ();
+		[\velocity, \dur, \sustain, \midinote, \slotnum].do { arg key;
+			if(no[key].notNil) {
+				resno[key] = no[key]
+			}
+		};
+		resno;
+	},
+
+	get_notes_pattern: { arg self, notes, strip=true;
+		notes = notes ?? self.get_notes;
+		if(strip) {
+			notes = notes.collect { arg no;
+				var res;
+				res = self.strip_note(no);
+				if(res[\sustain] < 0) { 
+					res[\sustain].debug("get_notes_pattern: negative sustain, fixing it");
+					res[\sustain] = res[\sustain].abs;
+				};
+				res;
+			};
+		};
+		Pseq(notes);
+	},
+
+
+	//////////////////////////////////////// notes
+
+	set_notes: { arg self, val;
+		self.notescore.set_notes(val);
+		self.update_notes;
+		//self.notes = val;
+		//self.update_note_dur;
+	},
+
+	set_next_notes: { arg self, val, dur=nil;
+		if(self.pat_finish_first.notNil) {
+			// le pattern a deja commencé, assigner les notes tout de suite
+			"**** set_next_notes: assigning next_notes as current notes immediately".debug;
+			self.set_notes(val);
+			self.pat_finish_first = nil;
+		} {
+			"**** set_next_notes: preparing next_notes".debug;
+			self.next_notes = val;
+		};
+		self.notes_dur = dur;
+	},
+
+	set_next_notes_as_current_notes: { arg self;
+		// FIXME: not used anymore, deprecated ?
+		self.set_notes(self.next_notes);
+		self.next_notes = nil;
+		self.wait_note = nil;
+	},
+
+	set_wait_note: { arg self, note;
+		"**** nline: set_wait_note".debug;
+		self.wait_note = self.quantify_note(note);
+		self.wait_note[\first_note] = true;
+		self.wait_note.debug("wait_note");
+		note.debug("originial note");
+	},
+
+	get_note: { arg self, param, idx;
+		// notescore version
+		// FIXME: not used anymore, use whole notescore
+		var no;
+		if( self.notes.size > 0 && {param.muted.not}) {
+			if(idx == 0) {
+				// s'il y a deja des next_notes lorsque la note 0 arrive (debut du pattern), c'est que le record a fini _avant_ le pattern
+				// s'il n'y en a pas mais qu'il y a quand meme une wait_note c'est que le record va finir _apres_ le pattern
+				// s'il n'y a ni l'un ni l'autre, c'est que c'est un banale debut de pattern, et cela doit continuer normalement
+				if(self.next_notescore.notNil) {
+					"******** recording finish first, using next_notes as current notes".debug;
+					self.forward_to_next_notescore;
+				} {
+					if(self.wait_note.notNil) {
+						"********* recording not yet finished".debug;
+						"***** there is a wait note, using it as first note".debug;
+						no = self.wait_note;
+						self.wait_note = nil;
+						self.pat_finish_first = true;
+					} {
+						no = self.notes[idx].deepCopy;
+					};
+				}
+			} {
+				no = self.notes[idx].deepCopy;
+			};
+			no;
+		} {
+			if(param.muted) {
+				"noteline_param: get_note: muted!".inform;
+			} {
+				if(self.next_notescore.notNil) {
+						"setting next_notes when no notes found".debug;
+						self.forward_to_next_notescore;
+				};
+				"noteline_param: get_note: No notes".inform;
+			};
+			if(idx == 0) {
+				~empty_note;
+			} {
+				nil;
+			};
+		}
+	},
+
+	get_note2: { arg self, param, idx;
+		// note version
+		var no;
+		if( self.notes.size > 0 && {param.muted.not}) {
+			if(idx == 0) {
+				// s'il y a deja des next_notes lorsque la note 0 arrive (debut du pattern), c'est que le record a fini _avant_ le pattern
+				// s'il n'y en a pas mais qu'il y a quand meme une wait_note c'est que le record va finir _apres_ le pattern
+				// s'il n'y a ni l'un ni l'autre, c'est que c'est un banale debut de pattern, et cela doit continuer normalement
+				if(self.next_notes.notNil) {
+					"******** recording finish first, using next_notes as current notes".debug;
+					self.set_next_notes_as_current_notes;
+				} {
+					if(self.wait_note.notNil) {
+						"********* recording not yet finished".debug;
+						"***** there is a wait note, using it as first note".debug;
+						no = self.wait_note;
+						self.wait_note = nil;
+						self.pat_finish_first = true;
+					} {
+						no = self.notes[idx].deepCopy;
+					};
+				}
+			} {
+				no = self.notes[idx].deepCopy;
+			};
+			no;
+		} {
+			if(param.muted) {
+				"noteline_param: get_note: muted!".inform;
+			} {
+				if(self.next_notes.notNil) {
+						"setting next_notes when no notes found".debug;
+						self.set_notes(self.next_notes);
+						self.next_notes = nil;
+						self.wait_note = nil;
+				};
+				"noteline_param: get_note: No notes".inform;
+			};
+			if(idx == 0) {
+				~empty_note;
+			} {
+				nil;
+			};
+		}
+	},
+
+	set_first_note_dur: { arg self, val;
+		var res = 0, lastdur = 0, vidx = 0;
+		if( self.notes.size > 0) {
+			self.notes[0].dur = val;
+			if( val < 0 ) {
+				self.notes.do { arg x;
+					if( res < val.neg ) {
+						res = x.dur + res;
+						vidx = vidx + 1;
+						lastdur = x.dur;
+					}
+				};
+				self.notes[0].virtual_start_idx = vidx -1;
+				self.notes[0].virtual_start_dur = res - val.neg;
+			}
+		}
+	},
+
+	get_first_note_dur: { arg self;
+		self.notes.size.debug("get_first_note_dur self.notes.size");
+		if( self.notes.size > 0) {
+			self.notes[0].dur;
+		} {
+			nil
+		}
+	},
+
+
+	//////////////////////////////////////// offset
 
 	set_start_offset: { arg self, val;
 		var dur;
@@ -1251,59 +1208,39 @@
 
 	},
 
-	set_first_note_dur: { arg self, val;
-		var res = 0, lastdur = 0, vidx = 0;
-		if( self.notes.size > 0) {
-			self.notes[0].dur = val;
-			if( val < 0 ) {
-				self.notes.do { arg x;
-					if( res < val.neg ) {
-						res = x.dur + res;
-						vidx = vidx + 1;
-						lastdur = x.dur;
-					}
-				};
-				self.notes[0].virtual_start_idx = vidx -1;
-				self.notes[0].virtual_start_dur = res - val.neg;
-			}
-		}
+	//////////////////////////////////////// notescores
+
+	set_notescore: { arg self, val;
+		self.notescore = val;
+		self.update_notes;
 	},
 
-	get_first_note_dur: { arg self;
-		self.notes.size.debug("get_first_note_dur self.notes.size");
-		if( self.notes.size > 0) {
-			self.notes[0].dur;
+	get_notescore: { arg self;
+		self.notescore;
+	},
+
+	set_next_notescore: { arg self, val, dur=nil;
+		if(self.pat_finish_first.notNil) {
+			// le pattern a deja commencé, assigner les notes tout de suite
+			"**** set_next_notes: assigning next_notes as current notes immediately".debug;
+			self.set_notescore(val);
+			self.pat_finish_first = nil;
 		} {
-			nil
+			"**** set_next_notes: preparing next_notes".debug;
+			self.next_notescore = val;
+		};
+		self.notes_dur = dur;
+		//self.slice_dur = dur;
+	},
+
+
+	forward_to_next_notescore: { arg self;
+		if(self.next_notescore.notNil) {
+			self.set_notescore(self.next_notescore);
+			self.next_notescore = nil;
+			self.wait_note = nil;
 		}
 	},
-
-	strip_note: { arg self, no;
-		var resno = ();
-		[\velocity, \dur, \sustain, \midinote, \slotnum].do { arg key;
-			if(no[key].notNil) {
-				resno[key] = no[key]
-			}
-		};
-		resno;
-	},
-
-	get_notes_pattern: { arg self, notes, strip=true;
-		notes = notes ?? self.get_notes;
-		if(strip) {
-			notes = notes.collect { arg no;
-				var res;
-				res = self.strip_note(no);
-				if(res[\sustain] < 0) { 
-					res[\sustain].debug("get_notes_pattern: negative sustain, fixing it");
-					res[\sustain] = res[\sustain].abs;
-				};
-				res;
-			};
-		};
-		Pseq(notes);
-	},
-
 
 	set_notequant: { arg self, val;
 		self.notescore.notequant = val;
@@ -1314,17 +1251,88 @@
 		self.notescore.notequant;
 	},
 
+	//////////////////////////////////////// history
 
-	///////////// sheets management
+	set_slice_dur: { arg self, dur;
+		self.slice_dur = dur;
+	},
+
+	add_to_history: { arg self, ns, slicedur=nil;
+		var slices;
+		if(slicedur.isNil) {
+			slices = [ns];
+		} {
+			slices = ns.split_in_slices(slicedur);
+		};
+		slices = slices.reverse;
+		slices = slices[1..]; // discard last recorded slice (because not complete)
+		self.history = (slices ++ self.history).keep(self.history_len);
+		self.history_index = 0;
+	},
+
+	get_last_in_history: { arg self;
+		self.history[0];
+	},
+
+	get_current_in_history: { arg self;
+		self.history[self.history_index];
+	},
+
+	backward_in_history: { arg self;
+		var ns;
+		self.history_index = (self.history_index + 1).clip(0, self.history.size-1);
+		ns = self.history[self.history_index];
+		self.history_index.debug("backward_in_history: index");
+		if(self.instant_history_mode) {
+			self.set_sheet(self.buffer_sheet_index, ns);
+		} {
+			self.set_next_notescore(ns);
+		};
+		//self.history[self.history_index].debug("backward_in_history: notescore");
+	},
+	
+	forward_in_history: { arg self;
+		var ns;
+		self.history_index = (self.history_index - 1).clip(0, self.history.size-1);
+		ns = self.history[self.history_index];
+		self.history_index.debug("forward_in_history: index");
+		if(self.instant_history_mode) {
+			self.set_sheet(self.buffer_sheet_index, ns);
+		} {
+			self.set_next_notescore(ns);
+		};
+		//self.history[self.history_index].debug("forward_in_history: notescore");
+	},
+
+	set_next_notescore_history: { arg self, val, dur=nil;
+		// FIXME: only used in recordline param, why ?
+		self.add_to_history(val, dur);
+		if(dur.isNil) {
+			"set_next_notescore: dur is nil, wtf ?".debug;
+		};
+		if(self.pat_finish_first.notNil) {
+			// le pattern a deja commencé, assigner les notes tout de suite
+			"**** set_next_notes: assigning next_notes as current notes immediately".debug;
+			self.set_notescore(self.get_last_in_history);
+			self.pat_finish_first = nil;
+		} {
+			"**** set_next_notes: preparing next_notes".debug;
+			self.next_notescore = self.get_last_in_history;
+		};
+		self.notes_dur = dur;
+		self.slice_dur = dur;
+	},
+
+	//////////////////////////////////////// sheets management
 
 	set_current_sheet: { arg self, ns;
 		self.set_sheet(self.current_sheet, ns);
 	},
 
 	set_sheet: { arg self, idx, ns;
-		[idx, self.sheets[idx].dump].debug("scoreset: set_sheet, before");
+		//[idx, self.sheets[idx].dump].debug("scoreset: set_sheet, before");
 		self.sheets[idx] = ns.deepCopy;
-		[idx, self.sheets[idx].dump].debug("scoreset: set_sheet, after");
+		//[idx, self.sheets[idx].dump].debug("scoreset: set_sheet, after");
 		self.set_notescore(self.sheets[idx]);
 		self.changed(\scoresheet, idx);
 	},
@@ -1338,10 +1346,11 @@
 		var ns;
 		ns = self.sheets[self.current_sheet];
 		if(ns.isNil) {
-			~make_empty_notescore.();
-		} {
-			ns
+			ns = ~make_empty_notescore.();
+			self.set_sheet_only(self.current_sheet, ns);
+			ns = self.sheets[self.current_sheet];
 		};
+		ns;
 	},
 
 	get_current_sheet_index: { arg self;
@@ -1349,7 +1358,7 @@
 	},
 
 	get_sheet: { arg self, idx;
-		[idx, self.sheets[idx].dump].debug("scoreset: get_sheet");
+		//[idx, self.sheets[idx].dump].debug("scoreset: get_sheet");
 		self.sheets[idx];
 	},
 
@@ -1362,7 +1371,7 @@
 	},
 
 	select_sheet: { arg self, index;
-		[index, self.sheets[index].dump].debug("scoreset: select_sheet");
+		//[index, self.sheets[index].dump].debug("scoreset: select_sheet");
 		self.current_sheet = index;
 		self.set_notescore(self.get_current_sheet);
 		self.changed(\selected_scoresheet);

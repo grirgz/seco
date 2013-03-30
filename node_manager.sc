@@ -793,6 +793,12 @@
 		get_clock: { arg self; self.myclock },
 		archive_data: [\play_length, \record_length, \use_metronome],
 
+		freezer_mode: false,
+
+		init: { arg self;
+
+		},
+
 		reset_state: { arg self;
 			self.top_nodes = Dictionary.new;
 			self.children_nodes = Set.new;
@@ -894,6 +900,8 @@
 		},
 
 		start_new_session: { arg self;
+			// start a new tempoclock, or keep the current one if already playing
+
 			if(self.is_playing || self.keep_recording_session) {
 				"start_new_session: already playing".debug;
 				self.keep_recording_session = false;
@@ -970,6 +978,61 @@
 		is_playing: { arg self;
 			self.top_nodes.size > 0
 		},
+
+
+		////////////////////////////// freeze mode
+
+		do_freeze_recording: { arg self;
+			var freeze_recorder_pbind;
+			var freeze_recorder;
+			var dur = self.get_record_length;
+			var tc, session;
+			
+			if(self.is_playing) {
+				self.freeze_buffer.free;
+				self.freeze_buffer = Buffer.alloc(s, s.sampleRate * self.get_record_length_in_seconds, 2);
+				//self.start_new_session;
+				tc = self.get_clock;
+
+				self.changed(\head_state, \prepare);
+
+				session = Task {
+					self.changed(\head_state, \record);
+					freeze_recorder_pbind = Pbind(
+						\instrument, \freeze_recorder,
+						\dur, Pn(dur,1),
+						\legato, 1,
+						\buffer, self.freeze_buffer,
+						\group, 1,
+						\amp, 1,
+						\addAction, \addToTail,
+					);
+					freeze_recorder = freeze_recorder_pbind.play;
+					dur.wait;
+					self.changed(\head_state, \play);
+				};
+				session.play(tc, quant:dur);
+			} {
+				debug("do_freeze_recording: nothing playing");
+			}
+			
+		},
+
+		start_freeze_player: { arg self;
+			self.freeze_player = Pbind(
+				\instrument, \freeze_player,
+				\buffer, self.freeze_buffer,
+				\dur, self.get_record_length,
+				\amp, 1,
+				\legato, 1,
+			).play;
+		},
+
+		stop_freeze_player: { arg self;
+			self.freeze_player.stop;
+		},
+
+		//////////////////////////////
 
 		node_is_playing: { arg self, node;
 			self.top_nodes.keys.includes(node.uname) || self.children_nodes.includes(node.uname)
@@ -1149,6 +1212,7 @@
 			self.children_nodes.remove(nodename);
 		}
 	);
+	obj.init;
 	obj;
 
 
