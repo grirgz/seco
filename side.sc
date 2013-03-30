@@ -114,7 +114,9 @@
 		},
 
 		label: { arg self;
-			txt_midi_label.string = self.midi.label;
+			{
+				txt_midi_label.string = self.midi.label;
+			}.defer;
 		},
 		midi_val: { arg self, msg, val;
 			{

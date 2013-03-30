@@ -1160,7 +1160,7 @@
 			args.debug("SYY args");
 			i.doneAction.debug("SYY donac");
 
-			i.doneAction.poll;
+			//i.doneAction.poll;
 
 			sig = EnvGen.ar(Env.dadsr(
 				i.delay,
@@ -3070,7 +3070,7 @@ Instr(\p_hardclipper, { arg in, mix, drive;
 	//drive = 0.001;
 	//sig = in.clip(0-drive,drive);
 	sig = Clip.ar(in, 0-drive, drive);
-	sig.poll;
+	//sig.poll;
 	SelectX.ar(mix, [in, sig]);
 }, [\audio]);
 

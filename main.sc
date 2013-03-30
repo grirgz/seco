@@ -575,7 +575,8 @@ if(~silent_audio2_bus.isNil) {
 		destructor: { arg self;
 			self.model.livenodepool.keysValuesDo { arg name, player;
 				player.destructor;
-			}
+			};
+			self.play_manager.freeze_buffer.free;
 		},
 
 		get_node: { arg self, name;
@@ -669,6 +670,7 @@ if(~silent_audio2_bus.isNil) {
 
 		make_node_from_data: { arg self, data;
 			var node;
+			var options = (build_synthdef:false);
 			switch(data.kind,
 				\player, {
 					switch(data.subkind,
@@ -679,7 +681,7 @@ if(~silent_audio2_bus.isNil) {
 						{
 							if(data.uname != \voidplayer) {
 								node = ~make_player.(self, data.instrname);
-								node.load_data(data);
+								node.load_data(data, options);
 							} {
 								node = nil;
 							}
@@ -754,6 +756,19 @@ if(~silent_audio2_bus.isNil) {
 			pool;
 		},
 
+		rebuild_all_synthdef_and_sourcepat: { arg self;
+			self.model.livenodepool.keysValuesDo { arg name, node;
+				if(node.external_player.notNil) {
+					node.external_player.build_synthdef;
+					if(node.is_effect.not) { // build_synthdef already call build_real_sourcepat if is effect
+						node.build_real_sourcepat;
+					}
+				} {
+					node.build_real_sourcepat;
+				};
+			};
+		},
+
 		get_audio_save_path: { arg self;
 			if(self.model.project_path.isNil) {
 				"/tmp/"
@@ -817,6 +832,7 @@ if(~silent_audio2_bus.isNil) {
 				self.model.project_path = projpath;
 
 				self.model.livenodepool = self.unarchive_livenodepool(projpath);
+				self.rebuild_all_synthdef_and_sourcepat;
 				self.add_node(~empty_player);
 				self.model.livenodepool.keys.debug("unarchived livenodepool keys");
 				//TODO: load context

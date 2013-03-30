@@ -920,7 +920,15 @@
 			~class_synthdef_player[\load_data].(self, data, options);
 			self.external_player.load_data(data.external_data, options);
 		};
-		self.external_player.rebuild_synthdef;
+		if(options.notNil) {
+			if(options[\build_synthdef] == false) {
+				// do not build
+			} {
+				self.external_player.build_synthdef;
+			};
+		} {
+			self.external_player.build_synthdef;
+		};
 	},
 
 	get_ordered_args: { arg self;

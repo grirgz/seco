@@ -152,6 +152,9 @@ Mdef.main.load_project("live31.zouk");
 Mdef.main.save_project("live31.mytest5");
 Mdef.main.load_project("live31.mytest5");
 
+Mdef.main.save_project("live31.zouk2");
+Mdef.main.load_project("live31.zouk2");
+
 Debug.enableDebug = true;
 Debug.enableDebug = false;
 
@@ -523,3 +526,29 @@ Dictionary[ (0 -> lfo1_l1014) ]
  }).play;
 
 )
+
+
+
+~a = EventPatternProxy.new;
+
+(
+
+~a.source = Pbind(
+	\instrument, \osc1,
+	\freq, Pseq([200,150],inf),
+);
+
+
+)
+	~a.play
+	~a.stop
+	~a.resume
+
+	~c = TempoClock.new
+	~a.clock = ~c
+	~c.tempo = 4
+	TempoClock.default.tempo=4
+	TempoClock.default.tempo
+	TempoClock.default=~c
+	TempoClock.beats
+	TempoClock.beats = 1
