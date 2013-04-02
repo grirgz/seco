@@ -7,7 +7,7 @@
 		param_kinds: [\scalar, \seq, \seg, \modulation, \synchrone, \bus, \recordbus, \pkey],
 		param_no_midi: { arg self; self.param_field_group ++ [\mbufnum, \bufnum, \samplekit] ++ self.param_mode; },
 		param_reject: { arg self; [\out, \instrument, \tsustain, \type, \gate, \agate, \t_trig, \doneAction] ++ self.param_mode; },
-		param_kind_accept: [\control]
+		param_kind_accept: [\control],
 		param_midi_reject: { arg self; Set.newFrom(self.param_reject ++ self.param_no_midi++ self.param_mode); },
 
 		// deprecated
