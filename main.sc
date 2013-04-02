@@ -165,10 +165,15 @@
 
 ~find_path_difference = { arg path1, path2;
 	var res = List.new;
-	path1.do { arg i, x;
-		if(i == path2[x]) {
+	var size = max(path1.size, path2.size);
+	size.do { arg x;
+		if(path1[x] == path2[x]) {
 		} {
-			res.add(i)
+			if(path1[x].notNil) {
+				res.add(path1[x])
+			} {
+				res.add(path2[x])
+			}
 		}
 	};
 	res;
@@ -337,6 +342,7 @@ if(~silent_audio2_bus.isNil) {
 	"bindings", 
 	"wavetable",
 	"eventscore",
+	"player_display",
 	"midi",
 	"param",
 	"samplelib",
@@ -1086,6 +1092,8 @@ if(~silent_audio2_bus.isNil) {
 			"jensuisla".debug;
 			~parse_bindings.(main.commands,~bindings);
 			self.node_manager = ~make_node_manager.(self);
+			self.central_player_display = ~class_central_player_display.new(self);
+			self.midi_bindings_manager = ~class_midi_bindings_manager.new(self);
 			self.samplekit_manager = ~samplekit_manager;
 			self.wavetable_manager = ~class_wavetable_manager.new;
 			self.midi_center = ~midi_center.(self);

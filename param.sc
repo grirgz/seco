@@ -378,13 +378,6 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		}
 	};
 
-//~t = TaskProxy.new;
-//~t.source = { 2.do { "bla".debug; 2.wait; } };
-//~t.play
-//~t.player.isPlaying
-//TempoClock.default.hash
-
-
 	clock.postln;
 	task = TaskProxy.new;
 	task.source = { 
@@ -1063,44 +1056,44 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		},
 		notes: { arg self;
 
-			var totaldur = 0, minnote=127, maxnote=0;
-			var numsep;
-			var soff = param.get_start_silence;
-			var eoff = param.get_end_silence;
-			var sum = 0;
-			var notes = self.get_notes;
-			//var playeddur = self.total_dur( notes[1..(notes.lastIndex-1)] ) + (notes[0].dur - param.get_start_silence);
-			var playeddur = self.total_dur( notes );
-			playeddur.debug("playeddur");
-			
+			//var totaldur = 0, minnote=127, maxnote=0;
+			//var numsep;
+			//var soff = param.get_start_silence;
+			//var eoff = param.get_end_silence;
+			//var sum = 0;
+			//var notes = self.get_notes;
+			////var playeddur = self.total_dur( notes[1..(notes.lastIndex-1)] ) + (notes[0].dur - param.get_start_silence);
+			//var playeddur = self.total_dur( notes );
+			//playeddur.debug("playeddur");
+			//
 
-			paraspace.clearSpace;
-			self.get_notes.do { arg no, idx;
-				[idx, no].debug("calcul totaldur: note");
-				if(no.midinote.isSymbolWS.not, {
-					minnote = min(no.midinote, minnote);
-					maxnote = max(no.midinote, maxnote);
-				});
-				totaldur = no.dur + totaldur
-			};
+			//paraspace.clearSpace;
+			//self.get_notes.do { arg no, idx;
+			//	[idx, no].debug("calcul totaldur: note");
+			//	if(no.midinote.isSymbolWS.not, {
+			//		minnote = min(no.midinote, minnote);
+			//		maxnote = max(no.midinote, maxnote);
+			//	});
+			//	totaldur = no.dur + totaldur
+			//};
 
-			[totaldur, minnote, maxnote].debug("stat");
+			//[totaldur, minnote, maxnote].debug("stat");
 
-			numsep = display.noteline_numbeats ?? max(roundUp(totaldur+1),5); // one sep per beat + offset + marge
-			
-			paraspace.setBackgrDrawFunc_(ps_bg_drawf.(width, height, playeddur, numsep));
+			//numsep = display.noteline_numbeats ?? max(roundUp(totaldur+1),5); // one sep per beat + offset + marge
+			//
+			//paraspace.setBackgrDrawFunc_(ps_bg_drawf.(width, height, playeddur, numsep));
 
-			self.get_notes.do { arg no, idx;
-				[idx, no].debug("note");
-				if(no.midinote.isSymbolWS.not, {
-					paraspace.createNode(sum/numsep * width, no.midinote.linlin(minnote-1,maxnote+1,height,0));
-				});
-				if(self.notequant.notNil) {
-					sum = sum + no.dur.round(self.notequant);
-				} {
-					sum = sum + no.dur;
-				}
-			};
+			//self.get_notes.do { arg no, idx;
+			//	[idx, no].debug("note");
+			//	if(no.midinote.isSymbolWS.not, {
+			//		paraspace.createNode(sum/numsep * width, no.midinote.linlin(minnote-1,maxnote+1,height,0));
+			//	});
+			//	if(self.notequant.notNil) {
+			//		sum = sum + no.dur.round(self.notequant);
+			//	} {
+			//		sum = sum + no.dur;
+			//	}
+			//};
 		},
 
 		recording: { arg self, msg, recording;
@@ -1661,1393 +1654,223 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	fun.(parent, display, param);
 };
 
-// ==========================================
+// =======================================================================================
+// =======================================================================================
+// =======================================================================================
+// =======================================================================================
 // PARAM FACTORY
+// =======================================================================================
+// =======================================================================================
+// =======================================================================================
+// =======================================================================================
+
+//
+// Param classes:
+//
+//- bound to synth structure (trigger synthdef rebuild when changed)
+//	- menu: represented by a dropdown menu (static)
+//	- numeric: example: control the number of voices
+//	- wavetable range: used by VOsc synthdefs
+//	- onoff: boolean to enable/disable synthdef feature
+//
+//- bound to synth control
+//	- buffer params
+//		- bufnum: depend on samplekit
+//			- bufnum_sample ?
+//		- wavetable: select a wavetable, store it on buffer, give buf index
+//		- waveshape: select a waveshape, store it on buffer, give buf index (not written yet)
+//	- standard control: simple scalar (MIDI)
+//		- special param
+//			- freq
+//			- amp
+//	- arrayed param:
+//		- custom env
+//		- adsr
+//	- tsustain: use dur and tempo to compute sustain for non-gated synths
+//	
+//- bound only to pattern
+//	- recordline: special param to change player mode and store score
+//	- scorekey: use the recordline to retrieve value
+//	- type: handle rests
+//	- control-like (probably implemented like a synth bounded param)
+//		- dur: changed with keyboard shortcut
+//			- segdur
+//			- stretchdur
+//		- sustain (only for gated synthdefs)
+//	- samplekit:
+//	- literal:
+//		just return the value to pattern
+//	- dynamic literal:
+//		return the value in a pfunc
+//	- simple number: use a spec (MIDI)
+//	- modenv: special param to handle modenv curves
+//	- empty param
+//
+//- bound to a variable
+//	- binded number: use a getter and a setter (MIDI)
+//		- quant
+//		- master volume
+//		- barrecord
+//		- tempo
+//
+//- midi assignable
+//- midi not assignable
+//
+//- displayed in sidepanel
+//- not displayed in sidepanel
+
+~class_param_controller = (
+	new: { arg self;
+		self = self.deepCopy;
+	
+		self;
+	},
+
+	save_data: { arg self;
+		var data = IdentityDictionary.new;
+		self.archive_data.do { arg key;
+			data[key] = self[key]
+		};
+		data;
+	},
+
+	load_data: { arg self, data;
+		data.keysValuesDo { arg key, val;
+			self[key] = val;
+		}
+	},
+
+	vpiano: { arg self;
+		{
+			self.get_val;
+		}
+	},
+
+	vpattern: { arg self;
+		Pfunc{
+			self.name.debug("Error: No pattern defined in this param_controller");
+			0;
+		}
+	},
+);
+
+// ==========================================
+// SYNTHDEF CONTROL
 // ==========================================
 
+~class_param_static_controller = (
+	// static
+	parent: ~class_param_controller,
+	archive_data: [\name, \val, \spec],
+	new: { arg self, name, spec, default_value=0;
+		self = self.deepCopy;
+		self.name = name;
+		self.val = default_value;
+		self.spec = spec;
+	
+		self;
+	},
 
-~default_adsr = (
-	attackTime:0.01,
-	decayTime:0.1,
-	sustainLevel:0.3,
-	releaseTime:0.1,
-	curve:0
+	set_val: { arg self, val;
+		if(self.val != val) {
+			self.val = val;	
+			self.changed(\val)
+		}
+	},
+
+	get_val: { arg self;
+		self.val;
+	},
 );
 
-~default_genadsr = (
-	attackTime:0.1,
-	decayTime:0.2,
-	sustainLevel:0.3,
-	releaseTime:0.4,
-	curve:0,
-	levelScale:1,
-	levelBias: 0,
-	timeScale: 1
+~class_param_kind_chooser_controller = (
+	// static
+	parent: ~class_param_controller,
+	archive_data: [\model, \name, \menu_items],
+	classtype: \kind_chooser,
+
+	model: (
+		name: "Filter kind",
+		uname: \filter1_kind,
+		kind: \filter_kind,
+		transmit: \kind,
+		val_uname: \bitcrusher,
+		val: 0
+	),
+
+	new: { arg self, name, variants, label;
+		self = self.deepCopy;
+		self.name = name;
+		self.label = label;
+
+		self.menu_items = variants;
+		self.model.val_uname = self.menu_items[self.model.val].uname;
+		//self.model.knobs.do { arg knobname;
+		//	self.main_controller.get_arg(knobname).set_variant(self.menu_items[self.model.val])
+		//};
+
+		self;
+	},
+
+	save_data: { arg self;
+		self.model;
+	},
+
+	load_data: { arg self, data;
+		self.model.val = self.menu_items.detectIndex { arg item; item.uname == data.val_uname };
+		self.model.val_uname = data.val_uname;
+		self.changed(\val)
+	},
+
+
+	get_menu_items_names: { arg self;
+		self.menu_items.collect { arg item;
+			item.name
+		}
+	},
+
+	refresh: { arg self;
+		self.changed(\val);
+		self.changed(\menu_items);
+	},
+
+	get_val: { arg self;
+		self.model.val;
+	},
+
+	get_val_uname: { arg self;
+		self.model.val_uname;
+	},
+
+	set_val: { arg self, val;
+		self.model.val = val;
+		self.model.val_uname = self.menu_items[val].uname;
+		//self.model.knobs.do { arg knobname;
+		//	//[knobname, val, self.menu_items[val]].debug("°°class_pparam_kind_controller: set_property: value: variant");
+		//	self.main_controller.get_arg(knobname).set_variant(self.menu_items[val])
+		//};
+		//self.main_controller.update_arg(self.model.uname);
+		[self.name, val].debug("class_param_kind_chooser.set_val");
+		self.changed(\val);
+	},	
 );
 
-~adsr_point_order = [ \attackTime, \decayTime, \sustainLevel, \releaseTime, \curve ];
-
-~env_time = ControlSpec(0.000001, 5, 'exp', 0, 0.2, "s");
-~spec_adsr = (
-	attackTime:~env_time,
-	decayTime:~env_time,
-	sustainLevel:~env_time, //FIXME: not time
-	releaseTime:~env_time,
-	curve:ControlSpec(-9, 9, 'linear', 1, 0, "")
+~class_param_wavetable_range_controller = (
+	// static
+	parent: ~class_param_static_controller,
+	spec: \unipolar.asSpec.copy,
+	new: { arg self, name;
+		self = self.deepCopy;
+		self.name = name;
+	
+		self;
+	},
 );
 
 
-~adsr_event_to_env = { arg adsr;
-	Env.performWithEnvir(\adsr, adsr);
-};
-
-~genadsr_event_to_env_array = { arg adsr;
-	Env.performWithEnvir(\adsr, adsr).asArray ++ [adsr.levelScale, adsr.levelBias, adsr.timeScale]
-};
-
-~make_adsr_param = { arg main, player, name, default_value;
-	var param, subparam;
-
-	param = (
-		val: ~default_adsr.deepCopy,
-		name: name,
-		classtype: \adsr,
-		current_kind: \scalar,
-		spec: ~spec_adsr,
-		sub_midi: Dictionary.new, // store midi control handler specific to each point of the adsr
-		sub_param: Dictionary.new,
-		selected: 0,
-		pkey_mode: false,
-
-		save_data: { arg self;
-			var data = ();
-			[\name, \classtype, \selected, \spec, \val].do {
-				arg key;
-				data[key] = self[key];
-			};
-			//data[\vals] = self.get_vals;
-			data;
-		},
-
-		load_data: { arg self, data;
-			[\name, \classtype, \selected, \spec, \val].do {
-				arg key;
-				self[key] = data[key];
-			};
-			//self.set_vals( data[\vals] );
-		},
-
-		set_pkey_mode: { arg self, set=true;
-			self.pkey_mode = set;
-			self.changed(\kind);
-		},
-
-
-		select_param: { arg self;
-			self.selected = 1;
-			"env model select_param".debug;
-			self.changed(\selected);
-		},
-		deselect_param: { arg self;
-			self.selected = 0;
-			"env model deselect_param".debug;
-			self.changed(\selected);
-		},
-
-		get_val: { arg self; self.val },
-
-		get_vals: { arg self;
-			self.get_params.collect { arg param;
-				self.get_param(param).get_val;
-			}
-		},
-
-		set_vals: { arg self, val;
-			self.get_params.do { arg param, idx;
-				self.get_param(param).set_val(val[idx] ?? 0);
-			}
-		},
-
-		set_all_val: { arg self, vals;
-			self.val = vals;
-			self.changed(\val);
-		},
-
-		get_param: { arg self, key;
-			self.sub_param[key];
-		},
-
-		get_params: { arg self;
-			~adsr_point_order;
-		},
-
-		set_val: { arg self, val;
-			// should not be used (use get_param(key).set_val)
-			["main", val].debug("make_adsr_param: set_val");
-		},
-
-		refresh: { arg self;
-			self.name.debug("make_adsr_param: refresh");
-			self.changed(\val);
-			self.changed(\selected);
-			self.sub_midi.keysValuesDo { arg key, val;
-				[key, val].debug("make_adsr_param: refresh");
-				val.refresh
-			};
-		},
-
-		vpiano: { arg self;
-			{
-				~adsr_event_to_env.(self.val).asArray
-			}
-		},
-
-		vpattern: { arg self;
-
-			Pfunc({ arg ev;
-				if(self.pkey_mode) {
-					if( ev[self.name].notNil ) {
-						ev[self.name]
-					} {
-						[ ~adsr_event_to_env.(self.val).asArray ]
-					};
-				} {
-					[ ~adsr_event_to_env.(self.val).asArray ]
-				}
-			});
-			//[ ~adsr_event_to_env.(self.val).asArray ]
-		}
-
-	);
-
-	~adsr_point_order.do { arg key;
-
-		subparam = (
-			name: key,
-			spec: param.spec[key],
-			midi: { arg self; param.sub_midi[key] },
-			classtype: { arg kself; param.classtype },
-			selected: { arg kself;
-				if(player.get_selected_param == name) { 1 } { 0 }
-			},
-			get_norm_val: { arg kself;
-				param.spec[key].unmap( param.val[key] );
-			},
-			set_norm_val: { arg kself, val;
-				[key, val].debug("make_adsr_param: set_val");
-				param.val[key] = param.spec[key].map( val );
-				kself.changed(\val);
-			},
-			get_val: { arg kself;
-				param.val[key];
-			},
-			set_val: { arg kself, val;
-				[key, val].debug("make_adsr_param: set_val");
-				param.val[key] = val;
-				kself.changed(\val);
-			},
-			refresh: { arg kself;
-				//FIXME: what a point need to refresh ? (midi)
-				key.debug("make_adsr_param: adsr point: refresh");
-				kself.midi.refresh;
-			}
-		);
-		param.sub_param[key] = subparam;
-		param.sub_midi[key] = main.midi_center.get_midi_control_handler(subparam);
-	};
-	param;
-
-};
-
-~make_literal_param = { arg name, val;
-	(
-		name: name,
-		classtype: \literal,
-		get_val: val,
-
-		refresh: { arg self;
-			self.changed(\selected);
-		},
-		vpiano: val,
-		vpattern: val
-	);
-};
-
-~make_dur_param = { arg name, default_value;
-
-
-};
-
-~make_empty_param = { arg main;
-	~make_simple_number_param.(main, "voidparam", \amp.asSpec, 0.123);
-};
-
-~make_simple_number_param = { arg main, name, spec, default_value;
-	var res = (
-		name: name,
-		val: default_value,
-		classtype: \binded_number,
-		spec: spec,
-
-		get_norm_val: { arg self;
-			self.spec.unmap(self.val)
-		},
-		set_norm_val: { arg self, val;
-			val.debug("make_tempo_param: set_norm_val");
-			self.val = self.spec.map(val);
-			self.changed(\val);
-		},
-
-		get_val: { arg self;
-			self.val;
-		},
-
-		set_val: { arg self, val;
-			self.val = val;
-			self.changed(\val);
-		},
-
-		refresh: { arg self;
-			self.changed(\val);
-			self.changed(\selected);
-		}
-	);
-	res.midi = main.midi_center.get_midi_control_handler(res);
-	res;
-};
-
-~make_binded_number_param = { arg main, name, spec, get_fun, set_fun;
-	var res = (
-		name: name,
-		//val: { arg self; tempoclock.tempo },
-		classtype: \binded_number,
-		spec: spec,
-
-		get_norm_val: { arg self;
-			self.spec.unmap(get_fun.())
-		},
-		set_norm_val: { arg self, val;
-			val.debug("make_tempo_param: set_norm_val");
-			set_fun.(self.spec.map(val));
-			self.changed(\val);
-		},
-
-		get_val: { arg self;
-			get_fun.();
-		},
-
-		set_val: { arg self, val;
-			set_fun.(val);
-			self.changed(\val);
-		},
-
-		refresh: { arg self;
-			self.changed(\kind);
-			self.changed(\val);
-			//self.changed(\cells);
-			self.changed(\selected);
-			self.midi.refresh;
-		}
-	);
-	res.midi = main.midi_center.get_midi_control_handler(res);
-	res;
-};
-
-~make_quant_param = { arg main, name, quantobject;
-	var set_fun = { arg val; main.play_manager.set_quant(val) };
-	var get_fun = { main.play_manager.get_quant };
-	var res = (
-		parent: ~make_binded_number_param.(main, name, \quant.asSpec, get_fun, set_fun)
-	);
-	res.midi = main.midi_center.get_midi_control_handler(res);
-	res;
-};
-
-~make_barrecord_param = { arg main, name, quantobject;
-	var set_fun = { arg val; main.play_manager.set_record_length(val); val.debug("make_barrecord_param:set_fun"); };
-	var get_fun = { main.play_manager.get_record_length.debug("make_barrecord_param:get_record_length"); };
-	var res = (
-		parent: ~make_binded_number_param.(main, name, \seq_dur.asSpec, get_fun, set_fun)
-	);
-	res.midi = main.midi_center.get_midi_control_handler(res);
-	res;
-};
-
-~make_tempo_param = { arg main, name;
-	var set_fun = { arg val; 
-		main.play_manager.set_bpm_tempo(val);
-	};
-	var get_fun = { main.play_manager.get_bpm_tempo };
-	var res = (
-		parent: ~make_binded_number_param.(main, name, \tempobpm.asSpec, get_fun, set_fun)
-
-	);
-	res.midi = main.midi_center.get_midi_control_handler(res);
-	res;
-};
-
-~make_master_volume_param = { arg main, name;
-	var set_fun = { arg val; 
-		s.volume.volume = val;
-	};
-	var get_fun = { s.volume.volume };
-	var res = (
-		parent: ~make_binded_number_param.(main, name, \db.asSpec, get_fun, set_fun)
-
-	);
-	res.midi = main.midi_center.get_midi_control_handler(res);
-	res;
-};
-
-
-~make_buf_param = { arg name, default_value, player, spec, channels=\stereo;
-
-	var param;
-
-	param = (
-		val: nil,
-		name: name,
-		classtype: \buf,
-		current_kind: \sample,
-		channels: channels,
-		has_custom_buffer: false,
-		spec: nil,
-		selected: 0,
-		buffer: nil,
-		audio_id: nil,
-		pkey_mode: false,
-		buffer_list_position: 0,
-		archive_data: [\name, \classtype, \selected, \spec, \has_custom_buffer, \audio_id, \buffer_list_position, \pkey_mode],
-
-		destructor: { arg self;
-			BufferPool.release_client(player.uid)
-		},
-
-		save_data: { arg self;
-			var data = ();
-			var savepath;
-			if(self.has_custom_buffer) { // FIXME: clashing ID, should save when saving project, should save in project dir
-				self.audio_id = "audio_" ++ player.uname ++ "_" ++ name;
-				savepath = player.get_main.get_audio_save_path;
-				self.buffer.write(savepath +/+ self.audio_id ++ ".wav", "WAV", "float");
-			};
-			self.archive_data.do {
-				arg key;
-				data[key] = self[key];
-			};
-			data[\val] = self.get_val;
-			data.debug("make_buf_param: save_data: data");
-			data;
-		},
-
-		load_data: { arg self, data;
-			var savepath;
-			self.archive_data.do {
-				arg key;
-				self[key] = data[key];
-			};
-			if(self.has_custom_buffer) { // FIXME: clashing ID, 
-				savepath = player.get_main.get_audio_save_path;
-				self.buffer = Buffer.read(s, savepath +/+ self.audio_id ++ ".wav");
-				self.buffer.debug("make_buf_param: load_data: loaded buffer!!");
-				self.val = data[\val];
-			} {
-				self.set_val(data[\val]);
-			}
-		},
-
-		select_param: { arg self;
-			self.selected = 1;
-			self.changed(\selected);
-		},
-		deselect_param: { arg self;
-			self.selected = 0;
-			self.changed(\selected);
-		},
-
-		get_val: { arg self; self.val },
-
-		new_buffer: { arg self, path;
-			[player.uid, path].debug("new_buffer: player.uname, path");
-			if(self.channels == \mono) {
-				self.buffer = BufferPool.get_mono_sample(player.uid, path);
-			} {
-				self.buffer = BufferPool.get_forced_stereo_sample(player.uid, path);
-			}
-		},
-
-		set_custom_buffer: { arg self, buf, name;
-			self.val = name;
-			self.has_custom_buffer = true;
-			self.buffer = buf;
-			self.changed(\val);
-		},
-
-		set_custom_buffer_list: { arg self, bufs, name, position=0;
-			//FIXME: save it
-			self.buffer_list = bufs;
-			self.buffer_list_position = position;
-			self.set_custom_buffer(bufs[position], name++position.asString); //FIXME: hardcoded
-		},
-
-		set_current_buffer_num: { arg self, num;
-			if(self.buffer_list.notNil and: { self.buffer_list[num].notNil }) {
-				self.set_custom_buffer(self.buffer_list[num], "AudioInput"++num); //FIXME: hardcoded
-			} {
-				num.debug("Buffer not found in buffer list");
-			}
-		},
-
-		forward_in_record_history: { arg self;
-			self.buffer_list_position = (self.buffer_list_position + 1).clip(0, self.buffer_list.size-1);
-			self.set_current_buffer_num(self.buffer_list_position);
-		},
-
-		backward_in_record_history: { arg self;
-			self.buffer_list_position = (self.buffer_list_position - 1).clip(0, self.buffer_list.size-1);
-			self.set_current_buffer_num(self.buffer_list_position);
-		},
-
-		set_val: { arg self, val;
-			if(val != self.val, {
-				self.new_buffer(val);
-				self.val = val;
-				self.has_custom_buffer = false;
-				self.changed(\val);
-			});
-			self.val.debug("set_val: val");
-		},
-
-		set_pkey_mode: { arg self, set=true;
-			self.pkey_mode = set;
-			self.changed(\kind);
-		},
-
-		refresh: { arg self;
-			self.changed(\val);
-			self.changed(\selected);
-		},
-
-		vpiano: { arg self;
-			{ self.buffer.bufnum };	
-		},
-
-		vpattern: { arg self;
-			
-			self.buffer.bufnum.debug("BUFNUM");	
-			Prout({ arg ev;
-				var repeat = 1000;
-				var slotnum;
-				repeat.do {
-					self.current_kind.debug("2222222222222222222222 entering bufnum vpattern loop");
-					switch(player.get_mode,
-						\sampleline, {
-							if(ev[\slotnum].notNil) {
-								slotnum = ev[\slotnum];
-							} {
-								if(ev[\sampleline].type == \rest) {
-									slotnum = 0; // FIXME: should be silent sample
-								} {
-									slotnum = ev[\sampleline].slotnum;
-								}
-							};
-							//~samplekit_manager.slot_to_bufnum(slotnum, ev[\samplekit], channels).debug("bufnum::::");
-							ev = ~samplekit_manager.slot_to_bufnum(slotnum, ev[\samplekit], self.channels).yield;
-						},
-						// else
-						{
-							if(self.pkey_mode and: { ev.includesKey(self.name) }) {
-								ev = ev[self.name].yield;
-							} {
-								ev = self.buffer.bufnum.yield;
-							}
-						}
-					);
-				};
-			});	
-			//Pfunc({ "RAHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH".debug; 0});
-		}
-
-	);
-	param.set_val(default_value);
-	param;
-
-};
-
-
-~make_samplekit_param = { arg name, default_value=\default;
-
-	var param;
-
-	param = (
-		val: nil,
-		name: name,
-		classtype: \samplekit,
-		current_kind: \sample,
-		spec: nil,
-		selected: 0,
-		buffer: nil,
-		archive_data: [\name, \classtype, \selected, \spec, \val],
-
-		save_data: { arg self;
-			var data = ();
-			self.archive_data.do {
-				arg key;
-				data[key] = self[key];
-			};
-			data.debug("make_buf_param: save_data: data");
-			data;
-		},
-
-		load_data: { arg self, data;
-			self.archive_data.do {
-				arg key;
-				self[key] = data[key];
-			};
-			//self.set_val(data[\val]);
-		},
-
-		select_param: { arg self;
-			self.selected = 1;
-			self.changed(\selected);
-		},
-		deselect_param: { arg self;
-			self.selected = 0;
-			self.changed(\selected);
-		},
-
-		get_val: { arg self; self.val },
-
-
-		set_val: { arg self, val;
-			self.val = val;
-			self.changed(\val);
-		},
-
-		refresh: { arg self;
-			self.changed(\val);
-			self.changed(\selected);
-		},
-
-		vpiano: { arg self;
-			{ self.val };	
-		},
-
-		vpattern: { arg self;
-			Pfunc({ self.val });	
-		}
-
-	);
-	param.set_val(default_value);
-	param;
-
-};
-
-~make_parent_recordline_param = { arg name, default_value=[];
-	var ret;
-	ret = (
-		name: name,
-		classtype: \recordline,
-		selected_cell: 0,
-		selected: 0,
-		default_val: default_value.asList,
-		notes: ~default_noteline3.deepCopy,
-		start_offset: 0,
-		end_offset: 0,
-		muted: false,
-		archive_data: [\name, \classtype, \selected, \selected_cell, \default_val, \notes, \start_offset, \end_offset, \notequant, \muted],
-		notequant: nil,
-		vnotes: [],
-
-		save_data: { arg self;
-			var data = ();
-			self.archive_data.do {
-				arg key;
-				data[key] = self[key];
-			};
-			[\seq].do { arg kind;
-				data[kind] = ();
-				[\val].do { arg key;
-					data[kind][key] = self[kind][key];
-				}
-			};
-			data[\scoreset] = self.scoreset.save_data;
-			data;
-		},
-
-		load_data: { arg self, data;
-			self.archive_data.do {
-				arg key;
-				self[key] = data[key];
-			};
-			[\seq].do { arg kind;
-				[\val].do { arg key;
-					 self[kind][key] = data[kind][key];
-				}
-			};
-			self.scoreset.load_data(data[\scoreset]);
-			self.refresh;
-		},
-
-		seq: (
-			val: default_value.asList,
-			change: { arg self, fun;
-				self.val = fun.(self.val);
-			}
-		),
-		get_cells: { arg self;
-			self.seq.val;
-		},
-		get_selected_cell: { arg self;
-			self.selected_cell;
-		},
-		select_param: { arg self;
-			self.selected = 1;
-			self.changed(\selected);
-		},
-		deselect_param: { arg self;
-			self.selected = 0;
-			self.changed(\selected);
-		},
-
-		add_cells: { arg self, cells;
-			self.seq.val.addAll(cells);
-			self.changed(\cells);
-		},
-
-		remove_cells: { arg self, num;
-			self.seq.val = self.seq.val[.. (self.seq.val.size - num - 1) ];
-			self.changed(\cells);
-		},
-
-		set_val: { arg self, val;
-			self.seq.val[ self.get_selected_cell.() ] = if(val > 1, { 1 },{ 0 });
-		},
-
-		quantify_note2: { arg self, note;
-			var res;
-			//note.debug("quantify_note input");
-			res = note.deepCopy;
-			if(self.notequant.notNil) {
-				res.dur = res.dur.round(self.notequant);
-				res;
-			} {
-				res;
-			};
-			//res.debug("quantify_note output");
-		},
-
-		get_notes: { arg self;
-			self.scoreset.get_notes;
-		},
-
-		get_scoreset: { arg self;
-			self.scoreset;
-		},
-
-		get_notes2: { arg self;
-			var no;
-			no = self.vnotes.deepCopy;
-			//no[0].dur+self.start_offset;
-			//no.last.dur+self.end_offset;
-			no;
-		},
-
-		set_notes: { arg self, val;
-			self.scoreset.set_notes(val);
-			//self.changed(\notes);
-		},
-		set_notes2: { arg self, val;
-			self.notes = val;
-			self.update_note_dur;
-		},
-
-		set_next_notes: { arg self, val, dur=nil;
-			self.scoreset.set_next_notes(val, dur);
-		},
-
-		set_next_notescore: { arg self, val, dur=nil;
-			self.scoreset.set_next_notescore_history(val, dur);
-		},
-
-		set_next_notes2: { arg self, val, dur=nil;
-			if(self.pat_finish_first.notNil) {
-				// le pattern a deja commencé, assigner les notes tout de suite
-				"**** set_next_notes: assigning next_notes as current notes immediately".debug;
-				self.set_notes(val);
-				self.pat_finish_first = nil;
-			} {
-				"**** set_next_notes: preparing next_notes".debug;
-				self.next_notes = val;
-			};
-			self.notes_dur = dur; // used to check is dur is correct after quantization
-		},
-
-		set_next_notes_as_current_notes: { arg self;
-			self.scoreset.set_next_notes_as_current_notes;
-		},
-
-		forward_to_next_notescore: { arg self;
-			// called in get_note and midi:player_start_tempo_recording
-			self.scoreset.forward_to_next_notescore;
-		},
-
-		set_next_notes_as_current_notes2: { arg self;
-			self.set_notes(self.next_notes);
-			self.next_notes = nil;
-			self.wait_note = nil;
-		},
-
-		set_wait_note: { arg self, note;
-			self.scoreset.set_wait_note(note);	
-		},
-		set_wait_note2: { arg self, note;
-			"**** nline: set_wait_note".debug;
-			self.wait_note = self.quantify_note(note);
-			self.wait_note[\first_note] = true;
-			self.wait_note.debug("wait_note");
-			note.debug("originial note");
-		},
-
-		get_note: { arg self, idx;
-			// FIXME: not used anymore, use whole notescore now
-			self.scoreset.get_note(self, idx);
-		},
-
-		get_note2: { arg self, idx;
-			var no;
-			if( self.vnotes.size > 0 && {self.muted.not}) {
-				if(idx == 0) {
-					// s'il y a deja des next_notes lorsque la note 0 arrive (debut du pattern), c'est que le record a fini _avant_ le pattern
-					// s'il n'y en a pas mais qu'il y a quand meme une wait_note c'est que le record va finir _apres_ le pattern
-					// s'il n'y a ni l'un ni l'autre, c'est que c'est un banale debut de pattern, et cela doit continuer normalement
-					if(self.next_notes.notNil) {
-						"******** recording finish first, using next_notes as current notes".debug;
-						self.set_next_notes_as_current_notes;
-					} {
-						if(self.wait_note.notNil) {
-							"********* recording not yet finished".debug;
-							"***** there is a wait note, using it as first note".debug;
-							no = self.wait_note;
-							self.wait_note = nil;
-							self.pat_finish_first = true;
-						} {
-							no = self.vnotes[idx].deepCopy;
-						};
-					}
-				} {
-					no = self.vnotes[idx].deepCopy;
-				};
-				no;
-			} {
-				if(self.muted) {
-					"noteline_param: get_note: muted!".inform;
-				} {
-					if(self.next_notes.notNil) {
-							"setting next_notes when no notes found".debug;
-							self.set_notes(self.next_notes);
-							self.next_notes = nil;
-							self.wait_note = nil;
-					};
-					"noteline_param: get_note: No notes".inform;
-				};
-				if(idx == 0) {
-					~empty_note;
-				} {
-					nil;
-				};
-			}
-		},
-
-		total_dur: { arg self, notes;
-			self.scoreset.total_dur(notes);
-		},
-
-		total_dur2: { arg self, notes;
-			var res=0;
-			notes.do { arg x; res = x.dur + res; };
-			res;
-		},
-
-		update_note_dur: { arg self;
-			self.scoreset.update_notes;
-		},
-
-		update_note_dur2: { arg self;
-			// manage start and end offset and silence and put result notes in self.vnotes
-			var find_next, find_prev, delta, prevdelta, idx, previdx;
-			var qnotes, normdur, realdur, size;
-			"update_note_dur".debug("start");
-			if( self.notes.size > 2) {
-				find_next = { arg dur, notes;
-					var res=0, vidx=0, last=nil, delta=0, prevdelta=0;
-					dur.debug("find_next: dur");
-					if(dur == 0) {
-						delta = 0;
-						vidx = 0
-					} {
-						notes[1..].do { arg x, n;
-							[n, res, vidx, last, dur].debug("begin n res vidx last");
-							if( res < dur ) {
-								res = x.dur + res;
-								vidx = vidx + 1;
-								last = x.dur;
-							};
-							[n, res, vidx, last].debug("end");
-						};
-						delta = res - dur;
-					};
-					[ delta, vidx+1 ];
-				};
-
-				find_prev = { arg dur, notes;
-					var res=0, vidx=0, last=nil, delta=0, prevdelta=0;
-					dur = self.total_dur( notes[1..(notes.lastIndex-1)] ).debug("total dur") - dur;
-					dur.debug("find_prev: dur");
-
-					notes[1..].do { arg x, n;
-						[n, res, vidx, last].debug("begin n res vidx last");
-						if( res <= dur ) {
-							res = x.dur + res;
-							vidx = vidx + 1;
-							last = x.dur;
-						};
-						[n, res, vidx, last].debug("end");
-					};
-					delta = res - dur;
-					if(last.isNil) {
-						prevdelta = nil
-					} {
-						last.debug("last");
-						prevdelta = last - delta;
-					};
-					[ prevdelta, vidx ];
-				};
-
-				// quantify notes
-				self.notes.collect({arg no, x; no.numero = x }); // debug purpose
-				self.notes.debug("update_note_dur: original notes");
-				qnotes = self.notes.collect{ arg x; self.quantify_note(x) };
-				qnotes.debug("update_note_dur: qnotes");
-				
-				// troncate too long end silence
-				normdur = self.total_dur(self.notes);
-				if(self.notes_dur.notNil && (normdur != self.notes_dur)) {
-					"fucking bug in recording length!!!!!!!!".debug;
-				};
-				realdur = self.total_dur(qnotes);
-				qnotes.last.dur = qnotes.last.dur - (realdur - (self.notes_dur ?? normdur));
-				~mydur = self.total_dur(qnotes);
-				[self.notes_dur, realdur, normdur, ~mydur].debug("duration::::: notes_dur, real, norm, end");
-
-				if(qnotes.last.dur < 0) {
-					"ERROR: mon hack degueux fonctionne pas vraiment et c'est la grosse merde".error;
-				};
-
-				// remove duplicates
-
-				size = qnotes.size-1;
-				self.vnotes = List.new;
-				qnotes.do { arg no, x;
-					if(x < size) {
-						if((no.dur == 0) && (no.midinote == qnotes[x+1].midinote)) {
-							// duplicate: don't add
-							no.debug("found duplicate: don't add");
-						} {
-							self.vnotes.add(no);
-						};
-					} {
-						self.vnotes.add(no);
-					}
-				};
-
-				self.vnotes.debug("update_note_dur: vnotes");
-
-
-				// old code to calculate offsets when recording non standard durations
-
-				//#delta, idx = find_next.(self.notes[0].start_offset, self.notes);
-				//#prevdelta, previdx = find_prev.(self.notes[0].end_offset, self.notes);
-			//	#delta, idx = find_next.(qnotes[0].start_offset, qnotes);
-			//	#prevdelta, previdx = find_prev.(qnotes[0].end_offset, qnotes);
-			//	[delta, idx, prevdelta, previdx].debug("delta, idx, prevdelta, previdx");
-			//	qnotes[0].dur = qnotes[0].start_silence + delta;
-			//	self.vnotes = [qnotes[0]] ++ qnotes[idx..previdx].deepCopy;
-			//	self.vnotes[self.vnotes.lastIndex].dur = qnotes[0].end_silence + prevdelta;
-			//	self.vnotes.debug("update_note_dur: vnotes");
-				self.changed(\notes);
-			} {
-				if(self.notes.size == 2) {
-					self.vnotes = self.notes.deepCopy;
-					if( (self.notes[0].start_silence + self.notes[0].end_silence) < 0.01 ) {
-						"Protection anti infinite loop: setting end_silence to 0.5".error;
-						self.notes[0].end_silence = 0.5
-					};
-					self.vnotes[0].dur = self.notes[0].start_silence;
-					self.vnotes[self.vnotes.lastIndex].dur = self.notes[0].end_silence;
-					self.vnotes.debug("update_note_dur: vnotes");
-					// quantify notes
-					self.vnotes = self.vnotes.collect{ arg x; self.quantify_note(x) };
-					self.vnotes.debug("update_note_dur: vnotes quant");
-					self.changed(\notes);
-				}
-			};
-		},
-
-		set_start_offset: { arg self, val;
-			var dur;
-			if(self.notes.size > 2 ) {
-				dur = self.total_dur( self.notes[1..(self.notes.lastIndex-1)] );
-				if( val >= 0 && (val < (dur - self.notes[0].end_offset)) ) {
-					[val, dur, self.notes[0].end_offset, dur - self.notes[0].end_offset].debug("set start_offset: val, dur, eo, dur-eo");
-					self.notes[0].start_offset = val;
-					self.update_note_dur;
-				} {
-					[val, dur, self.notes[0].end_offset, dur - self.notes[0].end_offset].debug("can't set start_offset: val, dur, eo, dur-eo");
-				}
-			} {
-				"You are stupid!".debug;
-			}
-		},
-
-		set_end_offset: { arg self, val;
-			var dur;
-			if(self.notes.size > 0) {
-				dur = self.total_dur( self.notes[1..(self.notes.lastIndex-1)] );
-				if( val >= 0 && (val < (dur - self.notes[0].start_offset)) ) {
-					[val, dur, self.notes[0].end_offset, dur - self.notes[0].end_offset].debug("can't set end_offset: val, dur, so, dur-so");
-					self.notes[0].end_offset = val;
-					self.update_note_dur;
-				} {
-					[val, dur, self.notes[0].start_offset, dur - self.notes[0].start_offset].debug("can't set end_offset: val, dur, so, dur-so");
-				}
-			}
-		},
-
-		get_start_offset: { arg self;
-			if(self.notes.size > 0) {
-				self.notes[0].start_offset;
-			}
-		},
-
-		get_end_offset: { arg self;
-			if(self.notes.size > 0) {
-				self.notes[0].end_offset;
-			}
-		},
-
-		set_start_silence: { arg self, val;
-
-			if(self.notes.size > 0 && (val >= 0)) {
-				self.notes[0].start_silence = val;
-				self.update_note_dur;
-			} {
-				[val, self.notes.size].debug("can't set start_silence: val, notessize");
-			}
-		},
-
-		set_end_silence: { arg self, val;
-
-			if(self.notes.size > 0 && (val >= 0)) {
-				self.notes[0].end_silence = val;
-				self.update_note_dur;
-			} {
-				[val, self.notes.size].debug("can't set end_silence: val, notessize");
-
-			};
-		},
-
-		get_start_silence: { arg self;
-			self.scoreset.get_start_silence;
-		},
-
-		get_start_silence2: { arg self;
-			if(self.notes.size > 0) {
-				self.notes[0].start_silence;
-			}
-
-		},
-
-		get_end_silence: { arg self;
-			self.scoreset.get_end_silence;
-		},
-
-		get_end_silence2: { arg self;
-			if(self.notes.size > 0) {
-				self.notes[0].end_silence;
-			}
-
-		},
-
-		set_first_note_dur: { arg self, val;
-			var res = 0, lastdur = 0, vidx = 0;
-			if( self.notes.size > 0) {
-				self.notes[0].dur = val;
-				if( val < 0 ) {
-					self.notes.do { arg x;
-						if( res < val.neg ) {
-							res = x.dur + res;
-							vidx = vidx + 1;
-							lastdur = x.dur;
-						}
-					};
-					self.notes[0].virtual_start_idx = vidx -1;
-					self.notes[0].virtual_start_dur = res - val.neg;
-				}
-			}
-		},
-
-		get_first_note_dur: { arg self;
-			self.notes.size.debug("get_first_note_dur self.notes.size");
-			if( self.notes.size > 0) {
-				self.notes[0].dur;
-			} {
-				nil
-			}
-		},
-
-		set_notequant: { arg self, val;
-			self.scoreset.set_notequant(val);
-		},
-
-		get_notequant: { arg self;
-			self.scoreset.get_notequant;
-		},
-		set_notequant2: { arg self, val;
-			self.notequant = val;
-			self.update_note_dur;
-			self.changed(\notes);
-		},
-
-		tick: { arg idx; 
-			//"TICK!".postln;
-		},
-
-		mute: { arg self, val;
-			self.muted = val;
-		},
-
-		toggle_cell: { arg self, idx;
-			var oldsel;
-			[idx, self.get_cells].debug("make_control_param.select_cell idx, selg.get_cells");
-			if( idx < self.get_cells.size, {
-				//oldsel = self.selected_cell;
-				self.selected_cell = idx;
-				//self.changed(\selected_cell, oldsel);
-				self.seq.val[ idx ] = ~toggle_value.(self.seq.val[ idx ]);
-				self.changed(\val, self.selected_cell);
-			})
-		},
-		refresh: { arg self;
-			self.update_note_dur;
-			self.get_notes.debug("noteline param refresh: get_notes");
-			self.changed(\notes);
-			self.changed(\selected);
-		},
-
-		//vpattern: { arg self; 
-			// deprecated: cause time mismatch when adding notes
-		//	~pdynarray.( { arg idx, no;
-		//		self.tick;
-		//		//self.classtype.debug("classtype!!!!!!!!");
-		//		no = self.get_note(idx);
-		//		//"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".debug;
-		//		//self.classtype.debug("classtype");
-		//		//idx.debug("note number");
-		//		//no.debug("note");
-		//		no;
-		//	}, self.classtype );
-		//},
-		vpattern: { arg self; 
-			Prout{ arg ev;
-				var repeat = ~compute_repeat.(ev, self.classtype);
-				repeat.do {
-					var notes = self.scoreset.get_notes;
-					notes.do { arg no;
-						ev = no.yield;
-					}
-				}
-			};
-		},
-
-		init: { arg self;
-			self.scoreset = ~make_scoreset_hack.(self);
-			self.scoreset.notescore.set_notes(self.notes);
-			self.scoreset.update_notes; // to take in account default_noteline
-		}
-
-	);
-	//ret.init; //should init in subclasses
-	ret;
-};
-
-~make_line_param = { arg name, default_value=[];
-	var fun;
-	// FIXME: modes
-	fun = switch(name,
-		\noteline, { ~make_noteline_param },
-		\scoreline, { ~make_scoreline_param },
-		\stepline, { ~make_stepline_param },
-		\nodeline, { ~make_nodeline_param },
-		\sampleline, { ~make_sampleline_param },
-		{ name.debug("make_line_param: line not understood"); }
-	);
-	fun.(name, default_value);
-};
-
-~make_nodeline_param = { arg name, default_value=[];
-	var ret;
-	ret = (
-		parent: ~make_parent_recordline_param.(name, default_value),
-		classtype: \nodeline,
-		notes: ~default_sampleline.deepCopy,
-
-		trans_notes: { arg self;
-			// make sample slots compatibles with other code using midinotes
-			self.notes = self.notes.collect { arg x;
-				x.midinote = x.slotnum;
-			};
-		},
-
-		update_note_dur: { arg self;
-			self.trans_notes;
-			self.parent[\update_note_dur].(self);
-		}
-	);
-	ret.init;
-	ret;
-};
-
-~make_sampleline_param = { arg name, default_value=[];
-	var ret;
-	ret = (
-		parent: ~make_parent_recordline_param.(name, default_value),
-		classtype: \sampleline,
-		notes: ~default_sampleline.deepCopy,
-
-		trans_notes: { arg self;
-			// make sample slots compatibles with other code using midinotes
-			self.notes = self.notes.collect { arg x;
-				x.midinote = x.slotnum;
-			};
-		},
-
-		update_note_dur: { arg self;
-			self.trans_notes;
-			self.parent[\update_note_dur].(self);
-		}
-	);
-	ret.init;
-	ret;
-};
-
-~make_noteline_param = { arg name, default_value=[];
-	var ret;
-	ret = (
-		parent: ~make_parent_recordline_param.(name, default_value),
-		classtype: \noteline,
-		notes: ~default_noteline3.deepCopy
-	);
-	ret.init;
-	ret;
-};
-
-~make_scoreline_param = { arg name, default_value=[];
-	var ret;
-	ret = (
-		parent: ~make_parent_recordline_param.(name, default_value),
-		classtype: \scoreline,
-		notes: ~default_scoreline.deepCopy
-	);
-	ret.init;
-	ret;
-};
-
-~make_stepline_param = { arg name, default_value;
-	var ret;
-	ret = (
-		name: name,
-		classtype: \stepline,
-		selected_cell: 0,
-		selected: 0,
-		current_kind: \stepline, // hack to harmonize with control_param
-		default_val: default_value.asList,
-
-		save_data: { arg self;
-			var data = ();
-			[\name, \classtype, \selected, \selected_cell, \default_val].do {
-				arg key;
-				data[key] = self[key];
-			};
-			[\seq].do { arg kind;
-				data[kind] = ();
-				[\val].do { arg key;
-					data[kind][key] = self[kind][key];
-				}
-			};
-			data;
-		},
-
-		load_data: { arg self, data;
-			[\name, \classtype, \selected, \selected_cell, \default_val].do {
-				arg key;
-				self[key] = data[key];
-			};
-			[\seq].do { arg kind;
-				[\val].do { arg key;
-					 self[kind][key] = data[kind][key];
-				}
-			};
-		},
-
-		seq: (
-			val: default_value.asList,
-			change: { arg self, fun;
-				self.val = fun.(self.val);
-			}
-		),
-		get_cells: { arg self;
-			self.seq.val;
-		},
-		get_selected_cell: { arg self;
-			self.selected_cell;
-		},
-		select_param: { arg self;
-			self.selected = 1;
-			self.changed(\selected);
-		},
-		deselect_param: { arg self;
-			self.selected = 0;
-			self.changed(\selected);
-		},
-
-		add_cells: { arg self, cells;
-			self.seq.val.addAll(cells);
-			self.changed(\cells);
-		},
-
-		remove_cells: { arg self, num;
-			self.seq.val = self.seq.val[.. (self.seq.val.size - num - 1) ];
-			self.changed(\cells);
-		},
-
-		set_val: { arg self, val, idx;
-			idx = idx ?? self.get_selected_cell.();
-			self.seq.val[ idx  ] = if(val >= 1, { 1 },{ 0 });
-			self.changed(\val, idx);
-		},
-
-		get_val: { arg self, idx;
-			idx = idx ?? self.get_selected_cell.();
-			self.seq.val[ idx  ];
-		},
-
-
-		tick: { arg idx;
-		//"TICK!".postln;
-		},
-
-		toggle_cell: { arg self, idx;
-			var oldsel;
-			[idx, self.get_cells].debug("make_control_param.select_cell idx, selg.get_cells");
-			if( idx < self.get_cells.size, {
-				//oldsel = self.selected_cell;
-				self.selected_cell = idx;
-				//self.changed(\selected_cell, oldsel);
-				self.seq.val[ idx ] = ~toggle_value.(self.seq.val[ idx ]);
-				self.changed(\val, self.selected_cell);
-			})
-		},
-		refresh: { arg self;
-			"make_stepline_param:refresh".debug;
-			self.changed(\kind);
-			//self.changed(\cells);
-			self.changed(\selected);
-			"END make_stepline_param:refresh".debug;
-		},
-		vpattern: { arg self; 
-			"--------making vpattern of stepline".debug;
-			~pdynarray.( { arg idx, ev; 
-				if(ev[\stepline].notNil) {
-					ev[\stepline];
-				} {
-					self.tick(idx); 
-					if(self.seq.val[idx] == 1, { [idx, TempoClock.beats, TempoClock.beatInBar].debug("----------TICK step"); });
-					self.seq.val[idx];
-				}
-			}, \stepline );
-			//Pseq([1,1,1,1],inf);
-		};
-	);
-	ret;
-};
-
-~make_type_param = { arg name;
-	var ret;
-	ret = (
-		name: name,
-		classtype: \type,
-		refresh: { arg self; },
-		vpattern: { arg self; 
-			Pfunc({ arg ev;
-				var normal_type = ev[\type] ?? \note;
-				if(ev[\muted]) {
-					\rest
-				} {
-					if(ev[\current_mode] == \stepline) {
-						if(ev[\stepline] > 0) {
-							normal_type
-						} {
-							\rest
-						}
-					} {
-						if(ev[ev[\current_mode]].type != \rest) {
-							normal_type;
-						} {
-							\rest;
-						}
-					}
-				}
-			})
-		}
-	);
-	ret;
-};
-
-~make_volume_param = { arg name, main;
-	var param = (
-		classtype: \volume,
-
-		save_data: { arg self;
-			var data = Dictionary.new;
-			data[\volume] = s.volume.volume;
-		},
-
-		load_data: { arg self, data;
-			s.volume.volume = data[\volume];
-		},
-
-		get_norm_val: { arg self;
-			self.spec.unmap(s.volume.volume)
-		},
-		set_norm_val: { arg self, val;
-			s.volume.volume = self.spec.map(val);
-			self.changed(\val);
-		},
-		get_cells: { arg self;
-			[s.volume.volume]
-		},
-		refresh: { arg self;
-			self.changed(\cells);
-		},
-		spec: \db.asSpec,
-		selected: 1
-
-	);
-	param.midi = main.midi_center.get_midi_control_handler(param);
-	param;
-
-};
+// ==========================================
+// SYNTH CONTROL
+// ==========================================
 
 ~make_control_param = { arg main, player, name, kind, default_value, spec;
 	// changed messages: \selected, \selected_cell, \val, \cells, \record
@@ -4251,269 +3074,183 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	param;
 };
 
-~make_macro_control_param = { arg main, macro_ctrl, player, name, kind, default_value, spec;
-	var param = ~make_control_param.(main, player, name, kind, default_value, spec);
-	param.external_control = macro_ctrl;
-	param.make_responder_translator = { arg self, parent;
-		debug("make_responder_translator: init");
-		~make_view_responder.(parent, self.external_control, (
-			set_property: { arg obj, msg, key, val;
-				[msg, key, val].debug("make_responder_translator");
-				switch(key,
-					\value, {
-						self.changed(\val, 0);
-					}
-				)
-			}
+////////////////////////// Buffer
 
-		), false)
-	};
-	param.scalar = (
-			//quoi: { "QUOI".debug; }.value,
-			selected_cell: 0, // always 0
-			val: macro_ctrl.get_val,
+~make_buf_param = { arg name, default_value, player, spec, channels=\stereo;
 
-			set_val: { arg self, val, idx=nil;
-				macro_ctrl.set_val(val);
-				param.changed(\val, 0);
-			},
-			get_val: { arg self;
-				macro_ctrl.get_val 
-			},
+	var param;
 
-			set_norm_val: { arg self, norm_val;
-				macro_ctrl.set_property(\value, norm_val);
-				param.changed(\val, 0);
-			},
-			get_norm_val: { arg self;
-				macro_ctrl.get_norm_val 
-			},
-
-			get_cells: { arg self; [self.get_val] },
-
-			select_cell: { arg self, idx; param.seq.selected_cell = idx }, // when changing kind, correct cell is selected in colselect mode
-			get_selected_cell: { arg self; 0 },
-			add_cells: {},
-			remove_cells: {}
-	);
-	param;
-};
-
-~make_dynamic_literal_param = { arg name, external_get;
-	(
+	param = (
+		val: nil,
 		name: name,
-		classtype: \dynamic_literal,
-		get_val: { arg self;
-			self.val = external_get.();
-			self.val
+		classtype: \buf,
+		current_kind: \sample,
+		channels: channels,
+		has_custom_buffer: false,
+		spec: nil,
+		selected: 0,
+		buffer: nil,
+		audio_id: nil,
+		pkey_mode: false,
+		buffer_list_position: 0,
+		archive_data: [\name, \classtype, \selected, \spec, \has_custom_buffer, \audio_id, \buffer_list_position, \pkey_mode],
+
+		destructor: { arg self;
+			BufferPool.release_client(player.uid)
+		},
+
+		save_data: { arg self;
+			var data = ();
+			var savepath;
+			if(self.has_custom_buffer) { // FIXME: clashing ID, should save when saving project, should save in project dir
+				self.audio_id = "audio_" ++ player.uname ++ "_" ++ name;
+				savepath = player.get_main.get_audio_save_path;
+				self.buffer.write(savepath +/+ self.audio_id ++ ".wav", "WAV", "float");
+			};
+			self.archive_data.do {
+				arg key;
+				data[key] = self[key];
+			};
+			data[\val] = self.get_val;
+			data.debug("make_buf_param: save_data: data");
+			data;
+		},
+
+		load_data: { arg self, data;
+			var savepath;
+			self.archive_data.do {
+				arg key;
+				self[key] = data[key];
+			};
+			if(self.has_custom_buffer) { // FIXME: clashing ID, 
+				savepath = player.get_main.get_audio_save_path;
+				self.buffer = Buffer.read(s, savepath +/+ self.audio_id ++ ".wav");
+				self.buffer.debug("make_buf_param: load_data: loaded buffer!!");
+				self.val = data[\val];
+			} {
+				self.set_val(data[\val]);
+			}
+		},
+
+		select_param: { arg self;
+			self.selected = 1;
+			self.changed(\selected);
+		},
+		deselect_param: { arg self;
+			self.selected = 0;
+			self.changed(\selected);
+		},
+
+		get_val: { arg self; self.val },
+
+		new_buffer: { arg self, path;
+			[player.uid, path].debug("new_buffer: player.uname, path");
+			if(self.channels == \mono) {
+				self.buffer = BufferPool.get_mono_sample(player.uid, path);
+			} {
+				self.buffer = BufferPool.get_forced_stereo_sample(player.uid, path);
+			}
+		},
+
+		set_custom_buffer: { arg self, buf, name;
+			self.val = name;
+			self.has_custom_buffer = true;
+			self.buffer = buf;
+			self.changed(\val);
+		},
+
+		set_custom_buffer_list: { arg self, bufs, name, position=0;
+			//FIXME: save it
+			self.buffer_list = bufs;
+			self.buffer_list_position = position;
+			self.set_custom_buffer(bufs[position], name++position.asString); //FIXME: hardcoded
+		},
+
+		set_current_buffer_num: { arg self, num;
+			if(self.buffer_list.notNil and: { self.buffer_list[num].notNil }) {
+				self.set_custom_buffer(self.buffer_list[num], "AudioInput"++num); //FIXME: hardcoded
+			} {
+				num.debug("Buffer not found in buffer list");
+			}
+		},
+
+		forward_in_record_history: { arg self;
+			self.buffer_list_position = (self.buffer_list_position + 1).clip(0, self.buffer_list.size-1);
+			self.set_current_buffer_num(self.buffer_list_position);
+		},
+
+		backward_in_record_history: { arg self;
+			self.buffer_list_position = (self.buffer_list_position - 1).clip(0, self.buffer_list.size-1);
+			self.set_current_buffer_num(self.buffer_list_position);
+		},
+
+		set_val: { arg self, val;
+			if(val != self.val, {
+				self.new_buffer(val);
+				self.val = val;
+				self.has_custom_buffer = false;
+				self.changed(\val);
+			});
+			self.val.debug("set_val: val");
+		},
+
+		set_pkey_mode: { arg self, set=true;
+			self.pkey_mode = set;
+			self.changed(\kind);
 		},
 
 		refresh: { arg self;
+			self.changed(\val);
 			self.changed(\selected);
 		},
+
 		vpiano: { arg self;
-			{
-				self.get_val;
-			}
+			{ self.buffer.bufnum };	
 		},
+
 		vpattern: { arg self;
-			Pfunc { self.get_val };
-		},
-	);
-};
-
-
-///////////////////////////////////////////////////////////
-
-~class_param_controller = (
-	new: { arg self;
-		self = self.deepCopy;
-	
-		self;
-	},
-
-	save_data: { arg self;
-		var data = IdentityDictionary.new;
-		self.archive_data.do { arg key;
-			data[key] = self[key]
-		};
-		data;
-	},
-
-	load_data: { arg self, data;
-		data.keysValuesDo { arg key, val;
-			self[key] = val;
-		}
-	},
-
-	vpiano: { arg self;
-		{
-			self.get_val;
-		}
-	},
-
-	vpattern: { arg self;
-		Pfunc{
-			self.name.debug("Error: No pattern defined in this param_controller");
-			0;
-		}
-	},
-);
-
-~class_param_opmatrix_controller = (
-	parent: ~class_param_controller,
-	new: { arg self, name, spec, size;
-		self = self.deepCopy;
-		
-		self.opmatrix = Array.fill(size.y, {
-			Array.fill(size.x, { 0 })
-		});
-	
-		self;
-	},
-
-	save_data: { arg self;
-		var data = IdentityDictionary.new;
-		self.archive_data.do { arg key;
-			data[key] = self[key]
-		};
-		data;
-	},
-
-	load_data: { arg self, data;
-		data.keysValuesDo { arg key, val;
-			self[key] = val;
-		}
-	},
-
-	get_cell_val: { arg self, x, y;
-		self.opmatrix[y][x];
-	},
-
-	set_cell_val: { arg self, x, y, val;
-		self.opmatrix[y][x] = val;
-	},
-
-	vpiano: { arg self;
-		{
-			self.get_val;
-		}
-	},
-
-	vpattern: { arg self;
-		Pfunc{
-			[
-				self.opmatrix.flat
-			]
-		}
-	},
-);
-
-~class_param_tsustain_controller = (
-	parent: ~class_param_controller,
-	archive_data: [\name],
-	kind: \tsustain,
-	new: { arg self, name;
-		self = self.deepCopy;
-
-		self.name = name;
-	
-		self;
-	},
-
-	vpattern: { arg self;
-		Plazy({ 
-			var val;
-			val = Pn(Pfunc({ arg ev; ev[\dur]}) / Ptempo());
-			val.debug("class_param_tsustain_controller.vpattern: val");
-			//ev = val.yield;
-			val;
-		});
-	}
-);
-
-~class_param_scorekey_controller = (
-	parent: ~class_param_controller,
-	archive_data: [\name, \key_name, \val],
-	kind: \scorekey,
-	new: { arg self, player, name, key;
-		self = self.deepCopy;
-	
-		self.name = name;
-		self.player_node = { player };
-		self.key_name = key ?? name;
-
-		self;
-	},
-
-	vpattern: { arg self;
-		Prout({ arg ev;
-			var val;
-			~general_sizes.safe_inf.do {
-				val = ev[self.player_node.get_mode][self.key_name];
-				//val.debug("class_param_scorekey_controller.vpattern: val");
-				if(val.isNil) {
-					//ev.debug("class_param_scorekey_controller: ev");
-					val = 0;
-				};
-				ev = val.yield;
 			
-			};
-		});
-	}
-);
+			self.buffer.bufnum.debug("BUFNUM");	
+			Prout({ arg ev;
+				var repeat = 1000;
+				var slotnum;
+				repeat.do {
+					self.current_kind.debug("2222222222222222222222 entering bufnum vpattern loop");
+					switch(player.get_mode,
+						\sampleline, {
+							if(ev[\slotnum].notNil) {
+								slotnum = ev[\slotnum];
+							} {
+								if(ev[\sampleline].type == \rest) {
+									slotnum = 0; // FIXME: should be silent sample
+								} {
+									slotnum = ev[\sampleline].slotnum;
+								}
+							};
+							//~samplekit_manager.slot_to_bufnum(slotnum, ev[\samplekit], channels).debug("bufnum::::");
+							ev = ~samplekit_manager.slot_to_bufnum(slotnum, ev[\samplekit], self.channels).yield;
+						},
+						// else
+						{
+							if(self.pkey_mode and: { ev.includesKey(self.name) }) {
+								ev = ev[self.name].yield;
+							} {
+								ev = self.buffer.bufnum.yield;
+							}
+						}
+					);
+				};
+			});	
+			//Pfunc({ "RAHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH".debug; 0});
+		}
 
-~class_param_modenv_val_controller = (
-	parent: ~class_param_controller,
-	archive_data: [\name, \key_name, \val],
-	kind: \scorekey,
-	new: { arg self, player, name, key;
-		self = self.deepCopy;
-	
-		self.name = name;
-		self.player_node = { player };
-		self.key_name = key ?? name;
-		self.val = [0,1]; //FIXME: not displayed
+	);
+	param.set_val(default_value);
+	param;
 
-		self;
-	},
-
-	set_notes: { arg self, notes;
-		var res = List.new;
-		var tmp;
-		notes.do { arg note;
-			if(note.type != \rest) {
-				res.add(note[self.key_name]);
-			}
-		};
-		tmp = res.removeAt(0);
-		res.add(tmp);
-		self.val = res;
-	},
-
-	vpattern: { arg self;
-		Prout({ arg ev;
-			var idx, val, fun;
-			var repeat;
-			fun = { arg idx; self.val[idx] };
-			ev[\firstsynth] = 1;
-			ev[\firstval] = self.val.last;
-			repeat = ~general_sizes.safe_inf;
-			repeat.do {
-				idx = 0;
-				val = fun.(idx, ev);
-				//[val, idx].debug("pdynarray val idx");
-				while( { val.notNil } , { 
-					ev = val.yield;
-					idx = idx + 1;
-					val = fun.(idx, ev);
-				});
-			};
-		});
-	}
-);
-
+};
 ~class_param_wavetable_controller = (
+
 	parent: ~class_param_controller,
 	classtype: \wavetable,
 
@@ -4685,115 +3422,6 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 );
 
-~class_param_kind_chooser_controller = (
-	// static
-	parent: ~class_param_controller,
-	archive_data: [\model, \name, \menu_items],
-	classtype: \kind_chooser,
-
-	model: (
-		name: "Filter kind",
-		uname: \filter1_kind,
-		kind: \filter_kind,
-		transmit: \kind,
-		val_uname: \bitcrusher,
-		val: 0
-	),
-
-	new: { arg self, name, variants, label;
-		self = self.deepCopy;
-		self.name = name;
-		self.label = label;
-
-		self.menu_items = variants;
-		self.model.val_uname = self.menu_items[self.model.val].uname;
-		//self.model.knobs.do { arg knobname;
-		//	self.main_controller.get_arg(knobname).set_variant(self.menu_items[self.model.val])
-		//};
-
-		self;
-	},
-
-	save_data: { arg self;
-		self.model;
-	},
-
-	load_data: { arg self, data;
-		self.model.val = self.menu_items.detectIndex { arg item; item.uname == data.val_uname };
-		self.model.val_uname = data.val_uname;
-		self.changed(\val)
-	},
-
-
-	get_menu_items_names: { arg self;
-		self.menu_items.collect { arg item;
-			item.name
-		}
-	},
-
-	refresh: { arg self;
-		self.changed(\val);
-		self.changed(\menu_items);
-	},
-
-	get_val: { arg self;
-		self.model.val;
-	},
-
-	get_val_uname: { arg self;
-		self.model.val_uname;
-	},
-
-	set_val: { arg self, val;
-		self.model.val = val;
-		self.model.val_uname = self.menu_items[val].uname;
-		//self.model.knobs.do { arg knobname;
-		//	//[knobname, val, self.menu_items[val]].debug("°°class_pparam_kind_controller: set_property: value: variant");
-		//	self.main_controller.get_arg(knobname).set_variant(self.menu_items[val])
-		//};
-		//self.main_controller.update_arg(self.model.uname);
-		[self.name, val].debug("class_param_kind_chooser.set_val");
-		self.changed(\val);
-	},	
-);
-
-~class_param_static_controller = (
-	// static
-	parent: ~class_param_controller,
-	archive_data: [\name, \val, \spec],
-	new: { arg self, name, spec, default_value=0;
-		self = self.deepCopy;
-		self.name = name;
-		self.val = default_value;
-		self.spec = spec;
-	
-		self;
-	},
-
-	set_val: { arg self, val;
-		if(self.val != val) {
-			self.val = val;	
-			self.changed(\val)
-		}
-	},
-
-	get_val: { arg self;
-		self.val;
-	},
-);
-
-~class_param_wavetable_range_controller = (
-	// static
-	parent: ~class_param_static_controller,
-	spec: \unipolar.asSpec.copy,
-	new: { arg self, name;
-		self = self.deepCopy;
-		self.name = name;
-	
-		self;
-	},
-);
-
 ~class_param_wavetable_classic_osc_controller = (
 	// static
 	parent: ~class_param_static_controller,
@@ -4823,6 +3451,1519 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	//	}
 	//},
 );
+
+
+////////////////////////// Arrayed
+
+~default_adsr = (
+	attackTime:0.01,
+	decayTime:0.1,
+	sustainLevel:0.3,
+	releaseTime:0.1,
+	curve:0
+);
+
+~default_genadsr = (
+	attackTime:0.1,
+	decayTime:0.2,
+	sustainLevel:0.3,
+	releaseTime:0.4,
+	curve:0,
+	levelScale:1,
+	levelBias: 0,
+	timeScale: 1
+);
+
+~adsr_point_order = [ \attackTime, \decayTime, \sustainLevel, \releaseTime, \curve ];
+
+~env_time = ControlSpec(0.000001, 5, 'exp', 0, 0.2, "s");
+~spec_adsr = (
+	attackTime:~env_time,
+	decayTime:~env_time,
+	sustainLevel:~env_time, //FIXME: not time
+	releaseTime:~env_time,
+	curve:ControlSpec(-9, 9, 'linear', 1, 0, "")
+);
+
+
+~adsr_event_to_env = { arg adsr;
+	Env.performWithEnvir(\adsr, adsr);
+};
+
+~genadsr_event_to_env_array = { arg adsr;
+	Env.performWithEnvir(\adsr, adsr).asArray ++ [adsr.levelScale, adsr.levelBias, adsr.timeScale]
+};
+
+~make_adsr_param = { arg main, player, name, default_value;
+	var param, subparam;
+
+	param = (
+		val: ~default_adsr.deepCopy,
+		name: name,
+		classtype: \adsr,
+		current_kind: \scalar,
+		spec: ~spec_adsr,
+		sub_midi: Dictionary.new, // store midi control handler specific to each point of the adsr
+		sub_param: Dictionary.new,
+		selected: 0,
+		pkey_mode: false,
+
+		save_data: { arg self;
+			var data = ();
+			[\name, \classtype, \selected, \spec, \val].do {
+				arg key;
+				data[key] = self[key];
+			};
+			//data[\vals] = self.get_vals;
+			data;
+		},
+
+		load_data: { arg self, data;
+			[\name, \classtype, \selected, \spec, \val].do {
+				arg key;
+				self[key] = data[key];
+			};
+			//self.set_vals( data[\vals] );
+		},
+
+		set_pkey_mode: { arg self, set=true;
+			self.pkey_mode = set;
+			self.changed(\kind);
+		},
+
+
+		select_param: { arg self;
+			self.selected = 1;
+			"env model select_param".debug;
+			self.changed(\selected);
+		},
+		deselect_param: { arg self;
+			self.selected = 0;
+			"env model deselect_param".debug;
+			self.changed(\selected);
+		},
+
+		get_val: { arg self; self.val },
+
+		get_vals: { arg self;
+			self.get_params.collect { arg param;
+				self.get_param(param).get_val;
+			}
+		},
+
+		set_vals: { arg self, val;
+			self.get_params.do { arg param, idx;
+				self.get_param(param).set_val(val[idx] ?? 0);
+			}
+		},
+
+		set_all_val: { arg self, vals;
+			self.val = vals;
+			self.changed(\val);
+		},
+
+		get_param: { arg self, key;
+			self.sub_param[key];
+		},
+
+		get_params: { arg self;
+			~adsr_point_order;
+		},
+
+		set_val: { arg self, val;
+			// should not be used (use get_param(key).set_val)
+			["main", val].debug("make_adsr_param: set_val");
+		},
+
+		refresh: { arg self;
+			self.name.debug("make_adsr_param: refresh");
+			self.changed(\val);
+			self.changed(\selected);
+			self.sub_midi.keysValuesDo { arg key, val;
+				[key, val].debug("make_adsr_param: refresh");
+				val.refresh
+			};
+		},
+
+		vpiano: { arg self;
+			{
+				~adsr_event_to_env.(self.val).asArray
+			}
+		},
+
+		vpattern: { arg self;
+
+			Pfunc({ arg ev;
+				if(self.pkey_mode) {
+					if( ev[self.name].notNil ) {
+						ev[self.name]
+					} {
+						[ ~adsr_event_to_env.(self.val).asArray ]
+					};
+				} {
+					[ ~adsr_event_to_env.(self.val).asArray ]
+				}
+			});
+			//[ ~adsr_event_to_env.(self.val).asArray ]
+		}
+
+	);
+
+	~adsr_point_order.do { arg key;
+
+		subparam = (
+			name: key,
+			spec: param.spec[key],
+			midi: { arg self; param.sub_midi[key] },
+			classtype: { arg kself; param.classtype },
+			selected: { arg kself;
+				if(player.get_selected_param == name) { 1 } { 0 }
+			},
+			get_norm_val: { arg kself;
+				param.spec[key].unmap( param.val[key] );
+			},
+			set_norm_val: { arg kself, val;
+				[key, val].debug("make_adsr_param: set_val");
+				param.val[key] = param.spec[key].map( val );
+				kself.changed(\val);
+			},
+			get_val: { arg kself;
+				param.val[key];
+			},
+			set_val: { arg kself, val;
+				[key, val].debug("make_adsr_param: set_val");
+				param.val[key] = val;
+				kself.changed(\val);
+			},
+			refresh: { arg kself;
+				//FIXME: what a point need to refresh ? (midi)
+				key.debug("make_adsr_param: adsr point: refresh");
+				kself.midi.refresh;
+			}
+		);
+		param.sub_param[key] = subparam;
+		param.sub_midi[key] = main.midi_center.get_midi_control_handler(subparam);
+	};
+	param;
+
+};
+
+~class_param_custom_env_controller = (
+	parent: ~class_param_controller,
+
+	classtype: \custom_env,
+
+	new: { arg self, name;
+		var numlevels = 16;
+		self = self.deepCopy;
+		self.name = name;
+
+		self.default_value = Env([0,1,0] ++ (0!numlevels),[0.1,0.1] ++ (0!numlevels));
+
+		self.notescore = ~make_notescore.();
+		self.notescore.set_notes(~default_custom_env_notescore);
+
+		self;
+	},
+
+	save_data: { arg self;
+		var data = IdentityDictionary.new;
+		self.archive_data.do { arg key;
+			data[key] = self[key]
+		};
+		data[\notescore] = self.notescore.save_data;
+		data;
+	},
+
+	load_data: { arg self, data;
+		self.archive_data.do { arg key;
+			self[key] = data[key];
+		};
+		self.notescore.load_data( data[\notescore] );
+		self.update_notes;
+	},
+
+
+	get_notescore: { arg self;
+		self.notescore
+	},
+
+	notescore_to_env: { arg self, notescore;
+		var notes;
+		var levels = List.new, times = List.new;
+		notes = notescore.get_rel_notes;
+		notes.do { arg note;
+			times.add( note.dur );
+			levels.add( note.level );
+		};
+		Env(levels, times);
+	},
+
+	update_notes: { arg self;
+		self.env_object = self.notescore_to_env(self.notescore)
+	},
+
+	vpattern: { arg self;
+		Pfunc{ [ self.env_object ] }
+	},
+);
+
+// ==========================================
+// PATTERN CONTROL
+// ==========================================
+
+~make_literal_param = { arg name, val;
+	(
+		name: name,
+		classtype: \literal,
+		get_val: val,
+
+		refresh: { arg self;
+			self.changed(\selected);
+		},
+		vpiano: val,
+		vpattern: val
+	);
+};
+
+~make_dynamic_literal_param = { arg name, external_get;
+	(
+		name: name,
+		classtype: \dynamic_literal,
+		get_val: { arg self;
+			self.val = external_get.();
+			self.val
+		},
+
+		refresh: { arg self;
+			self.changed(\selected);
+		},
+		vpiano: { arg self;
+			{
+				self.get_val;
+			}
+		},
+		vpattern: { arg self;
+			Pfunc { self.get_val };
+		},
+	);
+};
+
+~make_empty_param = { arg main;
+	~make_simple_number_param.(main, "voidparam", \amp.asSpec, 0.123);
+};
+
+~make_simple_number_param = { arg main, name, spec, default_value;
+	var res = (
+		name: name,
+		val: default_value,
+		classtype: \binded_number,
+		spec: spec,
+
+		get_norm_val: { arg self;
+			self.spec.unmap(self.val)
+		},
+		set_norm_val: { arg self, val;
+			val.debug("make_tempo_param: set_norm_val");
+			self.val = self.spec.map(val);
+			self.changed(\val);
+		},
+
+		get_val: { arg self;
+			self.val;
+		},
+
+		set_val: { arg self, val;
+			self.val = val;
+			self.changed(\val);
+		},
+
+		refresh: { arg self;
+			self.changed(\val);
+			self.changed(\selected);
+		}
+	);
+	res.midi = main.midi_center.get_midi_control_handler(res);
+	res;
+};
+
+~make_samplekit_param = { arg name, default_value=\default;
+
+	var param;
+
+	param = (
+		val: nil,
+		name: name,
+		classtype: \samplekit,
+		current_kind: \sample,
+		spec: nil,
+		selected: 0,
+		buffer: nil,
+		archive_data: [\name, \classtype, \selected, \spec, \val],
+
+		save_data: { arg self;
+			var data = ();
+			self.archive_data.do {
+				arg key;
+				data[key] = self[key];
+			};
+			data.debug("make_buf_param: save_data: data");
+			data;
+		},
+
+		load_data: { arg self, data;
+			self.archive_data.do {
+				arg key;
+				self[key] = data[key];
+			};
+			//self.set_val(data[\val]);
+		},
+
+		select_param: { arg self;
+			self.selected = 1;
+			self.changed(\selected);
+		},
+		deselect_param: { arg self;
+			self.selected = 0;
+			self.changed(\selected);
+		},
+
+		get_val: { arg self; self.val },
+
+
+		set_val: { arg self, val;
+			self.val = val;
+			self.changed(\val);
+		},
+
+		refresh: { arg self;
+			self.changed(\val);
+			self.changed(\selected);
+		},
+
+		vpiano: { arg self;
+			{ self.val };	
+		},
+
+		vpattern: { arg self;
+			Pfunc({ self.val });	
+		}
+
+	);
+	param.set_val(default_value);
+	param;
+
+};
+
+////////////////////////// Recordline
+
+~make_type_param = { arg name;
+	var ret;
+	ret = (
+		name: name,
+		classtype: \type,
+		refresh: { arg self; },
+		vpattern: { arg self; 
+			Pfunc({ arg ev;
+				var normal_type = ev[\type] ?? \note;
+				if(ev[\muted]) {
+					\rest
+				} {
+					if(ev[\current_mode] == \stepline) {
+						if(ev[\stepline] > 0) {
+							normal_type
+						} {
+							\rest
+						}
+					} {
+						if(ev[ev[\current_mode]].type != \rest) {
+							normal_type;
+						} {
+							\rest;
+						}
+					}
+				}
+			})
+		}
+	);
+	ret;
+};
+
+~make_parent_recordline_param = { arg name, default_value=[];
+	var ret;
+	ret = (
+		name: name,
+		classtype: \recordline,
+		selected_cell: 0,
+		selected: 0,
+		default_val: default_value.asList,
+		notes: ~default_noteline3.deepCopy,
+		start_offset: 0,
+		end_offset: 0,
+		muted: false,
+		archive_data: [\name, \classtype, \selected, \selected_cell, \default_val, \notes, \start_offset, \end_offset, \notequant, \muted],
+		notequant: nil,
+		vnotes: [],
+
+		save_data: { arg self;
+			var data = ();
+			self.archive_data.do {
+				arg key;
+				data[key] = self[key];
+			};
+			[\seq].do { arg kind;
+				data[kind] = ();
+				[\val].do { arg key;
+					data[kind][key] = self[kind][key];
+				}
+			};
+			data[\scoreset] = self.scoreset.save_data;
+			data;
+		},
+
+		load_data: { arg self, data;
+			self.archive_data.do {
+				arg key;
+				self[key] = data[key];
+			};
+			[\seq].do { arg kind;
+				[\val].do { arg key;
+					 self[kind][key] = data[kind][key];
+				}
+			};
+			self.scoreset.load_data(data[\scoreset]);
+			self.refresh;
+		},
+
+		seq: (
+			val: default_value.asList,
+			change: { arg self, fun;
+				self.val = fun.(self.val);
+			}
+		),
+		get_cells: { arg self;
+			self.seq.val;
+		},
+		get_selected_cell: { arg self;
+			self.selected_cell;
+		},
+		select_param: { arg self;
+			self.selected = 1;
+			self.changed(\selected);
+		},
+		deselect_param: { arg self;
+			self.selected = 0;
+			self.changed(\selected);
+		},
+
+		add_cells: { arg self, cells;
+			self.seq.val.addAll(cells);
+			self.changed(\cells);
+		},
+
+		remove_cells: { arg self, num;
+			self.seq.val = self.seq.val[.. (self.seq.val.size - num - 1) ];
+			self.changed(\cells);
+		},
+
+		set_val: { arg self, val;
+			self.seq.val[ self.get_selected_cell.() ] = if(val > 1, { 1 },{ 0 });
+		},
+
+		quantify_note2: { arg self, note;
+			var res;
+			//note.debug("quantify_note input");
+			res = note.deepCopy;
+			if(self.notequant.notNil) {
+				res.dur = res.dur.round(self.notequant);
+				res;
+			} {
+				res;
+			};
+			//res.debug("quantify_note output");
+		},
+
+		get_notes: { arg self;
+			self.scoreset.get_notes;
+		},
+
+		get_scoreset: { arg self;
+			self.scoreset;
+		},
+
+		get_notes2: { arg self;
+			var no;
+			no = self.vnotes.deepCopy;
+			//no[0].dur+self.start_offset;
+			//no.last.dur+self.end_offset;
+			no;
+		},
+
+		set_notes: { arg self, val;
+			self.scoreset.set_notes(val);
+			//self.changed(\notes);
+		},
+		set_notes2: { arg self, val;
+			self.notes = val;
+			self.update_note_dur;
+		},
+
+		set_next_notes: { arg self, val, dur=nil;
+			self.scoreset.set_next_notes(val, dur);
+		},
+
+		set_next_notescore: { arg self, val, dur=nil;
+			self.scoreset.set_next_notescore_history(val, dur);
+		},
+
+		set_next_notes2: { arg self, val, dur=nil;
+			if(self.pat_finish_first.notNil) {
+				// le pattern a deja commencé, assigner les notes tout de suite
+				"**** set_next_notes: assigning next_notes as current notes immediately".debug;
+				self.set_notes(val);
+				self.pat_finish_first = nil;
+			} {
+				"**** set_next_notes: preparing next_notes".debug;
+				self.next_notes = val;
+			};
+			self.notes_dur = dur; // used to check is dur is correct after quantization
+		},
+
+		set_next_notes_as_current_notes: { arg self;
+			self.scoreset.set_next_notes_as_current_notes;
+		},
+
+		forward_to_next_notescore: { arg self;
+			// called in get_note and midi:player_start_tempo_recording
+			self.scoreset.forward_to_next_notescore;
+		},
+
+		set_next_notes_as_current_notes2: { arg self;
+			self.set_notes(self.next_notes);
+			self.next_notes = nil;
+			self.wait_note = nil;
+		},
+
+		set_wait_note: { arg self, note;
+			self.scoreset.set_wait_note(note);	
+		},
+		set_wait_note2: { arg self, note;
+			"**** nline: set_wait_note".debug;
+			self.wait_note = self.quantify_note(note);
+			self.wait_note[\first_note] = true;
+			self.wait_note.debug("wait_note");
+			note.debug("originial note");
+		},
+
+		get_note: { arg self, idx;
+			// FIXME: not used anymore, use whole notescore now
+			self.scoreset.get_note(self, idx);
+		},
+
+		get_note2: { arg self, idx;
+			var no;
+			if( self.vnotes.size > 0 && {self.muted.not}) {
+				if(idx == 0) {
+					// s'il y a deja des next_notes lorsque la note 0 arrive (debut du pattern), c'est que le record a fini _avant_ le pattern
+					// s'il n'y en a pas mais qu'il y a quand meme une wait_note c'est que le record va finir _apres_ le pattern
+					// s'il n'y a ni l'un ni l'autre, c'est que c'est un banale debut de pattern, et cela doit continuer normalement
+					if(self.next_notes.notNil) {
+						"******** recording finish first, using next_notes as current notes".debug;
+						self.set_next_notes_as_current_notes;
+					} {
+						if(self.wait_note.notNil) {
+							"********* recording not yet finished".debug;
+							"***** there is a wait note, using it as first note".debug;
+							no = self.wait_note;
+							self.wait_note = nil;
+							self.pat_finish_first = true;
+						} {
+							no = self.vnotes[idx].deepCopy;
+						};
+					}
+				} {
+					no = self.vnotes[idx].deepCopy;
+				};
+				no;
+			} {
+				if(self.muted) {
+					"noteline_param: get_note: muted!".inform;
+				} {
+					if(self.next_notes.notNil) {
+							"setting next_notes when no notes found".debug;
+							self.set_notes(self.next_notes);
+							self.next_notes = nil;
+							self.wait_note = nil;
+					};
+					"noteline_param: get_note: No notes".inform;
+				};
+				if(idx == 0) {
+					~empty_note;
+				} {
+					nil;
+				};
+			}
+		},
+
+		total_dur: { arg self, notes;
+			self.scoreset.total_dur(notes);
+		},
+
+		total_dur2: { arg self, notes;
+			var res=0;
+			notes.do { arg x; res = x.dur + res; };
+			res;
+		},
+
+		update_note_dur: { arg self;
+			self.scoreset.update_notes;
+		},
+
+		update_note_dur2: { arg self;
+			// manage start and end offset and silence and put result notes in self.vnotes
+			var find_next, find_prev, delta, prevdelta, idx, previdx;
+			var qnotes, normdur, realdur, size;
+			"update_note_dur".debug("start");
+			if( self.notes.size > 2) {
+				find_next = { arg dur, notes;
+					var res=0, vidx=0, last=nil, delta=0, prevdelta=0;
+					dur.debug("find_next: dur");
+					if(dur == 0) {
+						delta = 0;
+						vidx = 0
+					} {
+						notes[1..].do { arg x, n;
+							[n, res, vidx, last, dur].debug("begin n res vidx last");
+							if( res < dur ) {
+								res = x.dur + res;
+								vidx = vidx + 1;
+								last = x.dur;
+							};
+							[n, res, vidx, last].debug("end");
+						};
+						delta = res - dur;
+					};
+					[ delta, vidx+1 ];
+				};
+
+				find_prev = { arg dur, notes;
+					var res=0, vidx=0, last=nil, delta=0, prevdelta=0;
+					dur = self.total_dur( notes[1..(notes.lastIndex-1)] ).debug("total dur") - dur;
+					dur.debug("find_prev: dur");
+
+					notes[1..].do { arg x, n;
+						[n, res, vidx, last].debug("begin n res vidx last");
+						if( res <= dur ) {
+							res = x.dur + res;
+							vidx = vidx + 1;
+							last = x.dur;
+						};
+						[n, res, vidx, last].debug("end");
+					};
+					delta = res - dur;
+					if(last.isNil) {
+						prevdelta = nil
+					} {
+						last.debug("last");
+						prevdelta = last - delta;
+					};
+					[ prevdelta, vidx ];
+				};
+
+				// quantify notes
+				self.notes.collect({arg no, x; no.numero = x }); // debug purpose
+				self.notes.debug("update_note_dur: original notes");
+				qnotes = self.notes.collect{ arg x; self.quantify_note(x) };
+				qnotes.debug("update_note_dur: qnotes");
+				
+				// troncate too long end silence
+				normdur = self.total_dur(self.notes);
+				if(self.notes_dur.notNil && (normdur != self.notes_dur)) {
+					"fucking bug in recording length!!!!!!!!".debug;
+				};
+				realdur = self.total_dur(qnotes);
+				qnotes.last.dur = qnotes.last.dur - (realdur - (self.notes_dur ?? normdur));
+				~mydur = self.total_dur(qnotes);
+				[self.notes_dur, realdur, normdur, ~mydur].debug("duration::::: notes_dur, real, norm, end");
+
+				if(qnotes.last.dur < 0) {
+					"ERROR: mon hack degueux fonctionne pas vraiment et c'est la grosse merde".error;
+				};
+
+				// remove duplicates
+
+				size = qnotes.size-1;
+				self.vnotes = List.new;
+				qnotes.do { arg no, x;
+					if(x < size) {
+						if((no.dur == 0) && (no.midinote == qnotes[x+1].midinote)) {
+							// duplicate: don't add
+							no.debug("found duplicate: don't add");
+						} {
+							self.vnotes.add(no);
+						};
+					} {
+						self.vnotes.add(no);
+					}
+				};
+
+				self.vnotes.debug("update_note_dur: vnotes");
+
+
+				// old code to calculate offsets when recording non standard durations
+
+				//#delta, idx = find_next.(self.notes[0].start_offset, self.notes);
+				//#prevdelta, previdx = find_prev.(self.notes[0].end_offset, self.notes);
+			//	#delta, idx = find_next.(qnotes[0].start_offset, qnotes);
+			//	#prevdelta, previdx = find_prev.(qnotes[0].end_offset, qnotes);
+			//	[delta, idx, prevdelta, previdx].debug("delta, idx, prevdelta, previdx");
+			//	qnotes[0].dur = qnotes[0].start_silence + delta;
+			//	self.vnotes = [qnotes[0]] ++ qnotes[idx..previdx].deepCopy;
+			//	self.vnotes[self.vnotes.lastIndex].dur = qnotes[0].end_silence + prevdelta;
+			//	self.vnotes.debug("update_note_dur: vnotes");
+				self.changed(\notes);
+			} {
+				if(self.notes.size == 2) {
+					self.vnotes = self.notes.deepCopy;
+					if( (self.notes[0].start_silence + self.notes[0].end_silence) < 0.01 ) {
+						"Protection anti infinite loop: setting end_silence to 0.5".error;
+						self.notes[0].end_silence = 0.5
+					};
+					self.vnotes[0].dur = self.notes[0].start_silence;
+					self.vnotes[self.vnotes.lastIndex].dur = self.notes[0].end_silence;
+					self.vnotes.debug("update_note_dur: vnotes");
+					// quantify notes
+					self.vnotes = self.vnotes.collect{ arg x; self.quantify_note(x) };
+					self.vnotes.debug("update_note_dur: vnotes quant");
+					self.changed(\notes);
+				}
+			};
+		},
+
+		set_start_offset: { arg self, val;
+			var dur;
+			if(self.notes.size > 2 ) {
+				dur = self.total_dur( self.notes[1..(self.notes.lastIndex-1)] );
+				if( val >= 0 && (val < (dur - self.notes[0].end_offset)) ) {
+					[val, dur, self.notes[0].end_offset, dur - self.notes[0].end_offset].debug("set start_offset: val, dur, eo, dur-eo");
+					self.notes[0].start_offset = val;
+					self.update_note_dur;
+				} {
+					[val, dur, self.notes[0].end_offset, dur - self.notes[0].end_offset].debug("can't set start_offset: val, dur, eo, dur-eo");
+				}
+			} {
+				"You are stupid!".debug;
+			}
+		},
+
+		set_end_offset: { arg self, val;
+			var dur;
+			if(self.notes.size > 0) {
+				dur = self.total_dur( self.notes[1..(self.notes.lastIndex-1)] );
+				if( val >= 0 && (val < (dur - self.notes[0].start_offset)) ) {
+					[val, dur, self.notes[0].end_offset, dur - self.notes[0].end_offset].debug("can't set end_offset: val, dur, so, dur-so");
+					self.notes[0].end_offset = val;
+					self.update_note_dur;
+				} {
+					[val, dur, self.notes[0].start_offset, dur - self.notes[0].start_offset].debug("can't set end_offset: val, dur, so, dur-so");
+				}
+			}
+		},
+
+		get_start_offset: { arg self;
+			if(self.notes.size > 0) {
+				self.notes[0].start_offset;
+			}
+		},
+
+		get_end_offset: { arg self;
+			if(self.notes.size > 0) {
+				self.notes[0].end_offset;
+			}
+		},
+
+		set_start_silence: { arg self, val;
+
+			if(self.notes.size > 0 && (val >= 0)) {
+				self.notes[0].start_silence = val;
+				self.update_note_dur;
+			} {
+				[val, self.notes.size].debug("can't set start_silence: val, notessize");
+			}
+		},
+
+		set_end_silence: { arg self, val;
+
+			if(self.notes.size > 0 && (val >= 0)) {
+				self.notes[0].end_silence = val;
+				self.update_note_dur;
+			} {
+				[val, self.notes.size].debug("can't set end_silence: val, notessize");
+
+			};
+		},
+
+		get_start_silence: { arg self;
+			self.scoreset.get_start_silence;
+		},
+
+		get_start_silence2: { arg self;
+			if(self.notes.size > 0) {
+				self.notes[0].start_silence;
+			}
+
+		},
+
+		get_end_silence: { arg self;
+			self.scoreset.get_end_silence;
+		},
+
+		get_end_silence2: { arg self;
+			if(self.notes.size > 0) {
+				self.notes[0].end_silence;
+			}
+
+		},
+
+		set_first_note_dur: { arg self, val;
+			var res = 0, lastdur = 0, vidx = 0;
+			if( self.notes.size > 0) {
+				self.notes[0].dur = val;
+				if( val < 0 ) {
+					self.notes.do { arg x;
+						if( res < val.neg ) {
+							res = x.dur + res;
+							vidx = vidx + 1;
+							lastdur = x.dur;
+						}
+					};
+					self.notes[0].virtual_start_idx = vidx -1;
+					self.notes[0].virtual_start_dur = res - val.neg;
+				}
+			}
+		},
+
+		get_first_note_dur: { arg self;
+			self.notes.size.debug("get_first_note_dur self.notes.size");
+			if( self.notes.size > 0) {
+				self.notes[0].dur;
+			} {
+				nil
+			}
+		},
+
+		set_notequant: { arg self, val;
+			self.scoreset.set_notequant(val);
+		},
+
+		get_notequant: { arg self;
+			self.scoreset.get_notequant;
+		},
+		set_notequant2: { arg self, val;
+			self.notequant = val;
+			self.update_note_dur;
+			self.changed(\notes);
+		},
+
+		tick: { arg idx; 
+			//"TICK!".postln;
+		},
+
+		mute: { arg self, val;
+			self.muted = val;
+		},
+
+		toggle_cell: { arg self, idx;
+			var oldsel;
+			[idx, self.get_cells].debug("make_control_param.select_cell idx, selg.get_cells");
+			if( idx < self.get_cells.size, {
+				//oldsel = self.selected_cell;
+				self.selected_cell = idx;
+				//self.changed(\selected_cell, oldsel);
+				self.seq.val[ idx ] = ~toggle_value.(self.seq.val[ idx ]);
+				self.changed(\val, self.selected_cell);
+			})
+		},
+		refresh: { arg self;
+			self.update_note_dur;
+			self.get_notes.debug("noteline param refresh: get_notes");
+			self.changed(\notes);
+			self.changed(\selected);
+		},
+
+		//vpattern: { arg self; 
+			// deprecated: cause time mismatch when adding notes
+		//	~pdynarray.( { arg idx, no;
+		//		self.tick;
+		//		//self.classtype.debug("classtype!!!!!!!!");
+		//		no = self.get_note(idx);
+		//		//"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".debug;
+		//		//self.classtype.debug("classtype");
+		//		//idx.debug("note number");
+		//		//no.debug("note");
+		//		no;
+		//	}, self.classtype );
+		//},
+		vpattern: { arg self; 
+			Prout{ arg ev;
+				var repeat = ~compute_repeat.(ev, self.classtype);
+				repeat.do {
+					var notes = self.scoreset.get_notes;
+					notes.do { arg no;
+						ev = no.yield;
+					}
+				}
+			};
+		},
+
+		init: { arg self;
+			self.scoreset = ~make_scoreset_hack.(self);
+			self.scoreset.notescore.set_notes(self.notes);
+			self.scoreset.update_notes; // to take in account default_noteline
+		}
+
+	);
+	//ret.init; //should init in subclasses
+	ret;
+};
+
+~make_line_param = { arg name, default_value=[];
+	var fun;
+	// FIXME: modes
+	fun = switch(name,
+		\noteline, { ~make_noteline_param },
+		\scoreline, { ~make_scoreline_param },
+		\stepline, { ~make_stepline_param },
+		\nodeline, { ~make_nodeline_param },
+		\sampleline, { ~make_sampleline_param },
+		{ name.debug("make_line_param: line not understood"); }
+	);
+	fun.(name, default_value);
+};
+
+~make_nodeline_param = { arg name, default_value=[];
+	var ret;
+	ret = (
+		parent: ~make_parent_recordline_param.(name, default_value),
+		classtype: \nodeline,
+		notes: ~default_sampleline.deepCopy,
+
+		trans_notes: { arg self;
+			// make sample slots compatibles with other code using midinotes
+			self.notes = self.notes.collect { arg x;
+				x.midinote = x.slotnum;
+			};
+		},
+
+		update_note_dur: { arg self;
+			self.trans_notes;
+			self.parent[\update_note_dur].(self);
+		}
+	);
+	ret.init;
+	ret;
+};
+
+~make_sampleline_param = { arg name, default_value=[];
+	var ret;
+	ret = (
+		parent: ~make_parent_recordline_param.(name, default_value),
+		classtype: \sampleline,
+		notes: ~default_sampleline.deepCopy,
+
+		trans_notes: { arg self;
+			// make sample slots compatibles with other code using midinotes
+			self.notes = self.notes.collect { arg x;
+				x.midinote = x.slotnum;
+			};
+		},
+
+		update_note_dur: { arg self;
+			self.trans_notes;
+			self.parent[\update_note_dur].(self);
+		}
+	);
+	ret.init;
+	ret;
+};
+
+~make_noteline_param = { arg name, default_value=[];
+	var ret;
+	ret = (
+		parent: ~make_parent_recordline_param.(name, default_value),
+		classtype: \noteline,
+		notes: ~default_noteline3.deepCopy
+	);
+	ret.init;
+	ret;
+};
+
+~make_scoreline_param = { arg name, default_value=[];
+	var ret;
+	ret = (
+		parent: ~make_parent_recordline_param.(name, default_value),
+		classtype: \scoreline,
+		notes: ~default_scoreline.deepCopy
+	);
+	ret.init;
+	ret;
+};
+
+~make_stepline_param = { arg name, default_value;
+	var ret;
+	ret = (
+		name: name,
+		classtype: \stepline,
+		selected_cell: 0,
+		selected: 0,
+		current_kind: \stepline, // hack to harmonize with control_param
+		default_val: default_value.asList,
+
+		save_data: { arg self;
+			var data = ();
+			[\name, \classtype, \selected, \selected_cell, \default_val].do {
+				arg key;
+				data[key] = self[key];
+			};
+			[\seq].do { arg kind;
+				data[kind] = ();
+				[\val].do { arg key;
+					data[kind][key] = self[kind][key];
+				}
+			};
+			data;
+		},
+
+		load_data: { arg self, data;
+			[\name, \classtype, \selected, \selected_cell, \default_val].do {
+				arg key;
+				self[key] = data[key];
+			};
+			[\seq].do { arg kind;
+				[\val].do { arg key;
+					 self[kind][key] = data[kind][key];
+				}
+			};
+		},
+
+		seq: (
+			val: default_value.asList,
+			change: { arg self, fun;
+				self.val = fun.(self.val);
+			}
+		),
+		get_cells: { arg self;
+			self.seq.val;
+		},
+		get_selected_cell: { arg self;
+			self.selected_cell;
+		},
+		select_param: { arg self;
+			self.selected = 1;
+			self.changed(\selected);
+		},
+		deselect_param: { arg self;
+			self.selected = 0;
+			self.changed(\selected);
+		},
+
+		add_cells: { arg self, cells;
+			self.seq.val.addAll(cells);
+			self.changed(\cells);
+		},
+
+		remove_cells: { arg self, num;
+			self.seq.val = self.seq.val[.. (self.seq.val.size - num - 1) ];
+			self.changed(\cells);
+		},
+
+		set_val: { arg self, val, idx;
+			idx = idx ?? self.get_selected_cell.();
+			self.seq.val[ idx  ] = if(val >= 1, { 1 },{ 0 });
+			self.changed(\val, idx);
+		},
+
+		get_val: { arg self, idx;
+			idx = idx ?? self.get_selected_cell.();
+			self.seq.val[ idx  ];
+		},
+
+
+		tick: { arg idx;
+		//"TICK!".postln;
+		},
+
+		toggle_cell: { arg self, idx;
+			var oldsel;
+			[idx, self.get_cells].debug("make_control_param.select_cell idx, selg.get_cells");
+			if( idx < self.get_cells.size, {
+				//oldsel = self.selected_cell;
+				self.selected_cell = idx;
+				//self.changed(\selected_cell, oldsel);
+				self.seq.val[ idx ] = ~toggle_value.(self.seq.val[ idx ]);
+				self.changed(\val, self.selected_cell);
+			})
+		},
+		refresh: { arg self;
+			"make_stepline_param:refresh".debug;
+			self.changed(\kind);
+			//self.changed(\cells);
+			self.changed(\selected);
+			"END make_stepline_param:refresh".debug;
+		},
+		vpattern: { arg self; 
+			"--------making vpattern of stepline".debug;
+			~pdynarray.( { arg idx, ev; 
+				if(ev[\stepline].notNil) {
+					ev[\stepline];
+				} {
+					self.tick(idx); 
+					if(self.seq.val[idx] == 1, { [idx, TempoClock.beats, TempoClock.beatInBar].debug("----------TICK step"); });
+					self.seq.val[idx];
+				}
+			}, \stepline );
+			//Pseq([1,1,1,1],inf);
+		};
+	);
+	ret;
+};
+
+
+// ==========================================
+// VARIABLE CONTROL
+// ==========================================
+
+~make_binded_number_param = { arg main, name, spec, get_fun, set_fun;
+	var res = (
+		name: name,
+		//val: { arg self; tempoclock.tempo },
+		classtype: \binded_number,
+		spec: spec,
+
+		get_norm_val: { arg self;
+			self.spec.unmap(get_fun.())
+		},
+		set_norm_val: { arg self, val;
+			val.debug("make_tempo_param: set_norm_val");
+			set_fun.(self.spec.map(val));
+			self.changed(\val);
+		},
+
+		get_val: { arg self;
+			get_fun.();
+		},
+
+		set_val: { arg self, val;
+			set_fun.(val);
+			self.changed(\val);
+		},
+
+		refresh: { arg self;
+			self.changed(\kind);
+			self.changed(\val);
+			//self.changed(\cells);
+			self.changed(\selected);
+			self.midi.refresh;
+		}
+	);
+	res.midi = main.midi_center.get_midi_control_handler(res);
+	res;
+};
+
+~make_quant_param = { arg main, name, quantobject;
+	var set_fun = { arg val; main.play_manager.set_quant(val) };
+	var get_fun = { main.play_manager.get_quant };
+	var res = (
+		parent: ~make_binded_number_param.(main, name, \quant.asSpec, get_fun, set_fun)
+	);
+	res.midi = main.midi_center.get_midi_control_handler(res);
+	res;
+};
+
+~make_barrecord_param = { arg main, name, quantobject;
+	var set_fun = { arg val; main.play_manager.set_record_length(val); val.debug("make_barrecord_param:set_fun"); };
+	var get_fun = { main.play_manager.get_record_length.debug("make_barrecord_param:get_record_length"); };
+	var res = (
+		parent: ~make_binded_number_param.(main, name, \seq_dur.asSpec, get_fun, set_fun)
+	);
+	res.midi = main.midi_center.get_midi_control_handler(res);
+	res;
+};
+
+~make_tempo_param = { arg main, name;
+	var set_fun = { arg val; 
+		main.play_manager.set_bpm_tempo(val);
+	};
+	var get_fun = { main.play_manager.get_bpm_tempo };
+	var res = (
+		parent: ~make_binded_number_param.(main, name, \tempobpm.asSpec, get_fun, set_fun)
+
+	);
+	res.midi = main.midi_center.get_midi_control_handler(res);
+	res;
+};
+
+~make_master_volume_param = { arg main, name;
+	var set_fun = { arg val; 
+		s.volume.volume = val;
+	};
+	var get_fun = { s.volume.volume };
+	var res = (
+		parent: ~make_binded_number_param.(main, name, \db.asSpec, get_fun, set_fun)
+
+	);
+	res.midi = main.midi_center.get_midi_control_handler(res);
+	res;
+};
+
+~make_volume_param = { arg name, main;
+	// deprecated: used in mixer.sc
+	var param = (
+		classtype: \volume,
+
+		save_data: { arg self;
+			var data = Dictionary.new;
+			data[\volume] = s.volume.volume;
+		},
+
+		load_data: { arg self, data;
+			s.volume.volume = data[\volume];
+		},
+
+		get_norm_val: { arg self;
+			self.spec.unmap(s.volume.volume)
+		},
+		set_norm_val: { arg self, val;
+			s.volume.volume = self.spec.map(val);
+			self.changed(\val);
+		},
+		get_cells: { arg self;
+			[s.volume.volume]
+		},
+		refresh: { arg self;
+			self.changed(\cells);
+		},
+		spec: \db.asSpec,
+		selected: 1
+
+	);
+	param.midi = main.midi_center.get_midi_control_handler(param);
+	param;
+
+};
+
+
+// ==========================================
+// 
+// ==========================================
+
+
+
+~make_macro_control_param = { arg main, macro_ctrl, player, name, kind, default_value, spec;
+	var param = ~make_control_param.(main, player, name, kind, default_value, spec);
+	param.external_control = macro_ctrl;
+	param.make_responder_translator = { arg self, parent;
+		debug("make_responder_translator: init");
+		~make_view_responder.(parent, self.external_control, (
+			set_property: { arg obj, msg, key, val;
+				[msg, key, val].debug("make_responder_translator");
+				switch(key,
+					\value, {
+						self.changed(\val, 0);
+					}
+				)
+			}
+
+		), false)
+	};
+	param.scalar = (
+			//quoi: { "QUOI".debug; }.value,
+			selected_cell: 0, // always 0
+			val: macro_ctrl.get_val,
+
+			set_val: { arg self, val, idx=nil;
+				macro_ctrl.set_val(val);
+				param.changed(\val, 0);
+			},
+			get_val: { arg self;
+				macro_ctrl.get_val 
+			},
+
+			set_norm_val: { arg self, norm_val;
+				macro_ctrl.set_property(\value, norm_val);
+				param.changed(\val, 0);
+			},
+			get_norm_val: { arg self;
+				macro_ctrl.get_norm_val 
+			},
+
+			get_cells: { arg self; [self.get_val] },
+
+			select_cell: { arg self, idx; param.seq.selected_cell = idx }, // when changing kind, correct cell is selected in colselect mode
+			get_selected_cell: { arg self; 0 },
+			add_cells: {},
+			remove_cells: {}
+	);
+	param;
+};
+
+
+///////////////////////////////////////////////////////////
+
+~class_param_opmatrix_controller = (
+	parent: ~class_param_controller,
+	new: { arg self, name, spec, size;
+		self = self.deepCopy;
+		
+		self.opmatrix = Array.fill(size.y, {
+			Array.fill(size.x, { 0 })
+		});
+	
+		self;
+	},
+
+	save_data: { arg self;
+		var data = IdentityDictionary.new;
+		self.archive_data.do { arg key;
+			data[key] = self[key]
+		};
+		data;
+	},
+
+	load_data: { arg self, data;
+		data.keysValuesDo { arg key, val;
+			self[key] = val;
+		}
+	},
+
+	get_cell_val: { arg self, x, y;
+		self.opmatrix[y][x];
+	},
+
+	set_cell_val: { arg self, x, y, val;
+		self.opmatrix[y][x] = val;
+	},
+
+	vpiano: { arg self;
+		{
+			self.get_val;
+		}
+	},
+
+	vpattern: { arg self;
+		Pfunc{
+			[
+				self.opmatrix.flat
+			]
+		}
+	},
+);
+
+~class_param_tsustain_controller = (
+	parent: ~class_param_controller,
+	archive_data: [\name],
+	kind: \tsustain,
+	new: { arg self, name;
+		self = self.deepCopy;
+
+		self.name = name;
+	
+		self;
+	},
+
+	vpattern: { arg self;
+		// TODO: implement legato
+		Plazy({ 
+			var val;
+			val = Pn(Pfunc({ arg ev; ev[\dur]}) / Ptempo());
+			val.debug("class_param_tsustain_controller.vpattern: val");
+			//ev = val.yield;
+			val;
+		});
+	}
+);
+
+~class_param_scorekey_controller = (
+	parent: ~class_param_controller,
+	archive_data: [\name, \key_name, \val],
+	kind: \scorekey,
+	new: { arg self, player, name, key;
+		self = self.deepCopy;
+	
+		self.name = name;
+		self.player_node = { player };
+		self.key_name = key ?? name;
+
+		self;
+	},
+
+	vpattern: { arg self;
+		Prout({ arg ev;
+			var val;
+			~general_sizes.safe_inf.do {
+				val = ev[self.player_node.get_mode][self.key_name];
+				//val.debug("class_param_scorekey_controller.vpattern: val");
+				if(val.isNil) {
+					//ev.debug("class_param_scorekey_controller: ev");
+					val = 0;
+				};
+				ev = val.yield;
+			
+			};
+		});
+	}
+);
+
+~class_param_modenv_val_controller = (
+	parent: ~class_param_controller,
+	archive_data: [\name, \key_name, \val],
+	kind: \scorekey,
+	new: { arg self, player, name, key;
+		self = self.deepCopy;
+	
+		self.name = name;
+		self.player_node = { player };
+		self.key_name = key ?? name;
+		self.val = [0,1]; //FIXME: not displayed
+
+		self;
+	},
+
+	set_notes: { arg self, notes;
+		var res = List.new;
+		var tmp;
+		notes.do { arg note;
+			if(note.type != \rest) {
+				res.add(note[self.key_name]);
+			}
+		};
+		tmp = res.removeAt(0);
+		res.add(tmp);
+		self.val = res;
+	},
+
+	vpattern: { arg self;
+		Prout({ arg ev;
+			var idx, val, fun;
+			var repeat;
+			fun = { arg idx; self.val[idx] };
+			ev[\firstsynth] = 1;
+			ev[\firstval] = self.val.last;
+			repeat = ~general_sizes.safe_inf;
+			repeat.do {
+				idx = 0;
+				val = fun.(idx, ev);
+				//[val, idx].debug("pdynarray val idx");
+				while( { val.notNil } , { 
+					ev = val.yield;
+					idx = idx + 1;
+					val = fun.(idx, ev);
+				});
+			};
+		});
+	}
+);
+
 
 ~class_param_ienv_controller = (
 	parent: ~class_param_controller,
@@ -4915,78 +5056,4 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	},
 );
 
-// TODO: check if default notescore can be modified by notescore class
-~default_custom_env_notescore = [
-	(
-		level: 0,
-		dur: 0.1
-	),
-	(
-		level: 1,
-		dur: 0.1
-	),
-	(
-		level: 0,
-		dur: 0
-	),
-];
 
-~class_param_custom_env_controller = (
-	parent: ~class_param_controller,
-
-	classtype: \custom_env,
-
-	new: { arg self, name;
-		var numlevels = 16;
-		self = self.deepCopy;
-		self.name = name;
-
-		self.default_value = Env([0,1,0] ++ (0!numlevels),[0.1,0.1] ++ (0!numlevels));
-
-		self.notescore = ~make_notescore.();
-		self.notescore.set_notes(~default_custom_env_notescore);
-
-		self;
-	},
-
-	save_data: { arg self;
-		var data = IdentityDictionary.new;
-		self.archive_data.do { arg key;
-			data[key] = self[key]
-		};
-		data[\notescore] = self.notescore.save_data;
-		data;
-	},
-
-	load_data: { arg self, data;
-		self.archive_data.do { arg key;
-			self[key] = data[key];
-		};
-		self.notescore.load_data( data[\notescore] );
-		self.update_notes;
-	},
-
-
-	get_notescore: { arg self;
-		self.notescore
-	},
-
-	notescore_to_env: { arg self, notescore;
-		var notes;
-		var levels = List.new, times = List.new;
-		notes = notescore.get_rel_notes;
-		notes.do { arg note;
-			times.add( note.dur );
-			levels.add( note.level );
-		};
-		Env(levels, times);
-	},
-
-	update_notes: { arg self;
-		self.env_object = self.notescore_to_env(self.notescore)
-	},
-
-	vpattern: { arg self;
-		Pfunc{ [ self.env_object ] }
-	},
-);

@@ -1043,9 +1043,9 @@
 			nodename.debug("pm: play_node");
 			[self.top_nodes, self.children_nodes].debug("pm: state");
 			~notNildo.(main.get_node(nodename), { arg node;
-				self.start_new_session;
 				children = ~find_children.(main, node);
 				if( self.top_nodes.keys.includes(nodename) ) {
+					self.start_new_session;
 
 					/////==== already playing: unmuting children ====/////
 
@@ -1055,6 +1055,7 @@
 					};
 				} {
 					if( self.children_nodes.includes(nodename) ) {
+						self.start_new_session;
 
 						/////==== already playing as a children: unmuting ====/////
 
@@ -1098,6 +1099,9 @@
 
 						node.node.source = node.vpattern_loop;
 						quant = if(self.is_playing) { self.get_quant } { 1 };
+
+						self.start_new_session;
+
 						node.node.play(self.get_clock,quant:quant);
 
 						node.set_playing_state(\play);

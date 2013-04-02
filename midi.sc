@@ -2,13 +2,20 @@
 
 ~midi_center = { arg main;
 	var mc = (
-		cc_states: Dictionary.new,
+		//cc_states: Dictionary.new,
 		fixed_bindings: Dictionary.new,
 
 		next_free: (
 			slider: 0,
 			knob: 0
 		),
+
+		cc_states: { arg self;
+			if(~midi_cc_states.isNil) {
+				~midi_cc_states = Dictionary.new;
+			};
+			~midi_cc_states;
+		},
 
 		set_fixed_binding: { arg self, ccpath, param;
 			self.clear_fixed_binding_by_param(param);
@@ -65,6 +72,10 @@
 			main.commands.get_param_binded_ccpath(param);
 		},
 
+		get_param_by_ccpath: { arg self, ccpath;
+			main.commands.ccpath_to_param(ccpath);
+		},
+
 		clear_assigned: { arg self, kind;
 			self.next_free[kind] = 0;
 		},
@@ -105,9 +116,9 @@
 				}
 			};
 			[\button, \toggle].do { arg cctype; ~keycode.cakewalk[cctype].do { arg keycode, i;
-					if(keycode == ~keycode.cakewalk[\button][8]) {
+				case
+					{ keycode == ~keycode.cakewalk[\button][8] } {
 						self.ccresp.add( CCResponder({ |src,chan,num,value|
-								var ccpath = [\midi, 0, keycode];
 								var val = value/127;
 								main.commands.set_midi_modifier(\hold, val);
 							},
@@ -117,7 +128,20 @@
 							nil // any value
 							)
 						)
-					} {
+					}
+					{ keycode == ~keycode.cakewalk[\button][7] } {
+						self.ccresp.add( CCResponder({ |src,chan,num,value|
+								var val = value/127;
+								main.commands.set_midi_modifier(\record, val);
+							},
+							nil, // any source
+							nil, // any channel
+							keycode, // any CC number
+							nil // any value
+							)
+						)
+					}
+					{
 						self.ccresp.add( CCResponder({ |src,chan,num,value|
 								var ccpath = [\midi, 0, keycode];
 								var val = value/127;
@@ -141,10 +165,12 @@
 			self.nonr = List.new;
 			
 			[\pad].do { arg cctype; ~keycode.cakewalk[cctype].do { arg keycode, i;
-				var ccpath = [\midi, 0, keycode + 1000]; // add offset to difference from cc
+				//var ccpath = [\midi, 0, keycode + 1000]; // add offset to difference from cc
+				var ccpath = [\midi, 0, (i+1).asSymbol];
 				self.nonr.add( 
 					NoteOnResponder ({ arg src, chan, num, veloc;
-						main.commands.handle_midi_key(main.model.current_panel, ccpath);
+						[keycode, ccpath].debug("pad_responder");
+						main.commands.handle_midi_key(main.model.current_panel, ccpath.copy);
 					},
 					nil,
 					nil,
@@ -307,6 +333,137 @@
 	);
 };
 
+~class_midi_bindings_manager = (
+	new: { arg self, main;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.player_display = ~class_player_display.new(main);
+		self.player_display.debug("GOUTOIR");
+
+		debug("class_midi_bindings_manager: new");
+	
+		self;
+	},
+
+	get_current_group: { arg self;
+		if(self.get_main.panels.side.notNil) {
+			//self.get_main.panels.side.debug("class_midi_bindings_manager: get_current_group");
+			self.get_main.panels.side.get_current_group;
+		}
+	},
+
+	get_current_player: { arg self;
+		var side = self.get_main.panels.side;
+		if(side.notNil) {
+			var player;
+			//side.window_panel_is_open_do(\nodematrix_controller, { arg ctrl;
+			if(side.window_panel_is_open(\nodematrix_controller)) {
+				player = side.nodematrix_controller.get_current_player
+			} {
+				player = side.get_current_player;
+			};
+			player.name.debug("class_midi_bindings_manager.get_current_player");
+			player;
+		}
+	},
+
+	//get_current_player_paramlist: { arg self;
+	//	if(self.get_main.panels.side.notNil) {
+	//		//self.get_main.panels.side.debug("class_midi_bindings_manager: get_current_group");
+	//		self.player_display.set_current_player(self.get_current_player);
+	//		self.player_display.get_paramlist;
+	//	}
+	//},
+
+	bind_param: { arg self, ccpath, param;
+		self.get_main.commands.bind_param(ccpath, param);
+	},
+
+	get_player_macros: { arg self;
+		var player;
+		var macros;
+		var paramlist;
+		var param;
+		var param_types = ~class_player_display.param_types;
+		player = self.get_current_player;
+		if(player.notNil and: {player.uname != \voidplayer}) {
+			macros = player.get_macros;
+			if(macros.isNil) {
+				//paramlist = self.get_current_player_paramlist.copy[..16]; // FIXME: harcoded
+				macros = List.new;
+				paramlist = player.get_ordered_args;
+				paramlist = ~sort_by_template.(paramlist, param_types.param_status_group ++ param_types.param_order);
+				paramlist.do { arg param_name;
+					param_name.debug("class_midi_bindings_manager.get_player_macros: param_name");
+					if(param_name != \amp and: { param_types.param_midi_reject.includes(param_name).not}) {
+						param_name.debug("class_midi_bindings_manager.get_player_macros: param_name: selected");
+						param = player.get_arg(param_name);
+						if(param.midi.notNil) {
+							macros.add(param)
+						}
+					};
+				}
+			} {
+				macros = macros.collect { arg param_name;
+					param = player.get_arg(param_name);
+					param
+				};
+			};
+		} {
+			macros = List.new;
+		};
+		macros.collect{ arg x; x.name }.debug("class_midi_bindings_manager.get_player_macros: macros");
+		macros;
+	},
+
+	get_controllers_of_midi_kind: { arg self, kind;
+		var ccpath;
+		9.collect { arg i;
+			ccpath = [kind, i];
+			self.get_main.commands.ccpath_to_param(ccpath);
+		};
+	},
+
+	assign_player_macros: { arg self;
+		var offset = 0;
+		var ccpath;
+		self.get_player_macros[..8].do { arg param, i;
+			ccpath = [\knob, i];
+			self.bind_param(ccpath, param)
+		};
+		
+	},
+
+	assign_mixers: { arg self;
+		var param;
+		var player;
+		//var offset = self.model.midi_knob_offset;
+		var offset = 0;
+		var kind = \slider;
+		var main = self.get_main;
+		var ccpath;
+		var group;
+
+		group = self.get_current_group;
+		if(group.notNil) {
+			self.get_current_group.children.do { arg child_name, i;
+				//player.name.debug("assign_midi player.name");
+				//offset.debug("assign_midi offset");
+				//param_name.debug("param_name");
+				player = main.get_node(child_name);
+				ccpath = [kind, i];
+
+				if(player.uname != \voidplayer) {
+
+					self.bind_param(ccpath, player.get_arg(\amp));
+
+				}
+			};
+		}
+	},
+);
+	
 ~rel_nextTimeOnGrid = { arg beats, quant = 1, phase = 0;
 				var baseBarBeat = TempoClock.baseBarBeat;
                 if (quant == 0) { beats + phase };

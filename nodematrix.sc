@@ -217,12 +217,16 @@
 				Color.red
 			}
 		);
-		self.get_cell(point).background = color;
+		{
+			self.get_cell(point).background = color;
+		}.defer;
 	},
 
 	set_cell_label: { arg self, point, label;
 		[point, label].debug("class_nodematrix_view: set_cell_label: point, label");
-		self.get_cell(point).string = label;
+		{
+			self.get_cell(point).string = label;
+		}.defer;
 		[point, label].debug("END class_nodematrix_view: set_cell_label: point, label");
 	},
 
@@ -263,8 +267,11 @@
 
 ~class_nodematrix_knob_row = (
 	parent: ~class_knob_row,
-	new: { arg self, nodematrix_controller, controllers;
+	new: { arg self, nodematrix_controller, kind, controllers;
 		self = self.deepCopy;
+
+		self.kind = kind;
+
 		self.nodematrix_controller = { nodematrix_controller };
 		self.controllers = { controllers };
 		self.make_layout;
@@ -276,14 +283,28 @@
 	make_responders: { arg self;
 
 		~make_class_responder.(self, self.responder_anchor, self.nodematrix_controller, [
-			\parent_node,
+			\parent_node, \selection,
+		]);
+		~make_class_responder.(self, self.responder_anchor, self.nodematrix_controller.get_main.central_player_display, [
+			\player,
 		]);
 	},
 
 	///// responders
 
+	player: { arg self;
+		var midiman = self.nodematrix_controller.get_main.midi_bindings_manager;
+		var controllers;
+		debug("class_nodematrix_knob_row:selection");
+		controllers = midiman.get_controllers_of_midi_kind(self.kind);
+		self.set_controllers(controllers);
+	},
+
 	parent_node: { arg self;
-		
+		var midiman = self.nodematrix_controller.get_main.midi_bindings_manager;
+		var controllers;
+		controllers = midiman.get_controllers_of_midi_kind(self.kind);
+		self.set_controllers(controllers);
 	},
 );
 
@@ -292,8 +313,8 @@
 		self = self.deepCopy;
 		self.controller = { controller };
 		self.nodematrix_view = ~class_nodematrix_view.new(controller);
-		self.knobrow_view = ~class_knob_row.new(nil ! 8);
-		self.knobrow_view2 = ~class_knob_row.new(nil ! 8);
+		self.knobrow_view = ~class_nodematrix_knob_row.new(controller, \knob, nil ! 8); //FIXME: should be in controller, no ?
+		self.knobrow_view2 = ~class_nodematrix_knob_row.new(controller, \slider, nil ! 8);
 		self.make_layout;
 	
 		self;
@@ -312,13 +333,14 @@
 
 
 ~class_playmatrix_manager = (
+	// object added to each nodegroup to store arming state
 	new: { arg self, main, controller, size;
 		self = self.deepCopy;
 
 		self.matrix_size = (8@8) ?? size;
 		self.arming_matrix = 0 ! self.matrix_size.x;
 
-		self.controller = { controller };
+		self.controller = { controller }; // nodegroup
 		self.get_main = { main };
 		self.get_node = { arg self, name; main.get_node(name) };
 	
@@ -473,7 +495,13 @@
 	},
 
 	get_cell: { arg self, pos;
+		// FIXME: sheet only
 		self.get_group_node(pos.x).get_scoreset.get_sheet(pos.y);
+	},
+
+	get_current_player: { arg self;
+		// FIXME: sheet only
+		self.get_group_node(self.current_column);
 	},
 
 	///////////// playing
@@ -628,6 +656,7 @@
 	},
 
 	update_selection: { arg self;
+		self.get_main.central_player_display.set_current_player(self.get_current_player);
 		self.changed(\selection)
 	},
 
@@ -640,6 +669,7 @@
 	},
 
 	make_bindings: { arg self;
+		//self.get_main.show_panel(\nodematrix);
 		self.get_main.commands.parse_action_bindings(\nodematrix, 
 			self.get_main.panels.side.get_windows_bindings ++ [
 				[\select_cell, 32, { arg i;
@@ -650,8 +680,10 @@
 					self.select_row(i)
 				}],
 
-				[\select_column, 8, { arg i;
-					self.select_column(i)
+				[\select_column, 9, { arg i;
+					if(i > 0) {
+						self.select_column(i-1)
+					}
 				}],
 
 				["play_cell", { 
@@ -684,6 +716,11 @@
 				}],
 			]
 		);
+
+		//self.get_main.commands.copy_action_list(\nodematrix, \midi, [
+		//	\select_row,
+		//	\select_column,
+		//]);
 	
 	},
 

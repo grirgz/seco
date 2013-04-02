@@ -24,7 +24,7 @@
 	muted: false,
 	temp_muted: false,
 	available_modes: [\stepline, \noteline, \scoreline, \sampleline],
-	archive_param_data: [\control, \stepline, \adsr, \noteline, \scoreline, \nodeline, \sampleline, \buf, \wavetable,\custom_env],
+	archive_param_data: [\control, \stepline, \adsr, \noteline, \scoreline, \nodeline, \sampleline, \buf, \wavetable,\custom_env, \samplekit],
 	archive_data: [\sourcewrapper, \instrname, \defname, \name, \uname, \kind, \subkind, \bank],
 	effects: List.new,
 	is_effect: false,

@@ -149,11 +149,20 @@ Mdef.main.load_project("live31.lugubre");
 Mdef.main.save_project("live31.zouk");
 Mdef.main.load_project("live31.zouk");
 
-Mdef.main.save_project("live31.mytest5");
-Mdef.main.load_project("live31.mytest5");
+Mdef.main.save_project("live31.mytest6");
+Mdef.main.load_project("live31.mytest6");
 
 Mdef.main.save_project("live31.zouk2");
 Mdef.main.load_project("live31.zouk2");
+
+Mdef.main.save_project("live31.drum1");
+Mdef.main.load_project("live31.drum1");
+
+Mdef.main.save_project("live31.drum2");
+Mdef.main.load_project("live31.drum2");
+
+Mdef.main.save_project("live31.dub2");
+Mdef.main.load_project("live31.dub2");
 
 Debug.enableDebug = true;
 Debug.enableDebug = false;
@@ -175,6 +184,8 @@ Mdef.main.model.latency = 0.1
 ~nmp.set_parent_node(Mdef.node(\s1_part1_sect1_var1))
 
 )
+
+{ SoundIn.ar([0,1]) }.play
 
 (
 ~nmp = ~class_nodematrix_panel.new(Mdef.main);
@@ -552,3 +563,61 @@ Dictionary[ (0 -> lfo1_l1014) ]
 	TempoClock.default=~c
 	TempoClock.beats
 	TempoClock.beats = 1
+	
+Mdef.main.samplekit_manager.slot_to_bufnum(0)
+~b = 
+~b2 = BufferPool.get_forced_stereo_sample(\bla, "sounds/a11wlk01.wav")
+
+(
+w = Window.new("soundfile test", Rect(200, 300, 740, 100));
+a = SoundFileView.new(w, Rect(20,20, 700, 60));
+
+f = SoundFile.new;
+f.openRead(Platform.resourceDir +/+ "sounds/a11wlk01.wav");
+f.inspect;
+
+a.soundfile = f;
+a.read(0, f.numFrames);
+a.elasticMode = true;
+
+a.timeCursorOn = true;
+a.timeCursorColor = Color.red;
+a.timeCursorPosition = 2050;
+a.drawsWaveForm = true;
+a.gridOn = true;
+a.gridResolution = 0.2;
+
+w.front;
+)
+(
+w = Window.new("soundfile test", Rect(200, 300, 740, 100));
+a = SoundFileView.new(w, Rect(20,20, 700, 60));
+
+f = SoundFile.new;
+f.openRead(Platform.resourceDir +/+ "sounds/a11wlk01.wav");
+f.inspect;
+
+a.soundfile = f;
+a.read(0, f.numFrames);
+a.elasticMode = true;
+
+a.timeCursorOn = true;
+a.timeCursorColor = Color.red;
+a.timeCursorPosition = 2050;
+a.drawsWaveForm = true;
+a.gridOn = true;
+a.gridResolution = 0.2;
+
+w.front;
+)
+
+
+~keycode.actions
+Mdef.main.commands.actions.at(*[\nodematrix, \select_row])
+
+(
+		Mdef.main.commands.copy_action_list(\nodematrix, \midi, [
+			\select_row,
+			\select_column,
+		]);
+)

@@ -113,6 +113,14 @@
 		}.defer;
 	},
 
+	midi_val: { arg self, ctrl, msg, val;
+		{
+			self.controller.midi.get_midi_norm_val.debug("class_ci_modknob_view:midi_val");
+			self.knob.midi_value = self.controller.midi.get_midi_norm_val;
+			self.knob.refresh;
+		}.defer;
+	},
+
 	label: { arg self;
 		self.controller.label.debug("class_ci_modknob_view: LABEL");
 		self.controller.name.debug("class_ci_modknob_view: LABEL2");
@@ -237,7 +245,7 @@
 
 			self.ctrl_responder.remove;
 			self.ctrl_responder = ~make_class_responder.(self, self.responder_anchor, self.controller, [
-				\val, \label,
+				\midi_val, \val, \label,
 			]);
 
 			self.mixer_responder.remove;
@@ -586,7 +594,7 @@
 	set_controllers: { arg self, controllers;
 		self.controllers = { controllers };
 		self.controllers_views.do { arg view, idx;
-			view.set_controller = controllers[idx];
+			view.set_controller( controllers[idx] );
 		};
 		
 	},
@@ -595,6 +603,7 @@
 		self.controllers_views = self.controllers.collect { arg ctrl;
 			~class_ci_modknob_view.new(ctrl);
 		};
+		self.responder_anchor = self.controllers_views[0].namelabel;
 		self.layout = HLayout( * self.controllers_views.collect(_.layout) );
 		self.layout;
 	},

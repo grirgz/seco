@@ -166,19 +166,19 @@
 
 };
 
-~keygroups = Environment.make({
-	// deprecated
-
-	//~kbpad8x4 = [
-	//	"1234567890)=",
-	//	"azertyuiop^$",
-	//	"qsdfghjklm%*",
-	//	"<xcvbn,;:!"
-	//];
-	~numline = "1234567890)=";
-	~numpad = (0..9).collect { arg x; (\np ++ x).asSymbol };
-	~fx = (1..12).collect { arg x; (\f ++ x).asSymbol };
-});
+//~keygroups = Environment.make({
+//	// deprecated
+//
+//	//~kbpad8x4 = [
+//	//	"1234567890)=",
+//	//	"azertyuiop^$",
+//	//	"qsdfghjklm%*",
+//	//	"<xcvbn,;:!"
+//	//];
+//	~numline = "1234567890)=";
+//	~numpad = (0..9).collect { arg x; (\np ++ x).asSymbol };
+//	~fx = (1..12).collect { arg x; (\f ++ x).asSymbol };
+//});
 
 ~keycode = Environment.make({
 	~mouse = (
@@ -409,12 +409,14 @@
 			25,26,27,28, 29,30,31,32, 33
 		],
 		\pad: [ // in order of label number // FIXME: order incorect
-			36, 38, 42, 43, 46, 47, 50, 49,
+			//36, 38, 42, 43, 46, 47, 50, 49,
+			36, 38, 42, 46,
+			43, 47, 50, 49,
 		]
 	);
 	~midipads = [ // in top-down order
-			43, 47, 50, 49,
 			36, 38, 42, 46,
+			43, 47, 50, 49,
 	] + 1000; // offset to difference from cc
 	~midi = {
 		var dico = Dictionary.new;
@@ -478,11 +480,14 @@
 
 		if(self.actions.at(*frompath).class == IdentityDictionary) {
 			self.actions.leafDoFrom(frompath, { arg leafpath, val;
+				[topath, frompath, leafpath].debug("commands.copy_action: topath, frompath, leafpath");
+				(topath ++ ~find_path_difference.(frompath, leafpath)).debug("commands.copy_action: new topath");
 				self.copy_action(leafpath, topath ++ ~find_path_difference.(frompath, leafpath));
 			});
 		} {
 			self.actions.at(*frompath).debug("action");
 			self.set_action(topath, self.actions.at(*frompath));
+			self.actions.at(*frompath).debug("action2");
 			if(enable) {
 				self.enable(topath)
 			};
@@ -518,7 +523,9 @@
 		var action, shortcut, panel = path[0];
 		//path.debug("enabling path");
 		shortcut = self.config.at(*path);
+		//path.debug("enabling path1");
 		action = self.actions.at(*path);
+		//path.debug("enabling path2");
 
 		if(shortcut.class == IdentityDictionary) {
 			self.config.leafDoFrom(path, { arg leafPath, val; self.enable(leafPath); });
@@ -811,6 +818,8 @@
 	}
 };
 
+
+
 ~get_modifer = { arg binding;
 	var realmod;
 	var key = binding[3];
@@ -873,6 +882,9 @@
 	} {
 		if(kind == \midi) {
 			realkey = ~keycode.midispecial[key];
+			if(realkey.isNil) {
+
+			}
 		} {
 			realkey = ~keycode.kbspecial[key];
 		};
@@ -884,6 +896,7 @@
 };
 
 
+/////////// OLD entry point for setting bindings to actions in SwingOSC
 ~parse_bindings = { arg commands, bindings;
 	"**begin parsing bindings".debug;
 	bindings.keysValuesDo { arg panel, blist;
@@ -902,10 +915,17 @@
 	"**end parsing bindings".debug;
 };
 
+/////////// the real entry point for setting bindings to actions in Qt
 ~qt_parse_bindings = { arg commands, bindings;
 	"**begin parsing bindings".debug;
 	bindings.keysValuesDo { arg panel, blist;
 		blist.do { arg binding;
+			
+			if(binding[1] == \midi) { // debug
+				binding.debug("MIDI parse binding");
+				~qt_symbol_to_keygroup.(bindings[3]).postcs;
+			};
+
 			if(~qt_symbol_to_keygroup.(binding[3]).notNil) { // if key is a group of keys
 				[binding[3], ~qt_symbol_to_keygroup.(binding[3])].debug("qt_parse_bindings: array");
 				commands.array_set_shortcut(
@@ -980,7 +1000,7 @@ if(GUI.current == QtGUI) {
 	kbnumline: ~string_to_string_list.("1234567890)="),
 	kbnumpad: "0123456789".asList.collect{ arg ch; "np" ++ ch.asString },
 	kbpad8x4_flat: ~string_to_string_list.("12345678azertyuiqsdfghjkwxcvbn,;"),
-	midipads: ~string_to_symbol_list.("56781234"),
+	midipads: ~string_to_symbol_list.("5.6.7.8.1.2.3.4"),
 );
 
 ~qt_symbol_to_keygroup = { arg symbol;
@@ -1007,7 +1027,13 @@ if(GUI.current == QtGUI) {
 };
 
 ~midi_cc_to_symbol = { arg cc;
-	~keycode.rev_midispecial[cc]
+	if(cc.isSymbol) {
+		// midipad
+		//(cc - 1000).asSymbol
+		cc
+	} {
+		~keycode.rev_midispecial[cc]
+	}
 };
 
 ~qt_keycodes = {

@@ -8,11 +8,15 @@
 	txt_instr = StaticText(layout, Rect(0,0,250,size.y));
 	(
 		set_name: { arg self, name;
-			txt_name.string = name;
+			{
+				txt_name.string = name;
+			}.defer;
 		},
 
 		set_instrument: { arg self, instr;
-			txt_instr.string = instr;
+			{
+				txt_instr.string = instr;
+			}.defer;
 		}
 	)
 };
@@ -465,12 +469,15 @@
 			player.name.debug("side_view responder: player");
 			self.player_responder.remove;
 			"class_player_view: player: before making responder".debug;
-			self.player_responder = ~make_class_responder.(self, self.vlayout, player, [
-				\mode, 
-			]);
-			"class_player_view: player: after making responder".debug;
-			self.paramlist;
-			self.extparamlist;
+			{
+			
+				self.player_responder = ~make_class_responder.(self, self.vlayout, player, [
+					\mode, 
+				]);
+				"class_player_view: player: after making responder".debug;
+				self.paramlist;
+				self.extparamlist;
+			}.defer;
 			player.get_arg(\amp).changed(\selected);
 		}
 	},
@@ -1169,7 +1176,7 @@
 
 		},
 
-		assign_midi: { arg self;
+		OLD_assign_midi: { arg self;
 			main.midi_center.clear_assigned(\slider);
 			main.midi_center.clear_assigned(\knob);
 			if(self.model.current_mode == \mixer) {
@@ -1178,6 +1185,11 @@
 			} {
 				self.assign_midi_params;
 			}
+		},
+
+		assign_midi: {
+			main.midi_bindings_manager.assign_mixers;
+			main.midi_bindings_manager.assign_player_macros;
 		},
 
 		assign_midi_params: { arg self;
@@ -1683,6 +1695,26 @@
 			};
 		},
 
+		window_panel_is_open: { arg self, key;
+			if(
+				self[key].notNil and: {
+					self[key].window.notNil and: {
+						self[key].window.isClosed.not
+					}
+				}
+			) {
+				true
+			} {
+				false
+			}
+		},
+
+		window_panel_is_open_do: { arg self, key, fun;
+			 {
+			 	if(self.window_panel_is_open(key)) { fun.value(self[key]) }
+			 }.defer;
+		},
+
 		get_shared_bindings: { arg self;
 			var edit_knob_cc = [\knob, 8];
 
@@ -1780,7 +1812,7 @@
 					//var display = self.track_display;
 					make_window.(\nodematrix_controller, 
 						{ 
-							self.nodematrix_controller.parent_node != group
+							self.nodematrix_controller.parent_node !== group
 						},
 						{
 							var panel;
@@ -1797,7 +1829,7 @@
 					var display = self.track_display;
 					make_window.(\group_tracks_controller, 
 						{ 
-							self.group_tracks_controller.get_group != group
+							self.group_tracks_controller.get_group !== group
 						},
 						{
 							~class_group_tracks_controller.new(self.get_main, group, display);
@@ -1813,9 +1845,10 @@
 					
 						make_window.(\player_tracks_controller, 
 							{ 
-								self.player_tracks_controller.get_player != player
+								self.player_tracks_controller.get_player !== player;
 							},
 							{
+								debug("edit_player_tracks: creating");
 								~class_player_tracks_controller.new(self.get_main, player, display);
 							}
 						);
@@ -1823,11 +1856,12 @@
 				}],
 
 				[\edit_line_tracks, {
+					// piano roll
 					var player = self.get_current_player;
 					var display = self.track_display;
 					make_window.(\line_tracks_controller, 
 						{ 
-							self.line_tracks_controller.get_player != player
+							self.line_tracks_controller.get_player !== player
 						},
 						{
 							~class_line_tracks_controller.new(self.get_main, player, display);
@@ -1845,7 +1879,7 @@
 							if(param.classtype == \control) {
 								make_window.(\modulation_controller, 
 									{ 
-										self.modulation_controller.param_ctrl != param
+										self.modulation_controller.param_ctrl !== param
 									},
 									{
 										~class_modulation_controller.new(self.get_main, player, nil, param);
@@ -1864,7 +1898,7 @@
 					if(player.uname != \voidplayer) {
 						make_window.(\effects_controller, 
 							{ 
-								self.effects_controller.get_player != player
+								self.effects_controller.get_player !== player
 							},
 							{
 								~class_effects_controller.new(self.get_main, player);
@@ -2022,6 +2056,14 @@
 					self.add_sample_batch;
 				}],
 
+				////////////////////// nodematrix
+
+				["midi.select_row", 8, { arg i;
+					self.window_panel_is_open_do(\nodematrix_controller) {
+						self.nodematrix_controller.select_row(i)
+					};
+				}],
+
 				//////////////
 
 				[\select_param, 32, { arg i;
@@ -2029,6 +2071,9 @@
 				}],
 
 				[\pad_select_param, 8, { arg i;
+					self.window_panel_is_open_do(\nodematrix_controller) {
+						self.nodematrix_controller.select_column(i)
+					};
 					self.select_param(i+self.model.select_offset)
 				}],
 
@@ -2049,6 +2094,9 @@
 				}],
 
 				[\pad_select_player, 8, { arg i;
+					if(self.window_panel_is_open(\nodematrix_controller)) {
+						self.nodematrix_controller.select_column(i)
+					};
 					self.select_group_item(i)
 				}],
 

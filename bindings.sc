@@ -84,6 +84,10 @@
 			["select_cell",							\kb, 0, \kbpad8x4_flat],
 			["select_row",							\kb, \alt, \kbnumline],
 			["select_column",						\kb, 0, \kbnumpad],
+			//["midi.select_row",							\midi, \hold, \midipads],
+			//["midi.select_column",						\midi, 0, \midipads],
+			//["select_row",							\midi, \hold, \midipads],
+			//["select_column",						\midi, 0, \midipads],
 			["select_cell",							\kb, 0, \kbpad8x4_flat],
 			["play_cell",							\kb, 0, \f5],
 			["play_row",							\kb, \ctrl, \f5],
@@ -149,6 +153,7 @@
 		~common_bindings.grid_display ++
 		~common_bindings.panels ++ [
 		["close_window", \kb, 0, \escape],
+		["refresh_tracks", \kb, \altshift, "r"],
 	],
 	player_tracks: 
 		~common_bindings.side_shared ++
@@ -214,7 +219,7 @@
 		~common_bindings.side_shared ++
 		~common_bindings.panels ++ [
 		["add_modenv", \kb, \ctrlalt, "o"], // debug
-		["rename_player", \kb, \ctrlalt, "r"],
+		["rename_player", \kb, \alt, "r"],
 
 		["enter_selected_subgroup", \kb, 0, \end],
 		["go_parent_group", \kb, 0, \home],
@@ -272,6 +277,7 @@
 
 		["select_param", \kb, 0, \kbpad8x4_flat],
 		["pad_select_param", \midi, 0, \midipads],
+		["midi.select_row", \midi, \hold, \midipads], // nodematrix
 
 		["select_param_cell", \kb, \alt, \kbnumline],
 		["matrix_select_param_cell", \kb, 0, \kbpad8x4_flat],
@@ -307,8 +313,8 @@
 
 		//["toggle_player_recording", \midi, 0, \record],
 		["toggle_player_recording", \kb, \ctrlalt, "r"],
-		["midi.toggle_player_recording", \midi, 0, \record],
-		["toggle_param_recording", \midi, \hold, \record],
+		["midi.toggle_player_recording", \midi, \record, \play],
+		["toggle_param_recording", \midi, \record, \pause],
 
 		["toggle_freeze_recording", \kb, \ctrlalt, "f"],
 

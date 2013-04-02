@@ -174,6 +174,22 @@
 	),
 ];
 
+// TODO: check if default notescore can be modified by notescore class
+~default_custom_env_notescore = [
+	(
+		level: 0,
+		dur: 0.1
+	),
+	(
+		level: 1,
+		dur: 0.1
+	),
+	(
+		level: 0,
+		dur: 0
+	),
+];
+
 ~event_rel_to_abs = { arg li;	
 	var res = List.new, elm, time;
 	0.for(li.size-1) { arg x;
@@ -556,6 +572,7 @@
 	];
 	ns = ~make_notescore.();
 	ns.set_notes(notes);
+	ns.compute_end(true);
 	ns;
 };
 
@@ -641,6 +658,7 @@
 		debug("~make_scoreset:init");
 		self.notescore = ~make_notescore.();
 		self.notescore.set_notes(~default_noteline3);
+		self.compute_end(true);
 		self.update_notes;
 		self.set_sheet(self.buffer_sheet_index, self.notescore);
 		self.select_sheet(self.buffer_sheet_index);
