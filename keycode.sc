@@ -725,8 +725,7 @@
 		if(oldccpath.notNil && (oldparam != param)) {
 			self.ccpathToParam[oldccpath] = nil;
 			self.midi_handler[panel][oldccpath] = { arg val; 
-				//[param.name, val].debug("bind_param function: set_val");
-				//param.midi.set_val(val);
+				// remove old handler
 			};
 
 		};

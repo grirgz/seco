@@ -6,7 +6,58 @@
 // PLAYER FACTORY
 // ==========================================
 
+~class_abstract_node = (
+
+	///////// ordered args
+
+	get_ordered_args: { arg self;
+		~sort_by_template.(self.data.keys, self.get_desc.controls.collect { arg x; x.name });
+	},
+
+	get_pattern_args: { arg self;
+		self.pattern_args
+	},
+
+	get_macro_args: { arg self;
+		self.macro_args
+	},
+
+	get_displayable_args: { arg self;
+		self.displayable_args
+	},
+
+	update_ordered_args: { arg self;
+		var args;
+		var param_types = ~class_player_display.param_types;
+		var mode;
+		
+		args = self.get_ordered_args;
+		args = args.reject { arg x; param_types.param_reject.includes(x) };
+		args = args.reject { arg x; x.asString.beginsWith("macro") };
+		args = args.select { arg x; 
+			var param;
+			param = self.get_arg(x);
+			param_types.param_accepted_displayed_kind.includes(param.classtype) 
+		};
+		args = ~sort_by_template.(args, param_types.param_status_group ++ param_types.param_order);
+
+		mode = self.get_mode;
+
+		if(self.kind == \player) {
+			args = [mode] ++ args;
+		};
+
+		// FIXME: handle legato
+		//args = args.reject { arg x; x == \legato }; // removed in param_types.param_reject
+
+		self.pattern_args = args.select { arg x; ([mode] ++ param_types.param_status_group).includes(x) };
+		self.displayable_args = args.reject { arg x; ([mode] ++ param_types.param_status_group).includes(x) };
+		self.macro_args = args.select { arg x; self.get_arg(x).midi.notNil };
+	},
+);
+
 ~class_synthdef_player = (
+	parent: ~class_abstract_node,
 	bank: 0,
 	uname: nil,
 	node: EventPatternProxy.new,
@@ -158,99 +209,6 @@
 		self.build_real_sourcepat;
 	},
 
-	build_standard_args: { arg self;
-			self.data[\noteline] = self.data[\noteline] ?? ~make_noteline_param.(\noteline);
-			self.data[\scoreline] = self.data[\scoreline] ?? ~make_scoreline_param.(\scoreline);
-
-			self.data[\dur] = self.data[\dur] ?? 
-				~make_control_param.(self.get_main, self, \dur, \scalar, 0.5, ~get_spec.(\dur, self.defname));
-			self.data[\segdur] = self.data[\segdur] ??
-				~make_control_param.(self.get_main, self, \segdur, \scalar, 0.5, ~get_spec.(\dur, self.defname));
-			self.data[\stretchdur] = self.data[\stretchdur] ??
-				~make_control_param.(self.get_main, self, \stretchdur, \scalar, 1, ~get_spec.(\dur, self.defname));
-			self.data[\legato] = self.data[\legato] ??
-				~make_control_param.(self.get_main, self, \legato, \scalar, 0.5, ~get_spec.(\legato, self.defname));
-			self.data[\sustain] = self.data[\sustain] ??
-				~make_control_param.(self.get_main, self, \sustain, \scalar, 0.5, ~get_spec.(\sustain, self.defname));
-			self.data[\repeat] = self.data[\repeat] ?? 
-				~make_control_param.(self.get_main, self, \repeat, \scalar, 1, ~get_spec.(\repeat, self.defname));
-
-			self.data[\stepline] = self.data[\stepline] ?? ~make_stepline_param.(\stepline, 1 ! 8 );
-		if(self.is_effect.not) {
-			self.data[\type] = ~make_type_param.(\type);
-		};
-		self.data[\instrument] = self.data[\instrument] ?? ~make_literal_param.(\instrument, self.defname);
-	},
-
-	build_sourcepat: { arg self;
-	
-		var dict = Dictionary.new;
-		var list = List[];
-		var prio, reject;
-		prio = [\repeat, \instrument, \stretchdur] ++ self.available_modes ++ [
-			\type, \samplekit, \mbufnum, \bufnum, \dur, \segdur, \legato, \sustain
-		];
-		reject = [];
-		if(self.is_effect) {
-			reject = [\instrument];
-		};
-
-		list.add(\elapsed); list.add(Ptime.new);
-		list.add(\current_mode); list.add(Pfunc({ self.get_mode }));
-		list.add(\muted); list.add(Pfunc({ self.muted or: self.temp_muted }));
-		prio.difference(reject).do { arg key;
-			if(self.data[key].notNil) {
-				list.add(key); list.add( self.data[key].vpattern );
-			}
-		};
-		self.data.keys.difference(prio).difference(reject).do { arg key;
-			if(self.data[key].notNil) {
-				list.add(key); list.add( self.data[key].vpattern );
-			}
-		};
-		if(self.additional_data.notNil) {
-			self.additional_data.keysValuesDo { arg key, val;
-				list.add(key); list.add(val);
-			};
-		};
-		//list.debug("maked pbind list");
-		//[\type, \stepline, \instrument].do { arg x; list.add(x); list.add(dict[x]) };
-		list.debug("maked pbind list");
-		//Pbind(*list).dump;
-		self.sourcepat_list = list;
-		self.build_sourcepat_finalize;
-	},
-
-	build_sourcepat_finalize: { arg self;
-		var list = self.sourcepat_list;
-		self.sourcepat = if(self.is_effect) {
-			Pmono(self.data[\instrument].get_val, *list)
-		} {
-			//DebugPbind(*list); //debug
-			Pbind(*list); //debug
-		}
-	},
-
-	get_dur_pattern: { arg self;
-		var arglist = List.new;
-		var val;
-		arglist.add(\current_mode);
-		arglist.add(Pfunc{ self.get_mode });
-		arglist.add(\muted); arglist.add(Pfunc({ self.muted or: self.temp_muted }));
-		([\repeat] ++ self.available_modes ++ [\sustain, \stretchdur, \segdur,  \dur, \type]).do { arg key;
-			if(self.data[key].notNil) {
-				val = self.get_arg(key);
-				if(val.notNil) {
-					arglist.add(key);
-					arglist.add(val.vpattern);
-				}
-			}
-		};
-		arglist.debug("++++++++++++++++++++++++++++ ARGLIST");
-
-		Pbind(* arglist )
-	},
-
 	get_scoreset: { arg self;
 		var mode = self.get_mode;
 		if(mode == \stepline) {
@@ -297,103 +255,6 @@
 	//get_effects: { arg self;
 	//	self.effects;
 	//},
-
-	////////////////// playing state
-
-	set_playing_state: { arg self, state;
-		[self.uname, state].debug("player: set_playing_state");
-		self.playing_state = state;
-		self.changed(\redraw_node);
-	},
-
-	get_playing_state: { arg self;
-		switch(self.muted or: self.temp_muted,
-			true, {
-				switch(self.playing_state,
-					\play, { \mute },
-					\stop, { \mutestop }
-				)
-			},
-			false, {
-				switch(self.playing_state,
-					\play, { \play },
-					\stop, { \stop }
-				)
-			}
-		)
-	},
-
-	////////////////// live playing
-
-	get_piano: { arg self, kind=\normal;
-		// FIXME: handle mono bufnum
-		var exclu, list = List[];
-		exclu = [
-			\instrument, \noteline, \scoreline, \sampleline, \samplekit, \repeat, \stretchdur, \stepline, 
-			\type, \dur, \segdur, \legato, \sustain,
-			\amp, \bufnum, \mbufnum, \freq,
-		];
-		self.data.keys.difference(exclu).do { arg key;
-			var val = self.data[key].vpiano ?? self.data[key].vpattern;
-			list.add(key); list.add( val ) 
-		};
-		if(kind == \nsample) {
-				[\freq, \bufnum, \mbufnum].do { arg paramname;
-					if(self.data[paramname].notNil) {
-						list.add(paramname); list.add( self.data[paramname].vpiano ?? self.data[paramname].vpattern );
-					};
-				};
-				{ arg slotnum, veloc=1; 
-					veloc = veloc ?? 1;
-					Synth(self.data[\instrument].vpiano, (
-						[\amp, self.get_main.calcveloc(self.data[\amp].vpiano.value, veloc) ] ++
-							list.collect(_.value)).debug("nsample arg listHHHHHHHHHHHHHHHHHHHHHHHHHHH")
-					) 
-				}
-		} {
-			if(self.get_mode == \sampleline) {
-				if(self.data[\freq].notNil) {
-					list.add(\freq); list.add( self.data[\freq].vpiano ?? self.data[\freq].vpattern );
-				};
-				{ arg slotnum, veloc=1; 
-					veloc = veloc ?? 1;
-					[slotnum, self.data[\samplekit].get_val].debug("slotnum, samplekit get val");
-					~samplekit_manager.slot_to_bufnum(slotnum, self.data[\samplekit].get_val).debug("bufnum");
-					Synth(self.data[\instrument].vpiano, (
-						[\bufnum, ~samplekit_manager.slot_to_bufnum(slotnum, self.data[\samplekit].get_val),
-							\amp, self.get_main.calcveloc(self.data[\amp].vpiano.value, veloc) ] ++
-							list.collect(_.value)).debug("sampleline arg listHHHHHHHHHHHHHHHHHHHHHHHHHHH")) 
-				}
-			} {
-				//FIXME: why freq could be nil ?
-				//if(self.data[\freq].notNil) {
-				//	list.add(\freq); list.add( freq ?? self.data[\freq].vpiano ?? self.data[\freq].vpattern );
-				//};
-				if(self.data[\bufnum].notNil) {
-					list.add(\bufnum); list.add( self.data[\bufnum].vpiano ?? self.data[\bufnum].vpattern );
-				};
-				{ arg freq, veloc=1; 
-					var spatch;
-					veloc = veloc ?? 1;
-					[self.data[\amp].vpiano.value, veloc].debug("CESTLA?");
-					if(freq.isNil) { "get_piano: why freq is nil ?".debug; };
-					self.data[\instrument].vpiano.value.debug("making Synth()");
-
-					spatch = self.modulation.vpiano;
-
-					Synth(self.data[\instrument].vpiano.value, (
-						[
-							\amp, self.get_main.calcveloc(self.data[\amp].vpiano.value, veloc),
-							\freq, freq,
-						] 
-						++ list.collect(_.value(spatch))).debug("arg listHHHHHHHHHHHHHHHHHHHHHHHHHHH")
-					) 
-				}
-
-			};
-		}
-
-	},
 
 	////////////////// wrapper
 
@@ -514,10 +375,6 @@
 		self.data.keys
 	},
 
-	get_ordered_args: { arg self;
-		~sort_by_template.(self.data.keys, self.get_desc.controls.collect { arg x; x.name });
-	},
-
 	get_all_args: { arg self;
 		var res;
 		res = OrderedIdentitySet.new;
@@ -555,6 +412,7 @@
 		// TODO: return correct value for others modes
 		self.get_arg(\stepline).get_cells.size * self.get_arg(\dur).get_val
 	},
+
 
 	////////////////// save/load
 
@@ -692,6 +550,26 @@
 
 	////////////////// pattern
 
+	get_dur_pattern: { arg self;
+		var arglist = List.new;
+		var val;
+		arglist.add(\current_mode);
+		arglist.add(Pfunc{ self.get_mode });
+		arglist.add(\muted); arglist.add(Pfunc({ self.muted or: self.temp_muted }));
+		([\repeat] ++ self.available_modes ++ [\sustain, \stretchdur, \segdur,  \dur, \type]).do { arg key;
+			if(self.data[key].notNil) {
+				val = self.get_arg(key);
+				if(val.notNil) {
+					arglist.add(key);
+					arglist.add(val.vpattern);
+				}
+			}
+		};
+		arglist.debug("++++++++++++++++++++++++++++ ARGLIST");
+
+		Pbind(* arglist )
+	},
+
 	set_input_pattern: { arg self, pat;
 		if(self.input_pattern.isNil) {
 			self.input_pattern = EventPatternProxy.new;
@@ -699,6 +577,84 @@
 			self.build_real_sourcepat;
 		} {
 			self.input_pattern.source = pat;
+		}
+	},
+
+	build_standard_args: { arg self;
+			self.data[\noteline] = self.data[\noteline] ?? ~make_noteline_param.(\noteline);
+			self.data[\scoreline] = self.data[\scoreline] ?? ~make_scoreline_param.(\scoreline);
+
+			self.data[\dur] = self.data[\dur] ?? 
+				~make_control_param.(self.get_main, self, \dur, \scalar, 0.5, ~get_spec.(\dur, self.defname));
+			self.data[\segdur] = self.data[\segdur] ??
+				~make_control_param.(self.get_main, self, \segdur, \scalar, 0.5, ~get_spec.(\dur, self.defname));
+			self.data[\stretchdur] = self.data[\stretchdur] ??
+				~make_control_param.(self.get_main, self, \stretchdur, \scalar, 1, ~get_spec.(\dur, self.defname));
+			self.data[\legato] = self.data[\legato] ??
+				~make_control_param.(self.get_main, self, \legato, \scalar, 0.5, ~get_spec.(\legato, self.defname));
+			self.data[\sustain] = self.data[\sustain] ??
+				~make_control_param.(self.get_main, self, \sustain, \scalar, 0.5, ~get_spec.(\sustain, self.defname));
+			self.data[\repeat] = self.data[\repeat] ?? 
+				// FIXME: should be simple numeric param
+				~make_control_param.(self.get_main, self, \repeat, \scalar, 1, ~get_spec.(\repeat, self.defname));
+
+			self.data[\stepline] = self.data[\stepline] ?? ~make_stepline_param.(\stepline, 1 ! 8 );
+		if(self.is_effect.not) {
+			self.data[\type] = ~make_type_param.(\type);
+		};
+		self.data[\instrument] = self.data[\instrument] ?? ~make_literal_param.(\instrument, self.defname);
+	},
+
+	build_sourcepat: { arg self;
+	
+		var dict = Dictionary.new;
+		var list = List[];
+		var prio, reject;
+		prio = [\repeat, \instrument, \stretchdur] ++ self.available_modes ++ [
+			\type, \samplekit, \mbufnum, \bufnum, \dur, \segdur, \legato, \sustain
+		];
+		reject = [];
+		if(self.is_effect) {
+			reject = [\instrument];
+		};
+
+		list.add(\elapsed); list.add(Ptime.new);
+		list.add(\current_mode); list.add(Pfunc({ self.get_mode }));
+		list.add(\muted); list.add(Pfunc({ self.muted or: self.temp_muted }));
+		prio.difference(reject).do { arg key;
+			if(self.data[key].notNil) {
+				list.add(key); list.add( self.data[key].vpattern );
+			}
+		};
+		self.data.keys.difference(prio).difference(reject).do { arg key;
+			if(self.data[key].notNil) {
+				list.add(key); list.add( self.data[key].vpattern );
+			}
+		};
+		if(self.additional_data.notNil) {
+			self.additional_data.keysValuesDo { arg key, val;
+				list.add(key); list.add(val);
+			};
+		};
+		//list.debug("maked pbind list");
+		//[\type, \stepline, \instrument].do { arg x; list.add(x); list.add(dict[x]) };
+		list.debug("maked pbind list");
+		//Pbind(*list).dump;
+		self.sourcepat_list = list;
+
+		self.update_ordered_args; // dont found a better place for this
+
+
+		self.build_sourcepat_finalize;
+	},
+
+	build_sourcepat_finalize: { arg self;
+		var list = self.sourcepat_list;
+		self.sourcepat = if(self.is_effect) {
+			Pmono(self.data[\instrument].get_val, *list)
+		} {
+			//DebugPbind(*list); //debug
+			Pbind(*list); //debug
 		}
 	},
 
@@ -800,6 +756,105 @@
 		//Pn(self.vpattern, 2); // debug
 		//self.vpattern; //debug
 	},
+
+	////////////////// playing state
+
+	set_playing_state: { arg self, state;
+		[self.uname, state].debug("player: set_playing_state");
+		self.playing_state = state;
+		self.changed(\redraw_node);
+	},
+
+	get_playing_state: { arg self;
+		switch(self.muted or: self.temp_muted,
+			true, {
+				switch(self.playing_state,
+					\play, { \mute },
+					\stop, { \mutestop }
+				)
+			},
+			false, {
+				switch(self.playing_state,
+					\play, { \play },
+					\stop, { \stop }
+				)
+			}
+		)
+	},
+
+	////////////////// live playing
+
+	get_piano: { arg self, kind=\normal;
+		// FIXME: handle mono bufnum
+		var exclu, list = List[];
+		exclu = [
+			\instrument, \noteline, \scoreline, \sampleline, \samplekit, \repeat, \stretchdur, \stepline, 
+			\type, \dur, \segdur, \legato, \sustain,
+			\amp, \bufnum, \mbufnum, \freq,
+		];
+		self.data.keys.difference(exclu).do { arg key;
+			var val = self.data[key].vpiano ?? self.data[key].vpattern;
+			list.add(key); list.add( val ) 
+		};
+		if(kind == \nsample) {
+				[\freq, \bufnum, \mbufnum].do { arg paramname;
+					if(self.data[paramname].notNil) {
+						list.add(paramname); list.add( self.data[paramname].vpiano ?? self.data[paramname].vpattern );
+					};
+				};
+				{ arg slotnum, veloc=1; 
+					veloc = veloc ?? 1;
+					Synth(self.data[\instrument].vpiano, (
+						[\amp, self.get_main.calcveloc(self.data[\amp].vpiano.value, veloc) ] ++
+							list.collect(_.value)).debug("nsample arg listHHHHHHHHHHHHHHHHHHHHHHHHHHH")
+					) 
+				}
+		} {
+			if(self.get_mode == \sampleline) {
+				if(self.data[\freq].notNil) {
+					list.add(\freq); list.add( self.data[\freq].vpiano ?? self.data[\freq].vpattern );
+				};
+				{ arg slotnum, veloc=1; 
+					veloc = veloc ?? 1;
+					[slotnum, self.data[\samplekit].get_val].debug("slotnum, samplekit get val");
+					~samplekit_manager.slot_to_bufnum(slotnum, self.data[\samplekit].get_val).debug("bufnum");
+					Synth(self.data[\instrument].vpiano, (
+						[\bufnum, ~samplekit_manager.slot_to_bufnum(slotnum, self.data[\samplekit].get_val),
+							\amp, self.get_main.calcveloc(self.data[\amp].vpiano.value, veloc) ] ++
+							list.collect(_.value)).debug("sampleline arg listHHHHHHHHHHHHHHHHHHHHHHHHHHH")) 
+				}
+			} {
+				//FIXME: why freq could be nil ?
+				//if(self.data[\freq].notNil) {
+				//	list.add(\freq); list.add( freq ?? self.data[\freq].vpiano ?? self.data[\freq].vpattern );
+				//};
+				if(self.data[\bufnum].notNil) {
+					list.add(\bufnum); list.add( self.data[\bufnum].vpiano ?? self.data[\bufnum].vpattern );
+				};
+				{ arg freq, veloc=1; 
+					var spatch;
+					veloc = veloc ?? 1;
+					[self.data[\amp].vpiano.value, veloc].debug("CESTLA?");
+					if(freq.isNil) { "get_piano: why freq is nil ?".debug; };
+					self.data[\instrument].vpiano.value.debug("making Synth()");
+
+					spatch = self.modulation.vpiano;
+
+					Synth(self.data[\instrument].vpiano.value, (
+						[
+							\amp, self.get_main.calcveloc(self.data[\amp].vpiano.value, veloc),
+							\freq, freq,
+						] 
+						++ list.collect(_.value(spatch))).debug("arg listHHHHHHHHHHHHHHHHHHHHHHHHHHH")
+					) 
+				}
+
+			};
+		}
+
+	},
+
+	////////////////// playing/stopping
 
 	prepared_node: { arg self;
 		self.node.source = self.vpattern;
@@ -1476,6 +1531,7 @@
 	var pplayer;
 	pplayer = (
 		//children: SparseArray.newClear(8, ~empty_player),
+		parent: ~class_abstract_node,
 		children: SparseArray.newClear(~general_sizes.children_per_groupnode, \voidplayer),
 		kind: \parnode,
 		name: \new,
@@ -1495,6 +1551,7 @@
 			self.data[\repeat] = self.data[\repeat] ?? ~make_control_param.(main, self, \repeat, \scalar, 1, ~get_spec.(\repeat));
 			self.data[\amp] = self.data[\amp] ?? ~make_control_param.(main, self, \amp, \scalar, 1, ~get_spec.(\amp)); // dummy param FTM
 			self.get_arg(\repeat).get_val.debug("init repeat.get_val");
+			self.update_ordered_args;
 		},
 
 		set_input_pattern: { arg self, pat;

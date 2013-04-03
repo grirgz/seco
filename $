@@ -576,7 +576,7 @@ if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
 354
-normal! 04l
+normal! 02l
 tabedit player_display.sc
 set splitbelow splitright
 set nosplitbelow

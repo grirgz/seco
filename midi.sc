@@ -388,7 +388,7 @@
 		var param_types = ~class_player_display.param_types;
 		player = self.get_current_player;
 		if(player.notNil and: {player.uname != \voidplayer}) {
-			macros = player.get_macros;
+			macros = player.get_macro_args;
 			if(macros.isNil) {
 				//paramlist = self.get_current_player_paramlist.copy[..16]; // FIXME: harcoded
 				macros = List.new;

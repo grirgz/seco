@@ -1035,6 +1035,12 @@
 			} {
 				args = player.get_ordered_args;
 				args = args.reject { arg x; param_types.param_reject.includes(x) };
+				// too slow
+				//args = args.select { arg x; 
+				//	var param;
+				//	param = player.get_arg(x);
+				//	param_types.param_accepted_displayed_kind.includes(param.classtype) 
+				//};
 				args = args.reject { arg x; x.asString.beginsWith("macro") };
 				mode = player.get_mode;
 				args = ~sort_by_template.(args, param_types.param_status_group ++ param_types.param_order);
@@ -1044,7 +1050,7 @@
 				};
 
 				// FIXME: handle legato
-				args = args.reject { arg x; x == \legato };
+				//args = args.reject { arg x; x == \legato };
 
 				args1 = args.select { arg x; ([mode] ++ param_types.param_status_group).includes(x) };
 				args2 = args.reject { arg x; ([mode] ++ param_types.param_status_group).includes(x) };
@@ -1070,6 +1076,21 @@
 		},
 
 		get_param_name_by_display_idx: { arg self, idx;
+			var param_name;
+			var player = self.current_player;
+			var pat_args, dis_args;
+			pat_args = player.get_pattern_args ?? [];
+			dis_args = player.get_displayable_args ?? [];
+
+			if(idx < 8) {
+				param_name = pat_args[idx];
+			} {
+				param_name = dis_args[idx-8];
+			};
+			param_name;
+		},
+
+		OLD_get_param_name_by_display_idx: { arg self, idx;
 			var args, args2, args3;
 			var param_name;
 			args = self.get_paramlist_splited;
@@ -1122,9 +1143,14 @@
 			var args;
 			var res;
 			
-			args = self.get_paramlist_splited;
-			res = args[0] ++ self.get_paramlist_macros ++ args[1] ++ args[2];
-			res[..24] // FIXME: hardcoded
+			//args = self.get_paramlist_splited;
+			//res = args[0] ++ self.get_paramlist_macros ++ args[1] ++ args[2];
+			if(player.notNil and:{player.name != \voidplayer}) {
+				res = player.get_displayable_args;
+				res[..24] // FIXME: hardcoded
+			} {
+				[]
+			}
 		},
 
 		get_extparamlist: { arg self;
