@@ -1,32 +1,3 @@
-//////////////////// tool synthdefs
-
-SynthDef(\freeze_recorder, { arg inbus=0, out=0, amp=1, gate=1, buffer, doneAction=2;
-	var ou;
-	var bufnum = buffer;
-	var env;
-	var in = In.ar(inbus, 2);
-	in = in * amp;
-	env =  EnvGen.kr(Env.asr(0.0001,1,0.0001), gate, doneAction:doneAction);
-	RecordBuf.ar(in, bufnum, doneAction: doneAction, loop: 0);
-}).store;
-
-SynthDef(\freeze_player, { arg out=0, amp=1, gate=1, doneAction=2, buffer;
-	var player,env;
-	var bufnum = buffer;
-	var speed = 1;
-	var pos = 0;
-	var loop = 0;
-	//env =  EnvGen.kr(Env.asr(0.0001,1,0.0001), gate, doneAction:doneAction);
-	player = PlayBuf.ar(2, bufnum, BufRateScale.kr(bufnum) * speed, 1, startPos: (pos*BufFrames.kr(bufnum)), doneAction:doneAction, loop: loop);
-	//player = player * env * amp;
-	player = player * amp;
-	Out.ar(out, player);
-
-}).store;
-
-
-
-
 //////////////////// modulators
 
 SynthDef(\lfo1, { arg out=0, freq=1, amp=1;
@@ -82,16 +53,114 @@ SynthDef(\comb1, { arg in, out, mix=0.5, maxdelaytime=0.4, delaytime=0.4, decayt
 //	   //sig.poll;
 //       ReplaceOut.kr(out, sig);
 //}).store;
-SynthDef(\modenv, { |out, firstsynth=0, firstval=0, t_trig=1, gate=1, tsustain, val=0, curve=0, doneAction=0|
-       var start = Select.kr(firstsynth, [In.kr(out, 1), firstval]);
-	   var sig;
-	   //start.poll;
-	   //sig = EnvGen.kr(Env([start, val], [tsustain], curve), t_trig, doneAction: doneAction);
-	   sig = EnvGen.kr(Env([start, val], [tsustain], curve), t_trig, doneAction: doneAction);
-	   //sig = VarLag.kr(val, tsustain);
-	   //sig.poll;
-       ReplaceOut.kr(out, sig);
+
+// stolen from  Bjorn Westergard
+
+
+SynthDef(\dubecho,{|out=0, in=0, length = 1, fb = 0.8, sep = 0.012, mix=0.5, hpfreq=400, lpfreq=5000, noisefreq=12, delayfac=0,
+		offset=0, rotate=0, shift=0|
+	var input = In.ar(in, 2);
+	var output;
+	//length = length.lag(0.01);
+	//length = LPF.kr(length, 10);
+	fb = LPF.kr(fb, 1);
+	sep = LPF.kr(fb, 1);
+	delayfac = LPF.kr(fb, 1);
+	output = input + Fb({
+
+		arg feedback; // this will contain the delayed output from the Fb unit
+
+		var left,right;
+		var magic;
+		feedback = Limiter.ar(feedback, 1);
+		magic = LeakDC.ar(feedback*fb + input);
+		magic = HPF.ar(magic, hpfreq); // filter's on the feedback path
+		magic = LPF.ar(magic, lpfreq);
+		magic = magic.tanh; // and some more non-linearity in the form of distortion
+		//#left, right = magic; // let's have named variables for the left and right channels
+		magic = FreqShift.ar(magic, [0-shift,shift]);
+		#left, right = magic; 
+		//#left, right = Rotate2.ar(left, right, rotate); 
+		magic = [
+			DelayC.ar(left, 1, 
+				(LFNoise2.ar(noisefreq).range(delayfac*sep,sep)+offset).clip(0,1)
+			), 
+			DelayC.ar(right, 1, 
+				(LFNoise2.ar(noisefreq).range(sep,sep*delayfac)-offset).clip(0,1)
+			)
+		]; // In addition to the main delay handled by the feedback quark, this adds separately modulated delays to the left and right channels, which with a small "sep" value creates a bit of spatialization
+
+	},length);
+	output = SelectX.ar(mix,[input, output]);
+	output = Rotate2.ar(output[0], output[1], rotate); 
+	Out.ar(out, output);
+}, metadata: (
+	specs: (
+		sep: ControlSpec.new(0.0001,1, \exp, 0, 0),
+		fb: ControlSpec.new(0.0001,2, \lin, 0, 0),
+		delayfac: ControlSpec.new(0,0.9999, \lin, 0, 0),
+		offset: ControlSpec.new(-0.1,0.1, \lin, 0, 0),
+		shift: ControlSpec.new(-1000,1000, \lin, 0, 0),
+		rotate: \bipolar.asSpec,
+	)
+)).store;
+
+SynthDef(\dubecho_orig,{|out=0, in=0, length = 1, fb = 0.8, sep = 0.012, mix=0.5|
+	var input = In.ar(in, 2);
+	var output = input + Fb({
+
+		arg feedback; // this will contain the delayed output from the Fb unit
+
+		var left,right;
+		var magic = LeakDC.ar(feedback*fb + input);
+		magic = HPF.ar(magic, 400); // filter's on the feedback path
+		magic = LPF.ar(magic, 5000);
+		magic = magic.tanh; // and some more non-linearity in the form of distortion
+		#left, right = magic; // let's have named variables for the left and right channels
+		magic = [DelayC.ar(left, 1, LFNoise2.ar(12).range(0,sep)), DelayC.ar(right, 1, LFNoise2.ar(12).range(sep,0))]; // In addition to the main delay handled by the feedback quark, this adds separately modulated delays to the left and right channels, which with a small "sep" value creates a bit of spatialization
+
+	},length);
+	output = SelectX.ar(mix,[output, input]);
+	Out.ar(out, output);
 }).store;
+
+SynthDef(\guitar2, { arg out=0, freq=200, release=4, amp=0.1, pan = 0, doneAction=2;
+	var ou, pluck, period, string;
+	freq = freq * [0.99,1,2,0.98];
+	pluck = PinkNoise.ar(Decay.kr(Line.kr(1, 0, 0.05), 0.05));
+	period = freq.reciprocal;
+	string = CombL.ar(pluck, period, period, 4);
+	ou = LeakDC.ar(LPF.ar(string, 12000));
+	ou = Splay.ar(ou, XLine.ar(0.1,1,0.3));
+	ou = ou * XLine.ar(1,1/1000,release, doneAction:doneAction);
+	Out.ar(out, Pan2.ar(ou, pan, amp) * 0.4);
+} ).store;
+
+SynthDef(\guitar, { arg out=0, freq=200, release=2, amp=0.1, pan = 0, doneAction=2;
+	var ou, pluck, period, string;
+	freq = freq * [0.99,1,2,0.98];
+	ou = SinOsc.ar(freq);
+	ou = Splay.ar(ou, XLine.ar(0.1,1,0.3));
+	ou = ou * XLine.ar(1,1/1000,release, doneAction:doneAction);
+	Out.ar(out, Pan2.ar(ou, pan, amp) * 0.4);
+} ).store;
+
+SynthDef(\ch, { | out=0, decay = 3, amp = 0.1, freqfactor = 1, doneAction=2, delayfactor=1, shift=(-200) |
+	var sig = WhiteNoise.ar;
+	var del;
+	sig = LPF.ar(sig, (12000*freqfactor).clip(10,15000));
+	//sig = sig + DelayC.ar(sig, 0.1,LFNoise2.ar(1/2).range(0.001,0.01)*delayfactor);
+	del = DelayC.ar(sig, 0.1,LFNoise2.ar(1/2).range(0.001,0.01)*delayfactor);
+	del = FreqShift.ar(del, shift);
+	sig = sig + del;
+	sig = HPF.ar(sig, (4000*freqfactor).clip(10,15000), 0.05);
+	sig = sig * EnvGen.kr(Env.perc(0.01,decay*0.8), doneAction:doneAction);
+	Out.ar(out, 15 * sig.dup * amp);
+}, metadata: (
+	specs: (
+		shift: ControlSpec.new((-2000),2000, \lin, 0, 0)
+	)
+)).store;
 
 //////////////////// synths
 

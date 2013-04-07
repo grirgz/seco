@@ -49,7 +49,7 @@
 					self.controller.set_norm_val(knob.value)
 				});
 				knob.asView.debug("VIEW");
-				knob.asView.minSize_(50@50);
+				knob.asView.minSize_(10@10);
 				[knob.asView, stretch: 0, align:\center],
 			vallabel = StaticText.new
 				.string_("12354")

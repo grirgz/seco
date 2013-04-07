@@ -146,7 +146,8 @@
 	track_custom_env: 
 		~common_bindings.grid_display ++
 		[
-		
+			["set_release_node", \kb, \ctrl, "r"],
+			["set_loop_node", \kb, \ctrl, "l"],
 		],
 	group_tracks: 
 		~common_bindings.side_shared ++

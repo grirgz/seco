@@ -1123,6 +1123,7 @@
 
 	make_layout: { arg self;
 		var knobs = [\velocity_mix, \delay, \attack_time, \decay_time, \sustain_level, \release_time, \curve];
+		var labels = ["vel", "del", "A", "D", "S", "R", "cve"];
 		var frame_view;
 		var env_view;
 		var layout;
@@ -1130,6 +1131,13 @@
 		knobs_layouts = knobs.collect { arg name;
 			~class_ci_simpleknob_view.new(self.data[name]).layout;
 		};
+
+		knobs.do { arg knob, i;
+			self.data[knob].set_label(labels[i])
+		};
+
+		
+
 		layout = 
 			HLayout(*
 				[env_view = EnvelopeView.new] ++
@@ -1476,7 +1484,8 @@
 		self.namer = { namer };
 		self.name = name;
 
-		self.dadsr = ~class_ci_dadsr_operator.new(main, player, self.make_namer);
+		//self.dadsr = ~class_ci_dadsr_operator.new(main, player, self.make_namer);
+		self.dadsr = ~class_ci_composite_env.new(main, player, self.make_namer);
 		//self.dadsr = ~class_ci_dadsr.new(main, player);
 
 		self.build_data;
@@ -1579,13 +1588,14 @@
 ~class_ci_custom_env = (
 	parent: ~class_instr,
 	synth_rate: \kr,
-	new: { arg self, main, player, namer, name="custom env";
+	new: { arg self, main, player, namer, name="custom env", display;
 		self = self.deepCopy;
 
 		self.get_main = { main };
 		self.get_player = { player };
 		self.namer = { namer };
 		self.name = name;
+		self.display = display ?? ~class_track_display.new;
 
 		self.build_data;
 		self.simple_args = (gate:1, doneAction:2);
@@ -1600,7 +1610,6 @@
 		var wt, wt_range, wt_classic;
 		var env = ~class_param_custom_env_controller.new(\env);
 
-		self.display = ~class_track_display.new;
 		self.custom_env_controller = ~class_custom_env_track_controller.new(self.get_player, env, self.display);
 
 		self.help_build_data(
@@ -1623,7 +1632,7 @@
 	},
 
 	synthfun: { arg self;
-		{ arg in=0, args;
+		{ arg args;
 			var i = self.get_synthargs(args);
 			var sig;
 			var numlevels = 16;
@@ -1636,6 +1645,110 @@
 	
 	},
 
+);
+
+~class_ci_composite_env = (
+
+	parent: ~class_instr,
+	new: { arg self, main, player, namer, name="custom env", display;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.namer = { namer };
+		self.name = name;
+		self.display = display ?? ~class_track_display.new;
+
+		self.custom_env = ~class_ci_custom_env.new(main, player, self.make_namer);
+		self.dadsr = ~class_ci_dadsr_operator.new(main, player, self.make_namer("dadsr_"));
+
+		self.build_data;
+		self.simple_args = (gate:1, doneAction:2);
+	
+		self;
+	},
+
+	get_variants: { arg self;
+		var specs = self.get_specs;
+		[
+			(
+				name: "DADSR",
+				uname: \dadsr,
+			),
+			(
+				name: "Custom",
+				uname: \custom_env,
+			),
+		]
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		var specs = self.get_specs;
+		var wt, wt_range, wt_classic;
+		var env_kind = ~class_param_kind_chooser_controller.new(\env_kind, self.get_variants);
+
+		self.help_build_data2(
+			[
+				self.dadsr,
+				self.custom_env,
+			],
+			[],
+			(
+				env_kind: env_kind
+			)
+		)
+	},
+
+	make_layout: { arg self;
+		var layout;
+		var menu;
+		var dadsr_view = View.new;
+		var custom_env_view = View.new;
+		var env_view_layout = StackLayout.new;
+		menu = ~class_ci_popup_view.new(self.param[\env_kind], nil, { arg popup;
+			env_view_layout.index = popup.value;
+		});
+		layout = VLayout(
+			menu.layout,
+			env_view_layout,
+		);
+		dadsr_view.layout = self.dadsr.make_layout;
+		custom_env_view.layout = self.custom_env.make_layout;
+		env_view_layout.add(dadsr_view);
+		env_view_layout.add(custom_env_view);
+		self.layout = layout;
+		layout;
+	},
+
+	synthfun: { arg self;
+		{ arg args;
+			var i = self.get_synthargs(args);
+			var sig;
+
+			i.doneAction.debug("==============================================DONEACTION");
+			i.doneAction.poll;
+
+			sig = switch(i.env_kind,
+				\dadsr, {
+					self.dadsr.synthfun.(args)
+				},
+				\custom_env, {
+					self.custom_env.synthfun.(args)
+				},
+				{
+					debug("class_ci_composite_env: menu marche pas");
+					self.dadsr.synthfun.(args)
+				},
+			);
+			//sig.poll;
+
+			sig;
+
+		}
+	
+	},
 );
 
 //////////////////////////////////////////////////////

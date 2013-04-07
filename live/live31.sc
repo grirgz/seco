@@ -1,4 +1,5 @@
 // embedInStream dans un Prout
+// steal dubecho ! http://sccode.org/1-h
 (
 s.waitForBoot{
 //"/home/ggz/code/sc/abcparser.sc".load;
@@ -10,6 +11,9 @@ Window.closeAll;
 	\parnode,
 	\audiotrack_expander,
 	\osc1,
+	\guitar,
+	\guitar2,
+	\ch,
 	"ci oscmaster",
 	"ci op_matrix",
 	"ci mosc",
@@ -45,6 +49,7 @@ Window.closeAll;
 	\p_delay,
 	\p_comb,
 	"ci insertfx3",
+	\dubecho,
 ].collect({arg i; i -> i });
 
 ~modlib = [
@@ -620,4 +625,55 @@ Mdef.main.commands.actions.at(*[\nodematrix, \select_row])
 			\select_row,
 			\select_column,
 		]);
+)
+
+
+(
+SynthDef(\dubecho,{|out=0, in=0, length = 1, fb = 0.8, sep = 0.012, mix=0.5, hpfreq=400, lpfreq=5000, noisefreq=12, delayfac=0,
+		offset=0, rotate=0, shift=0|
+	var input = In.ar(in, 2);
+	var output;
+	//length = length.lag(0.01);
+	//length = LPF.kr(length, 10);
+	fb = LPF.kr(fb, 1);
+	sep = LPF.kr(fb, 1);
+	delayfac = LPF.kr(fb, 1);
+	output = input + Fb({
+
+		arg feedback; // this will contain the delayed output from the Fb unit
+
+		var left,right;
+		var magic;
+		feedback = Limiter.ar(feedback, 1);
+		magic = LeakDC.ar(feedback*fb + input);
+		magic = HPF.ar(magic, hpfreq); // filter's on the feedback path
+		magic = LPF.ar(magic, lpfreq);
+		magic = magic.tanh; // and some more non-linearity in the form of distortion
+		//#left, right = magic; // let's have named variables for the left and right channels
+		magic = FreqShift.ar(magic, [0-shift,shift]);
+		#left, right = magic; 
+		#left, right = Rotate2.ar(left, right, rotate); 
+		magic = [
+			DelayC.ar(left, 1, 
+				(LFNoise2.ar(noisefreq).range(delayfac*sep,sep)+offset).clip(0,1)
+			), 
+			DelayC.ar(right, 1, 
+				(LFNoise2.ar(noisefreq).range(sep,sep*delayfac)-offset).clip(0,1)
+			)
+		]; // In addition to the main delay handled by the feedback quark, this adds separately modulated delays to the left and right channels, which with a small "sep" value creates a bit of spatialization
+
+	},length);
+	output = SelectX.ar(mix,[input, output]);
+	//output = Rotate2.ar(output[0], output[1], rotate); 
+	Out.ar(out, output);
+}, metadata: (
+	specs: (
+		sep: ControlSpec.new(0.0001,1, \exp, 0, 0),
+		fb: ControlSpec.new(0.0001,2, \lin, 0, 0),
+		delayfac: ControlSpec.new(0,0.9999, \lin, 0, 0),
+		offset: ControlSpec.new(-0.1,0.1, \lin, 0, 0),
+		shift: ControlSpec.new(-1000,1000, \lin, 0, 0),
+		rotate: \bipolar.asSpec,
+	)
+)).store;
 )

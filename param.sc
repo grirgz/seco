@@ -3691,12 +3691,20 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	notescore_to_env: { arg self, notescore;
 		var notes;
 		var levels = List.new, times = List.new;
+		var release_node = nil;
+		var loop_node = nil;
 		notes = notescore.get_rel_notes;
-		notes.do { arg note;
+		notes.do { arg note, i;
+			if(note.is_release_node == true) {
+				release_node = i;
+			};
+			if(note.is_loop_node == true) {
+				loop_node = i;
+			};
 			times.add( note.dur );
 			levels.add( note.level );
 		};
-		Env(levels, times);
+		Env(levels, times, 0, release_node, loop_node);
 	},
 
 	update_notes: { arg self;

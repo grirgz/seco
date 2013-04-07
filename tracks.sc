@@ -1616,6 +1616,7 @@
 	block_size_y: 8,
 	scaling: (1/4)@1,
 	gridstepB: 1@1,
+	draw_curve_lines_repeat: 20,
 
 	
 	new: { arg self, parent, controller, notekey;
@@ -1728,7 +1729,7 @@
 
 			block { arg break;
 			
-				20.do { arg j;
+				self.draw_curve_lines_repeat.do { arg j;
 				
 					notes.do { arg note;
 						//Pen.lineTo(self.note_to_point(note) * (self.track_size.x@self.track_size.y));
@@ -1873,9 +1874,85 @@
 
 ~class_custom_env_track_view = (
 	parent: ~class_curve_track_view,
+	draw_curve_lines_repeat: 1,
 
 	key_down_action: { arg self;
 		self.controller.get_track_kb_responder;
+	},
+
+	set_track_bindings: { arg self;
+		self.controller.set_track_bindings(self.get_track_bindings);
+	},
+
+	get_track_bindings: { arg self;
+		[
+			// self is controller, not view
+			[\set_release_node, { arg self;
+				var timeline = self.track_view.timeline;
+				var selected_node = timeline.selNodes[0]; 
+				if(selected_node.notNil) {
+					self.set_release_node(self.track_view.block_dict[selected_node.spritenum]);
+				}
+			}],
+
+			[\set_loop_node, { arg self;
+				var timeline = self.track_view.timeline;
+				var selected_node = timeline.selNodes[0]; 
+				if(selected_node.notNil) {
+					self.set_loop_node(self.track_view.block_dict[selected_node.spritenum]);
+				}
+			}],
+		]
+	},
+
+	notes: { arg self, controller;
+		// TODO: merge with parent class
+		var tl;
+		var stext;
+		var spritenum = 0;
+		var notes;
+		//controller = controller ?? self.controller;
+		controller = self.controller;
+
+		controller.get_notes.debug("class_basic_track_view: notes");
+
+		self.timeline.clearSpace;
+
+		self.block_dict = Dictionary.new;
+	
+		notes = controller.get_notes;
+		self.scan_notes(notes);
+
+		notes.do { arg note;
+			var pos;
+			note.debug("class_basic_track_view: notes: note");
+			if(note.type != \rest) {
+				pos = self.note_to_point(note);
+				pos.debug("class_curve_track_view.notes: pos");
+
+				self.timeline.createNode1(pos.x, pos.y);
+				self.timeline.setNodeSize_(spritenum, self.block_size_y);
+				self.block_size_y.debug("block_size_y");
+				self.timeline.paraNodes[spritenum].setLen = self.handle_size ;
+				self.timeline.paraNodes[spritenum].temp = pos;
+
+				if(note.is_loop_node == true) {
+					self.timeline.setNodeColor_(spritenum, Color.yellow);
+				};
+				if(note.is_release_node == true) {
+					self.timeline.setNodeColor_(spritenum, Color.red);
+				};
+
+
+				self.block_dict[spritenum] = note;
+				spritenum = spritenum + 1;
+
+			}
+
+		};
+
+
+
 	},
 
 	new: { arg self, parent, controller, notekey;
@@ -1885,11 +1962,13 @@
 		self.node_shape = "circle";
 		self.node_align = \center;
 		self.init(parent, controller);
+		self.set_track_bindings;
 		self.timeline.refresh;
 		self;
 	},
 );
 
+////////////////////////////////// Track groups
 
 ~class_multitrack_view = (
 	new: { arg self, controller;
@@ -2682,23 +2761,23 @@
 
 	get_notes: { arg self;
 		debug("class_curve_track_controller: move note");
-		self.current_notes = self.notescore.get_abs_notes;
+		self.current_notes = self.get_notescore.get_abs_notes;
 		self.current_notes;
 	},
 
 	set_end: { arg self, val;
-		self.notescore.set_end(val);
+		self.get_notescore.set_end(val);
 		self.update_notes;
 		self.changed(\background);
 		self.changed(\notes);
 	},
 
 	get_end: { arg self;
-		self.notescore.get_end.debug("get_end");
+		self.get_notescore.get_end.debug("get_end");
 	},
 
 	update_notes: { arg self;
-		self.get_node.get_arg(\val).set_notes(self.notescore.get_rel_notes);
+		self.get_node.get_arg(\val).set_notes(self.get_notescore.get_rel_notes);
 		self.get_node.get_arg(\noteline).get_scoreset.update_notes;
 	},
 
@@ -2706,7 +2785,7 @@
 		debug("class_curve_track_controller: move note");
 		note.time = time;
 		note[self.notekey] = notekey;
-		self.notescore.set_abs_notes(self.current_notes);
+		self.get_notescore.set_abs_notes(self.current_notes);
 		self.update_notes;
 	},
 
@@ -2717,14 +2796,14 @@
 			sustain: 0.1,
 	    );
 		note[self.notekey] = pos.y;
-		self.notescore.add_note(note, pos.x);
+		self.get_notescore.add_note(note, pos.x);
 		self.update_notes;
 		self.changed(\notes);
 	
 	},
 
 	remove_note: { arg self, notepos;
-		self.notescore.remove_notes_at_abstime(notepos.x, { arg no; no[self.notekey] == notepos.y });
+		self.get_notescore.remove_notes_at_abstime(notepos.x, { arg no; no[self.notekey] == notepos.y });
 		self.update_notes;
 		self.changed(\notes);
 	},
@@ -2755,6 +2834,7 @@
 		
 		self.get_node = {node};
 		self.get_param = {param};
+		self.get_notescore = {param.get_notescore};
 		self.notescore = param.get_notescore;
 		//self.scoreset = node.get_arg(\noteline).get_scoreset;
 		//self.scoreset = node.get_arg(\scoreline).get_scoreset;
@@ -2765,13 +2845,39 @@
 		self;
 	},
 
-	get_track_kb_responder: { arg self;
-		self.get_node.get_main.commands.get_kb_responder(\track_custom_env)
+	set_loop_node: { arg self, node;
+		self.set_special_node_property(node, \is_loop_node);
 	},
 
-	set_track_bindings: { arg self;
+	set_release_node: { arg self, node;
+		self.set_special_node_property(node, \is_release_node);
+	},
+
+	set_special_node_property: { arg self, note, property;
+		var val = true;
+		if(note[property] == true) {
+			val = false;
+		};
+		self.current_notes.do { arg no;
+			if(no[property] == true) {
+				no[property] = false
+			};
+		};
+		note[property] = val;
+		self.get_notescore.set_abs_notes(self.current_notes);
+		self.update_notes;
+		self.changed(\notes);
+	},
+
+	get_track_kb_responder: { arg self;
+		self.get_node.get_main.commands.get_kb_responder(\track_custom_env, self)
+	},
+
+	set_track_bindings: { arg self, env_bindings;
+		var dis_bindings;
 		var bindings;
-		bindings = self.display.get_bindings;
+		dis_bindings = self.display.get_bindings;
+		bindings = dis_bindings ++ env_bindings;
 		self.get_node.get_main.commands.parse_action_bindings(\track_custom_env, bindings);
 	},
 
@@ -2780,6 +2886,7 @@
 		//self.get_node.get_arg(\val).set_notes(self.notescore.get_rel_notes);
 		//self.get_node.get_arg(\noteline).get_scoreset.update_notes;
 		self.get_param.update_notes;
+		//self.changed(\notes); // FIXME: use notescore to send changed signal ?
 		"class_custom_env_track_controller: update_notes".debug;
 	},
 
@@ -2860,23 +2967,25 @@
 
 	get_bindings: { arg self;
 		[
-			[\increase_gridstep_x, {
-				self.increase_gridstep_x;
+			// FIXME: self.display is a buggy hack
+
+			[\increase_gridstep_x, { arg self;
+				self.display.increase_gridstep_x;
 			}],
-			[\decrease_gridstep_x, {
-				self.decrease_gridstep_x;
+			[\decrease_gridstep_x, { arg self;
+				self.display.decrease_gridstep_x;
 			}],
-			[\increase_gridstep_y, {
-				self.increase_gridstep_y;
+			[\increase_gridstep_y, { arg self;
+				self.display.increase_gridstep_y;
 			}],
-			[\decrease_gridstep_y, {
-				self.decrease_gridstep_y;
+			[\decrease_gridstep_y, { arg self;
+				self.display.decrease_gridstep_y;
 			}],
-			[\increase_gridlen, {
-				self.increase_gridlen;
+			[\increase_gridlen, { arg self;
+				self.display.increase_gridlen;
 			}],
-			[\decrease_gridlen, {
-				self.decrease_gridlen;
+			[\decrease_gridlen, { arg self;
+				self.display.decrease_gridlen;
 			}],
 		]
 	},
@@ -2932,7 +3041,7 @@
 	make_gui: { arg self;
 		self.make_bindings;
 		self.window = Window.new("Group Tracks", Rect(300,300,900,300));
-		self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\group_tracks);
+		self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\group_tracks, self);
 		self.multitrack_view = ~class_multitrack_view.new(self);
 		self.window.view.layout = self.multitrack_view.layout;
 
@@ -3018,7 +3127,7 @@
 	make_gui: { arg self;
 		self.make_bindings;
 		self.window = Window.new("Player Tracks", Rect(300,300,900,300));
-		self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\player_tracks);
+		self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\player_tracks, self);
 		self.multitrack_view = ~class_multitrack_view.new(self);
 		self.window.view.layout = self.multitrack_view.layout;
 
@@ -3101,7 +3210,7 @@
 	make_gui: { arg self;
 		self.make_bindings;
 		self.window = Window.new("line tracks", Rect(300,300,900,300));
-		self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\line_tracks);
+		self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\line_tracks, self);
 		self.multitrack_view = ~class_multitrack_view.new(self);
 		self.window.view.layout = self.multitrack_view.layout;
 
