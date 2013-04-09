@@ -1503,26 +1503,24 @@
 		wt_range = wt.get_wt_range_controller;
 		wt_classic = wt.get_wt_classic_controller;
 		debug("~class_ci_operator: build_data");
-		self.help_build_data(
+		self.help_build_data2(
 			[
-				self.make_control_params([
-					[\amp, \amp, 0.5],
-					[\pan, \pan, 0.0],
-					//[\velocity, \unipolar, 0.0],
-					[\ratio, ControlSpec(0.0000001, 20, \exp, 0, 1), 1],
-					[\offset, ControlSpec(0.0000001, 18000, \exp, 0, 1), 0],
-				]) ++ [
-					wt: wt
-				],
 				self.dadsr
 			],
-			[
-				(
-					enabled: ~class_param_static_controller.new(\enabled, specs[\onoff], 1),
-					wt_classic: wt_classic,
-					wt_range: wt_range,
-				)
-			]
+			self.make_control_params([
+				[\amp, \amp, 0.5],
+				[\pan, \pan, 0.0],
+				//[\velocity, \unipolar, 0.0],
+				[\ratio, ControlSpec(0.0000001, 20, \exp, 0, 1), 1],
+				[\offset, ControlSpec(0.0000001, 18000, \exp, 0, 1), 0],
+			]) ++ [
+				wt: wt
+			],
+			(
+				enabled: ~class_param_static_controller.new(\enabled, specs[\onoff], 1),
+				wt_classic: wt_classic,
+				wt_range: wt_range,
+			)
 		)
 	},
 
@@ -1535,15 +1533,16 @@
 		};
 		frame = View.new;
 		frame.background = Color.gray(0.5);
-		frame.layout = HLayout(*
-			[
-				VLayout(
-					StaticText.new.string_(self.name),
-					~class_ci_popup_view.new(self.data[\wt]).layout
-
-				)
-			] ++
-			self.knobs ++
+		frame.layout = HLayout(
+			VLayout(*
+				[
+					HLayout(
+						StaticText.new.string_(self.name),
+						~class_ci_popup_view.new(self.data[\wt]).layout
+					),
+					HLayout(*self.knobs)
+				].flatten,
+			),
 			self.dadsr.make_layout
 		);
 		
@@ -1708,8 +1707,9 @@
 		var custom_env_view = View.new;
 		var env_view_layout = StackLayout.new;
 		menu = ~class_ci_popup_view.new(self.param[\env_kind], nil, { arg popup;
-			env_view_layout.index = popup.value;
+			env_view_layout.index = self.param[\env_kind].get_val;
 		});
+		//menu.action; 
 		layout = VLayout(
 			menu.layout,
 			env_view_layout,
@@ -1718,6 +1718,7 @@
 		custom_env_view.layout = self.custom_env.make_layout;
 		env_view_layout.add(dadsr_view);
 		env_view_layout.add(custom_env_view);
+		menu.action; // FIXME: should be called when refreshing gui, no ?
 		self.layout = layout;
 		layout;
 	},
@@ -2865,7 +2866,253 @@
 
 );
 
+~class_ci_op_matrix2 = (
+	parent: ~class_instr,
+
+	new: { arg self, main, player, namer;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.namer = { namer };
+		"maisou1".debug;
+
+		self.op_names = ["A","B","C","D","E", "F"];
+		self.extra_op_names = ["F1", "F2", "X1", "X2"];
+		self.xop_names = self.op_names ++ self.extra_op_names;
+		self.matrix_size = self.xop_names.size @ (self.xop_names.size + 2);
+
+		self.operators = self.op_names.collect { arg name;
+		//self.operators = ["A"].collect { arg name;
+			~class_ci_operator.new(main, player, self.make_namer("op%_".format(name)), name)
+		};
+		"maisou2".debug;
+
+
+		self.insertfxs = 2.collect { arg i;
+			~class_ci_insertfx.new(main, player, self.make_namer("fx%_".format(i)));
+		};
+
+		self.filters = 2.collect { arg i;
+			~class_ci_filter.new(main, player, self.make_namer("filter%_".format(i)));
+		};
+
+		self.xoperators = [
+			self.operators,
+			self.filters,
+			self.insertfxs,
+		].flatten;
+
+		self.master = ~class_ci_master_dadsr.new(main, player);
+		"maisou3".debug;
+
+		self.tab_panel = ~class_ci_tabs_modfx.new(self, main, player, 
+			[
+				"Master Amp", {  HLayout(self.master.make_layout) },
+				"Master Env", {  self.master.make_layout_env },
+				"Filters", {
+					HLayout(*
+						self.filters.collect { arg mod;
+							mod.make_layout;
+						};
+					);
+				},
+				"insertFXs", {  
+					HLayout(*
+						self.insertfxs.collect { arg fx;
+							fx.make_layout;
+						};
+					);
+				},
+			]
+		);
+
+
+		self.build_data;
+		"maisou4".debug;
+		self.simple_args = (gate:1, doneAction:2);
+		"maisou5".debug;
+	
+		self;
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		var specs = self.get_specs;
+		debug("~class_ci_op_matrix: build_data");
+		self.help_build_data2(
+			[
+				self.xoperators,
+				self.master,
+			].flatten,
+			[
+				opmatrix: ~class_param_opmatrix_controller.new(\opmatrix, \unipolar, self.matrix_size),
+			],
+		);
+	},
+
+	make_layout: { arg self;
+		var opcount = self.xop_names.size;
+		var make_cell;
+		var make_opcell;
+
+		"makelayout1".debug;
+
+		make_cell = { arg x, y;
+			var val;
+			val = self.data[\opmatrix].get_cell_val(x,y);
+			if(val == -1) {
+				val == ""
+			};
+			NumberBox.new
+				//.string_("")
+				.clipLo_(0)
+				.clipHi_(1)
+				.step_(0.01)
+				.scroll_step_(0.1)
+				.ctrl_scale_(0.1)
+				.minDecimals_(2)
+				.maxDecimals_(3)
+				.font_(Font("Arial",11))
+				.action_({ arg field;
+					var val;
+					if(field.value == 0) {
+						field.background = Color.white;
+					} {
+						field.background = Color.gray(0.5);
+					};
+					val = field.value;
+					self.data[\opmatrix].set_cell_val(x,y, val)
+				})
+				.valueAction_( val )
+		};
+
+		make_opcell = { arg x, y;
+			View.new
+				.layout_( 
+					HLayout(
+						StaticText.new
+							.font_(Font("Arial",11))
+							.string_(self.xop_names[y]),
+						make_cell.(x, y)
+					).margins_(1)
+				)
+				.background_(Color.gray)
+				//.minWidth_(150)
+		};
+		"makelayout2".debug;
+
+		self.matrix_layout = GridLayout.rows(*
+			opcount.collect { arg y;
+				opcount.collect { arg x;
+					if(x == y) {
+						make_opcell.(x,y);
+					} {
+						make_cell.(x,y);
+					};
+				};
+			} ++ [
+				opcount.collect { arg x;
+					make_cell.(x,opcount);
+				},
+				opcount.collect { arg x;
+					make_cell.(x,opcount+1);
+				},
+			];
+		);
+		"makelayout2h".debug;
+
+		self.oplayout = VLayout(*
+			self.operators.collect({ arg op; op.make_layout }),
+		);
+		self.layout = HLayout(
+			self.oplayout,
+			VLayout(
+				self.matrix_layout,
+				//self.master.make_layout,
+				//self.master.make_layout_env,
+				self.tab_panel.make_layout,
+				nil,
+			),
+			nil
+		);
+		"makelayout3h".debug;
+		self.layout;
+	},
+
+	synthfun: { arg self;
+		{ arg args;
+			var i;
+			var sig;
+			var op_ins, op_outs;
+			var opcount = self.xop_names.size;
+			var ops = Array.newClear(opcount);
+			var opmatrix;
+			opmatrix = \opmatrix.kr(
+				Array.fill(opcount * (opcount + 2), 0);
+			);
+			if(args.isNil) { args = () };
+			args[\opmatrix] =  opmatrix;
+			i = self.get_synthargs(args);
+			"class_ci_op_matrix: synthfun".debug;
+
+			op_ins = LocalIn.ar(opcount);
+			self.xoperators.do { arg op, idx;
+				var in = 0;
+				idx.debug("op do idx");
+				idx.do { arg i;
+					var sfactor;
+					var factor;
+					sfactor = self.data[\opmatrix].get_cell_val(i, idx);
+					if(sfactor >= 0) {
+						factor = opmatrix[i + (idx * opcount)];
+						in = in + (ops[i] * factor)
+					}
+				};
+				(opcount - idx).do { arg i;
+					var sfactor;
+					var factor;
+					sfactor = self.data[\opmatrix].get_cell_val(i + idx, idx);
+					if(sfactor >= 0) {
+						factor = opmatrix[i + idx + (idx * opcount)];
+						in = in + (op_ins[i+idx] * factor)
+					}
+				};
+				ops[idx] = op.synthfun.(in, args);
+			};
+			"fin".debug;
+			LocalOut.ar(ops);
+
+			"fin2".debug;
+			sig = 0;
+			opcount.do { arg idx;
+				var factor;
+				var sfactor;
+				sfactor = self.data[\opmatrix].get_cell_val(idx, opcount);
+				if(sfactor >= 0) {
+					factor = opmatrix[opcount * opcount + idx];
+					sig = sig + ( ops[idx] * factor );
+				};
+			};
+			"fin3".debug;
+
+			//sig = self.operators[0].synthfun.(0, args);
+			sig = self.master.synthfun.(sig);
+			"fin4".debug;
+
+			//sig = sig * i.amp;
+
+			sig;
+
+		}
+	
+	},
+
+);
+
 ~class_ci_insertfx3 = (
+	// used as an effect
 	parent: ~class_instr,
 	is_effect: true,
 
@@ -2948,6 +3195,7 @@
 	moscfaderfilter: ~class_ci_moscfaderfilter,
 	osc3filter2: ~class_ci_osc3filter2,
 	op_matrix: ~class_ci_op_matrix,
+	op_matrix2: ~class_ci_op_matrix2,
 
 	// modulators
 

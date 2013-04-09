@@ -16,6 +16,7 @@ Window.closeAll;
 	\ch,
 	"ci oscmaster",
 	"ci op_matrix",
+	"ci op_matrix2",
 	"ci mosc",
 	"ci moscfilter",
 	"ci moscfilter_modfx",

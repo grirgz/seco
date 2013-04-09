@@ -427,14 +427,15 @@
 		self.controller = {controller};
 		size = size ?? (80@20);
 
+		self.action = { action.(self.popup) };
 		self.popup = PopUpMenu.new(nil, size);
 		self.popup.action = { arg popup;
-			action.(popup);
 			if(controller.notNil) {
 				self.controller.set_val(self.popup.value);
 			} {
 				debug("class_popup_view: controller is nil");
 			};
+			action.(popup);
 		};
 		//[controller.model.uname, controller.menu_items].debug("class_popup_view");
 		self.popup.items = try { 
