@@ -477,6 +477,10 @@
 				uname: \normal,
 			),
 			(
+				name: "Width",
+				uname: \width,
+			),
+			(
 				name: "Bend",
 				uname: \bend,
 			),
@@ -1251,12 +1255,13 @@
 	parent: ~class_instr,
 	args_prefix: "",
 	args_suffix: "",
-	new: { arg self, main, player;
+	new: { arg self, main, player, showspread=false;
 		self = self.deepCopy;
 
 		self.get_main = { main };
 		self.get_player = { player };
 		self.synthdef_name = \ci_master_dadsr;
+		self.showspread = showspread;
 
 		self.dadsr = ~class_ci_dadsr.new(main,player);
 		self.simple_args = (gate:1, doneAction:2);
@@ -1285,6 +1290,9 @@
 	make_layout: { arg self;
 		var knobs = [\pan, \amp];
 		var frame_view;
+		if(self.showspread) {
+			knobs = knobs.add(\spread);
+		};
 		self.knobs = knobs.collect { arg name;
 			self.data[name];
 		};
@@ -1513,6 +1521,7 @@
 				//[\velocity, \unipolar, 0.0],
 				[\ratio, ControlSpec(0.0000001, 20, \exp, 0, 1), 1],
 				[\offset, ControlSpec(0.0000001, 18000, \exp, 0, 1), 0],
+				[\phase, ControlSpec(0, 2, \lin, 0, 1), 0],
 			]) ++ [
 				wt: wt
 			],
@@ -1525,11 +1534,13 @@
 	},
 
 	make_layout: { arg self, fader;
-		var knobs = [\amp, \pan, \ratio, \offset];
+		var knobs = [\amp, \pan, \ratio, \offset, \phase];
 		var frame_view;
 		var frame;
+		var display = (knobsize:30@30);
 		self.knobs = knobs.collect { arg name;
-			~class_ci_simpleknob_view.new(self.data[name]).layout;
+			//~class_ci_simpleknob_view.new(self.data[name]).layout;
+			~class_ci_modknob_view.new(self.data[name], display).layout;
 		};
 		frame = View.new;
 		frame.background = Color.gray(0.5);
@@ -1568,6 +1579,7 @@
 				wt_position:0,
 				wt_range:0,
 				wt_classic:i.wt_classic,
+				phase:i.phase,
 				spectrum:\normal,
 				intensity:0,
 				amp:i.amp, 
@@ -1675,6 +1687,10 @@
 				uname: \dadsr,
 			),
 			(
+				name: "Constant",
+				uname: \const,
+			),
+			(
 				name: "Custom",
 				uname: \custom_env,
 			),
@@ -1706,6 +1722,7 @@
 		var dadsr_view = View.new;
 		var custom_env_view = View.new;
 		var env_view_layout = StackLayout.new;
+		var const_layout = StaticText.new.string_("constant:1");
 		menu = ~class_ci_popup_view.new(self.param[\env_kind], nil, { arg popup;
 			env_view_layout.index = self.param[\env_kind].get_val;
 		});
@@ -1717,6 +1734,7 @@
 		dadsr_view.layout = self.dadsr.make_layout;
 		custom_env_view.layout = self.custom_env.make_layout;
 		env_view_layout.add(dadsr_view);
+		env_view_layout.add(const_layout);
 		env_view_layout.add(custom_env_view);
 		menu.action; // FIXME: should be called when refreshing gui, no ?
 		self.layout = layout;
@@ -1734,6 +1752,9 @@
 			sig = switch(i.env_kind,
 				\dadsr, {
 					self.dadsr.synthfun.(args)
+				},
+				\const, {
+					1
 				},
 				\custom_env, {
 					self.custom_env.synthfun.(args)
@@ -2903,7 +2924,7 @@
 			self.insertfxs,
 		].flatten;
 
-		self.master = ~class_ci_master_dadsr.new(main, player);
+		self.master = ~class_ci_master_dadsr.new(main, player, true);
 		"maisou3".debug;
 
 		self.tab_panel = ~class_ci_tabs_modfx.new(self, main, player, 
@@ -2959,15 +2980,16 @@
 
 		"makelayout1".debug;
 
-		make_cell = { arg x, y;
+		make_cell = { arg x, y, pancell=false;
 			var val;
+			var low = if(pancell) { -1 } { 0 };
 			val = self.data[\opmatrix].get_cell_val(x,y);
 			if(val == -1) {
 				val == ""
 			};
 			NumberBox.new
 				//.string_("")
-				.clipLo_(0)
+				.clipLo_(low)
 				.clipHi_(1)
 				.step_(0.01)
 				.scroll_step_(0.1)
@@ -3017,7 +3039,7 @@
 					make_cell.(x,opcount);
 				},
 				opcount.collect { arg x;
-					make_cell.(x,opcount+1);
+					make_cell.(x,opcount+1, true);
 				},
 			];
 		);
@@ -3045,6 +3067,7 @@
 		{ arg args;
 			var i;
 			var sig;
+			var sigarr;
 			var op_ins, op_outs;
 			var opcount = self.xop_names.size;
 			var ops = Array.newClear(opcount);
@@ -3085,17 +3108,27 @@
 			LocalOut.ar(ops);
 
 			"fin2".debug;
+			sigarr = List.new;
 			sig = 0;
 			opcount.do { arg idx;
 				var factor;
+				var panpos;
+				var opsig;
 				var sfactor;
 				sfactor = self.data[\opmatrix].get_cell_val(idx, opcount);
 				if(sfactor >= 0) {
 					factor = opmatrix[opcount * opcount + idx];
-					sig = sig + ( ops[idx] * factor );
+					panpos = opmatrix[opcount * opcount + opcount + idx];
+					//sig = sig + ( ops[idx] * factor );
+					opsig = Pan2.ar(( ops[idx] * factor ), panpos, 1);
+					sig = sig + opsig;
+					//sigarr.add( ops[idx] * factor );
 				};
 			};
 			"fin3".debug;
+			
+			//sig = Splay.ar(sigarr.asArray, 1, 1, 0);
+			//sig = sigarr.asArray;
 
 			//sig = self.operators[0].synthfun.(0, args);
 			sig = self.master.synthfun.(sig);
@@ -3212,10 +3245,12 @@
 ////////////// Instrs
 //////////////////////////////////////////////////////
 
-Instr(\ci_oscillator, { arg spectrum, wt_range=0, wt_classic=\void, amp=0.1, midinote=200, wt=0, detune=0.0, wt_position=0, intensity=1;
+Instr(\ci_oscillator, { 
+	arg spectrum, wt_range=0, wt_classic=\void, amp=0.1, midinote=200, wt=0, detune=0.0, wt_position=0, intensity=1, phase=nil;
 	var ou, endfreq;
 	var formantfreq;
 	var mul = 1;
+	var width = 0.5;
 	endfreq = (midinote + detune).midicps;
 	//spectrum.debug("spectrum");
 	wt_position.debug("WT_POSITION");
@@ -3232,12 +3267,18 @@ Instr(\ci_oscillator, { arg spectrum, wt_range=0, wt_classic=\void, amp=0.1, mid
 		}
 	);
 	if(wt_classic != \void) {
-		ou = Instr(\ci_classic_oscillator).value((kind:wt_classic, freq:endfreq)) * mul;
+		if(spectrum == \width) {
+			width = intensity;
+		};
+		ou = Instr(\ci_classic_oscillator).value((kind:wt_classic, freq:endfreq, width:width, phase:phase)) * mul;
 	} {
+		if(phase.isNil) {
+			phase = 0;
+		};
 		if(wt_range == 0) {
-			ou = Osc.ar(wt, endfreq) * mul;
+			ou = Osc.ar(wt, endfreq, phase*pi) * mul;
 		} {
-			ou = VOsc.ar(wt+(wt_position.clip(0,wt_range)), endfreq) * mul;
+			ou = VOsc.ar(wt+(wt_position.clip(0,wt_range)), endfreq, phase*pi) * mul;
 		};
 	};
 	switch(spectrum,
@@ -3262,23 +3303,26 @@ Instr(\ci_oscillator, { arg spectrum, wt_range=0, wt_classic=\void, amp=0.1, mid
 	ou;
 }, [NonControlSpec(), NonControlSpec(), NonControlSpec()]);
 
-Instr(\ci_classic_oscillator, { arg kind=\void, freq=200, phase=0, width=0.5;
+Instr(\ci_classic_oscillator, { arg kind=\void, freq=200, phase=nil, width=0.5;
+	if(phase.isNil) {
+		phase = 0;
+	};
 	switch(kind,
 		\SinOsc, {
-			SinOsc.ar(freq, phase)
+			SinOsc.ar(freq, phase*pi)
 		},
 		\LFSaw, {
-			LFSaw.ar(freq, phase)
+			LFSaw.ar(freq, phase, width)
 		},
 		\LFPulse, {
-			LFPulse.ar(freq, phase)
+			LFPulse.ar(freq, phase/2, width)
 		},
 		\LFTri, {
-			LFTri.ar(freq, phase)
+			LFTri.ar(freq, phase*2)
 		},
 		{
 			"WARNING: ci_classic_oscillator: kind not found".debug;
-			SinOsc.ar(freq, phase)
+			SinOsc.ar(freq, phase*pi)
 		}
 	);
 }, [NonControlSpec()]);

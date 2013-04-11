@@ -93,12 +93,13 @@
 
 ~class_ci_modknob_view = (
 	range_val: 0,
-	new: { arg self, controller, display;
+	new: { arg self, controller, display=();
 		var modmixer;
 		self = self.deepCopy;
 
 		self.display = { display };
 		self.set_controller( controller );
+		self.display.knobsize =  self.display.knobsize ?? (50@50) ;
 		self.make_gui;
 	
 		self;
@@ -281,7 +282,7 @@
 					}
 				});
 				knob.asView.debug("VIEW");
-				knob.asView.minSize_(50@50);
+				knob.asView.minSize_(self.display.knobsize);
 				[knob.asView, stretch: 0, align:\center],
 			vallabel = StaticText.new
 				.string_("12354")
