@@ -10,31 +10,36 @@ Window.closeAll;
 	\seqnode,
 	\parnode,
 	\audiotrack_expander,
-	\osc1,
-	\guitar,
-	\guitar2,
-	\ch,
-	"ci oscmaster",
-	"ci op_matrix",
-	"ci op_matrix2",
-	"ci mosc",
-	"ci moscfilter",
-	"ci moscfilter_modfx",
-	"ci moscfaderfilter",
-	"ci osc3filter2",
-	"ci sin",
-	\lead2,
-	\pulsepass,
-	\flute1,
-	\miaou1,
-	\ringbpf1,
-	\piano2,
-	\pmosc,
 	\monosampler,
 	\stereosampler,
 	\ss_comb,
 	\ss_combfreq,
+
+	"ci op_matrix2",
+	"ci mosc",
+	"ci moscfilter",
+	"ci moscfilter_modfx",
+	"ci osc3filter2",
+
 	\zegrainer,
+	\sampleosc1,
+	\sampleosc2,
+	//"ci oscmaster",
+	//"ci op_matrix",
+	//"ci moscfaderfilter",
+	//"ci sin",
+	//\lead2,
+	//\pulsepass,
+	//\flute1,
+	//\miaou1,
+	//\ringbpf1,
+	//\piano2,
+	//\pmosc,
+
+	\osc1,
+	\guitar,
+	\guitar2,
+	\ch,
 
 	\kick1,
 	\kick2,
@@ -299,16 +304,19 @@ SynthDef(\sampleosc1, { arg out=0, amp=0.1, gate=1, pan=0, freq=200, bufnum;
 	Out.ar(out, ou);
 }).add;
 
-SynthDef(\sampleosc2, { arg out=0, amp=0.1, gate=1, pan=0, freq=200, bufnum;
+SynthDef(\sampleosc2, { arg out=0, amp=0.1, gate=1, pan=0, freq=200, bufnum, pos=0.7, finepos=0;
 	var ou, bufsig;
 	var clk;
 	var randframes=0.110001;
 	var randrate=1;
 	var randclk;
-	var pos=0.7;
+	//var pos=0.7;
 	var mfreq;
 	var dur=0.4;
 	var rate=(1/11), trate=12;
+
+	pos = pos+finepos;
+
 	clk = Impulse.kr(trate);
 	
 	randclk = Impulse.kr(randrate * trate);
@@ -339,7 +347,9 @@ SynthDef(\sampleosc2, { arg out=0, amp=0.1, gate=1, pan=0, freq=200, bufnum;
 	ou = ou * EnvGen.ar(Env.adsr(0.4,0.1,0.8,0.4),gate,doneAction:2);
 	ou = Pan2.ar(ou, pan, amp);
 	Out.ar(out, ou);
-}).add;
+}, metadata:(specs:(
+	finepos: ControlSpec(-0.01,0.01,\lin, 0, 1),
+))).store;
 
 )
 TGrains

@@ -170,6 +170,14 @@
 				}
 			}],
 
+			[\change_param_kind, { arg self;
+				if(~class_player_display.param_types.param_mode.includes(~global_controller.current_param.name).not) {
+					~class_param_kind_chooser.new(self.get_main, { arg sel;
+						~class_player_display.change_param_kind(sel, ~global_controller.current_param);
+					})
+				}
+			}],
+
 			[\assign_midi_knob, { arg self;
 				if(~global_controller.current_param.notNil) {
 					var param = ~global_controller.current_param;
@@ -1533,11 +1541,14 @@
 		)
 	},
 
+	gui_knobs: [\amp, \pan, \ratio, \offset, \phase],
+
 	make_layout: { arg self, fader;
-		var knobs = [\amp, \pan, \ratio, \offset, \phase];
+		var knobs;
 		var frame_view;
 		var frame;
 		var display = (knobsize:30@30);
+		knobs = self.gui_knobs;
 		self.knobs = knobs.collect { arg name;
 			//~class_ci_simpleknob_view.new(self.data[name]).layout;
 			~class_ci_modknob_view.new(self.data[name], display).layout;
@@ -2329,6 +2340,9 @@
 //////////////////////////////////////////////////////
 ////////////// End Class Instrs
 //////////////////////////////////////////////////////
+
+////////////// Oscs
+
 
 ~class_ci_sin = (
 	parent: ~class_instr,
@@ -3144,6 +3158,169 @@
 
 );
 
+////////////// Modulators
+
+~class_ci_mod_osc_propor = (
+	parent: ~class_ci_osc,
+	make_layout: { arg self;
+		self.layout = HLayout(
+			~class_ci_osc[\make_layout].(self)
+		);
+		self.layout;
+	},
+
+);
+
+~class_ci_mod_osc = (
+	parent: ~class_ci_osc,
+	synth_rate: \kr,
+	new: { arg self, main, player, namer;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.namer = { namer };
+		self.synthdef_name = \ci_osc;
+		self.build_data;
+
+		self.simple_args = (gate:1, doneAction:2);
+	
+		self;
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		var specs = self.get_specs;
+		var wt, wt_range, wt_classic, wt_pos;
+		self.synthdef_name.debug("%%%%%%%%%%%%%%%%%%%%%%%%%%% build data");
+		wt_pos = ~make_control_param.(main, player, \wt_pos, \scalar, 0, \unipolar.asSpec.copy);
+		wt = ~class_param_wavetable_controller.new(player, \wt, wt_pos);
+		wt_range = wt.get_wt_range_controller;
+		wt_classic = wt.get_wt_classic_controller;
+
+		
+		self.ordered_args = [
+			modfreq: ~make_control_param.(main, player, \modfreq, \scalar, 200, \lofreq.asSpec),
+			//detune: ~make_control_param.(main, player, \detune, \scalar, 0, specs[\pitch]),
+			wt: wt,
+			wt_pos: wt_pos,
+			intensity: ~make_control_param.(main, player, \intensity, \scalar, 0, \unipolar.asSpec),
+			oscamp: ~make_control_param.(main, player, \oscamp, \scalar, 0.5, \amp.asSpec),
+		];
+		self.static_data = IdentityDictionary.newFrom((
+			spectrum: ~class_param_kind_chooser_controller.new(\spectrum, self.get_spectrum_variants),
+			wt_range: wt_range,
+			wt_classic: wt_classic,
+			enabled: ~class_param_static_controller.new(\enabled, specs[\onoff], 1),
+		));
+		self.data = IdentityDictionary.newFrom(self.ordered_args);
+		//self.data[\detune].scalar.set_bus_mode(true);
+		self.data.copy;
+	},
+
+	make_layout: { arg self;
+		var knobs = [\modfreq, \wt_pos, \intensity, \oscamp];
+		var frame_view;
+		self.knobs = knobs.collect { arg name;
+			self.data[name];
+		};
+		frame_view = ~class_ci_frame_view.new("Osc1", self.knobs, self.static_data[\enabled], self.data[\wt], self.static_data[\spectrum]);
+		self.layout = HLayout(frame_view.layout);
+		self.layout;
+	},
+
+	synthfun: { arg self;
+		{ arg args;
+			var i = self.get_synthargs(args);
+			var sig;
+			i.debug("III");
+			args.debug("ARGS");
+			i.freq.debug("FREQ");
+
+			sig = Instr(\ci_oscillator).value((
+				midinote:i.modfreq.cpsmidi, 
+				detune:0,
+				wt:i.wt,
+				wt_position:i.wt_pos,
+				wt_range:i.wt_range,
+				wt_classic:i.wt_classic,
+				spectrum:i.spectrum,
+				intensity:i.intensity,
+				amp:i.oscamp, 
+			));
+			sig = self.bypass(i.enabled, sig, DC.ar(0));
+			i.oscamp.debug("OSCAMP");
+
+
+			sig;
+
+		}
+	
+	},
+);
+
+~class_ci_mod_envosc = (
+	parent: ~class_instr,
+	synth_rate: \kr,
+	new: { arg self, main, player, namer;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.namer = { namer };
+		self.synthdef_name = \ci_mod_envosc;
+
+		self.osc = ~class_ci_operator.new(main, player, self.make_namer, "");
+		self.osc.gui_knobs =  [\amp, \modfreq, \phase];
+
+		self.build_data;
+
+		self.simple_args = (gate:1, doneAction:2);
+	
+		self;
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		var specs = self.get_specs;
+
+		self.help_build_data2(
+			[
+				self.osc
+			],
+			self.make_control_params([
+				[\modfreq, \lofreq, 1],
+			])
+		);
+		self.osc.data[\modfreq] = self.data[\modfreq];
+		self.data.copy;
+	},
+
+	make_layout: { arg self;
+		self.layout = HLayout(
+			self.osc.make_layout;
+		);
+		self.layout;
+	},
+
+	synthfun: { arg self;
+		{ arg args;
+			var i = self.get_synthargs(args);
+			var sig;
+			
+			sig = self.osc.synthfun.(0, (freq:i.modfreq, offset:0, ratio:1));
+			//sig = SinOsc.kr(i.modfreq);
+			sig;
+		}
+	},
+
+);
+
+
+////////////// Effects
+
 ~class_ci_insertfx3 = (
 	// used as an effect
 	parent: ~class_instr,
@@ -3234,6 +3411,8 @@
 
 	dadsr_kr: ~class_ci_dadsr_kr,
 	custom_env: ~class_ci_custom_env,
+	mod_osc: ~class_ci_mod_osc,
+	mod_envosc: ~class_ci_mod_envosc,
 
 	// effects
 
@@ -3252,6 +3431,7 @@ Instr(\ci_oscillator, {
 	var mul = 1;
 	var width = 0.5;
 	endfreq = (midinote + detune).midicps;
+	//endfreq.poll;
 	//spectrum.debug("spectrum");
 	wt_position.debug("WT_POSITION");
 	switch(spectrum,
@@ -3299,6 +3479,7 @@ Instr(\ci_oscillator, {
 		},
 	);
 	ou = ou * amp;
+	ou.poll;
 	//[freq, detune, amp].debug("p_oscillator: frq, detune, amp");
 	ou;
 }, [NonControlSpec(), NonControlSpec(), NonControlSpec()]);

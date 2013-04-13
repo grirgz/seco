@@ -550,13 +550,18 @@
 
 	////////////////// pattern
 
-	get_dur_pattern: { arg self;
+	get_dur_pattern: { arg self, add_freq=true;
 		var arglist = List.new;
 		var val;
+		var patkeys;
 		arglist.add(\current_mode);
 		arglist.add(Pfunc{ self.get_mode });
 		arglist.add(\muted); arglist.add(Pfunc({ self.muted or: self.temp_muted }));
-		([\repeat] ++ self.available_modes ++ [\sustain, \stretchdur, \segdur,  \dur, \type]).do { arg key;
+		patkeys = [\repeat] ++ self.available_modes ++ [\sustain, \stretchdur, \segdur,  \dur, \type];
+		if(add_freq) {
+			patkeys = patkeys ++ [\freq];
+		};
+		patkeys.do { arg key;
 			if(self.data[key].notNil) {
 				val = self.get_arg(key);
 				if(val.notNil) {

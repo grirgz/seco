@@ -1,3 +1,23 @@
+SynthDef(\bufsin1, { arg out=0, amp=0.1, gate=1, pan=0, freq=200, bufnum, pos=0, finepos=0, range=0.01;
+	var ou;
+	var osc;
+	var bufsig;
+	var phase;
+	osc = SinOsc.ar(freq*[1.001,0.999,1]);
+	//osc = osc.sum;
+	phase = osc * range + pos + finepos;
+
+	bufsig = BufRd.ar(2, bufnum, phase*BufFrames.ir(bufnum), 1);
+	bufsig = bufsig.sum;
+	ou = bufsig;
+	ou = ou * EnvGen.ar(Env.adsr(0.01,0.1,0.8,0.1),gate,doneAction:2);
+	ou = Pan2.ar(ou, pan, amp);
+	Out.ar(out, ou);
+}, metadata:(specs:(
+	finepos: ControlSpec(-0.001,0.001,\lin, 0, 1),
+	range: ControlSpec(-0.01,0.01,\lin, 0, 1),
+	//pos: \bipolar,
+))).store;
 //////////////////// modulators
 
 SynthDef(\lfo1, { arg out=0, freq=1, amp=1;

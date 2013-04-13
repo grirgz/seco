@@ -129,6 +129,7 @@
 		~common_bindings.windowing ++
 		[
 			["edit_selected_param", \kb, 0, \npenter],
+			["change_param_kind", \kb, \altshift, "s"],
 
 	],
 	timeline: [

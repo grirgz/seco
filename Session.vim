@@ -49,7 +49,6 @@ set fileencodings=ucs-bom,utf-8,default,latin1
 set helplang=fr
 set history=50
 set hlsearch
-set iskeyword=@,48-57,_,192-255,-,|
 set nomodeline
 set printoptions=paper:a4
 set ruler
@@ -95,9 +94,11 @@ badd +1 synth.sc
 badd +11 live/live31.sc
 badd +24 deprecated/score.sc
 badd +49 live/crap53.sc
-badd +0 live/crap54.sc
+badd +1 live/crap54.sc
+badd +0 live/live32.sc
+badd +0 live/dev1.sc
 silent! argdel *
-edit live/live31.sc
+edit live/dev1.sc
 set splitbelow splitright
 set nosplitbelow
 set nosplitright
@@ -245,11 +246,11 @@ setlocal nowinfixheight
 setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
-let s:l = 609 - ((23 * winheight(0) + 19) / 39)
+let s:l = 1 - ((0 * winheight(0) + 19) / 39)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-609
+1
 normal! 0
 tabedit midi.sc
 set splitbelow splitright
@@ -289,12 +290,12 @@ inoremap <buffer> <silent> " =AutoPairsInsert('"')
 inoremap <buffer> <silent> ' =AutoPairsInsert('''')
 inoremap <buffer> <silent> ( =AutoPairsInsert('(')
 inoremap <buffer> <silent> ) =AutoPairsInsert(')')
-nnoremap <buffer> <silent> î :call AutoPairsJump()
-xnoremap <buffer> <silent> î :call AutoPairsJump()
-onoremap <buffer> <silent> î :call AutoPairsJump()
-nnoremap <buffer> <silent> ð :call AutoPairsToggle()
-xnoremap <buffer> <silent> ð :call AutoPairsToggle()
 onoremap <buffer> <silent> ð :call AutoPairsToggle()
+xnoremap <buffer> <silent> ð :call AutoPairsToggle()
+nnoremap <buffer> <silent> ð :call AutoPairsToggle()
+onoremap <buffer> <silent> î :call AutoPairsJump()
+xnoremap <buffer> <silent> î :call AutoPairsJump()
+nnoremap <buffer> <silent> î :call AutoPairsJump()
 snoremap <buffer> <silent> î :call AutoPairsJump()
 snoremap <buffer> <silent> ð :call AutoPairsToggle()
 inoremap <buffer> <silent> [ =AutoPairsInsert('[')
@@ -575,7 +576,7 @@ setlocal nowinfixheight
 setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
-let s:l = 316 - ((4 * winheight(0) + 19) / 39)
+let s:l = 316 - ((1 * winheight(0) + 4) / 9)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
@@ -729,7 +730,7 @@ setlocal nowinfixheight
 setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
-let s:l = 3313 - ((10 * winheight(0) + 19) / 39)
+let s:l = 3313 - ((2 * winheight(0) + 4) / 9)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
@@ -883,7 +884,7 @@ setlocal nowinfixheight
 setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
-let s:l = 3 - ((2 * winheight(0) + 19) / 39)
+let s:l = 3 - ((0 * winheight(0) + 4) / 9)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
@@ -1037,7 +1038,7 @@ setlocal nowinfixheight
 setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
-let s:l = 1805 - ((4 * winheight(0) + 19) / 39)
+let s:l = 1805 - ((1 * winheight(0) + 4) / 9)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
@@ -1191,7 +1192,7 @@ setlocal nowinfixheight
 setlocal nowinfixwidth
 setlocal wrap
 setlocal wrapmargin=0
-let s:l = 102 - ((95 * winheight(0) + 19) / 39)
+let s:l = 102 - ((95 * winheight(0) + 4) / 9)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
@@ -1389,12 +1390,12 @@ inoremap <buffer> <silent> " =AutoPairsInsert('"')
 inoremap <buffer> <silent> ' =AutoPairsInsert('''')
 inoremap <buffer> <silent> ( =AutoPairsInsert('(')
 inoremap <buffer> <silent> ) =AutoPairsInsert(')')
-nnoremap <buffer> <silent> î :call AutoPairsJump()
-xnoremap <buffer> <silent> î :call AutoPairsJump()
-onoremap <buffer> <silent> î :call AutoPairsJump()
-nnoremap <buffer> <silent> ð :call AutoPairsToggle()
-xnoremap <buffer> <silent> ð :call AutoPairsToggle()
 onoremap <buffer> <silent> ð :call AutoPairsToggle()
+xnoremap <buffer> <silent> ð :call AutoPairsToggle()
+nnoremap <buffer> <silent> ð :call AutoPairsToggle()
+onoremap <buffer> <silent> î :call AutoPairsJump()
+xnoremap <buffer> <silent> î :call AutoPairsJump()
+nnoremap <buffer> <silent> î :call AutoPairsJump()
 snoremap <buffer> <silent> î :call AutoPairsJump()
 snoremap <buffer> <silent> ð :call AutoPairsToggle()
 inoremap <buffer> <silent> [ =AutoPairsInsert('[')

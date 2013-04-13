@@ -120,8 +120,8 @@
 
 	},
 
-	change_param_kind: { arg self, kind;
-		var param = self.get_selected_param;
+	change_param_kind: { arg self, kind, param;
+		param = param ?? self.get_selected_param;
 		if(param.classtype == \control, {
 			if(kind == \pkey) {
 				param.set_pkey_mode(param.pkey_mode.not);
