@@ -486,7 +486,8 @@
 ~class_param_kind_chooser = (
 
 	parent: ~class_matrix_chooser,
-	my_datalist: [\scalar, \seq, \seg, \modulation, \synchrone, \bus, \recordbus, \pkey],
+	//my_datalist: [\scalar, \seq, \seg, \modulation, \synchrone, \bus, \recordbus, \pkey],
+	my_datalist: ~class_player_display.param_types.param_kinds,
 	//my_datalist: ~class_player_display.param_types.param_kinds, // FIXME: should be defined in one place
 
 	new: { arg self, main, action;

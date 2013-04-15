@@ -610,3 +610,77 @@
 		self.layout;
 	},
 );
+
+~class_voices_panel = (
+	new: { arg self, ci, keys;
+		self = self.deepCopy;
+
+		self.key_list = keys;
+		self.classinstr = { ci };
+	
+		self;
+	},
+
+	make_layout: { arg self;
+		var make_voice_control;
+		make_voice_control = { arg key;
+			var enable_key = "enable_%".format(key).asSymbol;
+			enable_key.debug("class_voices_panel.make_layout: enable_key");
+			HLayout(
+				Button.new
+					.states_([["Off"],["On"]])
+					.value_(self.classinstr.param[enable_key].get_val)
+					.action_({ arg bt; 
+						self.classinstr.param[enable_key].set_val(bt.value);
+					}),
+				{
+					var slider;
+					slider = ~class_ci_modslider_view.new(self.classinstr.param[key], Rect(0,0,300,20));
+					slider.namelabel.minWidth_(100);
+					slider.layout;
+				}.value
+			)
+		};
+		self.layout = HLayout(
+			VLayout(
+				StaticText.new
+					.string_("Voices:"),
+				TextField.new
+					.string_(self.classinstr.param[\voices].get_val)
+					.action_({ arg field;
+						self.classinstr.param[\voices].set_val(field.string.asInteger)
+					}),
+				self.spread_kind_layout = ~class_ci_popup_view.new(self.classinstr.param[\spread_kind]);
+					self.spread_kind_layout.layout,
+				nil
+			),
+			[
+				VLayout(
+					* self.key_list.collect { arg key;
+						make_voice_control.(key)
+					} ++ [
+					
+						HLayout(
+							Button.new
+								.states_([["Off"],["On"]])
+								.enabled_(false)
+								.value_(1)
+								,
+							{
+								var slider;
+								slider = ~class_ci_modslider_view.new(self.classinstr.param[\spread],Rect(0,0,300,20));
+								slider.namelabel.minWidth_(100);
+								slider.layout;
+							}.value
+							//~class_ci_modslider_view.new(self.data[\spread],Rect(0,0,300,20)).layout
+						), 
+						nil
+					]
+				), 
+				stretch:1
+			],
+
+		);
+		self.layout;
+	},
+);

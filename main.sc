@@ -799,8 +799,8 @@ if(~silent_audio2_bus.isNil) {
 			proj.play_manager = main.play_manager.save_data;
 
 			proj.panels = ();
-			proj.panels.parlive = self.panels.parlive.save_data;
-			proj.panels.seqlive = self.panels.seqlive.save_data;
+			//proj.panels.parlive = self.panels.parlive.save_data; // deprecated
+			//proj.panels.seqlive = self.panels.seqlive.save_data;
 			proj.panels.side = self.panels.side.save_data;
 
 			fork {

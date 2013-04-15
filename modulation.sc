@@ -1381,6 +1381,7 @@
 		make_modulator_pattern = { arg player, mod, key;
 			var modpat;
 			var out_bus_name;
+			var use_freq_param = true;
 			var brate = if(rate == \kr) { \control } { \audio };
 			// key is modulator source slot index
 			out_bus_name = "mod_%_%".format(player.uname, mod.uname).asSymbol;
@@ -1396,10 +1397,13 @@
 					) <> mod.sourcepat;
 					//<> Pbind(\ppatch, Pfunc{ppatch});
 			} {
+				if(mod.data[\freq].notNil) {
+					use_freq_param = false
+				};
 				modpat = Pbind(
 						//\ppatch, Pfunc{ppatch},
 						\out, make_note_out_bus.(out_bus_name, \modulator)
-					) <> player.get_dur_pattern <> mod.sourcepat;
+					) <> player.get_dur_pattern(use_freq_param) <> mod.sourcepat;
 					//<> Pbind(\ppatch, Pfunc{ppatch});
 			};
 			modpat;

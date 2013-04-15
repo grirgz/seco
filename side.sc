@@ -102,17 +102,7 @@
 				if([\stepline,\sampleline,\noteline].includes(self.classtype)) {
 					""
 				} {
-					switch(self.current_kind,
-						\seq, { "seq" },
-						\seg, { "sg" },
-						\scalar, { "sca" },
-						\synchrone, { "syn" },
-						\bus, { "bus" },
-						\modulation, { "mod" },
-						\recordbus, { "rbu" },
-						\preset, { "pre" },
-						{ "???" }
-					)
+					~param_kind_to_string.(self.current_kind);
 				}
 			};
 		},
@@ -1167,6 +1157,7 @@
 						\bus, { false },
 						\preset, { false },
 						\modulation, { false }, // TODO: add a representation for modulated params
+						// FIXME: synchrone and synchrone_rate ?
 						// else
 						{ true }
 					);

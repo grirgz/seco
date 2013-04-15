@@ -504,6 +504,20 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 };
 
+~param_kind_to_string = { arg kind;
+	switch(kind,
+		\seq, { "seq" },
+		\seg, { "sg" },
+		\scalar, { "sca" },
+		\synchrone, { "syn" },
+		\synchrone_rate, { "syr" },
+		\bus, { "bus" },
+		\recordbus, { "rbu" },
+		\preset, { "pre" },
+		{ "..." }
+	)
+};
+
 ~make_edit_number_view = { arg main, name, param, midi_cc, tempo_midi; // tempo_midi is a hack waiting to be taken out of the general code
 	var win = Window.new(name,Rect(500,500,200,100));
 	var parent = win;
@@ -638,16 +652,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				if([\stepline,\scoreline,\sampleline,\noteline].includes(self.classtype)) { // FIXME: modes
 					""
 				} {
-					switch(self.current_kind,
-						\seq, { "seq" },
-						\seg, { "sg" },
-						\scalar, { "sca" },
-						\synchrone, { "syn" },
-						\bus, { "bus" },
-						\recordbus, { "rbu" },
-						\preset, { "pre" },
-						{ "..." }
-					)
+					~param_kind_to_string.(self.current_kind);
 				}
 			};
 		},
@@ -1878,7 +1883,8 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	// modify this to add param kind:
 	// - side.sc: side.get_extparamlist
 	// - side.sc: make_mini_param_view: player_responder.kind
-	// - matrix.sc: class_param_kind_chooser
+	// - player_display.sc: param_kinds
+	// - matrix.sc: class_param_kind_chooser // not anymore, use player_display
 	
 	var param;
 	var bar_length = 4;
@@ -1898,7 +1904,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		pkey_mode: false,
 		muted: false,
 		archive_data: [\name, \classtype, \current_kind, \spec, \selected, \selected_cell, \default_val, \noteline, \muted, \pkey_mode],
-		archive_kind: [\seq, \scalar, \preset, \bus, \synchrone, \recordbus], // modulation use scalar data
+		archive_kind: [\seq, \scalar, \preset, \bus, \synchrone, \synchrone_rate, \recordbus], // modulation use scalar data
 
 		get_player: { arg self;
 			player
@@ -2565,6 +2571,11 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 								ev = (self.synchrone.get_val / thisThread.clock.tempo).yield;
 							}
 						},
+						\synchrone_rate, {
+							{ arg self, ev;
+								ev = (self.synchrone.get_val * thisThread.clock.tempo).yield;
+							}
+						},
 						\seq, {
 							{ arg self, ev;
 								var idx, val;
@@ -3047,6 +3058,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	param.preset = param.seq.deepCopy;
 		//"rah1".debug;
 	param.seg = param.seq;
+	param.synchrone_rate = param.synchrone;
 		//"rah1".debug;
 
 	param.midi = main.midi_center.get_midi_control_handler(param);

@@ -199,6 +199,31 @@
 		}
 	},
 
+	get_spread_kind_variants: { arg self;
+		[
+			(
+				name: "Normal",
+				uname: \normal,
+			),
+			(
+				name: "Interlaced",
+				uname: \interlaced,
+			),
+		]
+	},
+
+	build_spread_array_by_kind: { arg self, unisono, kind=\normal;
+		switch(kind,
+			\interlaced, {
+				self.build_spread_array_interlaced(unisono);
+			},
+			{
+				self.build_spread_array(unisono);
+			}
+
+		)
+	},
+
 	build_spread_array: { arg self, unisono;
 		var z, ret;
 		if(unisono.asInteger.odd) {
@@ -211,6 +236,30 @@
 			ret = 0-ret.reverse ++ ret;
 		};
 	},
+
+	build_spread_array_interlaced: { arg self, unisono;
+		var z, ret;
+		var gen_cell = { arg i; 
+			var cell;
+			cell = (i+1)/z;
+			if(i.odd) {
+				cell = 0-cell;
+			};
+			cell;
+		};
+
+		if(unisono.asInteger.odd) {
+			z = (unisono-1 / 2).asInteger;
+			ret = z.collect(gen_cell);
+			ret = 0-ret.reverse ++ 0 ++ ret;
+		} {
+			z = (unisono / 2).asInteger;
+			ret = z.collect(gen_cell);
+			ret = 0-ret.reverse ++ ret;
+		};
+		ret;
+	},
+
 
 	rel_namer: { arg self, name;
 		if(self.namer.isNil) {
@@ -1758,7 +1807,7 @@
 			var sig;
 
 			i.doneAction.debug("==============================================DONEACTION");
-			i.doneAction.poll;
+			//i.doneAction.poll;
 
 			sig = switch(i.env_kind,
 				\dadsr, {
@@ -1782,6 +1831,84 @@
 		}
 	
 	},
+);
+
+~class_ci_bufosc = (
+	parent: ~class_instr,
+	synth_rate: \ar,
+	new: { arg self, main, player, namer;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.namer = { namer };
+		self.synthdef_name = \ci_;
+		self.build_data;
+
+		self.simple_args = (gate:1, doneAction:2);
+	
+		self;
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		var specs = self.get_specs;
+
+		self.help_build_data2(
+			[
+				//self.insertfxs,
+			],
+			self.make_control_params([
+				[\bufpos, \unipolar, 0],
+				[\finepos, ControlSpec(-10,10,\lin, 0, 1), 0],
+				[\range, ControlSpec(-100,100,\lin, 0, 1), 100],
+			]) ++ [
+				bufnum: ~make_buf_param.(\bufnum, "sounds/default.wav", player, \bufnum.asSpec),
+				samplekit: ~make_samplekit_param.(\samplekit),
+				sampleline: ~make_sampleline_param.(\sampleline),
+			],
+			(
+				enabled: ~class_param_static_controller.new(\enabled, specs[\onoff], 1),
+			)
+		);
+		self.data.copy;
+	},
+
+	make_layout: { arg self;
+		var knobs = [\bufpos, \finepos, \range];
+		var frame_view;
+		self.knobs = knobs.collect { arg name;
+			self.data[name];
+		};
+		frame_view = ~class_ci_frame_view.new("Bufosc", self.knobs, self.static_data[\enabled], nil, nil);
+		self.layout = HLayout(frame_view.layout);
+		self.layout;
+	},
+
+	synthfun: { arg self;
+		{ arg in, args;
+			var i = self.get_synthargs(args);
+			var sig = 0;
+			var bufnum = i.bufnum;
+			var bufsig;
+			var osc, phase;
+			
+			osc = in;
+			//osc = osc.sum;
+			phase = osc * i.range + (i.bufpos * BufFrames.ir(bufnum)) + i.finepos;
+
+			debug("ca suffi bordel");
+			bufsig = BufRd.ar(2, bufnum, phase, 1);
+			bufsig.debug("ca suffi bordel1");
+			sig = bufsig.collect { arg chan;
+				chan.sum;
+			};
+			sig.debug("ca suffi bordel2");
+			sig;
+		}
+	},
+
 );
 
 //////////////////////////////////////////////////////
@@ -1904,7 +2031,7 @@
 			route_insertfx2: ~class_param_kind_chooser_controller.new(\route_insertfx2, self.get_route_insfx_variants, "Insert Fx 1"),
 			enable_pitch_spread: ~class_param_static_controller.new(\enable_pitch_spread, specs[\onoff], 0),
 			enable_wtpos_spread: ~class_param_static_controller.new(\enable_wtpos_spread, specs[\onoff], 0),
-			voices: ~class_param_static_controller.new(\enable_pitch_spread, ControlSpec(1,16,\lin,1), 1),
+			voices: ~class_param_static_controller.new(\voices, ControlSpec(1,16,\lin,1), 1),
 		);
 
 		self.ordered_args.clump(2).do { arg keyval;
@@ -2419,15 +2546,18 @@
 	parent: ~class_instr,
 	args_prefix: "",
 	args_suffix: "",
-	new: { arg self, main, player;
+	new: { arg self, main, player, namer;
 		self = self.deepCopy;
 
 		self.get_main = { main };
 		self.get_player = { player };
 		self.synthdef_name = \ci_mosc;
+		self.namer = { namer };
+		//self.simple_args = (freq: 200, gate:1, doneAction:2);
 		self.simple_args = (gate:1, doneAction:2);
 
-		self.osc = ~class_ci_osc.new(main, player);
+		self.osc = ~class_ci_osc.new(main, player, self.make_namer("bla_"));
+		//self.osc = ~class_ci_osc.new(main, player, self.make_namer);
 		self.master = ~class_ci_master_env.new(main, player);
 
 		self.build_data;
@@ -2438,8 +2568,8 @@
 	build_data: { arg self;
 		var main = self.get_main;
 		var player = self.get_player;
-		self.ordered_args = self.master.ordered_args ++ self.osc.ordered_args;
-		self.static_data = self.osc.static_data;
+		self.ordered_args = self.master.get_ordered_args ++ self.osc.get_ordered_args;
+		self.static_data = self.osc.get_static_data;
 		self.data = IdentityDictionary.newFrom(self.ordered_args);
 		self.data.copy;
 	},
@@ -2464,7 +2594,8 @@
 			var is = self.get_staticargs;
 			var sig;
 
-			sig = self.osc.synthfun.();
+			sig = self.osc.synthfun.((freq:i.freq));
+			//sig = self.osc.synthfun.((freq:i.freq));
 			sig = self.master.synthfun.(sig);
 
 			sig;
@@ -3158,6 +3289,237 @@
 
 );
 
+~class_ci_bufosc_filt = (
+	parent: ~class_instr,
+	synth_rate: \ar,
+	new: { arg self, main, player, namer;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.namer = { namer };
+		self.synthdef_name = \ci_;
+		self.osc = ~class_ci_osc.new(main, player, self.make_namer("osc_"));
+		self.filter = ~class_ci_filter.new(main, player, self.make_namer);
+		self.bufosc = ~class_ci_bufosc.new(main, player, self.make_namer);
+		self.master = ~class_ci_master_dadsr.new(main, player);
+
+		self.tab_panel = ~class_ci_tabs_modfx.new(self, main, player, 
+			[
+				"Master Env", {  self.master.make_layout_env },
+			]
+		);
+		self.build_data;
+
+		self.simple_args = (freq:\void, gate:1, doneAction:2);
+	
+		self;
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		var specs = self.get_specs;
+
+		self.help_build_data2(
+			[
+				self.osc,
+				self.bufosc,
+				self.filter,
+				self.master,
+			],
+			self.make_control_params([
+				[\freq, \freq, 200],
+			])
+		);
+		self.data.copy;
+	},
+
+	make_layout: { arg self;
+		self.layout = HLayout(
+			VLayout(
+				self.osc.make_layout,
+				self.bufosc.make_layout,
+			),
+			VLayout(
+				HLayout(
+					self.filter.make_layout,
+					self.master.make_layout,
+				),
+				self.tab_panel.make_layout,
+			)
+		);
+		self.layout;
+	},
+
+	synthfun: { arg self;
+		{ arg args;
+			var i = self.get_synthargs(args);
+			var sig;
+			
+			//sig = SinOsc.ar(i.freq);
+			sig = self.osc.synthfun.((freq:i.freq));
+			sig = self.bufosc.synthfun.(sig, args);
+			sig = self.filter.synthfun.(sig, args);
+			sig = self.master.synthfun.(sig, args);
+			sig;
+		}
+	},
+
+);
+
+~class_ci_bufosc_filt_spread = (
+	parent: ~class_instr,
+	synth_rate: \ar,
+	new: { arg self, main, player, namer;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.namer = { namer };
+		self.synthdef_name = \ci_;
+		self.osc = ~class_ci_osc.new(main, player, self.make_namer("osc_"));
+		self.filter = ~class_ci_filter.new(main, player, self.make_namer);
+		self.bufosc = ~class_ci_bufosc.new(main, player, self.make_namer);
+
+		self.voices_keys = [\pitch_spread, \wt_pos_spread, \range_spread, \finepos_spread, \osc_intensity_spread, \arg1_spread];
+		self.voices_panel = ~class_voices_panel.new(self, self.voices_keys);
+
+		self.master = ~class_ci_master_dadsr.new(main, player);
+
+		self.tab_panel = ~class_ci_tabs_modfx.new(self, main, player, 
+			[
+				"Master Env", {  self.master.make_layout_env },
+				"Spread", {  self.voices_panel.make_layout },
+			]
+		);
+		self.build_data;
+
+		self.simple_args = (freq:\void, gate:1, doneAction:2);
+	
+		self;
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		var specs = self.get_specs;
+		var static_voices_params = ();
+		var static_data;
+
+		self.voices_keys.do { arg key;
+			var enable_key = "enable_%".format(key).asSymbol;
+			static_voices_params[enable_key] = 
+				~class_param_static_controller.new(enable_key, specs[\onoff], 0);
+		};
+
+		static_data = (
+			voices: ~class_param_static_controller.new(\voices, ControlSpec(1,16,\lin,1), 1),
+			spread_kind: ~class_param_kind_chooser_controller.new(\spread_kind, self.get_spread_kind_variants, "Spread kind"),
+		);
+		static_data.putAll(static_voices_params);
+
+
+		self.help_build_data2(
+			[
+				self.osc,
+				self.bufosc,
+				self.filter,
+				self.master,
+			],
+			self.make_control_params([
+				[\freq, \freq, 200],
+			] ++ self.voices_keys.collect { arg key;
+				[key, \bipolar, 0]
+			}) ++ [
+			],
+			static_data
+		);
+		self.data.copy;
+	},
+
+	build_freq_spread_array: { arg self, i, freq;
+		if(i.enable_pitch_spread == 1) {
+			var array = self.build_spread_array_by_kind(i.voices, i.spread_kind);
+			array.debug("spread array");
+			freq = (freq.cpsmidi + (i.pitch_spread * array)).midicps;
+		} {
+			freq = freq ! i.voices;
+		};
+		freq;
+	},
+
+	build_wt_pos_spread_array: { arg self, i, wtrange, wtpos;
+		[wtrange, wtpos, i.enable_wt_pos_spread, i.voices, i.wt_pos_spread, i].debug("build_wtpos_spread_array");
+		if(i.enable_wt_pos_spread == 1) {
+			var array = self.build_spread_array_by_kind(i.voices, i.spread_kind);
+			[array, (wtrange * array)].debug("build_wtpos_spread_array: array, mul");
+			wtpos = (wtpos + (i.wt_pos_spread * wtrange * array));
+		} {
+			wtpos = wtpos ! i.voices;
+		};
+		wtpos;
+	},
+
+	build_spread_array_for_param: { arg self, i, key;
+		var enabled_key = "enable_%_spread".format(key).asSymbol;
+		var enabled = i[enabled_key].();
+		var paramval = i[key].();
+		var param = self.param[key];
+		var param_spread = i["%_spread".format(key).asSymbol].();
+		var res;
+		[enabled_key, enabled].debug("BOUBOU");
+		if(enabled == 1) {
+			var array = self.build_spread_array_by_kind(i.voices, i.spread_kind);
+			[array, param_spread, param.spec.range].debug("build_spread_array_for_param: BOUH: range");
+			res = (paramval + (param_spread * param.spec.range * array));
+		} {
+			res = paramval ! i.voices;
+		};
+		res;
+	},
+
+	make_layout: { arg self;
+		self.layout = HLayout(
+			VLayout(
+				self.osc.make_layout,
+				self.bufosc.make_layout,
+			),
+			VLayout(
+				HLayout(
+					self.filter.make_layout,
+					self.master.make_layout,
+				),
+				self.tab_panel.make_layout,
+			)
+		);
+		self.layout;
+	},
+
+	synthfun: { arg self;
+		{ arg args;
+			var i = self.get_synthargs(args);
+			var sig;
+			var oscargs = self.osc.get_synthargs;
+
+			args = args ?? ();
+			args.freq = self.build_freq_spread_array(i, i.freq);
+			args.wt_pos = self.build_wt_pos_spread_array(i, oscargs.wt_range, oscargs.wt_pos);
+			args.range = self.build_spread_array_for_param(i, \range);
+			args.finepos = self.build_spread_array_for_param(i, \finepos);
+			args.arg1 = self.build_spread_array_for_param(i, \arg1);
+			args.intensity = self.build_spread_array_for_param(i, \osc_intensity);
+			
+			sig = self.osc.synthfun.(args);
+			sig = self.bufosc.synthfun.(sig, args);
+			sig = self.filter.synthfun.(sig, args);
+			sig = self.master.synthfun.(sig, args);
+			sig;
+		}
+	},
+
+);
+
 ////////////// Modulators
 
 ~class_ci_mod_osc_propor = (
@@ -3406,6 +3768,8 @@
 	osc3filter2: ~class_ci_osc3filter2,
 	op_matrix: ~class_ci_op_matrix,
 	op_matrix2: ~class_ci_op_matrix2,
+	bufosc_filt: ~class_ci_bufosc_filt,
+	bufosc_filt_spread: ~class_ci_bufosc_filt_spread,
 
 	// modulators
 
@@ -3479,7 +3843,7 @@ Instr(\ci_oscillator, {
 		},
 	);
 	ou = ou * amp;
-	ou.poll;
+	//ou.poll;
 	//[freq, detune, amp].debug("p_oscillator: frq, detune, amp");
 	ou;
 }, [NonControlSpec(), NonControlSpec(), NonControlSpec()]);

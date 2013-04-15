@@ -453,7 +453,7 @@ SynthDef(\stereosampler_sec, {| out = 0, amp=0.1, buf = 0, gate = 1, start=0, en
 	var rate;
 	var bufnum = buf;
 	env =  EnvGen.kr(Env([0,1,1,0],[0.01,(end-start)/speed,0.1]), gate, doneAction:2);
-	BufFrames.kr(bufnum).poll;
+	//BufFrames.kr(bufnum).poll;
 	rate = BufRateScale.kr(bufnum) * speed;
 	player = PlayBuf.ar(2, bufnum, rate, 1, startPos: (start*BufSampleRate.kr(bufnum)).poll, doneAction:2, loop: loop);
 	player = player * env * amp;
