@@ -2028,7 +2028,7 @@
 
 		self.static_data = (
 			route_insertfx1: ~class_param_kind_chooser_controller.new(\route_insertfx1, self.get_route_insfx_variants, "Insert Fx 1"),
-			route_insertfx2: ~class_param_kind_chooser_controller.new(\route_insertfx2, self.get_route_insfx_variants, "Insert Fx 1"),
+			route_insertfx2: ~class_param_kind_chooser_controller.new(\route_insertfx2, self.get_route_insfx_variants, "Insert Fx 2"),
 			enable_pitch_spread: ~class_param_static_controller.new(\enable_pitch_spread, specs[\onoff], 0),
 			enable_wtpos_spread: ~class_param_static_controller.new(\enable_wtpos_spread, specs[\onoff], 0),
 			voices: ~class_param_static_controller.new(\voices, ControlSpec(1,16,\lin,1), 1),
@@ -3302,6 +3302,7 @@
 		self.osc = ~class_ci_osc.new(main, player, self.make_namer("osc_"));
 		self.filter = ~class_ci_filter.new(main, player, self.make_namer);
 		self.bufosc = ~class_ci_bufosc.new(main, player, self.make_namer);
+
 		self.master = ~class_ci_master_dadsr.new(main, player);
 
 		self.tab_panel = ~class_ci_tabs_modfx.new(self, main, player, 
@@ -3382,6 +3383,10 @@
 		self.filter = ~class_ci_filter.new(main, player, self.make_namer);
 		self.bufosc = ~class_ci_bufosc.new(main, player, self.make_namer);
 
+		self.insertfxs = 2.collect { arg i;
+			~class_ci_insertfx.new(main, player, self.make_namer("fx%_".format(i)));
+		};
+
 		self.voices_keys = [\pitch_spread, \wt_pos_spread, \range_spread, \finepos_spread, \osc_intensity_spread, \arg1_spread];
 		self.voices_panel = ~class_voices_panel.new(self, self.voices_keys);
 
@@ -3391,6 +3396,7 @@
 			[
 				"Master Env", {  self.master.make_layout_env },
 				"Spread", {  self.voices_panel.make_layout },
+				"Routing", {  self.make_layout_routing },
 			]
 		);
 		self.build_data;
@@ -3398,6 +3404,23 @@
 		self.simple_args = (freq:\void, gate:1, doneAction:2);
 	
 		self;
+	},
+
+	get_route_insfx_variants: { arg self;
+		[
+			(
+				name: "After osc",
+				uname: \after_osc,
+			),
+			(
+				name: "After Bufosc",
+				uname: \after_bufosc,
+			),
+			(
+				name: "Before pan",
+				uname: \before_pan,
+			),
+		]
 	},
 
 	build_data: { arg self;
@@ -3416,6 +3439,8 @@
 		static_data = (
 			voices: ~class_param_static_controller.new(\voices, ControlSpec(1,16,\lin,1), 1),
 			spread_kind: ~class_param_kind_chooser_controller.new(\spread_kind, self.get_spread_kind_variants, "Spread kind"),
+			route_insertfx1: ~class_param_kind_chooser_controller.new(\route_insertfx1, self.get_route_insfx_variants, "Insert Fx 1"),
+			route_insertfx2: ~class_param_kind_chooser_controller.new(\route_insertfx2, self.get_route_insfx_variants, "Insert Fx 2"),
 		);
 		static_data.putAll(static_voices_params);
 
@@ -3426,7 +3451,8 @@
 				self.bufosc,
 				self.filter,
 				self.master,
-			],
+				self.insertfxs,
+			].flatten,
 			self.make_control_params([
 				[\freq, \freq, 200],
 			] ++ self.voices_keys.collect { arg key;
@@ -3481,10 +3507,11 @@
 
 	make_layout: { arg self;
 		self.layout = HLayout(
-			VLayout(
+			VLayout(*[
 				self.osc.make_layout,
 				self.bufosc.make_layout,
-			),
+				self.insertfxs.collect { arg fx; fx.make_layout },
+			].flatten),
 			VLayout(
 				HLayout(
 					self.filter.make_layout,
@@ -3494,6 +3521,39 @@
 			)
 		);
 		self.layout;
+	},
+
+	make_layout_routing: { arg self;
+		var route_data = [
+			\route_insertfx1,
+			\route_insertfx2,
+		].collect({ arg x; self.static_data[x] });
+
+		var routing_layout = GridLayout.columns(
+			route_data.collect{ arg x; 
+				StaticText.new
+					.string_(x.label ?? x.name);
+			} ++ [nil],
+			route_data.collect{ arg x; 
+				~class_ci_popup_view.new(x).layout;
+			} ++ [nil],
+		);
+		routing_layout.setColumnStretch(1,1);
+		VLayout(
+			routing_layout,
+			nil
+		);
+	},
+
+	insert_effect: { arg self, i, in, pos;
+		if(i.route_insertfx1 == pos) {
+			//TODO: ktr, arg3
+			in = self.insertfxs[0].synthfun.(in);
+		};
+		if(i.route_insertfx2 == pos) {
+			in = self.insertfxs[1].synthfun.(in);
+		};
+		in;
 	},
 
 	synthfun: { arg self;
@@ -3511,8 +3571,17 @@
 			args.intensity = self.build_spread_array_for_param(i, \osc_intensity);
 			
 			sig = self.osc.synthfun.(args);
+
+			sig = self.insert_effect(i, sig, \after_osc);
+
 			sig = self.bufosc.synthfun.(sig, args);
+
+			sig = self.insert_effect(i, sig, \after_bufosc);
+
 			sig = self.filter.synthfun.(sig, args);
+
+			sig = self.insert_effect(i, sig, \before_pan);
+
 			sig = self.master.synthfun.(sig, args);
 			sig;
 		}

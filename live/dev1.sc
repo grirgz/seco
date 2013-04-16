@@ -1,6 +1,5 @@
 
 // embedInStream dans un Prout
-// steal dubecho ! http://sccode.org/1-h
 (
 s.waitForBoot{
 //"/home/ggz/code/sc/abcparser.sc".load;
@@ -118,9 +117,6 @@ Mdef.main.load_project("dev1");
 Mdef.main.save_project("books");
 Mdef.main.load_project("books");
 
-Mdef.main.save_project("madhouse");
-Mdef.main.load_project("madhouse");
-
 Mdef.main.save_project("dev1.test1");
 Mdef.main.load_project("dev1.test1");
 
@@ -141,28 +137,3 @@ s.latency
 
 
 
-(
-~build_spread_array = { arg unisono;
-	var z, ret;
-	var gen_cell = { arg i; 
-		var cell;
-		cell = (i+1)/z;
-		if(i.odd) {
-			cell = 0-cell;
-		};
-		cell;
-	};
-
-	if(unisono.asInteger.odd) {
-		z = (unisono-1 / 2).asInteger;
-		ret = z.collect(gen_cell);
-		ret = 0-ret.reverse ++ 0 ++ ret;
-	} {
-		z = (unisono / 2).asInteger;
-		ret = z.collect(gen_cell);
-		ret = 0-ret.reverse ++ ret;
-	};
-};
-)
-
-~build_spread_array.(4)
