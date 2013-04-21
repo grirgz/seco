@@ -74,14 +74,20 @@
 	//current_selected_track: 0,
 
 	init: { arg self, parent, controller;
+		var node;
 		debug("class_basic_track_view.new");
 		self.controller = { arg self; controller };
 		self.update_sizes;
 		self.parent_view = parent;
 		self.make_gui;
 		self.as_view = self.layout;
+		node = controller.get_node;
+		
 		self.main_responder = ~make_class_responder.(self, self.layout, controller, [
 			\notes, \background,
+		]);
+		self.main_responder = ~make_class_responder.(self, self.responder_anchor, node.get_arg(node.get_mode), [
+			\notes
 		]);
 		self.main_responder = ~make_class_responder.(self, self.layout, controller.display, [
 			\gridstep, \gridlen
@@ -260,6 +266,7 @@
 			note.debug("class_basic_track_view: notes: note");
 			if(note.type != \rest) {
 				pos = self.note_to_point(note);
+				pos.debug("class_basic_track_view: notes: pos");
 
 				self.timeline.createNode(pos.x, pos.y);
 				self.timeline.setNodeSize_(spritenum, self.handle_size);
@@ -626,7 +633,7 @@
 		//controller = controller ?? self.controller;
 		controller = self.controller;
 
-		controller.get_notes.debug("class_basic_track_view: notes");
+		controller.get_notes.debug("class_basic_note_track_view: notes");
 
 		self.timeline.clearSpace;
 
@@ -637,9 +644,10 @@
 
 		notes.do { arg note;
 			var pos;
-			note.debug("class_basic_track_view: notes: note");
+			note.debug("class_basic_note_track_view: notes: note");
 			if(note.type != \rest) {
 				pos = self.note_to_point(note);
+				pos.debug("class_basic_note_track_view: notes: pos");
 
 				self.timeline.createNode1(pos.x, pos.y);
 				self.timeline.setNodeSize_(spritenum, self.handle_size);
@@ -814,6 +822,7 @@
 
 	note_to_point: { arg self, note;
 		// TODO: spec unmapping
+		note.midinote = note.midinote ?? 64; // FIXME: right place to set midinote ?
 		Point(note.time*self.scaling.x,  1-(note.midinote / self.get_noterange));
 	},
 
@@ -1564,6 +1573,119 @@
 	},
 );
 
+~class_scoreseq_track_view = (
+	parent: ~class_curve_track_view,
+	//piano_band_size_x: 30,
+	//roll_size: 800@1500,
+	//beat_size_x: 50,
+	////block_size_y: { arg self; self.roll_size.y/self.get_noterange },
+	////track_size_y: { arg self; self.block_size_y * 8 },
+	//view_size_x: 800,
+	//view_size_y: 1500,
+	//block_dict: Dictionary.new,
+	//moving_notes: List.new,
+	//roll_size: 400@400,
+
+	//new: { arg self, parent, controller;
+	//	self = self.deepCopy;
+
+	//	self.parent_view = parent;
+	//	self.init(parent, controller);
+	//	self.notes;
+	//
+	//	self;
+	//},
+	//new: { arg self, parent, controller, notekey;
+	//	self = self.deepCopy;
+	//	self.margin = 0; // FIXME: wtf here ?
+	//	self.controller = { controller };
+	//	self.notekey = notekey ?? self.notekey;
+	//	self.node_shape = "circle";
+	//	self.node_align = \center;
+	//	self.init(parent, controller);
+	//	self.timeline.refresh;
+	//	self;
+	//},
+
+	//init: { arg self, parent, controller;
+	//	debug("class_basic_track_view.new");
+	//	self.controller = { arg self; controller };
+	//	self.update_sizes;
+	//	self.parent_view = parent;
+	//	self.as_view = self.make_gui;
+	//	self.main_responder = ~make_class_responder.(self, self.responder_anchor, controller, [
+	//		\notes, \background
+	//	]);
+	//	//self.main_responder = ~make_class_responder.(self, self.responder_anchor, controller.get_node.get_arg(\sampleline), [
+	//	//	\notes
+	//	//]);
+	//	self.main_responder = ~make_class_responder.(self, self.responder_anchor, controller.display, [
+	//		\gridstep, \gridlen
+	//	]);
+	//	//self.main_responder = ~make_class_responder.(self, self.parent_view, controller.display, [
+	//	//	\gridstep, \gridlen
+	//	//]);
+	//},
+
+	//get_noterange: { arg self;
+	//	self.controller.noterange[1] - self.controller.noterange[0]
+	//},
+
+	//update_sizes: { arg self;
+	//	var controller = self.controller;
+	//	self.handle_size = 12;
+	//	self.view_size = 800@100;
+	//	self.view_size1 = 1@1;
+	//	self.track_size = self.view_size;
+	//	//self.track_size1 = (1-(self.handle_size/self.view_size.x)) @ (1-(self.handle_size/self.view_size.y));
+	//	self.track_size1 = self.view_size1;
+	//	self.scaling = Point(self.track_size1.x/controller.display.gridlen, 1);
+	//	self.offset = Point(controller.display.offset*self.scaling.x,0);
+	//	self.beatlen = (self.track_size.x/self.controller.display.gridlen);
+	//	[self.beatlen, self.controller.display.gridlen].debug("class_basic_track_view: update_sizes: beatlen, gridlen");
+	//	//self.gridstep1 = controller.display.gridstep * (self.view_size1.x/self.controller.display.gridlen);
+	//	self.gridstep1 = Point(
+	//		controller.display.gridstep.x * (self.track_size1.x/self.controller.display.gridlen),
+	//		controller.display.gridstep.y * self.track_size1.y
+	//	);
+	//},
+
+	note_to_point: { arg self, note;
+		// point is in range 1@1
+		// TODO: spec unmapping
+		// TODO: fix noterange
+		var notey;
+		note.debug("class_sampleline_track_view: note_to_point: note1");
+		notey = note[self.controller.notekey];
+		note.debug("class_sampleline_track_view: note_to_point: note");
+		notey = notey ?? self.controller.get_default_notekey_value;
+		Point(note.time*self.scaling.x,  1-(notey));
+	},
+
+	//point_to_notepoint: { arg self, point;
+	//	var x, y;
+	//	x = point.x / self.scaling.x;
+	//	//x = point.x/self.beat_size_x;
+	//	//y = (1-point.y);
+	//	y = point.y;
+	//	//y = y * self.get_noterange;
+	//	x@y;
+	//},
+
+	//mouse_move_action: { arg self;
+	//	{ arg view, x, y, modifiers;
+	//	};
+	//},
+
+	//make_gui: { arg self;
+	//	self.make_track_notes_bindings;
+	//	self.make_track;
+	//	//self.make_note_view_OLD;
+	//	self.layout = self.timeline.userView;
+	//	self.layout;
+	//},
+);
+
 ~class_note_track_view = (
 	parent: ~class_basic_track_view,
 	
@@ -1593,6 +1715,9 @@
 		var minnote=127, maxnote=0, totaldur=0;
 		notes.do { arg no, idx;
 			[idx, no].debug("calcul totaldur: note");
+			if(no.midinote.isNil) {
+				no.midinote = 64; // FIXME: is it correct to correct note here ?
+			};
 			if(no.midinote.isSymbolWS.not, {
 				minnote = min(no.midinote, minnote);
 				maxnote = max(no.midinote, maxnote);
@@ -2601,6 +2726,78 @@
 
 );
 
+~class_scoreseq_track_controller = (
+	//parent: ~class_basic_note_track_controller,
+	parent: ~class_curve_track_controller,
+	//viewclass: ~class_scoreseq_track_view,
+	//recordline_name: \sampleline,
+	//notekey: \slotnum,
+	//noterange: [0,1],
+
+	new: { arg self, node, display, notekey;
+		self = self.deepCopy;
+
+		self.display = display;
+
+		self.notekey = notekey ?? \velocity;
+		
+		self.get_node = {node};
+		//self.notescore = node.get_arg(\noteline).get_scoreset.get_notescore;
+
+		//self.scoreset = node.get_arg(\noteline).get_scoreset;
+		//self.scoreset = node.get_arg(\scoreline).get_scoreset;
+		//self.notescore = ~make_notescore.();
+		//self.notescore.set_notes(~default_curveline);
+		//self.notescore.set_end(16);
+	
+		self;
+	},
+
+	add_note: { arg self, pos;
+		var note;
+		[pos].debug("class_curve_track_controller.add_note");
+		note = (
+			midinote: 64, // FIXME: just for when adding note to noteline, a bit hacky
+			sustain: 0.1,
+	    );
+		note[self.notekey] = pos.y;
+		self.get_notescore.add_note(note, pos.x);
+		self.update_notes;
+		self.changed(\notes);
+	
+	},
+
+	get_notescore: { arg self;
+		self.get_node.get_scoreset.get_notescore;
+	},
+	//new: { arg self, node, display, notekey=\velocity;
+	//	self = self.deepCopy;
+
+	//	self.display = display;
+	//	self.notekey = notekey;
+	//	
+	//	self.get_node = {node};
+	//	self.scoreset = { arg self;
+	//		node.get_scoreset;
+	//	};
+
+	//	self;
+	//},
+
+	get_default_notekey_value: { arg self;
+		self.get_node.get_arg(self.notekey).scoreseq.get_norm_val;
+	},
+
+	make_gui: { arg self, parent;
+		self.track_view = ~class_scoreseq_track_view.new(parent, self, self.notekey);
+		//self.track_view = ~class_note_track_view.new(parent, self);
+		self.layout = self.track_view.layout;
+		self.layout.debug("class_curve_track_controller.layout");
+		self.layout;
+	},
+
+);
+
 ~i_class_sampleline_track_controller = (
 	new: { arg self, node, display;
 		self = self.deepCopy;
@@ -2777,8 +2974,8 @@
 	},
 
 	update_notes: { arg self;
-		self.get_node.get_arg(\val).set_notes(self.get_notescore.get_rel_notes);
-		self.get_node.get_arg(\noteline).get_scoreset.update_notes;
+		self.get_node.get_arg(self.notekey).set_notes(self.get_notescore.get_rel_notes);
+		self.get_node.get_scoreset.update_notes;
 	},
 
 	move_note: { arg self, note, time, notekey;
@@ -3067,15 +3264,35 @@
 		var res = List.new;
 		var player = self.get_player;
 		res.add(~make_recordline_track_controller.(player, self.display));
+		player.get_args.do { arg argname;
+			var node;
+			var track;
+			var param = player.get_arg(argname);
+			if(param.current_kind == \scoreseq) {
+				track = ~class_scoreseq_track_controller.new(player, self.display, param.name); // FIXME: use name or label, abs_label ?
+				res.add(track);
+			};
+		};
 		player.modulation.get_modulators.do { arg modname;
 			var node;
 			var track;
 			node = self.get_main.get_node(modname);
-			if(node.defname == \modenv) {
-				track = ~class_curve_track_controller.new(node, self.display, \val);
-				res.add(track);
-			};
-		
+			case
+				{ node.defname == \modenv } {
+					track = ~class_curve_track_controller.new(node, self.display, \val);
+					res.add(track);
+				};
+
+			case
+				{ node.get_mode == \scoreline } {
+					node.get_args.do { arg argname;
+						var param = node.get_arg(argname);
+						if(param.current_kind == \scoreseq) {
+							track = ~class_scoreseq_track_controller.new(node, self.display, param.name); // FIXME: use name or label, abs_label ?
+							res.add(track);
+						};
+					};
+				};
 		};
 		self.tracks = res;
 		res;

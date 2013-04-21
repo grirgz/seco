@@ -210,6 +210,7 @@
 		["edit_modulator", \kb, \alt, "m"],
 		["change_param_kind", \kb, \altshift, "s"],
 		["change_modulated_param_kind", \kb, \shift, "s"],
+		["change_modulator_mode", \kb, \altshift, "q"],
 		["change_mod_kind", \kb, \altshift, "d"],
 		["remove_modulator", \kb, \shift, \f3],
 		["disconnect_modulator", \kb, 0, \f3],

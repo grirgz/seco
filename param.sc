@@ -509,6 +509,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		\seq, { "seq" },
 		\seg, { "sg" },
 		\scalar, { "sca" },
+		\scoreseq, { "sco" },
 		\synchrone, { "syn" },
 		\synchrone_rate, { "syr" },
 		\bus, { "bus" },
@@ -1881,9 +1882,11 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	// changed messages: \selected, \selected_cell, \val, \cells, \record
 	
 	// modify this to add param kind:
+	// here: archive_kind, subevent, update_vpattern,
+	// ~param_kind_to_string
 	// - side.sc: side.get_extparamlist
-	// - side.sc: make_mini_param_view: player_responder.kind
 	// - player_display.sc: param_kinds
+	// - side.sc: make_mini_param_view: player_responder.kind // not anymore, use ~param_kind_to_string
 	// - matrix.sc: class_param_kind_chooser // not anymore, use player_display
 	
 	var param;
@@ -1904,7 +1907,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		pkey_mode: false,
 		muted: false,
 		archive_data: [\name, \classtype, \current_kind, \spec, \selected, \selected_cell, \default_val, \noteline, \muted, \pkey_mode],
-		archive_kind: [\seq, \scalar, \preset, \bus, \synchrone, \synchrone_rate, \recordbus], // modulation use scalar data
+		archive_kind: [\seq, \scalar, \preset, \bus, \scoreseq, \synchrone, \synchrone_rate, \recordbus], // modulation use scalar data
 
 		get_player: { arg self;
 			player
@@ -2566,6 +2569,19 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 								}
 							};
 						},
+						\scoreseq, {
+							{ arg self, ev;
+								var val;
+								// FIXME: use name, label, abs_label ?
+								val = ev[mode][self.name] ?? self.scalar.get_norm_val;
+								if(val.isNil) {
+									val = self.scalar.get_val;
+								} {
+									val = self.spec.map(val);
+								};
+								ev = val.yield;
+							}
+						},
 						\synchrone, {
 							{ arg self, ev;
 								ev = (self.synchrone.get_val / thisThread.clock.tempo).yield;
@@ -3059,6 +3075,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		//"rah1".debug;
 	param.seg = param.seq;
 	param.synchrone_rate = param.synchrone;
+	param.scoreseq = param.scalar;
 		//"rah1".debug;
 
 	param.midi = main.midi_center.get_midi_control_handler(param);

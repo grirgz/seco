@@ -53,6 +53,7 @@ Window.closeAll;
 ].collect({arg i; i -> i });
 
 ~modlib = [
+	\setbus,
 	\modenv,
 	\lfo1,
 	\lfo_tri,

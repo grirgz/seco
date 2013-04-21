@@ -1152,15 +1152,16 @@
 			args.select({ arg param_name;
 				param = player.get_arg(param_name);
 				if(([\control]++param_types.param_mode).includes(param.classtype)) { 
-					res = switch(param.current_kind,
-						\scalar, { false },
-						\bus, { false },
-						\preset, { false },
-						\modulation, { false }, // TODO: add a representation for modulated params
-						// FIXME: synchrone and synchrone_rate ?
-						// else
-						{ true }
-					);
+					//res = switch(param.current_kind,
+					//	\scalar, { false },
+					//	\bus, { false },
+					//	\preset, { false },
+					//	\modulation, { false }, // TODO: add a representation for modulated params
+					//	// FIXME: synchrone and synchrone_rate ?
+					//	// else
+					//	{ true }
+					//);
+					res = false;
 				} {
 					res = false
 				};

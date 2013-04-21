@@ -714,6 +714,15 @@
 				}
 			}],
 
+			[\change_modulator_mode, {
+				var player = self.get_current_player;
+				if(self.param_types.param_mode.includes(self.get_selected_param.name).not) {
+					~class_player_mode_chooser.new(self.get_main, { arg sel;
+						player.set_mode(sel);
+					})
+				}
+			}],
+
 			[\change_modulated_param_kind, {
 				var param = self.param_ctrl;
 				if(param.notNil) {

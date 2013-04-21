@@ -55,15 +55,22 @@
 };
 
 SynthDef(\modenv, { |out, firstsynth=0, firstval=0, t_trig=1, gate=1, tsustain, val=0, curve=0, doneAction=0|
-       var start = Select.kr(firstsynth, [In.kr(out, 1), firstval]);
-	   var sig;
-	   //start.poll;
-	   //sig = EnvGen.kr(Env([start, val], [tsustain], curve), t_trig, doneAction: doneAction);
-	   sig = EnvGen.kr(Env([start, val], [tsustain], curve), t_trig, doneAction: doneAction);
-	   //sig = VarLag.kr(val, tsustain);
-	   //sig.poll;
-       ReplaceOut.kr(out, sig);
+	var start = Select.kr(firstsynth, [In.kr(out, 1), firstval]);
+	var sig;
+	//start.poll;
+	//sig = EnvGen.kr(Env([start, val], [tsustain], curve), t_trig, doneAction: doneAction);
+	sig = EnvGen.kr(Env([start, val], [tsustain], curve), t_trig, doneAction: doneAction);
+	//sig = VarLag.kr(val, tsustain);
+	//sig.poll;
+	ReplaceOut.kr(out, sig);
 }).store;
+
+SynthDef(\setbus, { |out, val=0, gate=1, doneAction=2|
+	
+	Out.kr(out, val);
+}, metadata:(specs:(
+	val: \unipolar,
+))).store;
 
 SynthDef(\freeze_recorder, { arg inbus=0, out=0, amp=1, gate=1, buffer, doneAction=2;
 	var ou;

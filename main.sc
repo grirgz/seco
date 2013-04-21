@@ -328,7 +328,7 @@ if(~silent_control_bus.isNil) {
 
 if(~silent_audio2_bus.isNil) {
 	~silent_audio2_bus = Bus.audio(s, 2);
-	~silent_audio2_bus.set(0);
+	//~silent_audio2_bus.set(0);
 };
 
 // ==========================================
@@ -844,8 +844,8 @@ if(~silent_audio2_bus.isNil) {
 				//TODO: load context
 				self.model.project_path = nil;
 
-				self.panels.parlive.load_data(proj.panels.parlive);
-				self.panels.seqlive.load_data(proj.panels.seqlive);
+				//self.panels.parlive.load_data(proj.panels.parlive);
+				//self.panels.seqlive.load_data(proj.panels.seqlive);
 				self.panels.side.load_data(proj.panels.side);
 
 
