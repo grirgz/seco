@@ -293,6 +293,7 @@
 		ktr: \unipolar.asSpec,
 		pitch: ControlSpec(-64,64, \lin, 0, 0, "midi"),
 		rate: \widefreq.asSpec,
+		bufrate: ControlSpec(-16,16, \lin, 0, 1, ""),
 		glidefade: \unipolar.asSpec,
 		env: ControlSpec(0, 16, 'linear', 0, 0.1, ""),
 		boost: ControlSpec(-500, 100, 'lin', 0, 0),
@@ -1911,6 +1912,87 @@
 
 );
 
+~class_ci_sampler = (
+	parent: ~class_instr,
+	synth_rate: \ar,
+	new: { arg self, main, player, namer;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.namer = { namer };
+		self.synthdef_name = \ci_;
+		self.build_data;
+
+		self.simple_args = (gate:1, doneAction:2);
+	
+		self;
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		var specs = self.get_specs;
+
+		self.help_build_data2(
+			[
+				//self.insertfxs,
+			],
+			self.make_control_params([
+				[\bufpos, \unipolar, 0],
+				//[\bufrate, ControlSpec(-16,-16, \lin, 0, 1, ""), 1],
+				[\bufrate, specs[\bufrate], 1],
+				[\bufloop, specs[\onoff], 0],
+				[\bufamp, specs[\wideamp], 0.5],
+			]) ++ [
+				bufnum: ~make_buf_param.(\bufnum, "sounds/default.wav", player, \bufnum.asSpec),
+				samplekit: ~make_samplekit_param.(\samplekit),
+				sampleline: ~make_sampleline_param.(\sampleline),
+			],
+			(
+				enabled: ~class_param_static_controller.new(\enabled, specs[\onoff], 1),
+			)
+		);
+		self.data.copy;
+	},
+
+	make_layout: { arg self, fader;
+		var knobs = [\bufrate, \bufpos, \bufamp];
+		var frame_view;
+		self.knobs = knobs.collect { arg name;
+			self.data[name];
+		};
+		frame_view = ~class_ci_frame_view.new("Sampler", self.knobs, self.static_data[\enabled], nil, nil, fader);
+		self.layout = HLayout(frame_view.layout);
+		self.layout;
+	},
+
+	synthfun: { arg self;
+		{ arg in, args;
+			var i = self.get_synthargs(args);
+			var sig = 0;
+			var bufnum = i.bufnum;
+			var bufsig;
+			var osc, phase;
+			
+			debug("ca suffi bordel");
+			//bufsig = PlayBuf.ar(2, bufnum, i.rate * BufRateScale.kr(bufnum), 1, i.bufpos * BufFrames.kr(bufnum), i.loop);
+			bufsig = PlayBuf.ar(2, bufnum, i.bufrate * BufRateScale.kr(bufnum), 1, i.bufpos * BufFrames.kr(bufnum), i.bufloop);
+			//bufsig = PlayBuf.ar(2, bufnum, 1 * BufRateScale.kr(bufnum), 1, 0 * BufFrames.kr(bufnum), 0);
+			//bufsig = SinOsc.ar(200);
+			bufsig.debug("ca suffi bordel1");
+			//sig = bufsig.collect { arg chan;
+			//	chan.sum;
+			//};
+			sig = bufsig;
+			sig = self.bypass(i.enabled, sig, DC.ar(0));
+			sig.debug("ca suffi bordel2");
+			sig;
+		}
+	},
+
+);
+
 //////////////////////////////////////////////////////
 ////////////// Extensions Class Instrs
 //////////////////////////////////////////////////////
@@ -2819,6 +2901,29 @@
 				//~class_ci_noise.new(main, player, self.make_namer("noise1_"));
 				~class_ci_wrapfader.new(main, player, self.make_namer("noise1_"), ~class_ci_noise);
 			];
+
+		};
+
+
+		~class_ci_gens_filter2.new(main, player, namer, make_oscs);
+	
+
+	},
+);
+
+~class_ci_samplerfilter2 = (
+	new: { arg self, main, player, namer;
+		var oscs;
+		var make_oscs = { arg self;
+			oscs = [
+				~class_ci_wrapfader.new(main, player, self.make_namer, ~class_ci_sampler),
+				~class_ci_oscfader.new(main, player, self.make_namer("osc_"))
+			];
+			oscs = oscs ++ [
+				//~class_ci_noise.new(main, player, self.make_namer("noise1_"));
+				~class_ci_wrapfader.new(main, player, self.make_namer("noise1_"), ~class_ci_noise);
+			];
+			oscs
 
 		};
 
@@ -3835,6 +3940,7 @@
 	moscfilter_modfx: ~class_ci_moscfilter_modfx,
 	moscfaderfilter: ~class_ci_moscfaderfilter,
 	osc3filter2: ~class_ci_osc3filter2,
+	samplerfilter2: ~class_ci_samplerfilter2,
 	op_matrix: ~class_ci_op_matrix,
 	op_matrix2: ~class_ci_op_matrix2,
 	bufosc_filt: ~class_ci_bufosc_filt,

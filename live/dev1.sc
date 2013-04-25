@@ -22,6 +22,7 @@ Window.closeAll;
 	"ci osc3filter2",
 	"ci bufosc_filt",
 	"ci bufosc_filt_spread",
+	"ci samplerfilter2",
 
 	\bufsin1,
 	\zegrainer,
@@ -65,20 +66,20 @@ Window.closeAll;
 	"ci custom_env",
 ].collect({arg i; i -> i });
 
-~samplelib = [
-	"sounds/perc1.wav",
-	"sounds/pok1.wav",
-	"sounds/amen-break.wav",
-	"sounds/default.wav"
-];
+//~samplelib = [
+//	"sounds/perc1.wav",
+//	"sounds/pok1.wav",
+//	"sounds/amen-break.wav",
+//	"sounds/default.wav"
+//];
 ~seq.load_effectlib( ~effectlib );
 ~seq.load_modlib( ~modlib );
 ~seq.set_presetlib_path("mypresets");
-~seq.append_samplelib_from_path("sounds/" );
-~seq.append_samplelib_from_path("sounds/hydrogen/GMkit" );
-~seq.append_samplelib_from_path("sounds/hydrogen/HardElectro1" );
+//~seq.append_samplelib_from_path("sounds/" );
+//~seq.append_samplelib_from_path("sounds/hydrogen/GMkit" );
+//~seq.append_samplelib_from_path("sounds/hydrogen/HardElectro1" );
 
-Mdef.samplekit(\deskkick, 20.collect{arg i; "/home/ggz/Musique/recording" +/+ i ++ ".wav"});
+//Mdef.samplekit(\deskkick, 20.collect{arg i; "/home/ggz/Musique/recording" +/+ i ++ ".wav"});
 //Mdef.main.model.bus_mode_enabled = false;
 
 Mdef.side_gui;
@@ -96,13 +97,62 @@ Mdef.side_gui;
 	win.front;
 };
 
-Mdef.samplekit(\castor, [
-	"~/Musique/beast.wav".standardizePath,
-	"~/Musique/blabla2.wav".standardizePath,
-]);
+//Mdef.samplekit(\castor, [
+//	"~/Musique/beast.wav".standardizePath,
+//	"~/Musique/blabla2.wav".standardizePath,
+//]);
+
+Mdef.main.samplekit_manager.parse_samplekit_dir;
+//Mdef.main.samplekit_manager.parse_samplekit_dir("~/Musique/hydrogenkits/");
 
 }
 )
+
+
+Platform.resourceDir
+
+Set.newFrom(["bla", "bla"])
+
+["bla", "rah"].includesEqual("bla")
+["bla", "rah"].drop(-1)
+
+(
+var myPath;
+myPath = PathName.new("~/Musique/samplekit/");
+"ob".debug;
+myPath.folders.do { arg dir;
+	var samplekit_name;
+	var samples = List.new;
+	"iob".debug;
+	//dir.postln;
+	samplekit_name = dir.folderName;
+	samplekit_name.debug("gueule");
+	dir.files.do { arg file;
+		samples.add( file.fullPath )
+	};
+	samples.debug("samples");
+	Mdef.samplekit(samplekit_name.asSymbol, samples);
+	///dir.
+};
+)
+
+(
+~parse_samplekit_dir = { arg samplekit_dir;
+	var path;
+	samplekit_dir = samplekit_dir ?? "~/Musique/samplekit/";
+	path = PathName.new(samplekit_dir);
+	path.folders.do { arg dir;
+		var samplekit_name;
+		var samples = List.new;
+		samplekit_name = dir.folderName;
+		dir.files.do { arg file;
+			samples.add( file.fullPath )
+		};
+		Mdef.samplekit(samplekit_name.asSymbol, samples);
+	};
+};
+)
+
 
 (
 )
@@ -137,4 +187,4 @@ s.latency
 
 
 
-
+Mdef.sample(\)

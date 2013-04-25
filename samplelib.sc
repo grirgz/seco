@@ -157,6 +157,7 @@
 	samplekit_part: 0,
 	samplekit_bank: ~samplekit_bank,
 	sampledict: Dictionary.new,
+	sample_extensions: ["aiff","wav","flac"],
 
 	slot_to_bufnum: { arg self, slot, samplekit, channels=\stereo;
 		var path;
@@ -226,6 +227,41 @@
 		self.samplekit_bank[samplekit] 
 	},
 
+	parse_samplekit_dir: { arg self, samplekit_dir;
+		var path;
+		samplekit_dir = samplekit_dir ?? "~/Musique/samplekit/";
+		path = PathName.new(samplekit_dir);
+		path.folders.do { arg dir;
+			var samplekit_name;
+			var samples = List.new;
+			var sklist = PathName(dir.fullPath +/+ "samplekit.list" );
+			if(sklist.isFile) {
+				// FIXME: handle layers
+				var file;
+				file = File(sklist.fullPath,"r");
+				file.readAllString.split($\n).drop(-1).do { arg smp;
+					var smpath = dir.fullPath +/+ smp;
+					if(samples.includesEqual(smpath).not) {
+						samples.add(smpath)
+					}
+				};
+				[dir.fullPath, samples.asCompileString].debug("samples");
+				file.close;
+			} {
+				dir.files.do { arg file;
+					var fpath = file.fullPath;
+					if(self.sample_extensions.includes(fpath).not) {
+						samples.add( fpath );
+					}
+				};
+				samples = samples.sort;
+			};
+			samplekit_name = dir.folderName;
+			self.add_samplekit(samplekit_name.asSymbol, samples);
+		};
+	},
+
+
 	append_samplelist_to_samplekit: { arg self, samplekit, samplelist;
 		self.samplekit_bank[samplekit] = self.samplekit_bank[samplekit] ++ samplelist 
 	},
@@ -233,7 +269,7 @@
 	append_samplelist_to_samplekit_from_path: { arg self, samplekit, path;
 		var dir, entries;
 		dir = PathName.new(path);
-		entries = dir.files.select({arg x; ["aiff","wav","flac"].includesEqual(x.extension) }).collect(_.fullPath);
+		entries = dir.files.select({arg x; self.sample_extensions.includesEqual(x.extension) }).collect(_.fullPath);
 		self.append_samplelist_to_samplekit(samplekit, entries);
 	},
 
