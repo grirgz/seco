@@ -385,3 +385,83 @@ g.close;
 
 )
 "~/Musique/hydrogenkits/GMKit/samplekit.list".standardizePath
+
+
+
+
+b = Buffer.read(s, Platform.resourceDir +/+ "sounds/a11wlk01.wav");
+
+// This is very cool!
+
+(
+{
+	Spring.ar(PlayBuf.ar(1, b, loop: 1)*Saw.ar(4));
+}.play;
+)
+(
+{
+	PlayBuf.ar(1, b, loop: 1)*Saw.ar(4);
+}.play;
+)
+(
+{
+	Spring.ar(PlayBuf.ar(1, b, loop: 1), 20);
+}.play;
+)
+
+
+
+(
+{
+    PlayBuf.ar(1, b, loop: 1)*Saw.ar(4);
+}.play;
+)
+(
+fork {
+    var size = 3.rrand(10).debug('envelope size');
+    {|dur=1, amp=0.8, pan = 0|
+        Pan2.ar( 
+            SinOsc.ar(
+                EnvGen.ar(Env(\freq_l.kr(400!size), \freq_d.kr(0.1!(size-1)), \freq_c.kr(1!(size-1)))), // named controls
+                mul: EnvGen.ar(Env.sine(dur, amp), doneAction:2)
+            ).tanh, 
+            pan
+        );
+    }.asSynthDef.name_("dzin").add;
+    Server.default.sync;
+    Pbind(*[
+        instrument: \dzin,
+        delta: Pseg(Prand(1/2.pow((0..3)), inf), Pwhite(1,4), \lin),
+        dur: Pfunc({ thisThread.clock.beatDur }) * Pkey(\delta), // set dur to delta duration
+        freq_l: Pcollect(`_, Ptuple({ Pbrown(0,1,0.05).linexp(0,1,40,4e3) } ! size, inf)), // array refs - freq envelope levels
+        freq_c: Ptuple({ Pcollect(`_, Ptuple({ Pbrown(-4,4,0.5) } ! (size-1), inf)) }!2, inf), // array of arrayrefs - multichannel expansion w/ different curve levels
+        freq_d: Pfunc({ |e| Ref(Array.rand(size-1,0.3,1).normalizeSum * e.dur) }), // sending array ref with total dur = Pkey(\dur)
+        pan: Ptuple( { Pbrown() - 0.5 * 2 } ! 2, inf ), // array - multichannel expansion
+        amp: Ptuple( { Pbrown() / 10 + 0.1 } ! 2, inf ) // same
+    ]).play(TempoClock(156/60));
+}
+)
+
+
+(
+ {
+ var sig;
+ sig = Pulse.ar(200);
+ [
+	sig,
+	(sig*5).tanh ,
+ ]
+ }.plot(0.1)
+)
+
+(
+ {
+ var sig;
+ sig = Pulse.ar(200);
+ [
+	sig,
+	//(sig*5).tanh ,
+	sig
+ ]
+ }.play
+)

@@ -103,7 +103,7 @@ Mdef.side_gui;
 //]);
 
 Mdef.main.samplekit_manager.parse_samplekit_dir;
-//Mdef.main.samplekit_manager.parse_samplekit_dir("~/Musique/hydrogenkits/");
+Mdef.main.samplekit_manager.parse_samplekit_dir("~/Musique/hydrogenkits/");
 
 }
 )
@@ -171,6 +171,12 @@ Mdef.main.load_project("books");
 Mdef.main.save_project("dev1.test1");
 Mdef.main.load_project("dev1.test1");
 
+Mdef.main.save_project("testxruns");
+Mdef.main.load_project("testxruns");
+
+Mdef.main.save_project("noxruns");
+Mdef.main.load_project("noxruns");
+
 Mdef.main.play_manager
 
 Debug.enableDebug = true;
@@ -184,7 +190,10 @@ s.latency = 0.4
 s.latency = 0.6
 s.latency
 
+{ SinOsc.ar(100) }.play
 
 
 
 Mdef.sample(\)
+
+Mdef.node("setbus_l1011").get_arg(\scoreline).get_scoreset.get_notescore.notes
