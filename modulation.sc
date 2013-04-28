@@ -1310,7 +1310,12 @@
 
 		effect_list = mainplayer.effects.effect_list.reject({ arg ef; 
 			ef.isNil or: {
-				mainplayer.get_main.get_node(ef).muted
+				var no = mainplayer.get_main.get_node(ef);
+				if(no.notNil) { // FIXME: why "no" could be nil ?
+					no.muted
+				} {
+					true
+				}
 			}
 		});
 
@@ -2235,13 +2240,13 @@
 			self.make_bindings;
 			self.main_view = ~class_effects_view.new(self);
 			self.window = self.main_view.make_window;
-			self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\effects);
+			self.window.view.keyDownAction = self.binding_responder.commands.get_kb_responder(\effects);
 		}).play(AppClock);
 	},
 
 	make_bindings: { arg self;
 
-		self.get_main.commands.parse_action_bindings(\effects, 
+		self.binding_responder = self.get_main.commands.make_binding_responder(\effects, 
 			self.get_main.panels.side.get_shared_bindings ++
 			self.get_main.panels.side.get_windows_bindings ++ [
 

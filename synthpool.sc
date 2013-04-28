@@ -428,19 +428,19 @@ SynthDef(\monosampler, {| out = 0, amp=0.1, pan=0, bufnum = 0, gate = 1, pos = 0
 	var player,env;
 	env = EnvGen.kr(~make_adsr.(\adsr), gate, doneAction:doneAction) * amp;
 	player = PlayBuf.ar(1, bufnum, BufRateScale.kr(bufnum) * speed, 1, startPos: (pos*BufFrames.kr(bufnum)), doneAction:doneAction, loop: loop);
-	player = Pan2.ar(player, pan, amp);
+	player = Pan2.ar(player, pan, amp * 2);
 	Out.ar(out, player * env);
 
 }, metadata:(specs:(
 	bufnum: (numchan: 1)
 ))).store;
 
-SynthDef(\stereosampler, {| out = 0, amp=0.1, bufnum = 0, gate = 1, pos = 0, speed = 1, loop=0, doneAction=2|
+SynthDef(\stereosampler, {| out = 0, amp=0.1, bufnum = 0, gate = 1, pos = 0, speed = 1, loop=0, doneAction=2, pan=0|
 
 	var player,env;
 	env =  EnvGen.kr(~make_adsr.(\adsr), gate, doneAction:doneAction);
 	player = PlayBuf.ar(2, bufnum, BufRateScale.kr(bufnum) * speed, 1, startPos: (pos*BufFrames.kr(bufnum)), doneAction:doneAction, loop: loop);
-	player = player * env * amp;
+	player = Pan2.ar(player, pan, amp * 2);
 	Out.ar(out, player);
 
 }, metadata:(specs:(

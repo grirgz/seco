@@ -37,6 +37,7 @@
 
 	parent_node: { arg self;
 		var parent = self.controller.parent_node;
+		var msize = self.controller.nodematrix_size;
 		debug("class_nodematrix_view: parent_node");
 		self.responders.do { arg resp;
 			resp.remove
@@ -46,12 +47,17 @@
 		};
 		switch(parent.kind,
 			\seqnode, {
-				parent.children.do { arg child, i;
-					child.debug("class_nodematrix_view: parent_node: child");
+				//parent.children.do { arg child, i;
+				msize.y.do { arg i;
+					var child = parent.children[i];
+					[i, child].debug("class_nodematrix_view: parent_node: seqnode, child");
 					if(child.notNil and: {child != \voidplayer}) {
 						self.set_row_controller(i, self.controller.get_main.get_node(child))
+					} {
+						self.clear_row(i);
 					}
 				};
+				self.old_armed_cells = parent.playmatrix_manager.arming_matrix.copy;
 				self.playmatrix_responder.remove;
 				parent.playmatrix_manager.debug("playmatrix_responder");
 				self.playmatrix_responder = ~make_class_responder.(self, self.responder_anchor, parent.playmatrix_manager, [
@@ -59,10 +65,13 @@
 				]);
 			},
 			\parnode, {
-				parent.children.do { arg child, i;
-					child.debug("class_nodematrix_view: parent_node: child");
+				self.clear_column(-1);
+				parent.children.keep(msize.x).do { arg child, i;
+					[i, child].debug("class_nodematrix_view: parent_node: parnode, child");
 					if(child.notNil and: {child != \voidplayer}) {
 						self.set_column_controller(i, self.controller.get_main.get_node(child))
+					} {
+						self.clear_column(i);
 					}
 				}
 			
@@ -117,9 +126,22 @@
 						};
 						self.set_cell_label(point, label);
 						self.set_cell_state(point, self.controller.get_cell_state(point));
-						//self.old_armed_cells[y] = ctrl.get_scoreset.get_current_sheet_index;
+						//self.old_armed_cells[x] = ctrl.get_scoreset.get_current_sheet_index;
 					}
 				},
+				//destructor: {
+				//	self.controller.nodematrix_size.x.do { arg x;
+				//		var point = Point(x, idx);
+				//		var label;
+				//		var node;
+				//		var child = subchildren[x];
+				//		label = "";
+				//		self.set_cell_label(point, label);
+				//		self.set_cell_state(point, self.controller.get_cell_state(point));
+				//		//self.old_armed_cells[y] = ctrl.get_scoreset.get_current_sheet_index;
+				//	}
+
+				//},
 				selected_child: {
 					//var sheet_idx = ctrl.get_scoreset.get_current_sheet_index;
 					//var point = Point(idx, sheet_idx);
@@ -161,8 +183,8 @@
 						};
 						self.set_cell_label(point, label);
 						self.set_cell_state(point, self.controller.get_cell_state(point));
-						self.old_armed_cells[y] = ctrl.get_scoreset.get_current_sheet_index;
-					}
+					};
+					self.old_armed_cells[idx] = ctrl.get_scoreset.get_current_sheet_index;
 				},
 				selected_scoresheet: {
 					var sheet_idx = ctrl.get_scoreset.get_current_sheet_index;
@@ -183,6 +205,29 @@
 			"set_column_controller: Error"
 		};
 	},
+
+	clear_row: { arg self, idx;
+		[idx].debug("class_nodematrix_view: clear_row");
+		self.controller.nodematrix_size.x.do { arg x;
+			var point = Point(x, idx);
+			var label;
+			label = "";
+			self.set_cell_label(point, label);
+			self.set_cell_state(point, \normal);
+		}
+	},
+
+	clear_column: { arg self, idx;
+		[idx].debug("class_nodematrix_view: clear_column");
+		self.controller.nodematrix_size.y.do { arg y;
+			var point = Point(idx, y);
+			var label;
+			label = "";
+			self.set_cell_label(point, label);
+			self.set_cell_state(point, \normal);
+		}
+	},
+
 
 	make_cell: { arg self, label="cell";
 		StaticText.new
@@ -282,22 +327,40 @@
 
 	make_responders: { arg self;
 
+		var midiman = self.nodematrix_controller.get_main.midi_bindings_manager;
 		~make_class_responder.(self, self.responder_anchor, self.nodematrix_controller, [
 			\parent_node, \selection,
 		]);
 		~make_class_responder.(self, self.responder_anchor, self.nodematrix_controller.get_main.central_player_display, [
 			\player,
 		]);
+		~make_class_responder.(self, self.responder_anchor, midiman, [
+			\midi_player, \midi_group
+		]);
 	},
 
 	///// responders
 
-	player: { arg self;
+	midi_player: { arg self;
 		var midiman = self.nodematrix_controller.get_main.midi_bindings_manager;
 		var controllers;
-		debug("class_nodematrix_knob_row:selection");
-		controllers = midiman.get_controllers_of_midi_kind(self.kind);
-		self.set_controllers(controllers);
+		if(self.kind == \knob) { // FIXME: hardcoded midi kind
+			debug("class_nodematrix_knob_row:selection");
+			controllers = midiman.get_controllers_of_midi_kind(self.kind);
+			self.set_controllers(controllers);
+		}
+
+	},
+
+	midi_group: { arg self;
+		var midiman = self.nodematrix_controller.get_main.midi_bindings_manager;
+		var controllers;
+		if(self.kind == \slider) {
+
+			debug("class_nodematrix_knob_row:selection");
+			controllers = midiman.get_controllers_of_midi_kind(self.kind);
+			self.set_controllers(controllers);
+		}
 	},
 
 	parent_node: { arg self;
@@ -378,13 +441,15 @@
 		};
 	},
 
-	stop_armed_cells: { arg self, use_quant=true;
+	stop_armed_cells: { arg self, excludes=[], use_quant=true;
 		var node;
 		var pos;
 		self.arming_matrix.do { arg y, x;
-			pos = Point(x, y);
-			node = self.get_child_node(pos);
-			node !? { node.stop_node(self.is_stop_using_quant) };
+			if(excludes[x] != y) {
+				pos = Point(x, y);
+				node = self.get_child_node(pos);
+				node !? { node.stop_node(self.is_stop_using_quant) };
+			}
 		};
 	},
 
@@ -426,14 +491,16 @@
 	},
 
 	arm_row: { arg self, row_index;
-		self.stop_armed_cells;
+		//self.stop_armed_cells;
 		self.arming_matrix = self.arming_matrix.collect { row_index };
 		self.changed(\arming, row_index);
-		self.play_armed_cells;
+		//self.play_armed_cells;
 	},
 
 	play_row: { arg self, row_index;
-		self.arm_row(row_index);
+		self.stop_armed_cells(row_index ! self.matrix_size.x);
+		self.arming_matrix = self.arming_matrix.collect { row_index };
+		self.changed(\arming, row_index);
 		self.play_armed_cells;
 	},
 
@@ -541,7 +608,7 @@
 			},
 			\parnode, {
 				//self.parent_node.playmatrix_manager.stop_unarm_column(pos.x);
-				self.get_group_node(pos.x).stop_node;
+				self.get_group_node(pos.x).stop_node(self.get_main.model.is_stop_using_quant);
 			}
 		);
 	},
@@ -549,6 +616,7 @@
 	arm_row: { arg self, row_index;
 		switch(self.parent_node.kind,
 			\seqnode, {
+				self.parent_node.playmatrix_manager.arm_row(row_index);
 			},
 			\parnode, {
 				self.parent_node.children.do { arg child;
@@ -657,6 +725,7 @@
 
 	update_selection: { arg self;
 		self.get_main.central_player_display.set_current_player(self.get_current_player);
+		self.get_main.midi_bindings_manager.set_current_player(self.get_current_player);
 		self.changed(\selection)
 	},
 
@@ -672,6 +741,12 @@
 		//self.get_main.show_panel(\nodematrix);
 		self.get_main.commands.parse_action_bindings(\nodematrix, 
 			self.get_main.panels.side.get_windows_bindings ++ [
+
+				[\select_variant, 10, { arg i;
+					self.set_parent_node(self.get_main.panels.side.song_manager.change_variant(i))
+				}],
+
+
 				[\select_cell, 32, { arg i;
 					self.select_cell_by_index(i)
 				}],

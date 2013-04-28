@@ -95,6 +95,10 @@
 			["stop_cell",							\kb, 0, \f6],
 			["stop_part",							\kb, \ctrlshift, \f6],
 			["panic",								\kb, 0, \f8],
+
+			["select_variant", \kb, \ctrl, \kbnumpad],
+			//["select_section", \kb, \alt, \kbnumpad],
+			//["select_part", \kb, \ctrlalt, \kbnumpad],
 	],
 	editplayer: [
 		["select_cell",							\kb, 0, \kbnumline],

@@ -146,7 +146,7 @@
 	},
 
 	make_bindings: { arg self;
-		self.get_main.commands.parse_action_bindings(\classinstr, 
+		self.binding_responder = self.get_main.commands.parse_action_bindings(\classinstr, 
 		
 			self.get_main.panels.side.get_shared_bindings ++
 			self.get_main.panels.side.get_windows_bindings ++ [
@@ -2526,7 +2526,8 @@
 							if(idx == (self.tabs_count-1)) { 
 								self.classinstr.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\effects);
 							} {
-								self.classinstr.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\classinstr, self);
+								self.classinstr.window.view.keyDownAction = 
+									self.get_main.commands.get_kb_responder(\classinstr, self.classinstr);
 							}
 						})
 				}

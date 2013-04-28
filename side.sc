@@ -1205,9 +1205,12 @@
 			}
 		},
 
-		assign_midi: {
-			main.midi_bindings_manager.assign_mixers;
-			main.midi_bindings_manager.assign_player_macros;
+		assign_midi: { arg self;
+			//main.midi_bindings_manager.assign_mixers;
+			//main.midi_bindings_manager.assign_player_macros;
+			main.midi_bindings_manager.set_current_player(self.get_current_player, \side);
+			main.midi_bindings_manager.set_current_group(self.get_current_group, \side);
+
 		},
 
 		assign_midi_params: { arg self;
@@ -2162,11 +2165,11 @@
 				}], 
 
 				[\stop_selected, {
-					self.get_current_player.stop_node;
+					self.get_current_player.stop_node(main.model.is_stop_using_quant);
 				}],
 
 				[\stop_selected_quant, {
-					self.get_current_player.stop_node(true);
+					self.get_current_player.stop_node(main.model.is_stop_using_quant.not);
 				}],
 
 				[\toggle_mute_selected, {

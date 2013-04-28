@@ -52,7 +52,11 @@
 
 		self.pattern_args = args.select { arg x; ([mode] ++ param_types.param_status_group).includes(x) };
 		self.displayable_args = args.reject { arg x; ([mode] ++ param_types.param_status_group).includes(x) };
-		self.macro_args = args.select { arg x; self.get_arg(x).midi.notNil };
+		self.macro_args = args.select { arg x; 
+			self.get_arg(x).midi.notNil and: {
+				([mode] ++ param_types.param_status_group).includes(x).not
+			}
+		};
 	},
 );
 

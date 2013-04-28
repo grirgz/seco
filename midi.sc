@@ -346,26 +346,40 @@
 		self;
 	},
 
+	set_current_player: { arg self, player, kind;
+		self.current_player = player;
+		self.assign_player_macros;
+		self.changed(\midi_player);
+	},
+
+	set_current_group: { arg self, group, kind;
+		self.current_group = group;
+		self.assign_mixers;
+		self.changed(\midi_group); //FIXME: dont send msg when no changes
+	},
+
 	get_current_group: { arg self;
-		if(self.get_main.panels.side.notNil) {
-			//self.get_main.panels.side.debug("class_midi_bindings_manager: get_current_group");
-			self.get_main.panels.side.get_current_group;
-		}
+		self.current_group;
+		//if(self.get_main.panels.side.notNil) {
+		//	//self.get_main.panels.side.debug("class_midi_bindings_manager: get_current_group");
+		//	self.get_main.panels.side.get_current_group;
+		//}
 	},
 
 	get_current_player: { arg self;
-		var side = self.get_main.panels.side;
-		if(side.notNil) {
-			var player;
-			//side.window_panel_is_open_do(\nodematrix_controller, { arg ctrl;
-			if(side.window_panel_is_open(\nodematrix_controller)) {
-				player = side.nodematrix_controller.get_current_player
-			} {
-				player = side.get_current_player;
-			};
-			player.name.debug("class_midi_bindings_manager.get_current_player");
-			player;
-		}
+		//var side = self.get_main.panels.side;
+		//if(side.notNil) {
+		//	var player;
+		//	//side.window_panel_is_open_do(\nodematrix_controller, { arg ctrl;
+		//	if(side.window_panel_is_open(\nodematrix_controller)) {
+		//		player = side.nodematrix_controller.get_current_player
+		//	} {
+		//		player = side.get_current_player;
+		//	};
+		//	player.name.debug("class_midi_bindings_manager.get_current_player");
+		//	player;
+		//}
+		self.current_player;
 	},
 
 	//get_current_player_paramlist: { arg self;

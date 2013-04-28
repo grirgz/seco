@@ -674,6 +674,12 @@
 		~parse_action_bindings.(self, panel, actions);
 	},
 
+	make_binding_responder: { arg self, panel, actions;
+		self = self.deepCopy;
+		~parse_action_bindings.(self, panel, actions);
+		self;
+	},
+
 	get_kb_responder: { arg self, name, ctrl;
 		name.debug("giving panel responder");
 

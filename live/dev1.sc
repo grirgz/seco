@@ -197,3 +197,5 @@ s.latency
 Mdef.sample(\)
 
 Mdef.node("setbus_l1011").get_arg(\scoreline).get_scoreset.get_notescore.notes
+Mdef.node("osc1_l1073").get_macro_args
+Mdef.node("osc1_l1073")

@@ -124,7 +124,8 @@
 
 	parent.onClose = parent.onClose.addFunc { 
 		parent.debug("make_view_responder: close parent");
-		controller.remove
+		//model.changed(\destructor);
+		controller.remove;
 	};
 
 	if(auto_refresh) { model.refresh() };
@@ -561,7 +562,7 @@ if(~silent_audio2_bus.isNil) {
 
 			bus_mode_enabled: true,
 
-			is_stop_using_quant: false,
+			is_stop_using_quant: true,
 
 		),
 
