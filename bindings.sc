@@ -81,6 +81,11 @@
 		//~common_bindings.side_shared ++
 		~common_bindings.windowing ++
 		[
+
+			["rename_cell",							\kb, \alt, "r"],
+			["copy_cell",							\kb, \ctrl, "c"],
+			["cut_cell",							\kb, \ctrl, "x"],
+			["paste_cell",							\kb, \ctrl, "v"],
 			["select_cell",							\kb, 0, \kbpad8x4_flat],
 			["select_row",							\kb, \alt, \kbnumline],
 			["select_column",						\kb, 0, \kbnumpad],

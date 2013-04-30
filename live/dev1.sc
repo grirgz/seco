@@ -56,6 +56,8 @@ Window.closeAll;
 ~modlib = [
 	\setbus,
 	\modenv,
+	\gater,
+	\gated_asr,
 	\lfo1,
 	\lfo_tri,
 	\lfo_asr,
@@ -177,6 +179,9 @@ Mdef.main.load_project("testxruns");
 Mdef.main.save_project("noxruns");
 Mdef.main.load_project("noxruns");
 
+Mdef.main.save_project("happypunk");
+Mdef.main.load_project("happypunk");
+
 Mdef.main.play_manager
 
 Debug.enableDebug = true;
@@ -199,3 +204,54 @@ Mdef.sample(\)
 Mdef.node("setbus_l1011").get_arg(\scoreline).get_scoreset.get_notescore.notes
 Mdef.node("osc1_l1073").get_macro_args
 Mdef.node("osc1_l1073")
+
+(
+SynthDef(\plop, { arg out=0, amp=0.1, gate=1, pan=0, freq=200, tsustain, t_trig=1;
+	var ou;
+	ou = SinOsc.ar(freq);
+	//tsustain.poll;
+	//Trig.kr(t_trig,tsustain);
+	ou = ou * EnvGen.ar(Env.linen(0.4,tsustain,0.4),t_trig,doneAction:0);
+	ou.poll;
+	ou = ou * EnvGen.ar(Env.adsr(0.4,0.1,0.8,0.4),gate,doneAction:2);
+	ou = Pan2.ar(ou, pan, amp);
+	Out.ar(out, ou);
+}).add;
+)
+
+(
+SynthDef(\gater, { arg out=0, amp=1, gate=1, tesustain=0.1, t_trig=1;
+	var ou;
+	var tsustain = tesustain;
+	//t_trig = Impulse.kr(1);
+	ou = Trig.kr(t_trig,tsustain) * amp - 0.1;
+	//ou.poll;
+	Out.kr(out, ou);
+}).add;
+)
+
+
+(
+SynthDef(\gated_asr, { arg out=0, amp=1, gate=1, attack=0.1, release=0.1, envgate=1;
+	var ou;
+	envgate.poll;
+	ou = EnvGen.ar(Env.asr(attack,1,release),envgate,doneAction:0) * amp;
+	Out.kr(out, ou);
+}, metadata:(specs:(
+	envgate: ControlSpec(0,1,\lin, 0, 1)
+))).add;
+)
+
+(
+ Pmono(\plop,
+ 	\freq, Pseq([100,200],4),
+	\dur, 2,
+	\legato, 0.1,
+	\tsustain, Pkey(\sustain) / Ptempo(),
+ ).trace.play
+
+)
+TempoClock.default.tempo = 2
+
+
+Mdef.node_by_index(1).build_real_sourcepat

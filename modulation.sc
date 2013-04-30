@@ -1064,6 +1064,7 @@
 	set_mod_kind: { arg self, kind;
 		if(kind != self.mod_kind) {
 			self.mod_kind = kind;
+			self.update_modulation_pattern;
 			self.changed(\mod_kind)
 		}
 	},
@@ -1292,7 +1293,7 @@
 		var synth_out_bus;
 		//var ppatch;
 		var rate = \kr;
-		var make_note_out_bus;
+		var make_note_out_bus, make_global_out_bus;
 		var make_modulator_pattern, make_mixer_pattern;
 		var walk_modulators;
 		var done_modulators = Set.new;
@@ -1392,6 +1393,13 @@
 			}
 		};
 
+		make_global_out_bus = { arg out_bus_name;
+			pattern_control_bus_alloc_list.add(out_bus_name); 
+			Pfunc{ arg ev; 
+				ev[\ppatch].global_bus[out_bus_name] 
+			};
+		};
+
 		make_modulator_pattern = { arg player, mod, key;
 			var modpat;
 			var out_bus_name;
@@ -1432,12 +1440,20 @@
 			var mixer_group_name;
 			var out_bus_name;
 			var spec;
+			var mixer_level;
 
 			//if(kind == \normal) {
 			//	mixer_group_name = \mixer;
 			//} {
 			//	mixer_group_name = \fbmixer;
 			//};
+
+			if(mainplayer === player) {
+				mixer_level = \top
+			} {
+				mixer_level = \child
+			};
+
 			mixer_group_name = \mixer;
 
 			spec = player.get_arg(key).spec;
@@ -1445,12 +1461,23 @@
 			mixer_synthdef_name = ~make_modmixer.(key, rate, spec, kind);
 			out_bus_name = "mixer_%_%".format(player.uname, key).asSymbol;
 
-			mixerarglist = List[
-				\instrument, mixer_synthdef_name,
-				//\ppatch, Pfunc{ppatch},
-				\carrier, Pfunc{ player.get_arg(key).get_val },
-				\out, make_note_out_bus.(out_bus_name, mixer_group_name),
-			];
+			if(mixer_level == \top) {
+			
+				mixerarglist = List[
+					\instrument, mixer_synthdef_name,
+					//\ppatch, Pfunc{ppatch},
+					\carrier, Pfunc{ player.get_arg(key).get_val },
+					\out, make_note_out_bus.(out_bus_name, mixer_group_name),
+				];
+
+			} {
+				mixerarglist = List[
+					//\instrument, mixer_synthdef_name,
+					\group, Pfunc{ arg ev; ev[\ppatch].global_group[mixer_group_name] },
+					\carrier, Pfunc{ player.get_arg(key).get_val },
+					\out, make_global_out_bus.(out_bus_name, mixer_group_name),
+				];
+			};
 
 			modmixer.get_slots.keysValuesDo { arg slotidx, modstruct, idx;
 				var in_bus_name;
@@ -1483,7 +1510,11 @@
 				]).asList;
 			};
 			mixerarglist.debug("make_mixer_pattern: mixerarglist");
-			mixer = Pbind(*mixerarglist) <> mainplayer.get_dur_pattern;
+			if(mixer_level == \top) {
+				mixer = Pbind(*mixerarglist) <> mainplayer.get_dur_pattern;
+			} {
+				mixer = Pmono(mixer_synthdef_name, *mixerarglist);
+			};
 			mixer_list.add(mixer);
 		};
 
@@ -1658,6 +1689,9 @@
 				get_mod_bus: { arg ppself, prefix, name;
 					var bus;
 					bus = ppself.note_bus["mixer_%_%".format(prefix, name).asSymbol];
+					if(bus.isNil) {
+						bus = ppself.global_bus["mixer_%_%".format(prefix, name).asSymbol];
+					};
 					if(bus.notNil) {
 						bus;
 					} {
@@ -2240,11 +2274,12 @@
 			self.make_bindings;
 			self.main_view = ~class_effects_view.new(self);
 			self.window = self.main_view.make_window;
-			self.window.view.keyDownAction = self.binding_responder.commands.get_kb_responder(\effects);
+			self.window.view.keyDownAction = self.binding_responder.get_kb_responder(\effects);
 		}).play(AppClock);
 	},
 
 	make_bindings: { arg self;
+		debug("class_effects_controller.make_bindings");
 
 		self.binding_responder = self.get_main.commands.make_binding_responder(\effects, 
 			self.get_main.panels.side.get_shared_bindings ++

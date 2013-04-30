@@ -675,9 +675,10 @@
 	},
 
 	make_binding_responder: { arg self, panel, actions;
-		self = self.deepCopy;
-		~parse_action_bindings.(self, panel, actions);
-		self;
+		var sel;
+		sel = self.deepCopy;
+		sel.parse_action_bindings.(panel, actions);
+		sel;
 	},
 
 	get_kb_responder: { arg self, name, ctrl;

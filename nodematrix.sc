@@ -19,7 +19,7 @@
 	make_responders: { arg self;
 		self.controller.debug("make_responders: controller");
 		~make_class_responder.(self, self.responder_anchor, self.controller, [
-			\selection, \parent_node,
+			\selection, \parent_node, \label,
 		]);
 
 	},
@@ -100,6 +100,12 @@
 		}
 	},
 
+	label: { arg self, ctrl, msg, pos;
+		var label;
+		label = self.controller.get_cell_label(pos);
+		self.set_cell_label(pos, label);
+	},
+
 	/////////////////////
 
 	set_row_controller: { arg self, idx, ctrl;
@@ -176,10 +182,11 @@
 					subchildren.do { arg child, y;
 						var point = Point(idx, y);
 						var label;
-						if(child.isNil) {
+						if(child.isNil or: { child.is_empty }) {
 							label = "";
 						} {
-							label = "sheet %".format(y+1);
+							//label = child.name ?? "sheet %".format(y+1);
+							label = self.controller.get_cell_label(Point(idx, y));
 						};
 						self.set_cell_label(point, label);
 						self.set_cell_state(point, self.controller.get_cell_state(point));
@@ -517,6 +524,10 @@
 	},
 );
 
+~nodematrix_cell_clipboard = (
+	sheet: nil,
+);
+
 ~class_nodematrix_panel = (
 	current_row: 0,
 	current_column: 0,
@@ -538,6 +549,27 @@
 	select_column: { arg self, x;
 		self.current_column = x;
 		self.update_selection;
+	},
+
+	select_armed_cell_in_column: { arg self;
+		var armed_cell_y;
+		debug("class_nodematrix_panel: select_armed_cell_in_column");
+		switch(self.parent_node.kind,
+			\seqnode, {
+				armed_cell_y = self.parent_node.playmatrix_manager.arming_matrix[self.current_column];
+				self.current_row = armed_cell_y;
+				self.update_selection;
+			},
+			\parnode, {
+				var ss;
+				ss = self.get_group_node(self.current_column).get_scoreset;
+				if(ss.notNil) {
+					armed_cell_y = ss.get_current_sheet_index;
+					self.current_row = armed_cell_y;
+					self.update_selection;
+				}
+			}
+		);
 	},
 
 	get_selection_point: { arg self;
@@ -569,6 +601,99 @@
 	get_current_player: { arg self;
 		// FIXME: sheet only
 		self.get_group_node(self.current_column);
+	},
+
+	///////////// 
+
+	get_cell_label: { arg self, pos;
+		var label = "NONAME";
+		switch(self.parent_node.kind,
+			\seqnode, {
+				var main = self.get_main;
+				// TODO
+			},
+			\parnode, {
+				var ss;
+				ss = self.get_group_node(pos.x).get_scoreset;
+				if(ss.notNil) {
+					label = ss.get_sheet(pos.y).name
+				};
+				label = label ?? "sheet %".format(pos.y+1);
+			}
+		);
+		label;
+	},
+
+	rename_current_cell: { arg self;
+		switch(self.parent_node.kind,
+			\seqnode, {
+				var main = self.get_main;
+				// TODO
+			},
+			\parnode, {
+				var ss;
+				ss = self.get_group_node(self.current_column).get_scoreset;
+				if(ss.notNil) {
+					~edit_value.(ss.get_current_sheet.name, { arg name;
+						ss.get_current_sheet.name = name;
+						self.changed(\label, self.get_selection_point);
+					}, "Rename cell")
+				}
+			}
+		);
+	},
+
+	copy_cell: { arg self;
+		switch(self.parent_node.kind,
+			\seqnode, {
+				var main = self.get_main;
+				// TODO
+			},
+			\parnode, {
+				var ss;
+				ss = self.get_group_node(self.current_column).get_scoreset;
+				if(ss.notNil) {
+					//~nodematrix_cell_clipboard.sheet = ss.get_current_sheet.deepCopy;
+					// set_sheet already deepCopy sheet
+					~nodematrix_cell_clipboard.sheet = ss.get_current_sheet;
+				}
+			}
+		);
+	},
+
+	cut_cell: { arg self;
+		switch(self.parent_node.kind,
+			\seqnode, {
+				var main = self.get_main;
+				// TODO
+			},
+			\parnode, {
+				var ss;
+				ss = self.get_group_node(self.current_column).get_scoreset;
+				if(ss.notNil) {
+					~nodematrix_cell_clipboard.sheet = ss.get_current_sheet;
+					ss.set_sheet_if_current(self.current_row, ~make_empty_notescore.());
+				}
+			}
+		);
+	},
+
+	paste_cell: { arg self;
+		switch(self.parent_node.kind,
+			\seqnode, {
+				var main = self.get_main;
+				// TODO
+			},
+			\parnode, {
+				var ss;
+				ss = self.get_group_node(self.current_column).get_scoreset;
+				if(ss.notNil) {
+					if(~nodematrix_cell_clipboard.sheet.notNil) {
+						ss.set_sheet_if_current(self.current_row, ~nodematrix_cell_clipboard.sheet);
+					}
+				}
+			}
+		);
 	},
 
 	///////////// playing
@@ -742,6 +867,25 @@
 		self.get_main.commands.parse_action_bindings(\nodematrix, 
 			self.get_main.panels.side.get_windows_bindings ++ [
 
+				[\rename_cell, {
+					self.rename_current_cell;
+				}],
+
+				[\copy_cell, {
+					self.copy_cell;
+				}],
+
+				[\cut_cell, {
+					self.cut_cell;
+				}],
+
+				[\paste_cell, {
+					self.paste_cell;
+				}],
+
+				//////////// selecting
+				
+
 				[\select_variant, 10, { arg i;
 					self.set_parent_node(self.get_main.panels.side.song_manager.change_variant(i))
 				}],
@@ -758,6 +902,8 @@
 				[\select_column, 9, { arg i;
 					if(i > 0) {
 						self.select_column(i-1)
+					} {
+						self.select_armed_cell_in_column;
 					}
 				}],
 

@@ -158,6 +158,33 @@
 		start_offset: 0,
 		end_offset: 0,
 		velocity: 0.8,
+		dur: 0.0
+	),
+	(
+		slotnum: 0,
+		sustain: 0.1,
+		velocity: 0.8,
+		dur: 1.0
+	),
+	(
+		slotnum: 1,
+		sustain: 0.1,
+		velocity: 0.8,
+		dur: 1.0
+	),
+];
+~default_sampleline2 = [ // FIXME: crash when no notes
+	(
+		slotnum: \rest,
+		type: \rest,
+		sustain: 0.1,
+		start_silence: 0.5,
+		default_start_silence: 0.5,
+		end_silence: 2.0,
+		default_end_silence: 2.0,
+		start_offset: 0,
+		end_offset: 0,
+		velocity: 0.8,
 		dur: 0.5
 	),
 	(
@@ -294,7 +321,7 @@
 		book: Dictionary.new,
 		notequant: nil, // used externally to quantify note time
 		abs_start: 0,
-		archive_data: [\abs_start, \abs_end, \notes],
+		archive_data: [\name, \abs_start, \abs_end, \notes],
 		no_first_rest: false,
 
 		sort_func: { arg a, b;
@@ -315,6 +342,10 @@
 				data[key] = self[key]
 			};	
 			data;
+		},
+
+		is_empty: { arg self;
+			self.notes[1].isNil
 		},
 
 		add_note: { arg self, note, abstime, num;
@@ -660,8 +691,10 @@
 		self.notescore.set_notes(~default_noteline3);
 		self.compute_end(true);
 		self.update_notes;
-		self.set_sheet(self.buffer_sheet_index, self.notescore);
-		self.select_sheet(self.buffer_sheet_index);
+		//self.set_sheet(self.buffer_sheet_index, self.notescore);
+		self.set_sheet(0, self.notescore);
+		//self.select_sheet(self.buffer_sheet_index);
+		self.select_sheet(0);
 	},
 
 	save_data: { arg self;
@@ -1358,6 +1391,15 @@
 	set_sheet_only: { arg self, idx, ns;
 		self.sheets[idx] = ns.deepCopy;
 		self.changed(\scoresheet, idx);
+	},
+
+	set_sheet_if_current: { arg self, idx, ns;
+		// set sheet and if current, set notescore
+		if(self.current_sheet == idx) {
+			self.set_current_sheet(ns)
+		} {
+			self.set_sheet_only(idx, ns)
+		}
 	},
 
 	get_current_sheet: { arg self;
