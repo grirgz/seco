@@ -9,6 +9,7 @@
 		param_reject: { arg self; [\out, \instrument, \tsustain, \type, \gate, \agate, \t_trig, \legato, \doneAction] ++ self.param_mode; },
 		param_accepted_displayed_kind: { arg self; self.param_mode ++ [\control, \samplekit, \adsr, \buf]},
 		param_midi_reject: { arg self; Set.newFrom(self.param_reject ++ self.param_no_midi); },
+		group_types: [\parnode, \seqnode],
 
 		// deprecated
 		param_field_group: List[\dur, \segdur, \stretchdur, \repeat],

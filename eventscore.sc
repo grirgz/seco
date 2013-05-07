@@ -201,6 +201,43 @@
 	),
 ];
 
+
+~default_step_scoreline = [
+	(
+		sustain: 0.5,
+		velocity: 0.8,
+		dur: 0.5
+	),
+	(
+		sustain: 0.5,
+		velocity: 0.8,
+		dur: 0.5
+	),
+	(
+		sustain: 0.5,
+		velocity: 0.8,
+		dur: 0.5
+	),
+];
+
+~default_curveline = [ // FIXME: crash when no notes
+	(
+		velocity: 0.5,
+		sustain: 0.1,
+		dur: 0.5
+	),
+	(
+		velocity: 0.8,
+		sustain: 0.1,
+		dur: 1.5
+	),
+	(
+		velocity: 0.0,
+		sustain: 0.1,
+		dur: 1.0
+	),
+];
+
 // TODO: check if default notescore can be modified by notescore class
 ~default_custom_env_notescore = [
 	(
@@ -301,7 +338,7 @@
 };
 
 ~concat_notescores = { arg ns1, ns2;
-	var shift = ns1.abs_end;
+	var shift = ns1.get_end;
 	var res = ns1.deepCopy;
 	var newno;
 	ns2.get_abs_notes.collect { arg no;
@@ -309,10 +346,14 @@
 		newno.time = newno.time + shift;
 		res.notes = res.notes.add(newno);
 	};
-	res.abs_end = shift + ns2.abs_end;
+	res.abs_end = shift + ns2.get_end;
 	res;
 };
 
+
+~double_notescore = { arg score;
+	~concat_notescores.(score, score);
+};
 
 ~make_notescore = { 
 	(

@@ -1523,7 +1523,7 @@
 		},
 
 		set_current_group: { arg self, group;
-			var group_types = [\parnode, \seqnode]; // TODO: define it more globally. add seqnode
+			var group_types = ~class_player_display.param_types.group_types; // TODO: define it more globally. add seqnode
 			var curplayer, curplayer_index;
 			group.uname.debug("side.set_current_group: group");
 			if(group != self.current_group) {
@@ -1538,6 +1538,7 @@
 						true; // no error
 				} {
 					group.kind.debug("Error: node is not a kind of group");
+					false;
 				};
 			};
 		},
@@ -1619,7 +1620,7 @@
 			oldgroup = self.get_current_group.uname;
 			res = self.set_current_group(group);
 			self.group_path.debug("group_path");
-			if(res.notNil) {
+			if(res == true) {
 				self.group_path.add(oldgroup);
 			}
 		},

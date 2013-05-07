@@ -157,6 +157,15 @@
 		["cut_notes", \kb, \ctrl, "x"],
 		["paste_notes", \kb, \ctrl, "v"],
 		["paste_notes_in_place", \kb, \ctrlalt, "v"],
+		["duplicate_score", \kb, \ctrl, "d"],
+	],
+	track_curve: [
+		["remove_notes", \kb, 0, \delete],
+		["copy_notes", \kb, \ctrl, "c"],
+		["cut_notes", \kb, \ctrl, "x"],
+		["paste_notes", \kb, \ctrl, "v"],
+		["paste_notes_in_place", \kb, \ctrlalt, "v"],
+		["duplicate_score", \kb, \ctrl, "d"],
 	],
 	track_custom_env: 
 		~common_bindings.grid_display ++

@@ -1253,7 +1253,7 @@
 		///////// building effects patterns
 		"%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% update_modulation_pattern: START".debug;
 
-		source_pattern = self.source_pattern ?? source_pattern;
+		source_pattern = source_pattern ?? self.source_pattern;
 		self.source_pattern = source_pattern;
 
 		effect_list = mainplayer.effects.effect_list.reject({ arg ef; 

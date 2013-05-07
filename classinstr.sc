@@ -301,6 +301,7 @@
 		onoff: ControlSpec(0, 1, \lin, 1, 1),
 		velocity: \unipolar.asSpec,
 		ktr: \unipolar.asSpec,
+		unipolarexp: ControlSpec(0.0005, 1, \exp, 0, 1),
 		pitch: ControlSpec(-64,64, \lin, 0, 0, "midi"),
 		rate: \widefreq.asSpec,
 		bufrate: ControlSpec(-16,16, \lin, 0, 1, ""),
@@ -309,7 +310,7 @@
 		boost: ControlSpec(-500, 100, 'lin', 0, 0),
 		amp: ControlSpec(0, 1, 'amp', 0, 0.1, ""),
 		wideamp: ControlSpec(0, 6, 'amp', 0, 0.1, ""),
-		crush: ControlSpec(1, 31, 'lin', 1, 1, ""),
+		crush: ControlSpec(1, 31, 'lin', 0, 1, ""),
 		smalldelay: ControlSpec(0, 0.02, 'lin', 0, 0.001, ""),
 		envamp: ControlSpec(0, 1, 'amp', 0, 1, ""),
 	),
@@ -991,6 +992,18 @@
 				uname: \bitcrusher,
 				args: ["Wet/Dry", "Crush"],
 				specs: [\unipolar, specs[\crush]]
+			),
+			(
+				name: "Decimator",
+				uname: \decimator,
+				args: ["Wet/Dry", "Samplerate", "Bit depth"],
+				specs: [\unipolar, specs[\unipolarexp], specs[\crush]],
+			),
+			(
+				name: "Smooth Decimator",
+				uname: \smoothdecimator,
+				args: ["Wet/Dry", "Samplerate", "Smoothing"],
+				specs: [\unipolar, specs[\unipolarexp], \unipolar],
 			),
 			(
 				name: "Filter",
@@ -4122,7 +4135,7 @@ Instr(\ci_filter, { arg in, kind, arg1, arg2, arg3, freq;
 
 /////////// insert effects
 
-Instr(\ci_insertfx, { arg kind, in, arg1, arg2, ktr;
+Instr(\ci_insertfx, { arg kind, in, arg1, arg2, arg3, ktr;
 	var sig;
 	//kind.debug("p_effect: kind");
 	sig = switch(kind,
@@ -4137,6 +4150,12 @@ Instr(\ci_insertfx, { arg kind, in, arg1, arg2, ktr;
 		},
 		\bitcrusher, {
 			Instr(\p_bitcrusher).value((in:in, mix: arg1, crush:arg2));
+		},
+		\decimator, {
+			Instr(\p_decimator).value((in:in, mix: arg1, samplerate:arg2, bitdepth:arg3));
+		},
+		\smoothdecimator, {
+			Instr(\p_smoothdecimator).value((in:in, mix: arg1, samplerate:arg2, smooth:arg3));
 		},
 		\simplefilter, {
 			Instr(\p_simplefilter).value((in:in, hpfreq:arg1, lpfreq:arg2, ktr:ktr));
@@ -4185,6 +4204,18 @@ Instr(\p_samplehold, { arg in, mix, pitch, ktr=0;
 Instr(\p_bitcrusher, { arg in, mix, crush;
 	var sig;
 	sig = Decimator.ar(in, SampleRate.ir*(crush/31), crush);
+	SelectX.ar(mix, [in, sig]);
+}, [\audio]);
+
+Instr(\p_decimator, { arg in, mix, samplerate, bitdepth;
+	var sig;
+	sig = Decimator.ar(in, SampleRate.ir * samplerate, bitdepth * 32);
+	SelectX.ar(mix, [in, sig]);
+}, [\audio]);
+
+Instr(\p_smoothdecimator, { arg in, mix, samplerate, smooth;
+	var sig;
+	sig = Decimator.ar(in, SampleRate.ir * samplerate, smooth);
 	SelectX.ar(mix, [in, sig]);
 }, [\audio]);
 

@@ -111,6 +111,11 @@ Mdef.main.samplekit_manager.parse_samplekit_dir("~/Musique/hydrogenkits/");
 )
 
 
+"~/code/sc/seco/classinstr.sc".standardizePath.load
+0.04*32
+1/32
+
+
 Platform.resourceDir
 
 Set.newFrom(["bla", "bla"])
@@ -233,6 +238,8 @@ TempoClock.default.tempo = 2
 
 
 Mdef.node_by_index(0).build_real_sourcepat
+Mdef.node_by_index(0).wrapper
+Pwhite
 
 Mdef.main.commands.commands.keys
 
@@ -251,3 +258,8 @@ Mdef.main.commands.commands.keys
 ~resp
 )
 
+
+
+a = ~make_seqplayer.(Mdef.main)
+a.get_displayable_args
+a.update_ordered_args

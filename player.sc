@@ -1280,7 +1280,8 @@
 		notescore.set_notes(notes);
 		notescore.no_first_rest = true;
 		notescore.set_end(16);
-		self.get_arg(\noteline).get_scoreset.set_notescore(notescore);
+		//self.get_arg(\noteline).get_scoreset.set_notescore(notescore);
+		self.get_arg(\noteline).get_scoreset.set_current_sheet(notescore);
 		self.get_arg(\val).set_notes(notescore.get_rel_notes);
 		self.data[\firstsynth] = nil;
 		self.data[\firstval] = nil;
@@ -2128,6 +2129,7 @@
 			self.data[\repeat] = self.data[\repeat] ?? ~make_control_param.(main, self, \repeat, \scalar, 1, ~get_spec.(\repeat));
 			self.data[\amp] = self.data[\amp] ?? ~make_control_param.(main, self, \amp, \scalar, 1, ~get_spec.(\amp)); // dummy param FTM
 			self.get_arg(\repeat).get_val.debug("init repeat.get_val");
+			self.update_ordered_args;
 		},
 
 		get_piano: { arg self;
