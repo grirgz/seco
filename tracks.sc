@@ -3350,7 +3350,7 @@
 				{ node.get_mode == \scoreline } {
 					node.get_args.do { arg argname;
 						var param = node.get_arg(argname);
-						if(param.name == \t_trig) {
+						if(param.name == \t_gtrig) {
 							track = ~class_step_track_controller.new(node, self.display); // FIXME: use name or label, abs_label ?
 							res.add(track);
 						};

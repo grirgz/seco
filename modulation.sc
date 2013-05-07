@@ -121,8 +121,18 @@
 				[self.val_label, align:\center],
 
 			self.range_layout = HLayout(
-					self.range_low = TextField.new; self.range_low,
-					self.range_high = TextField.new; self.range_high,
+					self.range_low = TextField.new
+						.action_({ arg field;
+							self.modmixer_ctrl.set_range(
+								self.modmixer_ctrl.selected_slot, 
+								self.param_ctrl.spec.unmap(self.range_high.value.asFloat) 
+									- self.param_ctrl.spec.unmap(self.range_low.value.asFloat)
+							);
+						});
+						self.range_low,
+					self.range_high = TextField.new
+						.action_( self.range_low.action ); 
+						self.range_high,
 				);
 				self.range_layout,
 
@@ -246,29 +256,36 @@
 			\player
 		]);
 
-		~make_class_responder.(self, self.param_group.layout, self.modulation_ctrl, [
-			\modulator
-		]);
+		//~make_class_responder.(self, self.param_group.layout, self.modulation_ctrl, [
+		//	\modulator
+		//]);
 		~make_class_responder.(self, self.param_group.layout, self.player_display.parent_modulation_ctrl, [
 			\selected_slot
 		]);
 		self;
 	},
 
+	//selected_slot: { arg self;
+	//	var nodename;
+	//	self.modulation_ctrl.selected_slot.debug("class_modulator_body_basic: selected_slot: mod: selected_slot");
+	//	self.modulation_ctrl.get_modulator_node(self.modulation_ctrl.selected_slot).uname
+	//		.debug("class_modulator_body_basic:selected_slot: modnode name");
+	//	//self.set_controller(self.modulation_ctrl.get_modulator_node(self.player_display.selected_slot));
+	//	self.show_body_layout;
+	//},
+
 	selected_slot: { arg self;
-		var nodename;
 		self.modulation_ctrl.selected_slot.debug("class_modulator_body_basic: selected_slot: mod: selected_slot");
-		self.modulation_ctrl.get_modulator_node(self.modulation_ctrl.selected_slot).uname.debug("selected_slot: modnode name");
-		//self.set_controller(self.modulation_ctrl.get_modulator_node(self.player_display.selected_slot));
-		self.show_body_layout;
+		self.player_display.set_keydown_responder(\modulator);
 	},
 
-	modulator: { arg self;
-		self.modulation_ctrl.selected_slot.debug("class_modulator_body_basic: modulator: selected_slot");
-		self.modulation_ctrl.get_modulator_node(self.modulation_ctrl.selected_slot).uname.debug("modulator: modnode name");
-		//self.set_controller(self.modulation_ctrl.get_modulator_node(self.player_display.selected_slot));
-		self.show_body_layout;
-	},
+	//modulator: { arg self;
+	//	self.modulation_ctrl.selected_slot.debug("class_modulator_body_basic: modulator: selected_slot");
+	//	self.modulation_ctrl.get_modulator_node(self.modulation_ctrl.selected_slot).uname
+	//		.debug("class_modulator_body_basic:modulator: modnode name");
+	//	//self.set_controller(self.modulation_ctrl.get_modulator_node(self.player_display.selected_slot));
+	//	self.show_body_layout;
+	//},
 
 	//set_controller: { arg self, player;
 	//	self.get_controller = { player };
@@ -289,6 +306,10 @@
 	//},
 
 	player: { arg self;
+		self.show_body_layout;
+	},
+
+	update_param_group: { arg self;
 		var player = self.player_display.get_current_player;
 		self.get_controller = { player };
 		self.param_group.paramview_list.do { arg view, idx;
@@ -318,7 +339,8 @@
 		Task{
 			var extlayout;
 			self.player_display.get_current_player.uname.debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: curplayer");
-			self.player_display.set_keydown_responder(\modulator);
+			//self.player_display.set_keydown_responder(\modulator);
+			//self.player_display.binding_responder.get_kb_responder(\modulator);
 			//0.1.wait;
 			if(extplayer.notNil and: { self.show_custom_view }) {
 				// FIXME: external player should have custom gui
@@ -339,6 +361,7 @@
 				debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: after view cusheader");
 				debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: last view cusheader");
 			} {
+				self.update_param_group;
 				self.stack_layout.index = 0;
 			}
 		}.play(AppClock)
@@ -403,7 +426,15 @@
 		self.tab_buttons.do { arg butlay, idx;
 			idx.debug("class_modulation_view: selected_slot");
 			butlay[1].states_([
-				[self.controller.get_modulator_name_from_source_slot(idx) ?? "-", Color.black, if(self.controller.is_slot_selected(idx)) { Color.gray } { Color.white }]
+				[
+					self.controller.get_modulator_name_from_source_slot(idx) ?? "-",
+					Color.black,
+					if(self.controller.is_slot_selected(idx)) { 
+						Color.gray
+					} {
+						Color.white
+					}
+				]
 			]);
 			//0.3.wait;
 		};
@@ -498,7 +529,8 @@
 	},
 
 	show_body_layout: { arg self;
-		//self.body_stack_layout.index = 4;
+		// this method is overriden by classinstr embeded modview 
+		//	to switch the stacklayout to the modview
 	},
 
 	make_gui: { arg self;
@@ -515,9 +547,17 @@
 	selected_slot: { arg self;
 		self.show_body_layout;
 		self.tab_buttons.do { arg butlay, idx;
-			idx.debug("class_modulation_view: selected_slot");
+			idx.debug("class_embeded_modulation_view: selected_slot: refresh button state: idx");
 			butlay[1].states_([
-				[self.controller.get_modulator_name_from_source_slot(idx) ?? "-", Color.black, if(self.controller.is_slot_selected(idx)) { Color.gray } { Color.white }]
+				[
+					self.controller.get_modulator_name_from_source_slot(idx) ?? "-",
+					Color.black,
+					if(self.controller.is_slot_selected(idx)) { 
+						Color.gray
+					} {
+						Color.white
+					}
+				]
 			]);
 			//0.3.wait;
 		};
@@ -613,17 +653,21 @@
 
 	make_gui: { arg self;
 		Task({
+			debug("class_modulation_controller.make_gui");
 			self.make_bindings;
 			self.main_view = ~class_modulation_view.new(self);
 			self.window = self.main_view.window;
-			self.window.view.toFrontAction = { self.make_bindings };
-			self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\modulator);
+			self.changed(\player);
+			//self.window.view.toFrontAction = { self.make_bindings };
+			//self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\modulator);
+			self.window.view.keyDownAction = self.binding_responder.get_kb_responder(\modulator);
 		}).play(AppClock);
 	},
 
 	make_bindings: { arg self;
 
-		self.get_main.commands.parse_action_bindings(\modulator, 
+		//self.get_main.commands.parse_action_bindings(\modulator, 
+		self.binding_responder = self.get_main.commands.make_binding_responder(\modulator, 
 
 			self.get_main.panels.side.get_shared_bindings ++
 			self.get_main.panels.side.get_windows_bindings ++ [
@@ -716,11 +760,9 @@
 
 			[\change_modulator_mode, {
 				var player = self.get_current_player;
-				if(self.param_types.param_mode.includes(self.get_selected_param.name).not) {
-					~class_player_mode_chooser.new(self.get_main, { arg sel;
-						player.set_mode(sel);
-					})
-				}
+				~class_player_mode_chooser.new(self.get_main, { arg sel;
+					player.set_mode(sel);
+				})
 			}],
 
 			[\change_modulated_param_kind, {
@@ -737,6 +779,7 @@
 				if(player.notNil and: {player.uname != \voidplayer}) {
 					~class_symbol_chooser.new(self.get_main, [\note,\pattern], { arg kind;
 						player.modulation.set_mod_kind(kind);
+						self.player_ctrl.build_real_sourcepat;// FIXME: should be inside set_mod_kind
 					}, player.modulation.mod_kind)
 				}
 			}],
@@ -797,103 +840,6 @@
 	}).add;
 	sdname;
 };
-
-~class_effect_manager = (
-	effect_list: nil,
-	effects_number: 5,
-	selected_slot: 0,
-	archive_data: [\effect_list, \selected_slot],
-
-	new: { arg self, player;
-		self = self.deepCopy;
-		self.get_player = { arg self; player };
-		self.effect_list = List.newClear(self.effects_number);
-
-		self;	
-	},
-
-	save_data: { arg self, options;
-		var data = ();
-		self.archive_data.do { arg key;
-			data[key] = self[key];
-		};
-		if(options.notNil) {
-			if(options[\copy_subplayers] == true) {
-				data[\effect_list] = data[\effect_list].collect { arg nodename;
-					if(nodename.notNil and: { nodename != \voidplayer }) {
-						self.get_player.get_main.get_node(nodename).save_data(options);
-					} {
-						nil
-					}
-				}
-			};
-		};
-		data;
-	},
-
-	update_modulation_pattern: { arg self;
-		self.get_player.modulation.update_modulation_pattern;
-	},
-
-	load_data: { arg self, data, options;
-		var main;
-		main = self.get_player.get_main;
-		self.archive_data.do { arg key;
-			self[key] = data[key];
-		};
-		if(options.notNil) {
-			if(options[\copy_subplayers] == true) {
-				self[\effect_list] = self[\effect_list].collect { arg nodedata;
-					var nodename;
-					var defname;
-					var node;
-					if(nodedata.notNil) {
-						// FIXME: can use clone instead, no ?
-						nodename = main.node_manager.make_livenode_from_libmodnode(nodedata.instrname);
-						node = main.get_node(nodename);
-						defname = node.defname;
-						node.load_data(nodedata);
-						node.uname = nodename;
-						node.name = nodename;
-						node.defname = defname;
-
-						nodename
-					} {
-						nil
-					}
-				}
-			};
-		};
-	
-	},
-
-	select_slot: { arg self, slotidx;
-		self.selected_slot = slotidx;
-		self.changed(\selected_slot);
-	},
-
-	set_effect: { arg self, idx, effect_node_name;
-		self.effect_list[idx] = effect_node_name;
-		self.update_modulation_pattern;
-	},
-
-	get_effect: { arg self, idx;
-		self.effect_list[idx]
-	},
-
-	swap_effect: { arg self, idx_source, idx_dest;
-		//var tmp = self.effect_list.removeAt(idx_source);
-		//self.effect_list.insert(idx_dest, tmp);
-		self.effect_list.swap(idx_source, idx_dest);
-		self.update_modulation_pattern;
-	},
-
-	vpattern: { arg self;
-		
-	
-	}
-
-);
 
 ~class_modulation_mixer_controller = (
 	offset: 0,
@@ -1064,7 +1010,8 @@
 	set_mod_kind: { arg self, kind;
 		if(kind != self.mod_kind) {
 			self.mod_kind = kind;
-			self.update_modulation_pattern;
+			//self.update_modulation_pattern;
+			//self.player.build_real_sourcepat; // FIXME: why not just update modulation pattern ?
 			self.changed(\mod_kind)
 		}
 	},
@@ -2079,7 +2026,7 @@
 			Task{
 				var extlayout;
 				debug("class_effect_body_custom_view: show_body_layout");
-				self.player_display.set_keydown_responder(\effects);
+				//self.player_display.set_keydown_responder(\effects); // already set in classinstr or in make_gui
 				debug("class_effect_body_custom_view: show_body_layout1");
 
 				if(extplayer.notNil and: { self.show_custom_view }) {
@@ -2202,6 +2149,7 @@
 
 		self.model.param_no_midi = self.param_types.param_no_midi;
 	
+		self.make_bindings;
 		//self.make_gui;
 		self.select_slot(self.selected_slot);
 	
@@ -2271,10 +2219,11 @@
 
 	make_gui: { arg self;
 		Task({
-			self.make_bindings;
 			self.main_view = ~class_effects_view.new(self);
 			self.window = self.main_view.make_window;
+			debug("hein ?");
 			self.window.view.keyDownAction = self.binding_responder.get_kb_responder(\effects);
+			//self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\effects);
 		}).play(AppClock);
 	},
 
@@ -2282,6 +2231,7 @@
 		debug("class_effects_controller.make_bindings");
 
 		self.binding_responder = self.get_main.commands.make_binding_responder(\effects, 
+		//self.get_main.commands.parse_action_bindings(\effects, 
 			self.get_main.panels.side.get_shared_bindings ++
 			self.get_main.panels.side.get_windows_bindings ++ [
 
@@ -2417,4 +2367,106 @@
 		self.layout = self.main_view.layout;
 	},
 
-)
+);
+
+// ===========================================
+// EFFECTS MANAGERS (associated to players)
+// ===========================================
+
+
+~class_effect_manager = (
+	effect_list: nil,
+	effects_number: 5,
+	selected_slot: 0,
+	archive_data: [\effect_list, \selected_slot],
+
+	new: { arg self, player;
+		self = self.deepCopy;
+		self.get_player = { arg self; player };
+		self.effect_list = List.newClear(self.effects_number);
+
+		self;	
+	},
+
+	save_data: { arg self, options;
+		var data = ();
+		self.archive_data.do { arg key;
+			data[key] = self[key];
+		};
+		if(options.notNil) {
+			if(options[\copy_subplayers] == true) {
+				data[\effect_list] = data[\effect_list].collect { arg nodename;
+					if(nodename.notNil and: { nodename != \voidplayer }) {
+						self.get_player.get_main.get_node(nodename).save_data(options);
+					} {
+						nil
+					}
+				}
+			};
+		};
+		data;
+	},
+
+	update_modulation_pattern: { arg self;
+		self.get_player.modulation.update_modulation_pattern;
+	},
+
+	load_data: { arg self, data, options;
+		var main;
+		main = self.get_player.get_main;
+		self.archive_data.do { arg key;
+			self[key] = data[key];
+		};
+		if(options.notNil) {
+			if(options[\copy_subplayers] == true) {
+				self[\effect_list] = self[\effect_list].collect { arg nodedata;
+					var nodename;
+					var defname;
+					var node;
+					if(nodedata.notNil) {
+						// FIXME: can use clone instead, no ?
+						nodename = main.node_manager.make_livenode_from_libmodnode(nodedata.instrname);
+						node = main.get_node(nodename);
+						defname = node.defname;
+						node.load_data(nodedata);
+						node.uname = nodename;
+						node.name = nodename;
+						node.defname = defname;
+
+						nodename
+					} {
+						nil
+					}
+				}
+			};
+		};
+	
+	},
+
+	select_slot: { arg self, slotidx;
+		self.selected_slot = slotidx;
+		self.changed(\selected_slot);
+	},
+
+	set_effect: { arg self, idx, effect_node_name;
+		self.effect_list[idx] = effect_node_name;
+		self.update_modulation_pattern;
+	},
+
+	get_effect: { arg self, idx;
+		self.effect_list[idx]
+	},
+
+	swap_effect: { arg self, idx_source, idx_dest;
+		//var tmp = self.effect_list.removeAt(idx_source);
+		//self.effect_list.insert(idx_dest, tmp);
+		self.effect_list.swap(idx_source, idx_dest);
+		self.update_modulation_pattern;
+	},
+
+	vpattern: { arg self;
+		
+	
+	}
+
+);

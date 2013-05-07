@@ -323,6 +323,7 @@
 		abs_start: 0,
 		archive_data: [\name, \abs_start, \abs_end, \notes],
 		no_first_rest: false,
+		//remove_first_rest_if_not_needed: false,
 
 		sort_func: { arg a, b;
 			a.time < b.time;
@@ -492,6 +493,7 @@
 
 		get_rel_notes: { arg self, start=0, dur=nil;
 			var notes, last, end;
+			var rest_note;
 			start = self.abs_start + start;
 			end = if(dur.isNil) {
 				if(self.abs_end.isNil) {
@@ -509,13 +511,21 @@
 				no.time >= start and: { no.time < end }
 			};
 			if(self.no_first_rest.not) {
-				notes = [(
-					midinote: \rest,
-					type: \rest,
-					slotnum: \rest,
-					sustain: 0,
-					time: start // FIXME: why time=start ? c'est sensé etre la premiere note
-				)] ++ notes;
+				rest_note = [
+					(
+						midinote: \rest,
+						type: \rest,
+						slotnum: \rest,
+						sustain: 0,
+						time: start // FIXME: why time=start ? c'est sensé etre la premiere note
+					);
+				];
+				//if(self.remove_first_rest_if_not_needed) {
+				//	if(notes[0].time == start) {
+				//		rest_note = [];
+				//	};
+				//}; 
+				notes = rest_note ++ notes;
 			};
 			notes = ~event_abs_to_rel.(notes);
 			last = notes.last;

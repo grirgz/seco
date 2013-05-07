@@ -565,6 +565,7 @@ if(~silent_audio2_bus.isNil) {
 			is_stop_using_quant: true,
 
 		),
+		archive_modules: [\play_manager, \midi_bindings_manager],
 
 		commands: ~shortcut,
 
@@ -797,7 +798,11 @@ if(~silent_audio2_bus.isNil) {
 
 			proj.volume = s.volume.volume;
 
-			proj.play_manager = main.play_manager.save_data;
+			self.archive_modules.do { arg module;
+				if(main[module].notNil) {
+					proj[module] = main[module].save_data;
+				}
+			};
 
 			proj.panels = ();
 			//proj.panels.parlive = self.panels.parlive.save_data; // deprecated
@@ -834,7 +839,12 @@ if(~silent_audio2_bus.isNil) {
 				self.model.samplelist = proj.samplelist;
 				s.volume.volume = proj.volume;
 
-				main.play_manager.load_data(proj.play_manager);
+
+				self.archive_modules.do { arg module;
+					if(proj[module].notNil) {
+						main[module].load_data(proj[module]);
+					}
+				};
 
 				self.model.project_path = projpath;
 

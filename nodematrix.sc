@@ -352,7 +352,7 @@
 		var midiman = self.nodematrix_controller.get_main.midi_bindings_manager;
 		var controllers;
 		if(self.kind == \knob) { // FIXME: hardcoded midi kind
-			debug("class_nodematrix_knob_row:selection");
+			debug("class_nodematrix_knob_row.midi_player");
 			controllers = midiman.get_controllers_of_midi_kind(self.kind);
 			self.set_controllers(controllers);
 		}
@@ -364,7 +364,7 @@
 		var controllers;
 		if(self.kind == \slider) {
 
-			debug("class_nodematrix_knob_row:selection");
+			debug("class_nodematrix_knob_row.midi_group");
 			controllers = midiman.get_controllers_of_midi_kind(self.kind);
 			self.set_controllers(controllers);
 		}
@@ -866,6 +866,10 @@
 		//self.get_main.show_panel(\nodematrix);
 		self.get_main.commands.parse_action_bindings(\nodematrix, 
 			self.get_main.panels.side.get_windows_bindings ++ [
+
+				
+
+				//////////// managing cells
 
 				[\rename_cell, {
 					self.rename_current_cell;

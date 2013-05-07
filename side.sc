@@ -1740,6 +1740,17 @@
 			var edit_knob_cc = [\knob, 8];
 
 			[
+
+				["set_midi_binding_mode.global", {
+					var binman = main.midi_bindings_manager;
+					binman.set_binding_mode(\global);
+				}],
+
+				["set_midi_binding_mode.player", {
+					var binman = main.midi_bindings_manager;
+					binman.set_binding_mode(\player);
+				}],
+
 				[\edit_master_volume, {
 					~make_master_volume_edit_view.(main, [\slider, 8]);
 				}],
@@ -1892,10 +1903,10 @@
 
 				[\edit_modulator, 
 					// TODO: rename binding_edit_modulator
-					self.edit_modulator_callback = {
-						var player = self.get_current_player;
-						var param = self.get_selected_param;
-						param.debug("edit_modulator PARAM");
+					self.edit_modulator_callback = { arg player, param;
+						player = player ?? self.get_current_player;
+						param = param ?? self.get_selected_param;
+						debug("side: get_windows_bindings: edit_modulator PARAM");
 						if(param.notNil) {
 							if(param.classtype == \control) {
 								make_window.(\modulation_controller, 
@@ -1997,6 +2008,18 @@
 					}
 				}],
 
+				[\assign_global_midi_knob, 
+					self.binding_assign_global_midi_knob = { arg node, param;
+						node = node ?? { self.get_current_player };
+						param = param ?? { self.get_selected_param };
+						if(param.classtype == \control) {
+							~class_midi_global_binder.new(main, {}, node, param);
+						}
+					};
+					self[\binding_assign_global_midi_knob]
+				],
+
+
 				[\assign_midi_knob, 
 					self.binding_assign_midi_knob = { arg param;
 						param = param ?? { self.get_selected_param };
@@ -2013,7 +2036,7 @@
 						}
 
 					};
-					self.binding_assign_midi_knob
+					self[\binding_assign_midi_knob]
 				],
 
 				[\add_modenv, {

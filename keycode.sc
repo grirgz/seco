@@ -599,12 +599,12 @@
 		}
 	},
 
-//~rah = MultiLevelIdentityDictionary.new;
-//~rah[\bla,\niak] = 4
-//~rah[\bla,\rah,\goui] = 4
-//~rah.leafDoFrom([\bla], { arg x, y; [x,y].postcs });
-//~rah[\bla,\niak].nodeType
-//~rah[\bla,\rah,\goui].class
+	//~rah = MultiLevelIdentityDictionary.new;
+	//~rah[\bla,\niak] = 4
+	//~rah[\bla,\rah,\goui] = 4
+	//~rah.leafDoFrom([\bla], { arg x, y; [x,y].postcs });
+	//~rah[\bla,\niak].nodeType
+	//~rah[\bla,\rah,\goui].class
 
 	overload_mode: { arg self, path;
 		var restorefun=nil;
@@ -677,7 +677,7 @@
 	make_binding_responder: { arg self, panel, actions;
 		var sel;
 		sel = self.deepCopy;
-		sel.parse_action_bindings.(panel, actions);
+		sel.parse_action_bindings(panel, actions);
 		sel;
 	},
 
@@ -725,7 +725,7 @@
 		self.paramToCcpath[param] = ccpath;
 		if(oldparam.notNil && (oldparam != param)) {
 			self.paramToCcpath[oldparam] = nil;
-			self.get_param_binded_ccpath(oldparam).debug("ce n'est point possible");
+			self.get_param_binded_ccpath(oldparam).debug("ce n'est point possible: doit etre nil");
 			oldparam.name.debug("refreshing oldparam");
 			oldparam.midi.refresh;
 		};
@@ -745,6 +745,27 @@
 			param.midi.set_val(val);
 		};
 		"I---I end bind_param".debug;
+	},
+
+	unbind_ccpath: { arg self, ccpath;
+		
+		var panel = \midi;
+		var oldparam;
+		var oldccpath;
+		var param;
+		if(self.midi_handler[panel].isNil) { self.midi_handler[panel] = Dictionary.new };
+
+		param = self.ccpathToParam[ccpath];
+
+		self.ccpathToParam[ccpath] = nil;
+		self.midi_handler[panel][ccpath] = { arg val; 
+			// remove old handler
+		};
+		if(param.notNil) {
+			self.paramToCcpath[param] = nil;
+			param.midi.refresh;
+		};
+		
 	},
 
 	get_param_binded_ccpath: { arg self, param;
@@ -798,7 +819,6 @@
 		shortcut = shortcut.deepCopy;
 		if(self.commands[panel].notNil) {
 			self.commands[panel][shortcut].debug("shortcut of path called");
-			//self.commands[panel].debug("commands[panel]");
 			fun = self.kb_handler[panel][shortcut];
 			
 			//[fun, fun.def, fun.def.sourceCode].debug("function");
@@ -808,7 +828,7 @@
 				fun.value(ctrl); 1
 			})
 		} {
-			panel.debug("ERROR: bindings of panel are not defined");
+			panel.debug("ERROR: bindings actions of panel are not defined");
 		};
 	}
 

@@ -219,28 +219,6 @@ SynthDef(\plop, { arg out=0, amp=0.1, gate=1, pan=0, freq=200, tsustain, t_trig=
 }).add;
 )
 
-(
-SynthDef(\gater, { arg out=0, amp=1, gate=1, tesustain=0.1, t_trig=1;
-	var ou;
-	var tsustain = tesustain;
-	//t_trig = Impulse.kr(1);
-	ou = Trig.kr(t_trig,tsustain) * amp - 0.1;
-	//ou.poll;
-	Out.kr(out, ou);
-}).add;
-)
-
-
-(
-SynthDef(\gated_asr, { arg out=0, amp=1, gate=1, attack=0.1, release=0.1, envgate=1;
-	var ou;
-	envgate.poll;
-	ou = EnvGen.ar(Env.asr(attack,1,release),envgate,doneAction:0) * amp;
-	Out.kr(out, ou);
-}, metadata:(specs:(
-	envgate: ControlSpec(0,1,\lin, 0, 1)
-))).add;
-)
 
 (
  Pmono(\plop,
@@ -254,4 +232,22 @@ SynthDef(\gated_asr, { arg out=0, amp=1, gate=1, attack=0.1, release=0.1, envgat
 TempoClock.default.tempo = 2
 
 
-Mdef.node_by_index(1).build_real_sourcepat
+Mdef.node_by_index(0).build_real_sourcepat
+
+Mdef.main.commands.commands.keys
+
+
+(
+
+~resp = Mdef.main.commands.make_binding_responder(\bla, 
+	[\test, {
+		"TEST".postln;
+
+	} ]
+
+);
+
+~kbresp = ~resp.get_kb_responder(\bla)
+~resp
+)
+

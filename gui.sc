@@ -48,6 +48,7 @@
 				knob.action_({ 
 					self.controller.set_norm_val(knob.value)
 				});
+				knob.mode = \horiz;
 				knob.asView.debug("VIEW");
 				knob.asView.minSize_(10@10);
 				[knob.asView, stretch: 0, align:\center],
@@ -105,6 +106,23 @@
 		self;
 	},
 
+	make_responders: { arg self;
+		self.ctrl_responder.remove;
+		self.mixer_responder.remove;
+		if(self.controller.notNil and: { self.responder_anchor.notNil }) {
+
+			self.ctrl_responder = ~make_class_responder.(self, self.responder_anchor, self.controller, [
+				\midi_val, \val, \label,
+			]);
+
+			self.mixer_responder = ~make_class_responder.(self, self.responder_anchor, self.modmixer, [
+				\range, \connection
+			]);
+
+		};
+		
+	},
+
 	////////// responders
 
 	val: { arg self;
@@ -123,9 +141,16 @@
 	},
 
 	label: { arg self;
-		self.controller.label.debug("class_ci_modknob_view: LABEL");
-		self.controller.name.debug("class_ci_modknob_view: LABEL2");
-		self.namelabel.string = self.controller.label ?? self.controller.name;
+		(self.controller.isNil).debug("class_ci_modknob_view.label: controller.isnil ?");
+		if(self.controller.isNil) {
+			if(self.namelabel.notNil) {
+				self.namelabel.string = "";
+			}
+		} {
+			self.controller.label.debug("class_ci_modknob_view: LABEL");
+			self.controller.name.debug("class_ci_modknob_view: LABEL2");
+			self.namelabel.string = self.controller.label ?? self.controller.name;
+		}
 	},
 
 	range: { arg self, obj, msg, idx;
@@ -169,10 +194,13 @@
 
 	set_controller: { arg self, controller;
 		var modmixer;
+		(controller.isNil).debug("class_ci_modknob_view.set_controller: isnil ?");
 		self.controller = { controller };
 		if(self.controller.notNil) {
 			modmixer = self.controller.get_player.modulation.get_modulation_mixer(self.controller.name);
 			self.modmixer = { modmixer };
+		} {
+			self.label;
 		};
 		self.make_responders;
 	},
@@ -241,23 +269,6 @@
 		).margins_(1).spacing_(0)
 	},
 
-	make_responders: { arg self;
-		if(self.controller.notNil and: { self.responder_anchor.notNil }) {
-
-			self.ctrl_responder.remove;
-			self.ctrl_responder = ~make_class_responder.(self, self.responder_anchor, self.controller, [
-				\midi_val, \val, \label,
-			]);
-
-			self.mixer_responder.remove;
-			self.mixer_responder = ~make_class_responder.(self, self.responder_anchor, self.modmixer, [
-				\range, \connection
-			]);
-
-		};
-		
-	},
-
 	make_gui: { arg self;
 		var label;
 		var knob;
@@ -298,6 +309,7 @@
 		knob.mouse_edit_pixel_range = 2000;
 		knob.focusGainedAction = { arg me;
 			me.background = Color.gray(0.6);
+			self.controller.name.debug("set global_controller");
 			~global_controller.current_param = self.controller;
 		};
 

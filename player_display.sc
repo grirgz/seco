@@ -72,7 +72,12 @@
 
 	set_keydown_responder: { arg self, key;
 		if(self.window.notNil) {
-			self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(key, self);
+			self.window.view.keyDownAction = if(self.binding_responder.notNil) {
+				key.debug("set_keydown_responder:using binding_responder");
+				self.binding_responder.get_kb_responder(key);
+			} {
+				self.get_main.commands.get_kb_responder(key, self);
+			};
 		} {
 			debug("Cant set keydown responder: window is nil")
 		}

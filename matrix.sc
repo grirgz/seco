@@ -56,7 +56,7 @@
 				ps_col_layout.background = ~editplayer_color_scheme.control;
 
 				col.do { arg label;
-					if(controller[\data_to_string].notNil) { // backward compat
+					if(controller[\data_to_string].notNil) { // the if is for backward compat
 						label = controller.data_to_string(label)
 					};
 					~make_matrix_cell.(ps_col_layout, label);
@@ -409,7 +409,7 @@
 		self;
 	},
 
-	selected: { arg self, sel, win, address;
+	selected: { arg self, sel, win, address; // FIXME: need to be updated to new api
 		//sel.dump.debug("selected");
 		if(sel != "" and: {self.oldsel == sel}) {
 			self[\action].(sel);
@@ -479,6 +479,58 @@
 		self.set_datalist(self.my_datalist);
 		self.show_window;
 		self;
+	},
+
+);
+
+~class_midi_global_binder = (
+
+	parent: ~class_matrix_chooser,
+	my_datalist: [
+		\stepline,
+		\noteline,
+		\scoreline,
+		\sampleline,
+	],
+	new: { arg self, main, action, node, param;
+		var datalist;
+		var binman;
+		self = self.parent[\new].(self, action, "Choose kind");
+
+		self.get_main = { arg self; main };
+		self.get_node = { node };
+		self.get_param = { param };
+		binman = main.midi_bindings_manager;
+		debug("class_midi_global_binder.new1");
+		//self.my_datalist = binman.get_global_binding_list;
+		self.stringlist = binman.get_global_binding_list.collect{ arg key; binman.param_key_to_string(key) };
+		debug("class_midi_global_binder.new2");
+		datalist = (0..7);
+		self.set_datalist(datalist);
+		self.show_window;
+		debug("class_midi_global_binder.new3");
+		self;
+	},
+
+	data_to_string: { arg self, key;
+		key.debug("class_midi_global_binder.data_to_string");
+		self.stringlist[key]
+		//var binman = self.get_main.midi_bindings_manager;
+		//binman.param_key_to_string(key)
+	},
+
+	selected: { arg self, data, address;
+		//sel.dump.debug("selected");
+		var sel = data;
+		if(sel != "" and: {self.oldsel == sel}) {
+			self[\action].(sel);
+
+			self.get_main.midi_bindings_manager.bind_global_param([self.get_node.uname, self.get_param.name], sel); //FIXME: abs_name ?
+
+			self.window.close;
+		} {
+			self.oldsel = sel;	
+		};
 	},
 
 );

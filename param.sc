@@ -2513,11 +2513,19 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 						//}
 						nil // velocity should be handled in synthdef
 					};
+					nil;
 				},
 				\sustain, {
 					{ arg ev;
 						if(ev[mode].sustain.notNil and:{mode != \scoreline}) {
 							ev[mode].sustain
+						} 
+					}
+				},
+				\velocity, {
+					{ arg ev;
+						if(ev[mode].velocity.notNil) {
+							ev[mode].velocity
 						} 
 					}
 				},
@@ -3102,6 +3110,30 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	// return object
 	param;
 };
+
+~class_param_gtrig = (
+	parent: ~class_param_controller
+
+	new: { arg self, name, scorekey=\type;
+		self = self.deepCopy;
+		self.name = name;
+		self.scorekey = scorekey;
+	
+		self;
+	},
+
+	vpattern: { arg self;
+		Pfunc{ arg ev;
+			var score = ev[ev[\current_mode]];
+			[ev[\current_mode], ev[ev[\current_mode]][\type]].debug("class_param_gtrig");
+			if(score[\type] == \rest and: {score[\dur] != 0}) {
+				0
+			} {
+				1
+			}
+		}
+	},
+);
 
 ////////////////////////// Buffer
 

@@ -57,6 +57,7 @@
 				([mode] ++ param_types.param_status_group).includes(x).not
 			}
 		};
+		self.macro_args = self.macro_args.keep(8); // FIXME: hardcoded
 	},
 );
 
@@ -321,6 +322,7 @@
 				self.data.keysValuesDo { arg key, datum;
 					datum.update_vpattern;
 				};
+				self.update_ordered_args;
 				self.changed(\mode);
 			};
 		};
@@ -1399,6 +1401,70 @@
 	//},
 );
 
+~class_gater_player = (
+	parent: ~class_synthdef_player,
+	subkind: \setbus,
+	new: { arg self, main, instr, data=nil;
+		var desc;
+		var notescore, notes;
+		var defname = instr;
+		desc = SynthDescLib.global.synthDescs[defname];
+		self = self.deepCopy;
+		
+		self.instrname = instr;
+		self.defname = defname;
+
+		if(desc.isNil, {
+			("ERROR: make_player_from_synthdef: SynthDef not found: "++defname).error
+		});
+		defname.debug("loading modenv player from");
+
+		self.get_main = { arg self; main };
+		self.get_desc = { arg self; desc };
+
+
+		self.init(data);
+
+
+		self.data[\gtrig] = ~class_param_gtrig.new(\gtrig);
+		self.modulation.set_mod_kind(\pattern);
+		self.set_mode(\scoreline);
+		self.get_arg(\scoreline).get_scoreset.get_notescore.remove_first_rest_if_not_needed = true; // FIXME: should be applied to others notescores
+
+		self.build_sourcepat;
+		self.build_real_sourcepat;
+
+		self.make_fake_external_player;
+		debug("fin make_fake_external_player");
+
+		self;
+	},
+
+	make_fake_external_player: { arg self;
+		// fake external player to have custom gui
+		self.track_display = ~class_track_display.new;
+		self.curve_track_controller = ~class_step_track_controller.new(self, self.track_display);
+		self.external_player = (make_layout: { arg se; self.make_layout }); 
+
+	},
+
+	make_layout: { arg self;
+		 self.layout = VLayout(
+		 	self.curve_track_controller.make_gui
+		 );
+		 self.external_player.layout = self.layout;
+		 self.layout;
+		
+	},
+
+	//load_data: { arg self, data, options;
+	//	var notescore;
+	//	~class_synthdef_player[\load_data].(self, data, options);
+	//	notescore = self.get_arg(\noteline).get_scoreset.get_notescore;
+	//	self.get_arg(\val).set_notes(notescore.get_rel_notes);
+	//},
+);
+
 ~make_player_from_synthdef = { arg main, defname, data=nil;
 	// changed messages: \redraw_node, \mode
 	var player;
@@ -1538,6 +1604,12 @@
 	player;
 };
 
+~special_players = (
+	modenv: ~class_modenv_player,
+	setbus: ~class_setbus_player,
+	gater: ~class_gater_player,
+);
+
 ~make_player = { arg main, instr, data=nil;
 	var player = nil;
 	case
@@ -1548,23 +1620,22 @@
 			player = ~class_cinstr_player.new(main, instr, data)
 		}
 		{ instr.isSymbolWS || instr.isString } {
-			switch(instr,
-				\modenv, {
-					player = ~class_modenv_player.new(main, instr, data);
-				},
-				\setbus, {
-					player = ~class_setbus_player.new(main, instr, data);
-				},
-				\seqnode, {
-					player = ~make_seqplayer.(main);
-				},
-				\parnode, {
-					player = ~make_parplayer.(main);
-				},
-				{
-					player = ~make_player_from_synthdef.(main,instr, data);
-				}
-			);
+			player = ~special_players[instr];
+			if(player.notNil) {
+				player = player.new(main, instr, data);
+			} {
+				switch(instr,
+					\seqnode, {
+						player = ~make_seqplayer.(main);
+					},
+					\parnode, {
+						player = ~make_parplayer.(main);
+					},
+					{
+						player = ~make_player_from_synthdef.(main,instr, data);
+					}
+				);
+			}
 		} 
 		{ instr.isFunction } {
 			// FIXME: instr should be a symbol or string

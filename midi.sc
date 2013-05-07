@@ -334,6 +334,12 @@
 };
 
 ~class_midi_bindings_manager = (
+
+	bindings: (
+		global: (\void ! 8), //FIXME: hardcoded
+	),
+	binding_mode: \player,
+
 	new: { arg self, main;
 		self = self.deepCopy;
 
@@ -346,10 +352,24 @@
 		self;
 	},
 
+	save_data: { arg self;
+		var data = IdentityDictionary.new;
+		data[\bindings] = self.bindings;
+		data[\binding_mode] = self.binding_mode;
+	},
+
+	load_data: { arg self, data;
+		self.bindings = data[\bindings];
+		self.binding_mode = data[\binding_mode];
+		self.assign_macros_from_mode;
+	},
+
 	set_current_player: { arg self, player, kind;
 		self.current_player = player;
-		self.assign_player_macros;
-		self.changed(\midi_player);
+		if(self.binding_mode == \player) {
+			self.assign_player_macros;
+			self.changed(\midi_player);
+		}
 	},
 
 	set_current_group: { arg self, group, kind;
@@ -392,6 +412,26 @@
 
 	bind_param: { arg self, ccpath, param;
 		self.get_main.commands.bind_param(ccpath, param);
+	},
+
+	unbind_ccpath: { arg self, ccpath;
+		self.get_main.commands.unbind_ccpath(ccpath);
+	},
+
+	get_global_binding_list: { arg self;
+		self.bindings.global.collect { arg name, i;
+			if(name == \void) {
+				name = i 
+			};
+			name;
+		};
+	},
+
+	set_binding_mode: { arg self, mode;
+		if(mode != self.binding_mode) {
+			self.binding_mode = mode;
+			self.assign_macros_from_mode;
+		}
 	},
 
 	get_player_macros: { arg self;
@@ -439,14 +479,83 @@
 		};
 	},
 
+	param_key_to_param: { arg self, key;
+		var node = self.get_main.get_node(key[0]);
+		node.get_arg(key[1]);
+	},
+
+	param_key_to_string: { arg self, key;
+		key.asCompileString.debug("class_midi_bindings_manager.param_key_to_string");
+		if(key.isNumber) {
+			(key+1).asString
+		} {
+			"% - %".format(key[0], key[1]);
+		}
+	},
+
+	bind_global_param: { arg self, key, idx;
+		var ccpath;
+		[key, idx].asCompileString.debug("class_midi_bindings_manager.bind_global_param");
+		ccpath = [\knob, idx];
+		self.bindings.global = self.bindings.global.collect { arg gkey, i;
+			if(i == idx) {
+				key
+			} {
+				if(gkey == key) {
+					\void
+				} {
+					gkey
+				}
+			}
+		};
+		if(self.binding_mode == \global) {
+			self.get_main.commands.bind_param(ccpath, self.param_key_to_param(key));
+		};
+		self.changed(\midi_player);
+	},
+
+	assign_global_macros: { arg self;
+		var ccpath;
+		var param;
+		self.bindings.global.collect { arg name, i;
+			ccpath = [\knob, i];
+			if(name == \void) {
+				self.unbind_ccpath(ccpath)
+			} {
+				param = self.param_key_to_param(name);
+				self.bind_param(ccpath, param)
+			};
+		};
+		self.changed(\midi_player);
+	},
+
+	assign_macros_from_mode: { arg self;
+		switch(self.binding_mode,
+			\player, {
+				self.assign_player_macros;
+				self.changed(\midi_player);
+			},
+			\global, {
+				self.assign_global_macros;
+			}
+		);
+	},
+
 	assign_player_macros: { arg self;
 		var offset = 0;
 		var ccpath;
-		self.get_player_macros[..8].do { arg param, i;
+		var param;
+		8.do { arg i;
 			ccpath = [\knob, i];
-			self.bind_param(ccpath, param)
+			param = self.get_player_macros[i];
+			if(param.notNil) {
+				self.bind_param(ccpath, param)
+			} {
+				self.unbind_ccpath(ccpath)
+			}
 		};
-		
+		self.get_player_macros[..8].do { arg param, i;
+		};
 	},
 
 	assign_mixers: { arg self;
@@ -469,9 +578,9 @@
 				ccpath = [kind, i];
 
 				if(player.uname != \voidplayer) {
-
 					self.bind_param(ccpath, player.get_arg(\amp));
-
+				} {
+					self.unbind_ccpath(ccpath);
 				}
 			};
 		}

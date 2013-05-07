@@ -143,34 +143,44 @@
 		self.set_static_responders;
 		self.set_param_abs_labels;
 		self.data[\freq] = ~make_control_param.(self.get_main, self.get_player, \freq, \scalar, 200, \freq.asSpec);
+		self.data[\velocity] = ~make_control_param.(self.get_main, self.get_player, \velocity, \scalar, 0.5, \unipolar.asSpec);
 	},
 
 	make_bindings: { arg self;
-		self.binding_responder = self.get_main.commands.parse_action_bindings(\classinstr, 
+		self.binding_responder = self.get_main.commands.make_binding_responder(\classinstr, 
+		//self.get_main.commands.parse_action_bindings(\classinstr, 
 		
 			self.get_main.panels.side.get_shared_bindings ++
 			self.get_main.panels.side.get_windows_bindings ++ [
 
-			[\close_window, { arg self;
+			[\close_window, { 
 				self.window.close;
 			}],
 
-			[\play_selected, { arg self;
+			[\play_selected, { 
 				self.get_player.play_node;
 			}], 
 
-			[\stop_selected, { arg self;
+			[\stop_selected, { 
 				self.get_player.stop_node;
 			}],
 
-			[\edit_selected_param, { arg self;
+			[\edit_selected_param, { 
 				if(~global_controller.current_param.notNil) {
 					debug("class_instr: edit_selected_param");
 					~class_player_display.edit_param_value(self.get_main, self.get_player, ~global_controller.current_param);
 				}
 			}],
 
-			[\change_param_kind, { arg self;
+			[\edit_modulator, {
+				debug("classinstr: edit_modulator");
+				if(~global_controller.current_param.notNil) {
+					debug("classinstr: edit_modulator: current_param notnil");
+					self.get_main.panels.side[\edit_modulator_callback].(self.get_player, ~global_controller.current_param);
+				}
+			}],
+
+			[\change_param_kind, { 
 				if(~class_player_display.param_types.param_mode.includes(~global_controller.current_param.name).not) {
 					~class_param_kind_chooser.new(self.get_main, { arg sel;
 						~class_player_display.change_param_kind(sel, ~global_controller.current_param);
@@ -178,14 +188,14 @@
 				}
 			}],
 
-			[\assign_midi_knob, { arg self;
+			[\assign_midi_knob, { 
 				if(~global_controller.current_param.notNil) {
 					var param = ~global_controller.current_param;
 					self.get_main.panels.side[\binding_assign_midi_knob].(param);
 				};
 			}],
 
-			[\panic, { arg self;
+			[\panic, { 
 				self.get_main.panic;
 			}],
 		])
@@ -1090,7 +1100,7 @@
 		self.synthdef_name = \ci_dadsr;
 		self.build_data;
 
-		self.simple_args = (gate:1, doneAction:2);
+		self.simple_args = (gate:1, doneAction:2, freq:\void, velocity:\void);
 	
 		self;
 	},
@@ -1163,6 +1173,12 @@
 		{ arg args;
 			var i = self.get_synthargs(args);
 			var sig;
+			var ampcomp, velcomp;
+
+			ampcomp = (AmpCompA.kr(i.freq) * i.ampcomp) + (1 * (1-i.ampcomp));
+			//ampcomp = (AmpCompA.kr(100) * i.ampcomp) + (1 * (1-i.ampcomp));
+			velcomp = (i.velocity * i.velocity_mix) + (1 * (1 - i.velocity_mix));
+			velcomp = (1 * i.velocity_mix) + (1 * (1 - i.velocity_mix));
 
 			sig = EnvGen.ar(Env.dadsr(
 				i.delay,
@@ -1173,6 +1189,7 @@
 				1,
 				i.curve
 			), i.gate, doneAction:i.doneAction);
+			sig = sig * ampcomp * velcomp;
 			sig;
 
 		}
@@ -2522,12 +2539,15 @@
 					Button.new
 						.states_([[co]])
 						.action_({ 
+							idx.debug("class_ci_tabs_modfx.make_tab_panel: tab action: idx");
 							body.index = idx;
 							if(idx == (self.tabs_count-1)) { 
-								self.classinstr.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\effects);
+								//self.classinstr.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\effects);
+								self.fx_ctrl.set_keydown_responder(\effects);
 							} {
 								self.classinstr.window.view.keyDownAction = 
-									self.get_main.commands.get_kb_responder(\classinstr, self.classinstr);
+									//self.get_main.commands.get_kb_responder(\classinstr, self.classinstr);
+									self.classinstr.binding_responder.get_kb_responder(\classinstr);
 							}
 						})
 				}

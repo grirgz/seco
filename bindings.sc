@@ -49,6 +49,10 @@
 		["edit_external_player", \kb, \alt, "e"],
 	],
 	side_shared: [
+
+		["set_midi_binding_mode.player", \kb, \shift,  \f9],
+		["set_midi_binding_mode.global", \kb, \shift,  \f10],
+
 		["edit_master_volume", \kb, \alt, "v"],
 		["edit_tempo", \kb, \ctrlalt, "e"], // t open terminal
 		["edit_quant", \kb, \ctrlalt, "q"],
@@ -58,7 +62,8 @@
 		["toggle_metronome", \kb, \ctrlalt, "m"],
 		["play_group", \kb, \ctrl, \f5],
 		["stop_group", \kb, \ctrl, \f6],
-		["assign_midi_knob", \kb, \ctrlalt, "k"],
+		["assign_midi_knob", \kb, \ctrlalt, "K"],
+		["assign_global_midi_knob", \kb, \ctrlalt, "k"],
 		["forward_in_record_history", \kb, 0, \end],
 		["backward_in_record_history", \kb, 0, \home],
 	
