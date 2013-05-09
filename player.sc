@@ -1430,7 +1430,6 @@
 		self.data[\gtrig] = ~class_param_gtrig.new(\gtrig);
 		self.modulation.set_mod_kind(\pattern);
 		self.set_mode(\scoreline);
-		self.get_arg(\scoreline).get_scoreset.get_notescore.remove_first_rest_if_not_needed = true; // FIXME: should be applied to others notescores
 
 		self.build_sourcepat;
 		self.build_real_sourcepat;

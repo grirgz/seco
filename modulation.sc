@@ -993,6 +993,7 @@
 	modulation_mixers: Dictionary.new,
 	mod_kind: \note,
 	selected_slot: 0,
+	free_defer_time: 1,
 	archive_data: [\modulators, \mod_kind, \selected_slot],
 
 	new: { arg self, player;
@@ -1595,8 +1596,15 @@
 
 	},
 
+	get_free_defer_time: { arg self;
+		self.free_defer_time
+	},
+
+	set_free_defer_time: { arg self, time;
+		self.free_defer_time = time;
+	},
+
 	make_modulation_pattern: { arg self; //, source_pattern;
-		var free_defer_time = 1; // FIXME: hardcoded
 		var out_bus = 0;
 		var mainplayer = self.player;
 		var pspawner;
@@ -1646,18 +1654,17 @@
 						nil
 					}
 				},
-				cleanup_function: { arg self;
-					var ppatch = self;
+				cleanup_function: { arg ppatch;
 					"cleanup".debug;
 					spawner.suspendAll;
-					if(self.clean_started.not) {
+					if(ppatch.clean_started.not) {
 					//if(true) {
-						self.clean_started = true;
+						ppatch.clean_started = true;
 						"sched cleanup".debug;
 						{
 							//spawner.suspendAll;
 							mainplayer.name.debug("defered cleanup");
-							if(self.panic_called.not) {
+							if(ppatch.panic_called.not) {
 								ppatch.global_group.keysValuesDo { arg gname, gobj;
 									[gname, gobj].debug("pattern group free");
 									gobj.free;
@@ -1673,7 +1680,7 @@
 								bobj.free;
 							};
 							"fin cleanup".debug;
-						}.defer(free_defer_time + s.latency); 
+						}.defer(self.get_free_defer_time + s.latency); 
 					}
 				};
 
@@ -2314,6 +2321,11 @@
 						self.change_param_kind(sel);
 					})
 				}
+			}],
+
+			[\edit_free_defer_time, {
+				var param = ~class_param_free_defer_time.new(self.get_main, self.player_ctrl.modulation);
+				~make_edit_number_view.(self.get_main, "Free delay", param, [\knob, 8]);
 			}],
 
 		]);

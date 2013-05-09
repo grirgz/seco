@@ -219,6 +219,7 @@
 		["change_param_kind", \kb, \altshift, "s"],
 		["remove_effect", \kb, \shift, \f3],
 		["edit_selected_param", \kb, 0, \npenter],
+		["edit_free_defer_time", \kb, \alt, "d"],
 	],
 	modulator: 
 		~common_bindings.side_shared ++

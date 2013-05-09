@@ -208,12 +208,12 @@
 
 	make_gui: { arg self;
 	
+		self.make_track_notes_bindings;
 		self.make_track;
 		self.notes;
 		//self.timeline.keyDownAction = self.controller.get_main.commands.get_kb_responder(\step_track);
 		self.layout = self.timeline.userView;
 		self.responder_anchor = self.timeline.userView;
-		self.make_track_notes_bindings;
 		self.layout;
 		//self.vlayout;
 	
@@ -2631,12 +2631,16 @@
 
 			case
 				{ node.get_mode == \scoreline } {
+					if(node.subkind != \setbus) {
+						track = ~class_step_track_controller.new(node, self.display); // FIXME: use name or label, abs_label ?
+						res.add(track);
+					};
 					node.get_args.do { arg argname;
 						var param = node.get_arg(argname);
-						if(param.name == \t_gtrig) {
-							track = ~class_step_track_controller.new(node, self.display); // FIXME: use name or label, abs_label ?
-							res.add(track);
-						};
+						//if(param.name == \t_gtrig) {
+						//	track = ~class_step_track_controller.new(node, self.display); // FIXME: use name or label, abs_label ?
+						//	res.add(track);
+						//};
 						if(param.current_kind == \scoreseq) {
 							track = ~class_scoreseq_track_controller.new(node, self.display, param.name); // FIXME: use name or label, abs_label ?
 							res.add(track);

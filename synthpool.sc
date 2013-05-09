@@ -28,11 +28,20 @@ SynthDef(\gater, { arg out=0, amp=1, gate=1, tesustain=0.1, t_gtrig=1;
 }).store;
 
 
+SynthDef(\adsr_gate, { arg out=0, amp=1, gate=1, attack=0.1, release=0.1, t_gtrig=1, tesustain=1;
+	var ou;
+	var envgate;
+	var tsustain = tesustain;
+	envgate = Trig.kr(t_gtrig,tsustain) * amp - 0.1;
+	ou = EnvGen.ar(Env.asr(attack,1,release),envgate,doneAction:0) * amp;
+	Out.kr(out, ou);
+}, metadata:(specs:(
+	envgate: ControlSpec(0,1,\lin, 0, 1)
+))).store;
 
 
 SynthDef(\gated_asr, { arg out=0, amp=1, gate=1, attack=0.1, release=0.1, envgate=1;
 	var ou;
-	envgate.poll;
 	ou = EnvGen.ar(Env.asr(attack,1,release),envgate,doneAction:0) * amp;
 	Out.kr(out, ou);
 }, metadata:(specs:(

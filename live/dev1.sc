@@ -66,6 +66,7 @@ Window.closeAll;
 	"ci mod_envosc",
 	"ci dadsr_kr",
 	"ci custom_env",
+	"ci selfgated_env",
 ].collect({arg i; i -> i });
 
 //~samplelib = [
@@ -109,12 +110,27 @@ Mdef.main.samplekit_manager.parse_samplekit_dir("~/Musique/hydrogenkits/");
 
 }
 )
-
-
+SynthDescLib.global.synthDescs[\gater]
+SynthDescLib.global.synthDescs['s_ci selfgated_env_l1036']
+SynthDescLib.global.synthDescs[\rah]
 "~/code/sc/seco/classinstr.sc".standardizePath.load
 0.04*32
 1/32
 
+(
+SynthDef(\rah, { arg out=0, amp=0.1, gate=1, pan=0, freq=200;
+	var ou;
+	var trig;
+	trig = \bla.tr(1);
+	ou = SinOsc.ar(freq);
+	ou = ou * EnvGen.ar(Env.linen(0.1,1,0.1),trig,doneAction:0);
+	ou = Pan2.ar(ou, pan, amp);
+	Out.ar(out, ou);
+}).add;
+)
+
+a  = Synth(\rah)
+a.set(\bla, 1)
 
 Platform.resourceDir
 
@@ -186,6 +202,9 @@ Mdef.main.load_project("noxruns");
 
 Mdef.main.save_project("happypunk");
 Mdef.main.load_project("happypunk");
+
+Mdef.main.save_project("acidbass");
+Mdef.main.load_project("acidbass");
 
 Mdef.main.play_manager
 

@@ -313,6 +313,7 @@
 		crush: ControlSpec(1, 31, 'lin', 0, 1, ""),
 		smalldelay: ControlSpec(0, 0.02, 'lin', 0, 0.001, ""),
 		envamp: ControlSpec(0, 1, 'amp', 0, 1, ""),
+		sustain: ControlSpec(0.001, 4, \exp, 0, 0.25),
 	),
 
 	get_ordered_args_names: { arg self;
@@ -391,7 +392,14 @@
 			var control_name;
 			if(i[name].isNil) {
 				control_name = self.abs_namer(name);
-				i[name] = control_name.kr(datum.default_value);
+				switch(datum.param_rate,
+					\tr, {
+						i[name] = control_name.tr(datum.default_value);
+					},
+					{
+						i[name] = control_name.kr(datum.default_value);
+					}
+				);
 			}
 		};
 		self.simple_args.keysValuesDo { arg name, def;
@@ -3888,6 +3896,75 @@
 
 );
 
+~class_ci_selfgated_env = (
+	parent: ~class_instr,
+	synth_rate: \kr,
+	new: { arg self, main, player, namer;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.namer = { namer };
+		self.synthdef_name = \ci_;
+
+		self.compenv = ~class_ci_composite_env.new(main, player, self.make_namer);
+
+		self.build_data;
+
+		self.simple_args = (gate:1, doneAction:2);
+	
+		self;
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		var specs = self.get_specs;
+
+		self.help_build_data2(
+			[
+				//self.insertfxs,
+				self.compenv
+			],
+			[
+				gtrig: ~class_param_gtrig.new(\gtrig)
+			] ++
+			self.make_control_params([
+				[\tesustain, specs[\sustain], 0.25],
+			])
+		);
+		self.data.copy;
+	},
+
+	make_layout: { arg self;
+		self.track_display = ~class_track_display.new;
+		self.curve_track_controller = ~class_step_track_controller.new(self.get_player, self.track_display);
+		self.layout = VLayout(
+			self.curve_track_controller.make_gui,
+			~class_ci_modknob_view.new(self.data[\tesustain]).layout,
+			self.compenv.make_layout
+		);
+		self.layout;
+	},
+
+	synthfun: { arg self;
+		{ arg args;
+			var i = self.get_synthargs(args);
+			var sig;
+			var envgate;
+
+
+			envgate = Trig.kr(i.gtrig,i.tesustain);
+
+			sig = self.compenv.synthfun.((gate:envgate, doneAction:0));
+			//sig = self.compenv.synthfun.(args);
+			sig.poll;
+			
+			sig;
+		}
+	},
+
+);
 
 ////////////// Effects
 
@@ -3986,6 +4063,7 @@
 	custom_env: ~class_ci_custom_env,
 	mod_osc: ~class_ci_mod_osc,
 	mod_envosc: ~class_ci_mod_envosc,
+	selfgated_env: ~class_ci_selfgated_env,
 
 	// effects
 

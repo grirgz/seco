@@ -2198,7 +2198,7 @@
 
 				[\toggle_mute_selected, {
 					var player = self.get_current_player;
-					if(player.muted) {
+					if(player.muted == true) {
 						self.get_current_player.mute(false);
 					} {
 						self.get_current_player.mute(true);

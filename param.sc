@@ -1718,6 +1718,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 //		- master volume
 //		- barrecord
 //		- tempo
+//		- free_defer_time
 //
 //- midi assignable
 //- midi not assignable
@@ -3112,7 +3113,11 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 };
 
 ~class_param_gtrig = (
-	parent: ~class_param_controller
+	// used for using scoreline on modulation pattern 
+	// 	because gate is always On in Pmono and t_trig trigger even with rest notes
+	parent: ~class_param_controller,
+	param_rate: \tr,
+	default_value: 1,
 
 	new: { arg self, name, scorekey=\type;
 		self = self.deepCopy;
@@ -4702,41 +4707,61 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 // VARIABLE CONTROL
 // ==========================================
 
+~class_param_binded_number = (
+	name: "noname_param",
+	classtype: \binded_number,
+	spec: \freq.asSpec,
+
+	new: { arg self, main, name, spec, get_fun, set_fun;
+		self = self.deepCopy;
+
+		self.name = name;
+		self.spec = spec;
+		self.get_main = { main };
+		if(get_fun.notNil) {
+			self.get_fun = get_fun;
+		};
+		if(set_fun.notNil) {
+			self.set_fun = { arg self, val; set_fun.(val) };
+		};
+		self.init_midi;
+
+		self;
+	},
+
+	init_midi: { arg self;
+		self.midi = self.get_main.midi_center.get_midi_control_handler(self);
+	},
+
+	get_norm_val: { arg self;
+		self.spec.unmap(self.get_fun)
+	},
+	set_norm_val: { arg self, val;
+		val.debug("make_tempo_param: set_norm_val");
+		self.set_fun(self.spec.map(val));
+		self.changed(\val);
+	},
+
+	get_val: { arg self;
+		self.get_fun;
+	},
+
+	set_val: { arg self, val;
+		self.set_fun(val);
+		self.changed(\val);
+	},
+
+	refresh: { arg self;
+		self.changed(\kind);
+		self.changed(\val);
+		//self.changed(\cells);
+		self.changed(\selected);
+		self.midi.refresh;
+	},
+);
+
 ~make_binded_number_param = { arg main, name, spec, get_fun, set_fun;
-	var res = (
-		name: name,
-		//val: { arg self; tempoclock.tempo },
-		classtype: \binded_number,
-		spec: spec,
-
-		get_norm_val: { arg self;
-			self.spec.unmap(get_fun.())
-		},
-		set_norm_val: { arg self, val;
-			val.debug("make_tempo_param: set_norm_val");
-			set_fun.(self.spec.map(val));
-			self.changed(\val);
-		},
-
-		get_val: { arg self;
-			get_fun.();
-		},
-
-		set_val: { arg self, val;
-			set_fun.(val);
-			self.changed(\val);
-		},
-
-		refresh: { arg self;
-			self.changed(\kind);
-			self.changed(\val);
-			//self.changed(\cells);
-			self.changed(\selected);
-			self.midi.refresh;
-		}
-	);
-	res.midi = main.midi_center.get_midi_control_handler(res);
-	res;
+	~class_param_binded_number.new(main, name, spec, get_fun, set_fun)
 };
 
 ~make_quant_param = { arg main, name, quantobject;
@@ -4784,6 +4809,24 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	res.midi = main.midi_center.get_midi_control_handler(res);
 	res;
 };
+
+~class_param_free_defer_time = (
+	parent: ~class_param_binded_number,
+
+	new: { arg self, main, modulation;
+		self = self.deepCopy;
+
+		self.name = "free_defer_time";
+		self.spec = ControlSpec(0,10,\lin,0,1);
+		self.get_main = { main };
+		self.get_fun = { modulation.get_free_defer_time };
+		self.set_fun = { arg self, val; modulation.set_free_defer_time(val) };
+		self.init_midi;
+
+		self;
+	},
+
+);
 
 ~make_volume_param = { arg name, main;
 	// deprecated: used in mixer.sc
