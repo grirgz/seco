@@ -309,8 +309,10 @@
 		knob.mouse_edit_pixel_range = 2000;
 		knob.focusGainedAction = { arg me;
 			me.background = Color.gray(0.6);
-			self.controller.name.debug("set global_controller");
-			~global_controller.current_param = self.controller;
+			if(self.controller.notNil) {
+				self.controller.name.debug("set global_controller");
+				~global_controller.current_param = self.controller;
+			};
 		};
 
 		knob.focusLostAction = { arg me;

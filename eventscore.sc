@@ -1446,6 +1446,7 @@
 
 	set_sheet_if_current: { arg self, idx, ns;
 		// set sheet and if current, set notescore
+		// FIXME: bad name
 		if(self.current_sheet == idx) {
 			self.set_current_sheet(ns)
 		} {

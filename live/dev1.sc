@@ -51,6 +51,8 @@ Window.closeAll;
 	\p_comb,
 	"ci insertfx3",
 	\dubecho,
+	\dubecho_inmix,
+	\dubecho_orig,
 ].collect({arg i; i -> i });
 
 ~modlib = [
@@ -205,6 +207,9 @@ Mdef.main.load_project("happypunk");
 
 Mdef.main.save_project("acidbass");
 Mdef.main.load_project("acidbass");
+
+Mdef.main.save_project("dubpourri");
+Mdef.main.load_project("dubpourri");
 
 Mdef.main.play_manager
 

@@ -526,6 +526,8 @@
 
 ~nodematrix_cell_clipboard = (
 	sheet: nil,
+	node: nil,
+	action: \copy,
 );
 
 ~class_nodematrix_panel = (
@@ -594,8 +596,31 @@
 	},
 
 	get_cell: { arg self, pos;
-		// FIXME: sheet only
-		self.get_group_node(pos.x).get_scoreset.get_sheet(pos.y);
+		switch(self.parent_node.kind,
+			\seqnode, {
+				var group = self.get_group_node(pos.y);
+				if(group.notNil) {
+					group.children[pos.x];
+				};
+			},
+			\parnode, {
+				self.get_group_node(pos.x).get_scoreset.get_sheet(pos.y);
+			}
+		);
+	},
+
+	set_cell: { arg self, pos, val;
+		switch(self.parent_node.kind,
+			\seqnode, {
+				var group = self.get_group_node(pos.y);
+				if(group.notNil) {
+					group.set_children_name(pos.x, val);
+				};
+			},
+			\parnode, {
+				self.get_group_node(pos.x).get_scoreset.set_sheet_if_current(pos.y, val);
+			}
+		);
 	},
 
 	get_current_player: { arg self;
@@ -610,7 +635,8 @@
 		switch(self.parent_node.kind,
 			\seqnode, {
 				var main = self.get_main;
-				// TODO
+				var cell = self.get_cell(pos);
+				label = main.get_node(cell).name;
 			},
 			\parnode, {
 				var ss;
@@ -628,7 +654,15 @@
 		switch(self.parent_node.kind,
 			\seqnode, {
 				var main = self.get_main;
-				// TODO
+				// FIXME: factorize with side.sc
+				var player;
+				player = main.get_node(self.get_cell(self.get_selection_point));
+				if(player.notNil and: { player.uname != \voidplayer }) {
+					~edit_value.(player.name, { arg name;
+						player.name = name;
+						self.changed(\label, self.get_selection_point);
+					}, "Rename player")
+				}
 			},
 			\parnode, {
 				var ss;
@@ -644,10 +678,15 @@
 	},
 
 	copy_cell: { arg self;
+		// TODO: share clipboard with side
 		switch(self.parent_node.kind,
 			\seqnode, {
 				var main = self.get_main;
-				// TODO
+				var nodename = self.get_cell(self.get_selection_point);
+				if(nodename != \voidplayer) {
+					~nodematrix_cell_clipboard.node = nodename;
+					~nodematrix_cell_clipboard.action = \copy;
+				}
 			},
 			\parnode, {
 				var ss;
@@ -655,6 +694,7 @@
 				if(ss.notNil) {
 					//~nodematrix_cell_clipboard.sheet = ss.get_current_sheet.deepCopy;
 					// set_sheet already deepCopy sheet
+					~nodematrix_cell_clipboard.action = \copy;
 					~nodematrix_cell_clipboard.sheet = ss.get_current_sheet;
 				}
 			}
@@ -665,13 +705,19 @@
 		switch(self.parent_node.kind,
 			\seqnode, {
 				var main = self.get_main;
-				// TODO
+				var nodename = self.get_cell(self.get_selection_point);
+				if(nodename != \voidplayer) {
+					~nodematrix_cell_clipboard.node = nodename;
+					~nodematrix_cell_clipboard.action = \cut;
+					self.set_cell(self.get_selection_point, \voidplayer);
+				}
 			},
 			\parnode, {
 				var ss;
 				ss = self.get_group_node(self.current_column).get_scoreset;
 				if(ss.notNil) {
 					~nodematrix_cell_clipboard.sheet = ss.get_current_sheet;
+					~nodematrix_cell_clipboard.action = \cut;
 					ss.set_sheet_if_current(self.current_row, ~make_empty_notescore.());
 				}
 			}
@@ -682,7 +728,18 @@
 		switch(self.parent_node.kind,
 			\seqnode, {
 				var main = self.get_main;
-				// TODO
+				if(~nodematrix_cell_clipboard.node.notNil) {
+					switch(~nodematrix_cell_clipboard.action,
+						\cut, {
+							self.set_cell(self.get_selection_point, ~nodematrix_cell_clipboard.node);
+						},
+						\copy, {
+							self.set_cell(self.get_selection_point, 
+								main.node_manager.duplicate_livenode(~nodematrix_cell_clipboard.node)
+							);
+						}
+					);
+				};
 			},
 			\parnode, {
 				var ss;
@@ -855,11 +912,13 @@
 	},
 
 	set_parent_node: { arg self, parent;
-		self.parent_node = parent;
-		if(self.parent_node.playmatrix_manager.isNil) {
-			self.parent_node.playmatrix_manager = ~class_playmatrix_manager.new(self.get_main, parent, self.nodematrix_size);
-		};
-		self.changed(\parent_node);
+		if(self.parent_node !== parent) {
+			self.parent_node = parent;
+			if(self.parent_node.playmatrix_manager.isNil) {
+				self.parent_node.playmatrix_manager = ~class_playmatrix_manager.new(self.get_main, parent, self.nodematrix_size);
+			};
+			self.changed(\parent_node);
+		}
 	},
 
 	make_bindings: { arg self;

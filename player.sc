@@ -944,6 +944,14 @@
 		//self.external_player.build_synthdef;
 		self.init(data);
 
+		if(self.external_player.modulation_kind.notNil) {
+			self.modulation.set_mod_kind(self.external_player.modulation_kind);
+		};
+
+		if(self.external_player.player_mode.notNil) {
+			self.set_mode(self.external_player.player_mode);
+		};
+
 		"on est la2".debug;
 		self.data[\dur].select_cell(2);
 		//self.data[\repeat].set_val(0);

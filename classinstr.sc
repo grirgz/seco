@@ -3899,6 +3899,8 @@
 ~class_ci_selfgated_env = (
 	parent: ~class_instr,
 	synth_rate: \kr,
+	modulation_kind: \pattern,
+	player_mode: \scoreline,
 	new: { arg self, main, player, namer;
 		self = self.deepCopy;
 

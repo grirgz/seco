@@ -3140,6 +3140,20 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	},
 );
 
+~class_param_range = (
+	parent: ~class_param_controller,
+	// interface:
+	// - range
+	// - name (should be named slot)
+
+	new: { arg self;
+		self = self.deepCopy;
+	
+		self;
+	},
+
+);
+
 ////////////////////////// Buffer
 
 ~make_buf_param = { arg name, default_value, player, spec, channels=\stereo;

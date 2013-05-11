@@ -118,8 +118,9 @@
 			var i;
 			size = size ?? (self.track_size_x@self.track_size_y);
 			//beatlen = beatlen ?? self.beatlen;
-			beatlen = beatlen ?? self.beatlen;
+			beatlen = self.beatlen;
 			// x lines
+			[beatlen, self.beatlen, self.controller.display.gridstep].debug("class_basic_track_view: beatlen, self.beatlen, gridstep");
 			~draw_stepx_grid.(size, beatlen, self.controller.display.gridstep);
 			~draw_beat_grid.(size, beatlen);
 
@@ -1810,6 +1811,14 @@
 		self;
 	},
 
+	get_label: { arg self;
+		"% (sheet %)".format(self.get_node.name, self.scoreset.get_current_sheet_index + 1);
+	},
+
+	refresh: { arg self;
+		self.changed(\label);
+	},
+
 	set_end: { arg self, val;
 		self.scoreset.get_notescore.set_end(val);
 		self.scoreset.update_notes;
@@ -1856,6 +1865,14 @@
 		
 	
 		self;
+	},
+
+	get_label: { arg self;
+		"%".format(self.get_node.name);
+	},
+
+	refresh: { arg self;
+		self.changed(\label);
 	},
 
 	get_notescore: { arg self;
@@ -2141,6 +2158,13 @@
 		self;
 	},
 
+	get_label: { arg self;
+		"%".format(self.get_node.name);
+	},
+
+	refresh: { arg self;
+		self.changed(\label);
+	},
 
 	get_track_kb_responder: { arg self;
 		//self.get_node.get_main.commands.get_kb_responder(self.binding_panel_name)

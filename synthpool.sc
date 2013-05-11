@@ -85,14 +85,19 @@ SynthDef(\adsr1, { arg out, attack, gate=1, doneAction=0;
 	Out.kr(out, sig);
 }).add;
 
-SynthDef(\comb1, { arg in, out, mix=0.5, maxdelaytime=0.4, delaytime=0.4, decaytime=2, gate=1;
+SynthDef(\comb1, { arg in, out, mix=0.5, inmix=1, maxdelaytime=0.4, delaytime=0.4, decaytime=2, gate=1;
 	//var sig = EnvGen.kr(Env.adsr(attack,0.1,1,0.1), gate, doneAction:doneAction);
 	var sig, sigwet;
 	sigwet = In.ar(in, 2);
-	sig = CombL.ar(sigwet, maxdelaytime, delaytime, decaytime);
+	sig = SelectX.ar(inmix, [DC.ar(0)!2, sigwet]);
+	sig = CombL.ar(sig, maxdelaytime, delaytime, decaytime);
 	sig = SelectX.ar(mix, [sigwet, sig]);
 	Out.ar(out, sig);
-}).store;
+}, metadata:(specs:(
+	inmix: \unipolar,
+	delaytime: ControlSpec(0.0001,8,\exp,0,0.5),
+	maxdelaytime: ControlSpec(0.0001,8,\exp,0,2.0),
+))).store;
 
 //SynthDef(\modenv, { |out, val=0, t_trig=1, gate=1, tsustain, curve=0, doneAction=0|
 //       var start = In.kr(out, 1);
@@ -153,6 +158,30 @@ SynthDef(\dubecho,{|out=0, in=0, length = 1, fb = 0.8, sep = 0.012, mix=0.5, hpf
 		rotate: \bipolar.asSpec,
 	)
 )).store;
+
+SynthDef(\dubecho_inmix,{|out=0, in=0, length = 1, fb = 0.8, sep = 0.012, mix=0.5, inmix=1|
+	var input, output;
+	var mix_input;
+	input = In.ar(in, 2);
+	mix_input = SelectX.ar(inmix, [DC.ar(0)!2, input]);
+	output = mix_input + Fb({
+
+		arg feedback; // this will contain the delayed output from the Fb unit
+
+		var left,right;
+		var magic = LeakDC.ar(feedback*fb + mix_input);
+		magic = HPF.ar(magic, 400); // filter's on the feedback path
+		magic = LPF.ar(magic, 5000);
+		magic = magic.tanh; // and some more non-linearity in the form of distortion
+		#left, right = magic; // let's have named variables for the left and right channels
+		magic = [DelayC.ar(left, 1, LFNoise2.ar(12).range(0,sep)), DelayC.ar(right, 1, LFNoise2.ar(12).range(sep,0))]; // In addition to the main delay handled by the feedback quark, this adds separately modulated delays to the left and right channels, which with a small "sep" value creates a bit of spatialization
+
+	},length);
+	output = SelectX.ar(mix,[input, output]);
+	Out.ar(out, output);
+}, metadata:(specs:(
+	inmix: \unipolar,
+))).store;
 
 SynthDef(\dubecho_orig,{|out=0, in=0, length = 1, fb = 0.8, sep = 0.012, mix=0.5|
 	var input = In.ar(in, 2);
