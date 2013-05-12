@@ -25,6 +25,7 @@
 
 		~make_class_responder.(self, self.label, controller.modmixer_ctrl, [
 			\selected_slot, \connection, \range,
+			//\selected_slot, \connection, 
 		]);
 
 		debug("class_modulated_param_view.new: fin");
@@ -35,8 +36,10 @@
 	////////// responders
 
 	val: { arg self, obj;
-		self.modknob.value = obj.get_norm_val;
-		self.val_label.string = obj.get_val.asFloat.asStringPrec(6);
+		{
+			self.modknob.value = obj.get_norm_val;
+			self.val_label.string = obj.get_val.asFloat.asStringPrec(6);
+		}.defer;
 	},
 
 	kind: { arg self, obj;
@@ -44,11 +47,16 @@
 	},
 
 	selected_slot: { arg self, obj;
+		var range_ctrl;
+		var selected_target_slot = obj.selected_slot;
 		self.slots.do { arg but, idx;
 			but.states = [
-				[self.controller.get_modulator_name_from_target_slot(idx) ?? "-", Color.black, if(obj.selected_slot == idx) { Color.gray } { Color.white }]
+				[self.controller.get_modulator_name_from_target_slot(idx) ?? "-", Color.black, if(selected_target_slot == idx) { Color.gray } { Color.white }]
 			]
 		};
+
+		range_ctrl = self.modmixer_ctrl.get_slot(selected_target_slot);
+		self.range_slider.set_controller(range_ctrl);
 		self.range;
 	
 	},
@@ -56,19 +64,21 @@
 	range: { arg self;
 		var range, norm_val;
 		var val, midval;
-		range = self.modmixer_ctrl.get_range(self.modmixer_ctrl.selected_slot);
-		norm_val = self.param_ctrl.get_norm_val;
-		
-		debug("class_modulated_param_view");
-		self.modknob.set_range(self.modmixer_ctrl.selected_slot, range);
-		self.modknob.refresh;
-		self.range_slider.value = range/2 + 0.5;
-		val = self.param_ctrl.spec.map(norm_val + range);
-		midval = self.param_ctrl.spec.map(norm_val);
-		//self.range_low.string = (if(range < 0) { range  } { 0.0 }).asStringPrec(6);
-		self.range_low.string = (if(range < 0) { val  } { midval }).asStringPrec(6);
-		//self.range_high.string = (if(range > 0) { val  } { 0.0 }).asStringPrec(6);
-		self.range_high.string = (if(range > 0) { val  } { midval }).asStringPrec(6);
+		{
+			range = self.modmixer_ctrl.get_range(self.modmixer_ctrl.selected_slot);
+			norm_val = self.param_ctrl.get_norm_val;
+			
+			debug("class_modulated_param_view");
+			self.modknob.set_range(self.modmixer_ctrl.selected_slot, range);
+			self.modknob.refresh;
+			//self.range_slider.value = range/2 + 0.5;
+			val = self.param_ctrl.spec.map(norm_val + range);
+			midval = self.param_ctrl.spec.map(norm_val);
+			//self.range_low.string = (if(range < 0) { range  } { 0.0 }).asStringPrec(6);
+			self.range_low.string = (if(range < 0) { val  } { midval }).asStringPrec(6);
+			//self.range_high.string = (if(range > 0) { val  } { 0.0 }).asStringPrec(6);
+			self.range_high.string = (if(range > 0) { val  } { midval }).asStringPrec(6);
+		}.defer;
 	},
 
 	connection: { arg self, obj; self.selected_slot(obj) },
@@ -114,6 +124,20 @@
 				self.modknob.action = { arg knob;
 					self.param_ctrl.set_norm_val(self.modknob.value);
 				};
+				self.modknob.focusGainedAction_({ arg me;
+					// FIXME: factorize
+					me.background = Color.gray(0.6);
+					if(self.controller.notNil) {
+						self.controller.param_ctrl.name.debug("global_controller is now: ");
+						~global_controller.current_param = self.controller.param_ctrl;
+					}
+				});
+				self.modknob.focusLostAction = { arg me;
+					try {
+						me.background = Color.clear;
+					}
+					//~global_controller.current_param = self.controller;
+				};
 				[self.modknob.asView, align:\center],
 
 			self.val_label = StaticText.new
@@ -136,12 +160,18 @@
 				);
 				self.range_layout,
 
-			self.range_slider = Slider.new
-				.orientation_(\horizontal)
-				.action_({ arg slider;
-					self.modmixer_ctrl.set_range(self.modmixer_ctrl.selected_slot, slider.value - 0.5 * 2);
-				});
-				self.range_slider,
+			//self.range_slider = Slider.new
+			//	.orientation_(\horizontal)
+			//	.action_({ arg slider;
+			//		self.modmixer_ctrl.set_range(self.modmixer_ctrl.selected_slot, slider.value - 0.5 * 2);
+			//	});
+			//	self.range_slider,
+			self.range_slider = ~class_midi_slider.new;
+				//self.range_slider.slider_action = {
+				//	self.modmixer_ctrl.changed(\range)
+
+				//};
+				self.range_slider.layout,
 
 			self.center_slider = Slider.new
 				.orientation_(\horizontal);
@@ -575,6 +605,9 @@
 	selected_slot: 0,
 
 	new: { arg self, main, player_ctrl, parent_player_ctrl, param_ctrl;
+		// player_ctrl is always the root player
+		// parent_player_ctrl is the player which own param_ctrl
+		// param_ctrl is modulated by get_current_player
 		var modmixer;
 		self = self.deepCopy;
 
@@ -784,6 +817,22 @@
 				}
 			}],
 
+			[\assign_global_midi_knob, {
+				//var param = self.get_selected_param;
+				// FIXME: handle mod regular params
+				var param = ~global_controller.current_param;
+				var node;
+				if(param.notNil) {
+					if(param.classtype == \range) {
+						node = self.parent_player_ctrl;
+						self.get_main.panels.side[\binding_assign_global_midi_knob].(node, self.param_ctrl, param.target_slot);
+					} {
+						//node = self.get_current_player;
+						self.get_main.panels.side[\binding_assign_global_midi_knob].(param.get_player, param)
+					}
+				}
+			}],
+
 		]);
 	
 	},
@@ -847,16 +896,18 @@
 	slots_number: 3,
 	slots: nil,
 	selected_slot: 0,
-	archive_data: [\name, \slots],
+	archive_data: [\name],
 
 
 	new: { arg self, name, player;
+		// name is param name
 		// name can be nil when loading data
 		self = self.deepCopy;
 		
 		[name, player.uname].debug("******************* class_modulation_mixer_controller: name, playeruname");
 		self.player = { player };
 		self.name = name;
+		self.get_main = { player.get_main };
 
 		self.slots = Dictionary.new;
 
@@ -873,10 +924,27 @@
 		self.archive_data.do { arg key;
 			data[key] = self[key]
 		};
+		data[\slots_ctrl] = self.slots.collect { arg slot;
+			slot.save_data;
+		};
 		data;
 	},
 
 	load_data: { arg self, data;
+		if(data[\slots].notNil) {
+			// convert old save format
+			self.slots = data[\slots].collect { arg slot, idx;
+				var range_ctrl = ~class_param_range.new(self.get_main, self, idx);
+				range_ctrl.set_val(slot.range);
+				range_ctrl.set_slot_index(slot.name);
+			};
+		} {
+			self.slots = data[\slots_ctrl].collect { arg slot, idx;
+				var range_ctrl = ~class_param_range.new(self.get_main, self, idx);
+				range_ctrl.load_data(slot);
+				range_ctrl;
+			};
+		};
 		self.archive_data.do { arg key;
 			self[key] = data[key]
 		};
@@ -889,7 +957,8 @@
 	get_used_slots: { arg self;
 		var res = Dictionary.new;
 		self.slots.keysValuesDo { arg key, val;
-			if(val.name != nil and: { val.muted != true }) {
+			//if(val.name != nil and: { val.muted != true }) {
+			if(val.get_slot_index != nil and: { val.muted != true }) {
 				res[key] = val;
 			}
 		};
@@ -912,6 +981,10 @@
 		} {
 			0
 		}
+	},
+
+	get_slot: { arg self, idx;
+		self.slots[idx]
 	},
 
 	set_range: { arg self, idx, range;
@@ -941,16 +1014,18 @@
 
 	connect_slot: { arg self, source_slot, target_slot;
 		if(self.slots[target_slot].isNil) {
-			self.slots[target_slot] = (range:0)
+			self.slots[target_slot] = ~class_param_range.new(self.get_main, self, target_slot)
 		};
-		self.slots[target_slot].name = source_slot;
+		//self.slots[target_slot].name = source_slot;
+		self.slots[target_slot].set_slot_index( source_slot);
 		self.update_modulation_pattern;
 		self.changed(\connection, target_slot);
 	},
 
 	disconnect_slot: { arg self, target_slot;
 		if(self.slots[target_slot].notNil) {
-			self.slots[target_slot].name = nil;
+			//self.slots[target_slot].name = nil;
+			self.slots[target_slot].set_slot_index(nil);
 		};
 		self.update_modulation_pattern;
 		self.changed(\connection, target_slot);
@@ -959,7 +1034,8 @@
 	get_modulator_name: { arg self, idx;
 		// the name is the key in the modulator dictionnary
 		if(self.slots[idx].notNil) {
-			self.slots[idx].name
+			//self.slots[idx].name
+			self.slots[idx].get_slot_index;
 		} {
 			nil
 		}
@@ -968,7 +1044,8 @@
 	get_source_slot_from_target_slot: { arg self, idx;
 		// the name is the key in the modulator dictionnary
 		if(self.slots[idx].notNil) {
-			self.slots[idx].name
+			//self.slots[idx].name
+			self.slots[idx].get_slot_index;
 		} {
 			nil
 		}
@@ -976,7 +1053,8 @@
 
 	get_modulator_node_name: { arg self, idx;
 		if(self.slots[idx].notNil) {
-			self.player.modulation.get_modulator_name(self.slots[idx].name)
+			//self.player.modulation.get_modulator_name(self.slots[idx].name)
+			self.player.modulation.get_modulator_name(self.slots[idx].get_slot_index)
 		}
 	},
 
@@ -1293,7 +1371,8 @@
 			effect_pat_list.add( 
 				Pbind(
 					\group, Pfunc{ arg ev; ev[\ppatch].global_group[\effects] },
-					\addAction, \addToTail,
+					//\addAction, \addToTail,
+					\addAction, 1,
 					\in, Pfunc{ arg ev; ev[\ppatch].global_bus[effect_inbus_list[idx]] },
 					\out, Pfunc{ arg ev; ev[\ppatch].global_bus[effect_outbus_list[idx]] },
 				) <>
@@ -1430,21 +1509,24 @@
 			modmixer.get_slots.keysValuesDo { arg slotidx, modstruct, idx;
 				var in_bus_name;
 				mainplayer.name.debug("make_mixer_pattern: modmixer: mainplayer");
-				in_bus_name = "mod_%_%".format(mainplayer.uname, mainplayer.modulation.get_modulator_name(modstruct.name)).asSymbol;
+				//in_bus_name = "mod_%_%".format(mainplayer.uname, mainplayer.modulation.get_modulator_name(modstruct.name)).asSymbol;
+				in_bus_name = "mod_%_%".format(mainplayer.uname, mainplayer.modulation.get_modulator_name(modstruct.get_slot_index)).asSymbol;
 				idx = idx + 1;
 				mixerarglist = (mixerarglist ++ [
 					(\in++idx).asSymbol, Pfunc{ arg ev;
 						var node;
 						[in_bus_name, modstruct, idx].debug("mixer: in");
 						if(
-							node = mainplayer.modulation.get_modulator_node(modstruct.name);
+							//node = mainplayer.modulation.get_modulator_node(modstruct.name);
+							node = mainplayer.modulation.get_modulator_node(modstruct.get_slot_index);
 							node.notNil and: {
 								node.modulation.notNil and: { 
 									modstruct.muted != true 
 								}
 							}
 						) {
-							if(mainplayer.modulation.get_modulator_node(modstruct.name).modulation.mod_kind == \pattern) {
+							//if(mainplayer.modulation.get_modulator_node(modstruct.name).modulation.mod_kind == \pattern) {
+							if(mainplayer.modulation.get_modulator_node(modstruct.get_slot_index).modulation.mod_kind == \pattern) {
 								ev[\ppatch].global_bus[in_bus_name];
 							} {
 								ev[\ppatch].note_bus[in_bus_name];
@@ -1454,7 +1536,8 @@
 							// FIXME: is it a problem to return nil here ?
 						}
 					},
-					(\range++idx).asSymbol, Pfunc{modstruct.range}
+					//(\range++idx).asSymbol, Pfunc{modstruct.range}
+					(\range++idx).asSymbol, modstruct.vpattern
 				]).asList;
 			};
 			mixerarglist.debug("make_mixer_pattern: mixerarglist");
@@ -1474,8 +1557,10 @@
 					var can_make_mixer = false;
 					mainplayer.name.debug("walk_modulators: mainplayer");
 					modmixer.get_slots.keysValuesDo { arg slotidx, modstruct, idx;
-						var modname = mainplayer.modulation.get_modulators[modstruct.name];
+						//var modname = mainplayer.modulation.get_modulators[modstruct.name];
+						var modname = mainplayer.modulation.get_modulators[modstruct.get_slot_index];
 						var modnode = mainplayer.get_main.get_node(modname);
+						modname.debug("walkmodulatos: modname");
 						if(modname.notNil and: {modnode.notNil}) {
 							can_make_mixer = true;
 							if(done_modulators.includesEqual(modname).not) {

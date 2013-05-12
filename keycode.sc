@@ -726,6 +726,9 @@
 		if(oldparam.notNil && (oldparam != param)) {
 			self.paramToCcpath[oldparam] = nil;
 			self.get_param_binded_ccpath(oldparam).debug("ce n'est point possible: doit etre nil");
+
+			oldparam.set_bus_mode(false);
+
 			oldparam.name.debug("refreshing oldparam");
 			oldparam.midi.refresh;
 		};
@@ -738,6 +741,11 @@
 		};
 		//param.midi.get_ccpath.debug("verif");
 		//param.midi.get_param.debug("verif param");
+
+		if(oldparam != param) {
+			param.set_bus_mode(true);
+		};
+
 		param.name.debug("refreshing param");
 		param.midi.refresh;
 		self.midi_handler[panel][ccpath] = { arg val; 
@@ -763,6 +771,9 @@
 		};
 		if(param.notNil) {
 			self.paramToCcpath[param] = nil;
+
+			param.set_bus_mode(false);
+
 			param.midi.refresh;
 		};
 		

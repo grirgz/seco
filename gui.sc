@@ -115,9 +115,11 @@
 				\midi_val, \val, \label,
 			]);
 
-			self.mixer_responder = ~make_class_responder.(self, self.responder_anchor, self.modmixer, [
-				\range, \connection
-			]);
+			if(self.modmixer.notNil) {
+				self.mixer_responder = ~make_class_responder.(self, self.responder_anchor, self.modmixer, [
+					\range, \connection
+				]);
+			};
 
 		};
 		
@@ -155,16 +157,18 @@
 
 	range: { arg self, obj, msg, idx;
 		idx.debug("set range");
-		if(idx.isNil) {
-			3.do { arg idx; // FIXME: hardcoded
+		{
+			if(idx.isNil) {
+				3.do { arg idx; // FIXME: hardcoded
+					self.modmixer.get_range(idx).debug("range");
+					self.knob.set_range(idx, self.modmixer.get_range(idx));
+				}
+			} {
 				self.modmixer.get_range(idx).debug("range");
 				self.knob.set_range(idx, self.modmixer.get_range(idx));
-			}
-		} {
-			self.modmixer.get_range(idx).debug("range");
-			self.knob.set_range(idx, self.modmixer.get_range(idx));
-		};
-		self.knob.refresh;
+			};
+			self.knob.refresh;
+		}.defer;
 	},
 
 	connection: { arg self, obj, msg, idx;
@@ -197,8 +201,10 @@
 		(controller.isNil).debug("class_ci_modknob_view.set_controller: isnil ?");
 		self.controller = { controller };
 		if(self.controller.notNil) {
-			modmixer = self.controller.get_player.modulation.get_modulation_mixer(self.controller.name);
-			self.modmixer = { modmixer };
+			if(self.controller.get_player.notNil) {
+				modmixer = self.controller.get_player.modulation.get_modulation_mixer(self.controller.name);
+				self.modmixer = { modmixer };
+			}
 		} {
 			self.label;
 		};
@@ -207,17 +213,22 @@
 
 	clear_slot: { arg self, idx;
 		idx.debug("class_ci_modknob_view: clear_slot");
-		self.modmixer.disconnect_slot(idx);
-		self.modmixer.set_range(idx, 0);
+		if(self.modmixer.notNil) {
+			self.modmixer.disconnect_slot(idx);
+			self.modmixer.set_range(idx, 0);
+		};
 	},	
 
 	toggle_mute_slot: { arg self, idx;
 		idx.debug("class_ci_modknob_view: toggle_mute_slot");
-		if(self.modmixer.is_slot_muted(idx)) {
-			self.modmixer.mute_slot(idx, false);
-		} {
-			self.modmixer.mute_slot(idx, true);
+		if(self.modmixer.notNil) {
+			if(self.modmixer.is_slot_muted(idx)) {
+				self.modmixer.mute_slot(idx, false);
+			} {
+				self.modmixer.mute_slot(idx, true);
+			}
 		}
+
 	},
 
 	make_modslots: { arg self;
@@ -370,14 +381,18 @@
 	},
 
 	val: { arg self;
-		self.vallabel.string = self.controller.get_val.asFloat.asStringPrec(~general_sizes.float_precision);
-		self.knob.value = self.controller.get_norm_val;
+		{
+			self.vallabel.string = self.controller.get_val.asFloat.asStringPrec(~general_sizes.float_precision);
+			self.knob.value = self.controller.get_norm_val;
+		}.defer;
 	},
 
 	label: { arg self;
-		self.controller.label.debug("class_ci_modknob_view: LABEL");
-		self.controller.name.debug("class_ci_modknob_view: LABEL2");
-		self.namelabel.string = self.controller.label ?? self.controller.name;
+		{
+			self.controller.label.debug("class_ci_modknob_view: LABEL");
+			self.controller.name.debug("class_ci_modknob_view: LABEL2");
+			self.namelabel.string = self.controller.label ?? self.controller.name;
+		}.defer
 	},
 
 	make_gui: { arg self;
@@ -695,6 +710,74 @@
 			],
 
 		);
+		self.layout;
+	},
+);
+
+~class_midi_slider = (
+	new: { arg self, controller, orientation=\horizontal;
+		self = self.deepCopy;
+
+		self.orientation = orientation;
+		self.make_layout;
+		self.set_controller(controller);
+	
+		self;
+	},
+
+	set_controller: { arg self, controller;
+		if(controller.notNil) {
+			debug("class_midi_slider: set_controller");
+			self.controller = { controller };	
+			self.responder.remove;
+			self.responder = ~make_class_responder.(self, self.responder_anchor, self.controller, [ \label, \val ]);
+		} {
+			debug("class_midi_slider: set_controller (isNil)");
+			self.midi_label.string = "X";
+			self.slider.value = 0.5;
+		}
+	},
+
+	label: { arg self;
+		{
+			debug("class_midi_slider: label responder");
+			self.midi_label.string_(self.controller.midi.label);
+		}.defer;
+	},
+
+	val: { arg self;
+		{
+			debug("class_midi_slider: val responder");
+			self.slider.value = self.controller.get_norm_val;	
+		}.defer
+	},
+
+	make_layout: { arg self;
+		var layout;
+		if(self.orientation == \horizontal) {
+			layout = HLayout.new;
+		};
+		self.midi_label = StaticText.new.string_("X");
+		self.slider = Slider.new
+			.orientation_(self.orientation)
+			.focusGainedAction_({
+				if(self.controller.notNil) {
+					self.controller.name.debug("global_controller is now: ");
+					~global_controller.current_param = self.controller;
+				}
+			})
+			.action_({
+				if(self.controller.notNil) {
+					self.controller.set_norm_val(self.slider.value);
+					self.slider_action;
+				}
+			});
+
+		self.responder_anchor = self.midi_label;
+
+		layout.add( self.midi_label );
+		layout.add( self.slider );
+		self.layout = layout;
 		self.layout;
 	},
 );

@@ -414,6 +414,27 @@
 		self.get_main.commands.bind_param(ccpath, param);
 	},
 
+	bind_global_param: { arg self, key, idx;
+		var ccpath;
+		[key, idx].asCompileString.debug("class_midi_bindings_manager.bind_global_param");
+		ccpath = [\knob, idx];
+		self.bindings.global = self.bindings.global.collect { arg gkey, i;
+			if(i == idx) {
+				key
+			} {
+				if(gkey == key) {
+					\void
+				} {
+					gkey
+				}
+			}
+		};
+		if(self.binding_mode == \global) {
+			self.get_main.commands.bind_param(ccpath, self.param_key_to_param(key));
+		};
+		self.changed(\midi_player);
+	},
+
 	unbind_ccpath: { arg self, ccpath;
 		self.get_main.commands.unbind_ccpath(ccpath);
 	},
@@ -481,7 +502,13 @@
 
 	param_key_to_param: { arg self, key;
 		var node = self.get_main.get_node(key[0]);
-		node.get_arg(key[1]);
+		var res;
+		if(key[2].notNil) {
+			res = node.modulation.get_modulation_mixer(key[1]).get_slot(key[2])
+		} {
+			res = node.get_arg(key[1]);
+		};
+		res;
 	},
 
 	param_key_to_string: { arg self, key;
@@ -489,30 +516,14 @@
 		if(key.isNumber) {
 			(key+1).asString
 		} {
-			"% - %".format(key[0], key[1]);
+			if(key[2].notNil) {
+				"% - % (m%)".format(key[0], key[1], key[2]);
+			} {
+				"% - %".format(key[0], key[1]);
+			};
 		}
 	},
 
-	bind_global_param: { arg self, key, idx;
-		var ccpath;
-		[key, idx].asCompileString.debug("class_midi_bindings_manager.bind_global_param");
-		ccpath = [\knob, idx];
-		self.bindings.global = self.bindings.global.collect { arg gkey, i;
-			if(i == idx) {
-				key
-			} {
-				if(gkey == key) {
-					\void
-				} {
-					gkey
-				}
-			}
-		};
-		if(self.binding_mode == \global) {
-			self.get_main.commands.bind_param(ccpath, self.param_key_to_param(key));
-		};
-		self.changed(\midi_player);
-	},
 
 	assign_global_macros: { arg self;
 		var ccpath;

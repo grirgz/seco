@@ -1,3 +1,17 @@
+SynthDef(\osc1, { arg out, gate=1, freq=300, amp=0.1, ffreq=200, rq=0.1, attack=0.1, release=0.1, doneAction=2;
+	var sig = LFSaw.ar(freq);
+	var env = EnvGen.kr(Env.adsr(attack,0.1,1,release), gate, doneAction:doneAction);
+	sig = RLPF.ar(sig, ffreq, rq);
+	//sig = sig + SinOsc.ar(ffreq);
+	//ffreq.poll;
+	//rq.poll;
+	sig = sig * env;
+	sig = sig ! 2;
+	sig = sig * amp;
+	//sig.poll;
+	Out.ar(out, sig);
+}).store;
+
 SynthDef(\bufsin1, { arg out=0, amp=0.1, gate=1, pan=0, freq=200, bufnum, pos=0, finepos=0, range=0.01;
 	var ou;
 	var osc;
@@ -89,9 +103,11 @@ SynthDef(\comb1, { arg in, out, mix=0.5, inmix=1, maxdelaytime=0.4, delaytime=0.
 	//var sig = EnvGen.kr(Env.adsr(attack,0.1,1,0.1), gate, doneAction:doneAction);
 	var sig, sigwet;
 	sigwet = In.ar(in, 2);
+	//in.poll;
 	sig = SelectX.ar(inmix, [DC.ar(0)!2, sigwet]);
 	sig = CombL.ar(sig, maxdelaytime, delaytime, decaytime);
 	sig = SelectX.ar(mix, [sigwet, sig]);
+	//sig.poll;
 	Out.ar(out, sig);
 }, metadata:(specs:(
 	inmix: \unipolar,

@@ -188,6 +188,21 @@
 				}
 			}],
 
+			[\assign_global_midi_knob, { 
+				// factorize with side and modulation
+				var param = ~global_controller.current_param;
+				var node;
+				if(param.notNil) {
+					if(param.classtype == \range) {
+						node = self.parent_player_ctrl;
+						self.get_main.panels.side[\binding_assign_global_midi_knob].(node, self.param_ctrl, param.target_slot);
+					} {
+						//node = self.get_current_player;
+						self.get_main.panels.side[\binding_assign_global_midi_knob].(param.get_player, param)
+					}
+				}
+			}],
+
 			[\assign_midi_knob, { 
 				if(~global_controller.current_param.notNil) {
 					var param = ~global_controller.current_param;
@@ -2141,6 +2156,9 @@
 			filterparseq: filterparseq,
 			pitch_spread: ~make_control_param.(main, player, \pitch_spread, \scalar, 0, \bipolar.asSpec),
 			wtpos_spread: ~make_control_param.(main, player, \wtpos_spread, \scalar, 0, \bipolar.asSpec),
+
+			feedback: ~make_control_param.(main, player, \feedback_outmix, \scalar, 0.0, ControlSpec(0,1.5,\lin, 0, 0)),
+			feedback_outmix: ~make_control_param.(main, player, \feedback_outmix, \scalar, 0.5, \unipolar.asSpec),
 		];
 		filtermix.set_label("Filter Mix");
 		filterparseq.set_label("Par Seq");
@@ -2152,6 +2170,8 @@
 			enable_pitch_spread: ~class_param_static_controller.new(\enable_pitch_spread, specs[\onoff], 0),
 			enable_wtpos_spread: ~class_param_static_controller.new(\enable_wtpos_spread, specs[\onoff], 0),
 			voices: ~class_param_static_controller.new(\voices, ControlSpec(1,16,\lin,1), 1),
+
+			enable_feedback: ~class_param_static_controller.new(\enable_feedback, specs[\onoff], 0),
 		);
 
 		self.ordered_args.clump(2).do { arg keyval;
@@ -2250,117 +2270,23 @@
 		)
 	},
 
-	//make_layout_effects: { arg self;
-	//	self.fx_ctrl = ~class_embeded_effects_controller.new(self.get_main, self.get_player);
-	//	self.fx_ctrl.window = { self.window };
-	//	self.fx_ctrl.layout;
-	//},
-
 	make_tab_panel: { arg self;
 		self.tab_panel.make_layout;
 	},
 
-	//make_tab_panel_OLD: { arg self;
-	//	var header, body, layout;
-	//	var content;
-	//	var modview;
-	//	var custom_view = View.new;
-	//	var tab_views = List.new;
-	//	self.tab_custom_view = custom_view;
-	//	self.modulation_controller = ~class_embeded_modulation_controller.new(self.get_main, self.get_player, nil, self.data[\filtermix]);
-	//	self.modulation_controller.make_bindings;
-	//	self.modulation_controller.window = { self.window };
-	//	modview = ~class_embeded_modulation_view.new(self.modulation_controller);
-	//	self.modulation_controller.main_view = modview;
-
-	//	//content = [
-	//	//	"Master Env", self.master.make_layout_env,
-	//	//	"Routing", self.make_layout_routing,
-	//	//	"Voices", self.make_layout_voices,
-	//	//	"Effects", self.make_layout_effects,
-	//	//];
-	//	content = [
-	//		"Master Env", {  self.master.make_layout_env },
-	//		"Routing", {  self.make_layout_routing },
-	//		"Voices", {  self.make_layout_voices },
-	//		"Effects", {  self.make_layout_effects },
-	//	];
-	//	self.tabs_count = content.size/2;
-	//	content = content.clump(2).flop;
-	//	debug("NUIT 1");
-	//	body = StackLayout(*
-	//		content[1].collect { arg co;
-	//			//View.new.layout_(co)
-	//			var view;
-	//			view = View.new;
-	//			tab_views.add(view);
-	//			view;
-	//		} ++ [
-	//			View.new.layout_(modview.body_layout),
-	//			//custom_view,
-	//		]
-	//	);
-	//	tab_views.do { arg view, idx;
-	//		//{
-	//			view.layout = content[1][idx].value;
-	//			//0.01.wait;
-	//		//}.defer( 1+idx )
-	//	};
-	//	debug("NUIT 2");
-	//	layout = VLayout(
-	//		HLayout(*
-	//			content[0].collect { arg co, idx;
-	//				debug("NUIT 3");
-	//				//0.02.wait;
-	//				Button.new
-	//					.states_([[co]])
-	//					.action_({ 
-	//						body.index = idx;
-	//						if(idx == 3) { //FIXME: hardcoded
-	//							self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\effects);
-	//						} {
-	//							self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\classinstr, self);
-	//						}
-	//					})
-	//			}
-	//		),
-	//		modview.tab_layout,
-	//		body,
-	//	
-	//	);
-	//	debug("NUIT 4");
-	//	self.tab_panel_stack_layout = body;
-	//	modview.show_body_layout = { arg myself;
-	//		debug("modview: show_body_layout");
-	//		self.tab_panel_stack_layout.index = self.tabs_count;
-	//	};
-	//	//modview.show_body_layout = { arg myself;
-	//	//	var extplayer = myself.controller.get_current_player.external_player;
-	//	//	myself.controller.get_current_player.uname.debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: curplayer");
-	//	//	self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\modulator);
-	//	//	if(extplayer.notNil) {
-	//	//		// FIXME: external player should have custom gui
-	//	//		self.tab_panel_stack_layout.index = 5;
-	//	//		extplayer.make_layout;
-	//	//		self.tab_custom_view.children.do(_.remove);
-	//	//		debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: before cusheader");
-	//	//		self.custom_header_view = ~class_modulator_header_view.new_without_responders(myself.controller); 
-	//	//		debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: after cusheader");
-	//	//		self.tab_custom_view.layout_(
-	//	//			VLayout(
-	//	//				[self.custom_header_view.layout, stretch:0],
-	//	//				extplayer.layout,
-	//	//			)
-	//	//		);
-	//	//		self.custom_header_view.selected_slot;
-	//	//		debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: after view cusheader");
-	//	//		debug("class_ci_osc3filter2: make_tab_panel: show_body_layout: last view cusheader");
-	//	//	} {
-	//	//		self.tab_panel_stack_layout.index = 4;
-	//	//	}
-	//	//};
-	//	layout;
-	//},
+	make_layout_feedback: { arg self;
+		var knobs = [\feedback];
+		var frame_view;
+		var layout;
+		knobs = knobs.collect { arg name;
+			self.data[name];
+		};
+		frame_view = ~class_ci_frame_view.new(
+			"Feedback", knobs, self.static_data[\enable_feedback], nil, nil, self.data[\feedback_outmix]
+		);
+		layout = HLayout(frame_view.layout);
+		layout;
+	},
 
 
 	make_layout: { arg self;
@@ -2368,7 +2294,10 @@
 				debug("****************************************** LAYOUT oscs");
 			VLayout(*
 				self.oscs.collect({arg x;[x.make_layout, stretch:0]}) ++
-				[[nil, stretch:1]]
+				[
+					self.make_layout_feedback,
+					[nil, stretch:1],
+				]
 			),
 				debug("****************************************** LAYOUT filters");
 			VLayout(*
@@ -2429,6 +2358,7 @@
 			var f1_in, f2_in;
 			var fmiddle_in;
 			var f1_out, f2_out;
+			var feedback, feedback1 = 0, feedback2 = 0;
 
 			//[1,2,4].sum
 			//[[1,2],[2,4],[4,6]].sum
@@ -2447,8 +2377,17 @@
 			rsig = oscs[0];
 			oscs.debug("OSCS");
 			oscs = oscs.flop;
-			f1_in = oscs[1].sum;
-			f2_in = oscs[0].sum;
+
+			if(i.enable_feedback == 1) {
+				feedback = LocalIn.ar(1) * i.feedback;
+				feedback = feedback.clip(-1,1);
+				feedback1 = SelectX.ar(i.feedback_outmix, [feedback, DC.ar(0)]);
+				feedback2 = SelectX.ar(i.feedback_outmix, [DC.ar(0), feedback]);
+			};
+			
+
+			f1_in = oscs[1].sum + feedback1;
+			f2_in = oscs[0].sum + feedback2;
 
 			f1_in.debug("F1IN1");
 			// before effect
@@ -2485,6 +2424,9 @@
 			sig = self.insert_effect(i, sig, \before_pan);
 
 			//sig = sig ! 2;
+			if(i.enable_feedback == 1) {
+				LocalOut.ar(sig.sum);
+			};
 
 			sig = self.master.synthfun.(sig);
 
@@ -4334,8 +4276,10 @@ Instr(\p_hardclipper, { arg in, mix, drive;
 /////////// effects
 
 Instr(\p_reverb, { arg in, mix, room, damp;
+	var sig;
 	in = In.ar(in, 2);
-	FreeVerb.ar(in, mix, room, damp);
+	sig = FreeVerb.ar(in, mix, room, damp);
+	//sig.poll;
 }, [\audio]).storeSynthDef([\ar]);
 
 

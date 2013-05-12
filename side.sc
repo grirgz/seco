@@ -215,7 +215,7 @@
 			param.make_responder_translator(vlayout);
 			self.old_param = param;
 			if(param.classtype == \control) {
-				if(dont_set_bus_mode.not) {
+				if(dont_set_bus_mode.not) { // dont set because oldparam is same as newparam so bus mode is already set
 					//param.name.debug("SET BUSMODE");
 					param.set_bus_mode(true);
 					vlayout.onClose = vlayout.onClose.addFunc({
@@ -2010,11 +2010,11 @@
 				}],
 
 				[\assign_global_midi_knob, 
-					self.binding_assign_global_midi_knob = { arg node, param;
+					self.binding_assign_global_midi_knob = { arg node, param, modslot;
 						node = node ?? { self.get_current_player };
 						param = param ?? { self.get_selected_param };
 						if(param.classtype == \control) {
-							~class_midi_global_binder.new(main, {}, node, param);
+							~class_midi_global_bind_chooser.new(main, {}, node, param, modslot);
 						}
 					};
 					self[\binding_assign_global_midi_knob]

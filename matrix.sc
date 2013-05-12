@@ -483,7 +483,7 @@
 
 );
 
-~class_midi_global_binder = (
+~class_midi_global_bind_chooser = (
 
 	parent: ~class_matrix_chooser,
 	my_datalist: [
@@ -492,7 +492,7 @@
 		\scoreline,
 		\sampleline,
 	],
-	new: { arg self, main, action, node, param;
+	new: { arg self, main, action, node, param, modslot;
 		var datalist;
 		var binman;
 		self = self.parent[\new].(self, action, "Choose kind");
@@ -500,20 +500,21 @@
 		self.get_main = { arg self; main };
 		self.get_node = { node };
 		self.get_param = { param };
+		self.get_modslot = { modslot };
 		binman = main.midi_bindings_manager;
-		debug("class_midi_global_binder.new1");
+		debug("class_midi_global_bind_chooser.new1");
 		//self.my_datalist = binman.get_global_binding_list;
 		self.stringlist = binman.get_global_binding_list.collect{ arg key; binman.param_key_to_string(key) };
-		debug("class_midi_global_binder.new2");
+		debug("class_midi_global_bind_chooser.new2");
 		datalist = (0..7);
 		self.set_datalist(datalist);
 		self.show_window;
-		debug("class_midi_global_binder.new3");
+		debug("class_midi_global_bind_chooser.new3");
 		self;
 	},
 
 	data_to_string: { arg self, key;
-		key.debug("class_midi_global_binder.data_to_string");
+		key.debug("class_midi_global_bind_chooser.data_to_string");
 		self.stringlist[key]
 		//var binman = self.get_main.midi_bindings_manager;
 		//binman.param_key_to_string(key)
@@ -523,9 +524,15 @@
 		//sel.dump.debug("selected");
 		var sel = data;
 		if(sel != "" and: {self.oldsel == sel}) {
+			var path;
 			self[\action].(sel);
 
-			self.get_main.midi_bindings_manager.bind_global_param([self.get_node.uname, self.get_param.name], sel); //FIXME: abs_name ?
+			path = [self.get_node.uname, self.get_param.name];
+			if(self.get_modslot.notNil) {
+				path = path.add(self.get_modslot);
+			};
+
+			self.get_main.midi_bindings_manager.bind_global_param(path, sel); //FIXME: abs_name ?
 
 			self.window.close;
 		} {

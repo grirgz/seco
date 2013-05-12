@@ -243,18 +243,6 @@ Mdef.main.freeze_do { Mdef.main.panels.side.changed(\player) }
 Mdef.node("osc1_l1031").changed()
 
 (
-SynthDef(\osc1, { arg out, gate=1, freq=300, amp=0.1, ffreq=200, rq=0.1, attack=0.1, release=0.1, doneAction=2;
-	var sig = LFSaw.ar(freq);
-	var env = EnvGen.kr(Env.adsr(attack,0.1,1,release), gate, doneAction:doneAction);
-	sig = RLPF.ar(sig, ffreq, rq);
-	//sig = sig + SinOsc.ar(ffreq);
-	//ffreq.poll;
-	//rq.poll;
-	sig = sig * env;
-	sig = sig ! 2;
-	sig = sig * amp;
-	Out.ar(out, sig);
-}).store;
 
 SynthDef(\zegrainer_old, { arg out=0, amp=0.1, gate=1, pan=0, freq=200, mbufnum,
 						gdur=0.2, trate=12, grate=1, pos=0, rate = 1, durgap, randframes=0.01, randrate=1, doneAction=0, finepos=0;

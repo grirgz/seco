@@ -44,6 +44,7 @@ Window.closeAll;
 
 ~effectlib = [
 	\comb1,
+	\freeverb,
 	\p_reverb,
 	\p_flanger,
 	\p_chorus,
@@ -287,3 +288,120 @@ Mdef.main.commands.commands.keys
 a = ~make_seqplayer.(Mdef.main)
 a.get_displayable_args
 a.update_ordered_args
+
+
+
+
+(
+ a = (
+ 	bla: 3,
+	rah: 8,
+	arr: [1,2,3],
+	cho: \bla,
+	gett: { arg self; self[self.cho].debug("result") },
+
+	 );
+
+ b = (
+ 	parent: a,
+	cho: \rah,
+ 
+	 )
+
+)
+
+
+
+a.gett
+b.gett
+b.bla = 2
+
+a.rah = 7
+
+b.arr[0]= 100
+a
+
+(
+SynthDef(\freeverb, { arg out=0, in, mix=0.5, room=0.5, damp=0;
+	var sig;
+	in = In.ar(in, 2);
+	sig = FreeVerb.ar(in, mix, room, damp);
+	out.poll;
+	Out.ar(out, sig);
+}).store;
+
+SynthDef(\freeverb2, { arg out=0, in, mix=0.5, room=0.5, damp=0;
+	var sig;
+	in = In.ar(in, 2);
+	sig = FreeVerb.ar(in, mix, room, damp);
+	out.poll;
+	Out.ar(out, sig);
+}).store;
+)
+
+
+
+
+
+
+
+
+
+
+
+
+
+~b1 = Bus.audio(s,2);
+~b2 = Bus.audio(s,2);
+(
+~fxgroup = Group.new(s);
+~addaction = 1;
+~freeverb = Pmono(\freeverb,
+	\in, ~b1,
+	\mix, 0.5,
+	\addAction, ~addaction,
+	\group, ~fxgroup,
+	\room, 0.5,
+	\dur, Pn(0.25,8),
+	\out, ~b2,
+);
+~freeverb2 = Pmono(\freeverb2,
+	\in, ~b2,
+	\mix, 0.5,
+	\group, ~fxgroup,
+	\addAction, ~addaction,
+	\room, 0.5,
+	\dur, Pn(0.25,8),
+	\out, 0,
+);
+
+~pat = Pbind(
+	\dur, Pn(0.25,8),
+	\out, ~b1,
+);
+
+//~mainpat = Pspawner({ arg spawner;
+//	spawner.par(~pat);
+//	[~freeverb, ~freeverb2].do { arg pat;
+//		spawner.par(pat)
+//	};
+//
+//});
+
+~mainpat = Ppar([
+	~pat,
+	~freeverb2,
+	~freeverb,
+]);
+
+//~pat.play;
+//~freeverb.play;
+//~freeverb2.play;
+Pn(~mainpat,8).play
+
+
+
+) 
+
+
+

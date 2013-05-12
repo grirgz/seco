@@ -840,18 +840,19 @@ if(~silent_audio2_bus.isNil) {
 				s.volume.volume = proj.volume;
 
 
-				self.archive_modules.do { arg module;
-					if(proj[module].notNil) {
-						main[module].load_data(proj[module]);
-					}
-				};
-
 				self.model.project_path = projpath;
 
 				self.model.livenodepool = self.unarchive_livenodepool(projpath);
 				self.rebuild_all_synthdef_and_sourcepat;
 				self.add_node(~empty_player);
 				self.model.livenodepool.keys.debug("unarchived livenodepool keys");
+
+				self.archive_modules.do { arg module;
+					if(proj[module].notNil) {
+						main[module].load_data(proj[module]);
+					}
+				};
+
 				//TODO: load context
 				self.model.project_path = nil;
 

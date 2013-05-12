@@ -1733,6 +1733,10 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		self;
 	},
 
+	install_midi: { arg self;
+		self.midi = self.get_main.midi_center.get_midi_control_handler(self);
+	},
+
 	save_data: { arg self;
 		var data = IdentityDictionary.new;
 		self.archive_data.do { arg key;
@@ -2551,6 +2555,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 								//debug("vpattern: BUS MODE: free bus");
 								{ arg self, ev;
 									self.scalar.should_free_bus_mode = false;
+									// FIXME: defer free to avoid glitch bug ?
 									self.scalar.bus.free;
 									self.scalar.bus = nil;
 									ev = self.scalar.get_val.yield;
@@ -3146,10 +3151,70 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	// - range
 	// - name (should be named slot)
 
-	new: { arg self;
+	classtype: \range,
+	val: 0,
+	norm_val: 0,
+	muted: false,
+	spec: \bipolar.asSpec,
+	archive_data: [\val, \target_slot, \slot_index],
+
+	new: { arg self, main, modmixer, idx, name;
 		self = self.deepCopy;
+		
+		self.get_main = { main };
+		self.modmixer = { modmixer };
+		self.target_slot = idx;
+		self.install_midi;
+		self.name = "% (m%)".format(name ?? modmixer.name, idx);
 	
 		self;
+	},
+
+	range: { arg self;
+		self.get_val;
+	}, 
+
+	range_: { arg self, val;
+		self.set_val(val)
+	},
+
+	refresh: { arg self;
+		self.changed(\val);
+		self.midi.refresh;
+	},
+
+	get_val: { arg self;
+		self.val;
+	},
+
+	set_val: { arg self, val;
+		self.val = val;
+		self.changed(\val);
+		self.modmixer.changed(\range, self.target_slot);
+	},
+
+	get_slot_index: { arg self;
+		// source_slot
+		self.slot_index;
+	},
+
+	set_slot_index: { arg self, val;
+		self.slot_index = val;
+		self.changed(\slot_index);
+	},
+
+	set_norm_val: { arg self, val;
+		self.val = self.spec.map(val);
+		self.changed(\val);
+		self.modmixer.changed(\range, self.target_slot);
+	},	
+
+	get_norm_val: { arg self;
+		self.spec.unmap(self.val);
+	},
+	
+	vpattern: { arg self;
+		Pfunc{self.val}
 	},
 
 );
