@@ -1,10 +1,11 @@
 
 ~class_player_display = (
 	param_types: (
-		param_status_group: List[\amp, \dur, \segdur, \stretchdur, \repeat, \mbufnum, \bufnum, \samplekit],
+		//param_status_group: List[\amp, \dur, \segdur, \stretchdur, \repeat, \mbufnum, \bufnum, \samplekit],
+		param_status_group: List[\amp, \dur, \velocity, \stretchdur, \repeat, \mbufnum, \bufnum, \samplekit],
 		param_order: List[\sustain, \pan, \attack, \release, \adsr, \freq],
 		param_mode: [\scoreline, \stepline, \noteline, \sampleline, \nodeline],
-		param_kinds: [\scalar, \seq, \seg, \modulation, \scoreseq, \synchrone, \synchrone_rate, \bus, \recordbus, \pkey],
+		param_kinds: [\scalar, \seq, \seg, \modulation, \scoreseq, \synchrone, \synchrone_rate, \bus, \recordbus, \pkey, \preset],
 		param_no_midi: { arg self; self.param_field_group ++ [\mbufnum, \bufnum, \samplekit] ++ self.param_mode; },
 		param_reject: { arg self; [\out, \instrument, \tsustain, \type, \gate, \agate, \t_trig, \legato, \doneAction] ++ self.param_mode; },
 		param_accepted_displayed_kind: { arg self; self.param_mode ++ [\control, \samplekit, \adsr, \buf]},

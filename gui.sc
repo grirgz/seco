@@ -201,7 +201,7 @@
 		(controller.isNil).debug("class_ci_modknob_view.set_controller: isnil ?");
 		self.controller = { controller };
 		if(self.controller.notNil) {
-			if(self.controller.get_player.notNil) {
+			if(self.controller.get_player.notNil and: { self.controller.get_player.modulation.notNil }) {
 				modmixer = self.controller.get_player.modulation.get_modulation_mixer(self.controller.name);
 				self.modmixer = { modmixer };
 			}

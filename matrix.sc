@@ -409,15 +409,6 @@
 		self;
 	},
 
-	selected: { arg self, sel, win, address; // FIXME: need to be updated to new api
-		//sel.dump.debug("selected");
-		if(sel != "" and: {self.oldsel == sel}) {
-			self[\action].(sel);
-			win.close;
-		} {
-			self.oldsel = sel;	
-		};
-	},
 
 	set_bank: { arg self, idx;
 		self.model.section_bank = idx;

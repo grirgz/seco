@@ -833,6 +833,18 @@
 				}
 			}],
 
+			[\select_param_preset, 8, { arg idx;
+				// FIXME: factorize with side and effect
+				var param = self.get_selected_param;
+				switch( param.classtype,
+					\control, {
+						if( param.current_kind == \preset ) {
+							param.select_cell(idx);
+						} 
+					}
+				);
+			}],
+
 		]);
 	
 	},
@@ -1072,7 +1084,7 @@
 	mod_kind: \note,
 	selected_slot: 0,
 	free_defer_time: 1,
-	archive_data: [\modulators, \mod_kind, \selected_slot],
+	archive_data: [\modulators, \mod_kind, \selected_slot, \free_defer_time],
 
 	new: { arg self, player;
 		self = self.deepCopy;
@@ -1100,7 +1112,7 @@
 		self.archive_data.do { arg key;
 			data[key] = self[key];
 		};
-		options.debug("modulation SAVE_DATA");
+		//options.debug("modulation SAVE_DATA");
 		if(options.notNil) {
 			if(options[\copy_subplayers] == true) {
 				data[\modulators] = data[\modulators].collect { arg nodename;
@@ -1124,7 +1136,9 @@
 		var main;
 		main = self.player.get_main;
 		self.archive_data.do { arg key;
-			self[key] = data[key];
+			if(data[key].notNil) {
+				self[key] = data[key];
+			}
 		};
 		options.debug("modulation LOAD_DATA");
 		if(options.notNil) {
@@ -1370,7 +1384,8 @@
 			var effect = mainplayer.get_main.get_node(effect_name);
 			effect_pat_list.add( 
 				Pbind(
-					\group, Pfunc{ arg ev; ev[\ppatch].global_group[\effects] },
+					\group, Pfunc{ arg ev; ev[\ppatch].global_group["effects_%".format(idx).asSymbol] },
+					//\group, Pfunc{ arg ev; ev[\ppatch].global_group[\effects] },
 					//\addAction, \addToTail,
 					\addAction, 1,
 					\in, Pfunc{ arg ev; ev[\ppatch].global_bus[effect_inbus_list[idx]] },
@@ -1745,7 +1760,7 @@
 					if(ppatch.clean_started.not) {
 					//if(true) {
 						ppatch.clean_started = true;
-						"sched cleanup".debug;
+						[self.get_free_defer_time , s.latency].debug("sched cleanup at");
 						{
 							//spawner.suspendAll;
 							mainplayer.name.debug("defered cleanup");
@@ -1815,6 +1830,9 @@
 			
 			if(effect_pat_list.size > 0) {
 				ppatch.global_group[\effects] = Group.after(ppatch.global_group[\synth]);
+				effect_pat_list.do { arg fx, idx;
+					ppatch.global_group["effects_%".format(idx).asSymbol] = Group.tail(ppatch.global_group[\effects]);
+				}
 			};
 
 			///////////////////// spawning
@@ -2374,6 +2392,19 @@
 			[\assign_midi_knob, {
 				var param = self.get_selected_param;
 				self.get_main.panels.side[\binding_assign_midi_knob].(param)
+			}],
+
+			[\select_param_preset, 8, { arg idx;
+				// FIXME: factorize with side and effect
+				var param = self.get_selected_param;
+				idx.debug("select_param_preset");
+				switch( param.classtype,
+					\control, {
+						if( param.current_kind == \preset ) {
+							param.select_cell(idx);
+						} 
+					}
+				);
 			}],
 
 			[\remove_effect, {

@@ -313,6 +313,7 @@
 ~class_basic_note_track_view = (
 	parent: ~class_basic_track_view,
 	moving_notes: Set.new,
+	y_division: 12,
 
 	mouse_down_action: { arg self;
 		{ arg view, x, y, modifiers, buttonNumber, clickCount;
@@ -471,7 +472,7 @@
 			Pen.color = Color.gray(0.5);
 			self.get_noterange.do { arg y;
 				var yy = self.handle_size * y;
-				if(y % 12 == 0) {
+				if(y % self.y_division == 0) {
 					//y.debug("y 12");
 					Pen.color = Color.gray(0.4);
 				} {
@@ -641,6 +642,25 @@
 					self.controller.set_notescore(~double_notescore.(notescore));
 
 				}],
+
+				[\edit_noterange, {
+					var range;
+					var fullrange = self.controller.get_fullrange;
+					var name = "Edit noterange (%)".format(fullrange);
+					range = "%,%".format(*self.controller.get_noterange);
+					~class_simple_edit_number_view.new(self.controller.get_main, name, range, { arg val;
+						var range;
+						val.debug("NEW VAL");
+						range = val.split($,).asInteger;
+						self.controller.set_noterange( range[0], range[1] )
+
+
+					});
+
+
+				}],
+
+
 			]
 
 		)
@@ -861,6 +881,7 @@
 	view_size_x: 800,
 	view_size_y: 1500,
 	block_dict: Dictionary.new,
+	y_division: 4,
 	//moving_notes: List.new,
 	//roll_size: 400@400,
 
@@ -895,7 +916,7 @@
 	},
 
 	get_noterange: { arg self;
-		self.controller.noterange[1] - self.controller.noterange[0]
+		self.controller.get_noterange[1] - self.controller.get_noterange[0]
 	},
 
 	update_sizes: { arg self;
@@ -920,7 +941,7 @@
 		// TODO: spec unmapping
 		// TODO: fix noterange
 		note.debug("class_sampleline_track_view: note_to_point: note");
-		Point(note.time*self.scaling.x,  (note[self.controller.notekey] / self.get_noterange));
+		Point(note.time*self.scaling.x,  (note[self.controller.notekey] - self.controller.get_noterange[0]) / self.get_noterange );
 	},
 
 	point_to_notepoint: { arg self, point;
@@ -929,7 +950,7 @@
 		//x = point.x/self.beat_size_x;
 		//y = (1-point.y);
 		y = point.y;
-		y = y * self.get_noterange;
+		y = y * self.get_noterange + self.controller.get_noterange[0];
 		x@y;
 	},
 
@@ -1991,6 +2012,7 @@
 		self.display = display;
 		
 		self.get_node = {node};
+		self.get_main = {node.get_main};
 		self.scoreset = node.get_arg(self.recordline_name).get_scoreset;
 
 		self;
@@ -2128,6 +2150,21 @@
 	recordline_name: \sampleline,
 	notekey: \slotnum,
 	noterange: [0,8],
+
+	get_noterange: { arg self;
+		self.display.noterange;
+	},
+
+	get_fullrange: { arg self;
+		var samplekit;
+		samplekit = self.get_node.get_arg(\samplekit).get_val;
+		self.get_main.samplekit_manager.get_samplelist_from_samplekit(samplekit).size;
+	},
+
+	set_noterange: { arg self, low, high;
+		self.display.noterange = [low, high];	
+		self.display.noterange.debug("class_sampleline_track_controller: noterange");
+	},
 );
 
 
@@ -2206,7 +2243,7 @@
 
 	update_notes: { arg self;
 		self.get_node.get_arg(self.notekey).set_notes(self.get_notescore.get_rel_notes);
-		self.get_node.get_arg(\noteline).get_scoreset.update_notes;
+		self.get_node.get_scoreset.update_notes;
 	},
 
 	move_note: { arg self, note, time, notekey;
@@ -2270,6 +2307,10 @@
 		//self.notescore.set_end(16);
 	
 		self;
+	},
+
+	get_label: { arg self;
+		"% (%)".format(self.get_node.name, self.notekey);
 	},
 
 	add_note: { arg self, pos;
@@ -2495,6 +2536,7 @@
 	gridlen: 16,
 	gridstep: (1/4)@0.0625,
 	offset: 0@0,
+	noterange: [0,8],
 
 	new: { arg self;
 		self = self.deepCopy;

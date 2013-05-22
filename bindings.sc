@@ -1,17 +1,42 @@
+
+// FIXME: use the same format than mouse
 ~mouse_bindings = (
-	toggle_note: [0, ~keycode.mouse.left_click],
-	create_note: [\ctrl, ~keycode.mouse.left_click],
-	remove_note: [\ctrl, ~keycode.mouse.right_click],
-	set_end: [0, ~keycode.mouse.right_click],
+	note_track: (
+		toggle_note: [0, \left_click],
+		resize_note: [\shift, \left_click],
+		create_note: [\ctrl, \left_click],
+		remove_note: [\ctrl, \right_click],
+		set_end: [0, \right_click],
+		set_start: [\ctrl, \right_click],
+	),
+	timeline_mouse_down: (
+
+	)
+	timeline_on_node: (
+
+	)
+);
+
+~mouse_bindings = (
+	toggle_note: [0, \left_click],
+	resize_note: [\shift, \left_click],
+	create_note: [\ctrl, \left_click],
+	remove_note: [\ctrl, \right_click],
+	set_end: [0, \right_click],
+	set_start: [\ctrl, \right_click],
 
 );
 
+~mouse_button_to_symbol = ~keycode.mouse.invert;
+
 ~rev_mouse_bindings = Dictionary.newFrom(~mouse_bindings.invert);
 
-~mouse_responder = { arg mod, button, click, handlers;
+~mouse_responder = { arg mod, button, click, panel, handlers;
 	var sym, funkey, fun;
+	var butsym;
 	sym = ~modifier_to_symbol.(mod);
-	funkey = ~rev_mouse_bindings[[sym, button]];
+	butsym = ~mouse_button_to_symbol[button];
+	funkey = ~rev_mouse_bindings[[sym, butsym]];
 	fun = handlers[funkey];
 	if(fun.isNil) {
 		[sym, button].debug("No mouse handler");
@@ -71,6 +96,10 @@
 );
 
 ~bindings = (
+	simple_edit_number: [
+		["close_window",			\kb, 0, \escape],
+		["validate_value",			\kb, 0, \enter],
+	],
 	matrix_chooser: 
 		~common_bindings.windowing ++
 		~common_bindings.playing ++ 
@@ -107,34 +136,8 @@
 			["panic",								\kb, 0, \f8],
 
 			["select_variant", \kb, \ctrl, \kbnumpad],
-			//["select_section", \kb, \alt, \kbnumpad],
+			["select_section", \kb, \alt, \kbnumpad],
 			//["select_part", \kb, \ctrlalt, \kbnumpad],
-	],
-	editplayer: [
-		["select_cell",							\kb, 0, \kbnumline],
-		["edit_value", 							\kb, 0, \enter],
-		["edit_value_mode.insert_number",		\kb, 0, \kbnumpad],
-		["edit_value_mode.insert_point",		\kb, 0, \point],
-		["edit_value_mode.cancel",				\kb, 0, \escape],
-		["edit_value_mode.ok",					\kb, 0, \enter],
-
-		["solo_selected", \kb, 0, \f7],
-		["unsolo_selected", \kb, \ctrl, \f7],
-		["unsolo_selected", \kb, \ctrl, \f7],
-		["add_effect",							\kb, \ctrl, \f1],
-		["increase_midi_knob_offset",			\kb, 0, \down],
-		["decrease_midi_knob_offset",			\kb, 0, \up],
-		["toggle_cc_recording",					\kb, \altshift, "r"],
-		["change_param_kind.recordbus",			\kb, \altshift, "u"],
-		["start_midi_liveplayer",			\kb, \altshift, "e"],
-		["param_set_pkey_mode",			\kb, \alt, "k"],
-		["param_unset_pkey_mode",			\kb, \altshift, "k"],
-
-	],
-	parlive: [
-		["select_header",							\kb, \alt, \kbnumline],
-		["show_panel.editplayer",							\kb, 0, \f12],
-		["create_new_livenode", \kb, \alt, "c"],
 	],
 	classinstr:
 		~common_bindings.playing ++
@@ -158,6 +161,7 @@
 		["paste_notes", \kb, \ctrl, "v"],
 		["paste_notes_in_place", \kb, \ctrlalt, "v"],
 		["duplicate_score", \kb, \ctrl, "d"],
+		["edit_noterange", \kb, \alt, "r"],
 	],
 	track_curve: [
 		["remove_notes", \kb, 0, \delete],
@@ -220,6 +224,7 @@
 		["remove_effect", \kb, \shift, \f3],
 		["edit_selected_param", \kb, 0, \npenter],
 		["edit_free_defer_time", \kb, \alt, "d"],
+		["select_param_preset", \kb, \alt, \kbnumline],
 	],
 	modulator: 
 		~common_bindings.side_shared ++
@@ -239,6 +244,7 @@
 		["remove_modulator", \kb, \shift, \f3],
 		["disconnect_modulator", \kb, 0, \f3],
 		["edit_selected_param", \kb, 0, \npenter],
+		["select_param_preset", \kb, \alt, \kbnumline],
 		//["edit_selected_param", \kb, 0, \enter],
 
 	],
@@ -247,6 +253,7 @@
 		~common_bindings.panels ++ [
 		["add_modenv", \kb, \ctrlalt, "o"], // debug
 		["rename_player", \kb, \alt, "r"],
+		["stop_all_with_quant",					\kb, \ctrl, \f8],
 
 		["enter_selected_subgroup", \kb, 0, \end],
 		["go_parent_group", \kb, 0, \home],
@@ -359,3 +366,32 @@
 		//["change_player_mode.sampleline",			\kb, \altshift, "d"],
 	]
 );
+
+
+
+//	editplayer: [
+//		["select_cell",							\kb, 0, \kbnumline],
+//		["edit_value", 							\kb, 0, \enter],
+//		["edit_value_mode.insert_number",		\kb, 0, \kbnumpad],
+//		["edit_value_mode.insert_point",		\kb, 0, \point],
+//		["edit_value_mode.cancel",				\kb, 0, \escape],
+//		["edit_value_mode.ok",					\kb, 0, \enter],
+//
+//		["solo_selected", \kb, 0, \f7],
+//		["unsolo_selected", \kb, \ctrl, \f7],
+//		["unsolo_selected", \kb, \ctrl, \f7],
+//		["add_effect",							\kb, \ctrl, \f1],
+//		["increase_midi_knob_offset",			\kb, 0, \down],
+//		["decrease_midi_knob_offset",			\kb, 0, \up],
+//		["toggle_cc_recording",					\kb, \altshift, "r"],
+//		["change_param_kind.recordbus",			\kb, \altshift, "u"],
+//		["start_midi_liveplayer",			\kb, \altshift, "e"],
+//		["param_set_pkey_mode",			\kb, \alt, "k"],
+//		["param_unset_pkey_mode",			\kb, \altshift, "k"],
+//
+//	],
+//	parlive: [
+//		["select_header",							\kb, \alt, \kbnumline],
+//		["show_panel.editplayer",							\kb, 0, \f12],
+//		["create_new_livenode", \kb, \alt, "c"],
+//	],

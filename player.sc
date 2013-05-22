@@ -416,7 +416,19 @@
 
 	get_duration: { arg self;
 		// TODO: return correct value for others modes
-		self.get_arg(\stepline).get_cells.size * self.get_arg(\dur).get_val
+		var dur;
+		var repeat;
+		dur = switch(self.current_mode,
+			\stepline, {
+				self.get_arg(\stepline).get_cells.size * self.get_arg(\dur).get_val
+			},
+			{
+				self.get_arg(self.current_mode).get_duration;
+			}
+		);
+		repeat = self.get_arg(\repeat).get_val;
+		if(repeat == 0) { repeat = 10 };
+		dur * repeat;
 	},
 
 
@@ -432,7 +444,7 @@
 				data.args[key] = argdat.save_data
 			})
 		};
-		options.debug("player SAVE DATA");
+		//options.debug("player SAVE DATA");
 		data.modulation = self.modulation.save_data(options);
 		data.effects = self.effects.save_data(options);
 		data.current_mode = self.get_mode;
@@ -447,7 +459,7 @@
 	save_data_without_score: { arg self, options;
 		var data, keys;
 		data = self.save_data(options);
-		keys = [\current_mode, \dur, \segdur, \stretchdur, \sustain, \amp] ++ self.available_modes;
+		keys = [\current_mode, \dur, \segdur, \velocity, \stretchdur, \sustain, \amp] ++ self.available_modes;
 		data.current_mode = nil;
 		keys.do { arg key;
 			data.args[key] = nil
@@ -563,7 +575,7 @@
 		arglist.add(\current_mode);
 		arglist.add(Pfunc{ self.get_mode });
 		arglist.add(\muted); arglist.add(Pfunc({ self.muted or: self.temp_muted }));
-		patkeys = [\repeat] ++ self.available_modes ++ [\sustain, \stretchdur, \segdur,  \dur, \type];
+		patkeys = [\repeat] ++ self.available_modes ++ [\sustain, \stretchdur, \segdur,  \velocity, \dur, \type];
 		if(add_freq) {
 			patkeys = patkeys ++ [\freq];
 		};
@@ -599,6 +611,8 @@
 				~make_control_param.(self.get_main, self, \dur, \scalar, 0.5, ~get_spec.(\dur, self.defname));
 			self.data[\segdur] = self.data[\segdur] ??
 				~make_control_param.(self.get_main, self, \segdur, \scalar, 0.5, ~get_spec.(\dur, self.defname));
+			self.data[\velocity] = self.data[\velocity] ??
+				~make_control_param.(self.get_main, self, \velocity, \scalar, 0.8, \unipolar.asSpec);
 			self.data[\stretchdur] = self.data[\stretchdur] ??
 				~make_control_param.(self.get_main, self, \stretchdur, \scalar, 1, ~get_spec.(\dur, self.defname));
 			self.data[\legato] = self.data[\legato] ??
@@ -621,8 +635,9 @@
 		var dict = Dictionary.new;
 		var list = List[];
 		var prio, reject;
+		// FIXME: move list to class_player_display
 		prio = [\repeat, \instrument, \stretchdur] ++ self.available_modes ++ [
-			\type, \samplekit, \mbufnum, \bufnum, \dur, \segdur, \legato, \sustain
+			\type, \samplekit, \mbufnum, \bufnum, \dur, \segdur, \velocity, \legato, \sustain
 		];
 		reject = [];
 		if(self.is_effect) {
@@ -764,7 +779,7 @@
 
 	vpattern_loop: { arg self;
 		Pn(self.vpattern, ~general_sizes.safe_inf);
-		//Pn(self.vpattern, 2); // debug
+		//Pn(self.vpattern, 1); // debug
 		//self.vpattern; //debug
 	},
 
@@ -800,7 +815,7 @@
 		var exclu, list = List[];
 		exclu = [
 			\instrument, \noteline, \scoreline, \sampleline, \samplekit, \repeat, \stretchdur, \stepline, 
-			\type, \dur, \segdur, \legato, \sustain,
+			\type, \dur, \segdur, \velocity, \legato, \sustain,
 			\amp, \bufnum, \mbufnum, \freq,
 		];
 		self.data.keys.difference(exclu).do { arg key;
@@ -1788,10 +1803,14 @@
 			self.selected_child_index = index;	
 		},
 
-		select_child_at: { arg self, index;
+		select_child_at: { arg self, index, force_select=false;
 			//var oldidx;
 			//oldidx = self.selected_child_index;
-			if(self.children[index].notNil and: {self.selected_child_index != index}) {
+			 if(self.children[index].notNil and: {
+				 force_select or: {
+					self.selected_child_index != index
+				 } 
+			 }) {
 				self.selected_child_index = index;
 				self.selected_child = self.children[index]; // pas besoin normalement
 				//self.changed(\selected_child, oldidx);

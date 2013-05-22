@@ -751,7 +751,7 @@
 	save_data: { arg self;
 		var data = IdentityDictionary.new;
 		var nsset = false, nnsset = false;
-		debug("scoreset: save_data");
+		//debug("scoreset: save_data");
 		data[\history] = List.new;
 		self.history.do { arg ns, idx;
 			[ns, idx].debug("ns");
@@ -914,6 +914,10 @@
 		var res=0;
 		notes.do { arg x; res = x.dur + res; };
 		res;
+	},
+
+	get_duration: { arg self;
+		self.total_dur(self.notes);
 	},
 
 	update_note_dur: { arg self;

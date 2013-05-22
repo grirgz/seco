@@ -1097,6 +1097,13 @@ if(~silent_audio2_bus.isNil) {
 			self.changed(\focus_window);
 		},
 
+		init_midi: { arg self;
+			if(MIDIClient.initialized == false) {
+				MIDIClient.init;
+			};
+			"aconnect -x && aconnect 'A-PRO':1 'SuperCollider'".unixCmd;
+		},
+
 		init: { arg self;
 			self.init_synthdesclib;
 			"ijensuisla".debug;

@@ -22,11 +22,11 @@
 
 		self.controller = controller;
 		self.beat_size_x = beat_size_x;
-		self.main_responder = ~make_class_responder.(self, self.parent, controller, [
+		self.make_gui;
+		self.main_responder = ~make_class_responder.(self, self.view, controller, [
 			\play_cursor,
 		], false);
 
-		self.make_gui;
 
 		self;
 	},
@@ -36,7 +36,10 @@
 		var beat_size_x = self.beat_size_x;
 		var width = self.view_size.x;
 		var height = self.view_size.y;
-		self.view = UserView.new(self.parent, Rect(self.header_size_x, 0, width, height));
+		//self.view = UserView.new(self.parent, Rect(self.header_size_x, 0, width, height));
+		self.view = UserView.new(nil, Rect(self.header_size_x, 0, width, height));
+		self.view.fixedHeight = height;
+		//self.view.background = Color.blue;
 		self.view.drawFunc = {
 
 				Pen.color = Color.red;
@@ -87,7 +90,7 @@
 	beat_size_x: 10,
 	block_size_y: 25,
 	header_size_x: 100,
-	timerule_size: 1234@1234,
+	timerule_size: 1234@27,
 
 	block_dict: Dictionary.new, // spritenum -> block_index
 	//track_dict: Dictionary.new, // spritenum -> track_index
@@ -115,37 +118,175 @@
 			self.track_size_y*(self.controller.tracks.size+1)+10+self.timerule_size.y
 		));
 		self.window.view.keyDownAction = self.controller.get_main.commands.get_kb_responder(\timeline);
-		self.tracks(self.controller);
+		//self.tracks(self.controller);
+		//self.window.layout = self.layout;
 		self.window.front;
 		self.window;
 	
 	},
 
 	// responders
+	
+	tracks_OLD: { arg self, controller;
+		//var tl;
+		//var stext;
+		//controller = controller ?? self.controller;
+
+		//debug("timeline_view.tracks");
+	
+		//self.layout.remove;
+		//self.layout = HLayoutView.new(self.window, Rect(0, 0,
+		//	self.track_size_x+10 + self.header_size_x,
+		//	self.track_size_y*( controller.tracks.size+1 )
+		//));
+
+		//self.headerlayout = VLayoutView.new(self.layout, Rect(0, 0, self.header_size_x+5, self.track_size_y*(controller.tracks.size+1)));
+
+		//stext = StaticText.new(self.headerlayout, Rect(0,0,self.header_size_x,self.track_size_y-4));
+		//stext.background = Color.white;
+		//stext.string = "timerule";
+
+		//debug("timeline_view.tracks2");
+
+		//self.track_headers = controller.tracks.collect { arg track;
+		//	stext = StaticText.new(self.headerlayout, Rect(0,0,self.header_size_x,self.track_size_y-4));
+		//	if(controller.current_track == i) {
+
+		//	} {
+		//	
+		//	};
+		//	debug("timeline_view.tracks2 1");
+		//	stext.background = Color.gray(0.5);
+		//	stext.string = track.name.asString;
+		//	stext;
+		//};
+
+		//debug("timeline_view.tracks2 2");
+
+		//self.vlayout = VLayoutView.new(self.layout, Rect(0,0,
+		//	self.track_size_x+10 + self.header_size_x,
+		//	self.track_size_y*(self.controller.tracks.size+1)+10+self.timerule_size.y
+		//));
+		//self.timerule_view = ~class_timerule_view.new(self.vlayout, self.controller, self.header_size_x, self.beat_size_x, self.timerule_size);
+
+		//debug("timeline_view.tracks2 3");
+
+		//self.timeline = ParaTimeline.new(self.vlayout, bounds: Rect(20, 20, self.track_size_x, self.track_size_y * controller.tracks.size));
+		//self.timeline.keyDownAction = self.controller.get_main.commands.get_kb_responder(\timeline);
+
+		//debug("timeline_view.tracks2 4");
+		//self.timeline.mouseDownAction = { arg view, x, y, modifiers, buttonNumber, clickCount;
+		//	var pos_x = (x/self.beat_size_x).asInteger;
+		//	var pos_y = (y/self.track_size_y).asInteger;
+		//	buttonNumber.debug("class_timeline_view: tracks: buttonNumber");
+		//	if( (modifiers & 0x00040000) != 0) {	// == 262401 == ctrl
+		//		self.controller.add_block_from_lib(pos_y, pos_x);
+
+		//	} {
+		//		switch(buttonNumber,
+		//			3, {
+		//				self.controller.set_start_cursor(pos_x);
+		//			},
+		//			1, {
+		//				//self.controller.set_insert_cursor(pos_x, pos_y);
+		//			}
+		//		);
+		//	}
+		//};
+		//debug("timeline_view.tracks2 5");
+		//self.blocks(controller);
+		//debug("timeline_view.tracks2 6");
+
+		//tl = self.timeline;
+
+		//debug("timeline_view.tracks 3");
+
+		//tl.nodeTrackAction_({arg node;
+		//	var old_track_index, new_track_index, old_block_index, new_block_time;
+		//	var newx, newy;
+
+		//	newx = tl.getNodeLoc(node.spritenum)[0].trunc(self.beat_size_x);
+		//	newy = tl.getNodeLoc(node.spritenum)[1].trunc(self.track_size_y) + self.block_top_padding;
+		//	//newx = tl.getNodeLoc(node.spritenum)[0].round(self.beat_size_x);
+		//	//newy = tl.getNodeLoc(node.spritenum)[1].round(self.track_size_y) + self.block_top_padding;
+
+		//	new_track_index = ( tl.getNodeLoc(node.spritenum)[1].trunc(self.track_size_y)/self.track_size_y ).asInteger;
+		//	new_block_time = ( tl.getNodeLoc(node.spritenum)[0].trunc(self.beat_size_x)/self.beat_size_x ).asInteger;
+
+		//	controller.timeline_score.move_block(self.block_dict[node.spritenum], new_track_index, new_block_time);
+		//	tl.setNodeLoc_( node.spritenum, newx, newy );
+
+		//});
+
+		//self.timeline.setBackgrDrawFunc_({
+		//	// play cursor
+		//	var cursors_pos;
+		//	//cursors_pos = (TempoClock.default.beats % 32 / 32 * self.track_size_x).asInteger;
+		//	cursors_pos = self.controller.start_cursor*self.beat_size_x;
+		//	Pen.color = Color.red;
+		//	Pen.line(cursors_pos@0, cursors_pos@( self.track_size_y*controller.tracks.size )); Pen.stroke;
+
+		//	// x lines
+		//	(self.track_size_x/self.beat_size_x).asInteger.do{|i| 
+		//		Pen.color = if(i%8==0) {
+		//			Color.gray(0.2);
+		//		} {
+		//			Color.gray(0.8);
+		//		};
+		//		Pen.line((i*self.beat_size_x)@0, (i*self.beat_size_x)@( self.track_size_y*controller.tracks.size )); Pen.stroke
+		//	};
+
+		//	// y lines
+		//	controller.tracks.size.do{|i| 
+		//		Pen.color = Color.gray(0.2);
+		//		Pen.line(0@(i*self.track_size_y), self.track_size_x@(i*self.track_size_y)); Pen.stroke
+		//	};
+
+		//});
+		//self.window.view.focus(true);
+		//debug("timeline_view.tracks end");
+
+	},
+
+	point_to_notepoint: { arg self, point;
+		var np = Point(0,0);
+		np.y = ((point.y - self.block_top_padding) / self.track_size_y).asInteger;
+		np.x = ( point.x / self.beat_size_x ).asInteger;
+		np;
+	},
 
 	tracks: { arg self, controller;
 		var tl;
 		var stext;
+		var label_size_y = self.track_size_y - 5;
 		controller = controller ?? self.controller;
 
+		if(self.timeline.notNil) {
+			debug("--- $$$$$$$$$$$$$ uuuuuuuuuuuuuuuuuuuu $$$$$$$$$$$$$$$$$$$ ");
+			//nil.sdklfj;
+		};
+
 		debug("timeline_view.tracks");
-	
-		self.layout.remove;
-		self.layout = HLayoutView.new(self.window, Rect(0, 0,
-			self.track_size_x+10 + self.header_size_x,
-			self.track_size_y*( controller.tracks.size+1 )
-		));
 
-		self.headerlayout = VLayoutView.new(self.layout, Rect(0, 0, self.header_size_x+5, self.track_size_y*(controller.tracks.size+1)));
-
-		stext = StaticText.new(self.headerlayout, Rect(0,0,self.header_size_x,self.track_size_y-4));
+		stext = StaticText.new;
 		stext.background = Color.white;
+		stext.fixedHeight = label_size_y;
 		stext.string = "timerule";
+	
+		//self.layout.remove;
+		self.window.view.removeAll;
+
+		self.headerlayout = VLayout.new(
+			stext;
+		);
+
+		self.vlayout = VLayout.new;
+
 
 		debug("timeline_view.tracks2");
 
 		self.track_headers = controller.tracks.collect { arg track;
-			stext = StaticText.new(self.headerlayout, Rect(0,0,self.header_size_x,self.track_size_y-4));
+			stext = StaticText.new;
 			if(controller.current_track == i) {
 
 			} {
@@ -154,40 +295,43 @@
 			debug("timeline_view.tracks2 1");
 			stext.background = Color.gray(0.5);
 			stext.string = track.name.asString;
+			stext.fixedHeight = label_size_y;
 			stext;
+			self.headerlayout.add(stext);
+
 		};
+		self.headerlayout.add(nil);
 
 		debug("timeline_view.tracks2 2");
 
-		self.vlayout = VLayoutView.new(self.layout, Rect(0,0,
-			self.track_size_x+10 + self.header_size_x,
-			self.track_size_y*(self.controller.tracks.size+1)+10+self.timerule_size.y
-		));
 		self.timerule_view = ~class_timerule_view.new(self.vlayout, self.controller, self.header_size_x, self.beat_size_x, self.timerule_size);
+		self.vlayout.add(self.timerule_view.view, 0);
 
 		debug("timeline_view.tracks2 3");
 
 		self.timeline = ParaTimeline.new(self.vlayout, bounds: Rect(20, 20, self.track_size_x, self.track_size_y * controller.tracks.size));
+		//self.timeline = ParaTimeline.new;
+		self.timeline.createNode(0,0);
+		self.timeline.createNode(10,10);
 		self.timeline.keyDownAction = self.controller.get_main.commands.get_kb_responder(\timeline);
+		//self.timeline.userView.background = Color.red;
+		self.vlayout.add(self.timeline.userView, 1);
+
+		self.moving_notes = IdentitySet.new;
 
 		debug("timeline_view.tracks2 4");
 		self.timeline.mouseDownAction = { arg view, x, y, modifiers, buttonNumber, clickCount;
 			var pos_x = (x/self.beat_size_x).asInteger;
 			var pos_y = (y/self.track_size_y).asInteger;
 			buttonNumber.debug("class_timeline_view: tracks: buttonNumber");
-			if( (modifiers & 0x00040000) != 0) {	// == 262401 == ctrl
-				self.controller.add_block_from_lib(pos_y, pos_x);
-
-			} {
-				switch(buttonNumber,
-					3, {
-						self.controller.set_start_cursor(pos_x);
-					},
-					1, {
-						//self.controller.set_insert_cursor(pos_x, pos_y);
-					}
-				);
-			}
+			~mouse_responder.(modifiers, buttonNumber, clickCount, (
+				create_note: {
+					self.controller.add_block_from_lib(pos_y, pos_x);
+				},
+				set_end: { // misnamed, due to shared mouse bindings
+					self.controller.set_start_cursor(pos_x);
+				}
+			));
 		};
 		debug("timeline_view.tracks2 5");
 		self.blocks(controller);
@@ -201,18 +345,38 @@
 			var old_track_index, new_track_index, old_block_index, new_block_time;
 			var newx, newy;
 
+			~mouse_responder.(modifiers, buttonNumber, clickCount, (
+				resize_note: {
+					self.controller.add_block_from_lib(pos_y, pos_x);
+				},
+				{}
+			));
 			newx = tl.getNodeLoc(node.spritenum)[0].trunc(self.beat_size_x);
 			newy = tl.getNodeLoc(node.spritenum)[1].trunc(self.track_size_y) + self.block_top_padding;
 			//newx = tl.getNodeLoc(node.spritenum)[0].round(self.beat_size_x);
 			//newy = tl.getNodeLoc(node.spritenum)[1].round(self.track_size_y) + self.block_top_padding;
 
-			new_track_index = ( tl.getNodeLoc(node.spritenum)[1].trunc(self.track_size_y)/self.track_size_y ).asInteger;
-			new_block_time = ( tl.getNodeLoc(node.spritenum)[0].trunc(self.beat_size_x)/self.beat_size_x ).asInteger;
+			//new_track_index = ( tl.getNodeLoc(node.spritenum)[1].trunc(self.track_size_y)/self.track_size_y ).asInteger;
+			//new_block_time = ( tl.getNodeLoc(node.spritenum)[0].trunc(self.beat_size_x)/self.beat_size_x ).asInteger;
 
-			controller.timeline_score.move_block(self.block_dict[node.spritenum], new_track_index, new_block_time);
+			//controller.move_block(self.block_dict[node.spritenum], new_track_index, new_block_time);
+			self.moving_notes.add(node.spritenum);
 			tl.setNodeLoc_( node.spritenum, newx, newy );
 
 		});
+
+		self.timeline.mouseUpAction = {
+			self.moving_notes.do { arg snum;
+				var point;
+				var notepoint;
+				var loc = self.timeline.getNodeLoc(snum);
+				point = Point(loc[0], loc[1]);
+
+				notepoint = self.point_to_notepoint(point);
+				self.controller.move_block(self.block_dict[snum], notepoint.y, notepoint.x);
+			};
+			self.moving_notes = IdentitySet.new;
+		};
 
 		self.timeline.setBackgrDrawFunc_({
 			// play cursor
@@ -239,21 +403,42 @@
 			};
 
 		});
+
 		self.window.view.focus(true);
 		debug("timeline_view.tracks end");
 
+		self.layout = HLayout.new( 
+			[self.headerlayout, stretch:0],
+			[self.vlayout, stretch:1],
+			//self.timeline.userView
+		);
+
+		self.window.layout = self.layout;
+
+		self.layout;
+
 	},
 
-	blocks: { arg self, controller;
+	blocks: { arg self;
 		var spritenum = 0;
+		var controller;
 		debug("timeline_view: blocks");
+		controller = self.controller;
 		self.timeline.clearSpace;
 		self.block_dict = Dictionary.new;
 		controller.get_blocks.do { arg block, i;
+			var uname, name, name_string;
+			uname = block.nodename;
+			name = self.controller.get_main.get_node(uname).name;
+			name_string = if(uname != name) {
+				"%\n%".format(name, uname);
+			} {
+				"%".format(uname);
+			};
 			[spritenum, block].debug("timeline_view: blocks: creating block");
 
 			self.timeline.createNode(block.time*self.beat_size_x, block.track_index*self.track_size_y+self.block_top_padding);
-			self.timeline.setNodeString_(spritenum, block.nodename.asString);
+			self.timeline.setNodeString_(spritenum, name_string);
 			self.timeline.setNodeSize_(spritenum, self.block_size_y);
 			self.timeline.paraNodes[spritenum].setLen = block.sustain * self.beat_size_x;
 
@@ -406,6 +591,16 @@
 		})
 	},
 
+	move_block: { arg self, block, new_track_index, new_block_time;
+		var old_block, new_block_index;
+		[ block, new_track_index, new_block_time ].debug("class_timeline.move_block: block, new_track_index, new_block_time");
+		block.track_index = new_track_index;
+		block.time = new_block_time;
+		self.timeline_score.set_abs_notes(self.current_notes);
+		self.changed(\blocks);
+
+	},
+
 	refresh: { arg self;
 		self.changed(\tracks);
 	},
@@ -418,6 +613,7 @@
 		//	self.end_cursor-self.start_cursor
 		//};
 		blocks = self.timeline_score.get_abs_notes(0, nil);
+		self.current_notes = blocks;
 		blocks.debug("class_timeline: get_blocks: blocks before");
 		blocks.do { arg note;
 			if(note.nodename.notNil) {
@@ -465,22 +661,31 @@
 		} {
 			self.end_cursor - self.start_cursor;
 		};
+		//if(self.play_cursor_task.notNil) {
+		//	self.play_cursor_task.stop.reset;
+		//};
+		debug("make play_cursor_task");
 		self.play_cursor_task = Task {
 			self.play_cursor = self.start_cursor;
 			(dur ?? ~general_sizes.safe_inf).do {
 				self.changed(\play_cursor);
+				self.play_cursor.debug("play cursor");
 				1.wait;
 				self.play_cursor = self.play_cursor + 1;
 			};
 		};
 		if(self.node.isPlaying.not) {
+			var clock;
+			clock = self.get_main.play_manager.get_clock;
 			self.node.source = self.vpattern(nil, self.start_cursor, dur);
-			self.play_cursor_task.play;
-			self.node.play;
+			debug("playing play_cursor_task");
+			self.play_cursor_task_player = self.play_cursor_task.play(clock, quant:1);
+			debug("playing node");
+			self.node.play(clock, quant:1);
 			esp = self.node.player;
 			self.esp_sc = SimpleController(esp);
 			self.esp_sc.put(\stopped, {
-				self.play_cursor_task.stop.reset;
+				self.play_cursor_task_player.stop.reset;
 				"class_timeline: node stoped".debug;
 				self.node.stop;
 				self.esp_sc.remove;
@@ -491,7 +696,7 @@
 
 	stop_node: { arg self;
 		self.node.stop;
-		self.play_cursor_task.stop.reset;
+		self.play_cursor_task_player.stop.reset;
 	},
 
 	bindings: { arg self;
@@ -505,7 +710,7 @@
 				self.stop_node;
 			}],
 			[\close_timeline, {
-				self.window.close;
+				self.timeline_view.window.close;
 				self.window = nil;
 			}],
 		]);

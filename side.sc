@@ -923,6 +923,7 @@
 		group_path: List.new,
 
 		get_main: { arg self; main },
+		group_was_selected: false,
 
 		model: (
 			param_no_midi: param_types.param_no_midi,
@@ -1439,8 +1440,15 @@
 		select_slot: { arg self, slot_index;
 			var group = self.get_current_group;
 			var player;
-			if(group.select_child_at(slot_index)) {
-				self.reload_selected_slot;
+			if(slot_index == -1) {
+				self.current_player = self.get_current_group;
+				main.freeze_do { self.changed(\player) };
+				self.group_was_selected = true;
+			} {
+				if(group.select_child_at(slot_index, self.group_was_selected)) {
+					self.reload_selected_slot;
+				};
+				self.group_was_selected = false;
 			}
 		},
 
@@ -2259,6 +2267,9 @@
 					main.panic
 				}],
 
+				[\stop_all_with_quant, {
+					main.play_manager.stop_all(true);
+				}],
 
 
 

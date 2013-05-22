@@ -448,6 +448,51 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 );
 
+~class_simple_edit_number_view = (
+	new: { arg self, main, name, value, callback;
+		self = self.deepCopy;
+		self.get_main = { main };
+		self.name = name;
+		self.val = value;
+		self.callback = callback;
+		self.make_bindings;
+		self.make_gui;
+		self;
+	},
+
+
+	make_bindings: { arg self;
+		self.binding_responder = self.get_main.commands.make_binding_responder(\simple_edit_number, [
+			[\close_window, {
+				self.window.close;
+			}],
+
+			[\validate_value, {
+				self[\callback].(self.textfield.value);
+				self.window.close;
+			}]
+		
+
+		])
+	},
+
+	make_gui: { arg self;
+		var layout;
+		self.window = Window.new(self.name, Rect(200,200,300,100));
+		layout = VLayout.new(
+			StaticText.new.string_(self.name),
+			self.textfield = TextField.new
+				.string_(self.val.asString);
+				self.textfield,
+		);
+		self.window.view.keyDownAction = self.binding_responder.get_kb_responder(\simple_edit_number);
+		self.window.layout_(layout);
+		self.window.front;
+
+	},
+
+);
+
 ~make_tempo_tap_reader = {
 	(
 		midi_keycode: ~keycode.cakewalk[\pad][0],
@@ -1895,7 +1940,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	// - matrix.sc: class_param_kind_chooser // not anymore, use player_display
 	
 	var param;
-	var bar_length = 4;
+	var bar_length = 8;
 
 	//name.debug("---- make_control_param");
 
@@ -2521,10 +2566,14 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 					nil;
 				},
 				\sustain, {
-					{ arg ev;
-						if(ev[mode].sustain.notNil and:{mode != \scoreline}) {
-							ev[mode].sustain
-						} 
+					if([\scoreline, \sampleline].includes(mode)) {
+						nil;
+					} {
+						{ arg ev;
+							if(ev[mode].sustain.notNil) {
+								ev[mode].sustain
+							} 
+						}
 					}
 				},
 				\velocity, {
@@ -2587,11 +2636,14 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 							{ arg self, ev;
 								var val;
 								// FIXME: use name, label, abs_label ?
-								val = ev[mode][self.name] ?? self.scalar.get_norm_val;
+								//val = ev[mode][self.name] ?? self.scalar.get_norm_val;
+								val = ev[mode][self.name];
+								//ev[mode]
 								if(val.isNil) {
 									val = self.scalar.get_val;
 								} {
-									val = self.spec.map(val);
+									//val = self.spec.map(val);
+									val = val * self.scoreseq.get_val;
 								};
 								ev = val.yield;
 							}
@@ -3257,7 +3309,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				data[key] = self[key];
 			};
 			data[\val] = self.get_val;
-			data.debug("make_buf_param: save_data: data");
+			//data.debug("make_buf_param: save_data: data");
 			data;
 		},
 
@@ -3270,7 +3322,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			if(self.has_custom_buffer) { // FIXME: clashing ID, 
 				savepath = player.get_main.get_audio_save_path;
 				self.buffer = Buffer.read(s, savepath +/+ self.audio_id ++ ".wav");
-				self.buffer.debug("make_buf_param: load_data: loaded buffer!!");
+				//self.buffer.debug("make_buf_param: load_data: loaded buffer!!");
 				self.val = data[\val];
 			} {
 				self.set_val(data[\val]);
@@ -4258,6 +4310,10 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			}
 		},
 
+		get_duration: { arg self;
+			self.scoreset.get_duration;
+		},
+
 		total_dur: { arg self, notes;
 			self.scoreset.total_dur(notes);
 		},
@@ -4572,6 +4628,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		init: { arg self;
 			self.scoreset = ~make_scoreset_hack.(self);
 			self.scoreset.notescore.set_notes(self.notes);
+			self.scoreset.notescore.compute_end(true);
 			self.scoreset.update_notes; // to take in account default_noteline
 		}
 

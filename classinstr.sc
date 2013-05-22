@@ -95,7 +95,7 @@
 					debug("CLOSING");
 					self.set_all_bus_mode(false)
 				});
-				self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\classinstr, self);
+				self.window.view.keyDownAction = self.binding_responder.get_kb_responder(\classinstr, self);
 				win.front;
 			};
 		}.play(AppClock)
@@ -1213,8 +1213,9 @@
 
 			ampcomp = (AmpCompA.kr(i.freq) * i.ampcomp) + (1 * (1-i.ampcomp));
 			//ampcomp = (AmpCompA.kr(100) * i.ampcomp) + (1 * (1-i.ampcomp));
+			//velcomp = (1 * i.velocity_mix) + (1 * (1 - i.velocity_mix));
 			velcomp = (i.velocity * i.velocity_mix) + (1 * (1 - i.velocity_mix));
-			velcomp = (1 * i.velocity_mix) + (1 * (1 - i.velocity_mix));
+			//velcomp.poll;
 
 			sig = EnvGen.ar(Env.dadsr(
 				i.delay,
@@ -3902,7 +3903,7 @@
 
 			sig = self.compenv.synthfun.((gate:envgate, doneAction:0));
 			//sig = self.compenv.synthfun.(args);
-			sig.poll;
+			//sig.poll;
 			
 			sig;
 		}
@@ -4275,15 +4276,16 @@ Instr(\p_hardclipper, { arg in, mix, drive;
 
 /////////// effects
 
-Instr(\p_reverb, { arg in, mix, room, damp;
+Instr(\p_reverb, { arg in, mix, room, damp, gate=1, amp=1;
 	var sig;
 	in = In.ar(in, 2);
 	sig = FreeVerb.ar(in, mix, room, damp);
+	sig = sig * amp;
 	//sig.poll;
 }, [\audio]).storeSynthDef([\ar]);
 
 
-Instr(\p_flanger, { arg in, fbbus, mix, rate, feedback, depth;
+Instr(\p_flanger, { arg in, fbbus, mix, rate, feedback, depth, gate=1;
 	var sig;
 	var maxdelay = depth;
 	var lfo;
@@ -4306,7 +4308,7 @@ Instr(\p_flanger, { arg in, fbbus, mix, rate, feedback, depth;
 
 ));
 
-Instr(\p_chorus, { arg in, mix=0, rate, offset, depth;
+Instr(\p_chorus, { arg in, mix=0, rate, offset, depth, gate=1;
 	var sig;
 	var lfo;
 	var delay = [10,15,20,25]/1000;
@@ -4351,7 +4353,7 @@ Instr(\p_chorus, { arg in, mix=0, rate, offset, depth;
 //}, [\audio])
 //	.storeSynthDef([\ar]);
 
-Instr(\p_delay, { arg in, mix, damp, delay_left, delay_right;
+Instr(\p_delay, { arg in, mix, damp, delay_left, delay_right, gate=1;
 	var sig;
 	var sigl, sigr;
 	in = In.ar(in, 2);
@@ -4368,7 +4370,7 @@ Instr(\p_delay, { arg in, mix, damp, delay_left, delay_right;
 ));
 
 
-Instr(\p_comb, { arg in, mix, delay, offset, decay;
+Instr(\p_comb, { arg in, mix, delay, offset, decay, gate=1;
 	var sig;
 	var sigl, sigr;
 	in = In.ar(in, 2);

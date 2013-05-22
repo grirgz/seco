@@ -1143,6 +1143,12 @@
 			[self.top_nodes, self.children_nodes].debug("pm: end state");
 		},
 
+		stop_all: { arg self, use_quant = false;
+			self.top_nodes.keys.do { arg nodename;
+				self.stop_node(nodename, use_quant);
+			}
+		},
+
 		stop_node: { arg self, nodename, use_quant = false;
 			var children;
 			var stop_action;
@@ -1237,6 +1243,7 @@
 			self.get_path([nil,num,nil], true);
 		},
 
+		// misnamed ? the only side effect is selecting the child in the nodegroup
 		change_variant: { arg self, num;
 			self.get_path([nil,nil,num], true);
 		},

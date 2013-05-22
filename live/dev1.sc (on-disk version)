@@ -234,15 +234,6 @@ Mdef.main.load_project("bizzare_1");
 Mdef.main.save_project("bizzare_2");
 Mdef.main.load_project("bizzare_2");
 
-Mdef.main.save_project("bizzare_3");
-Mdef.main.load_project("bizzare_3");
-
-Mdef.main.save_project("rampant");
-Mdef.main.load_project("rampant");
-
-Mdef.main.save_project("rampant2");
-Mdef.main.load_project("rampant2");
-
 Mdef.main.play_manager
 
 Debug.enableDebug = true;
@@ -447,19 +438,3 @@ Pn(~mainpat,8).play
 
 MIDI
 
-~seq.panels.side.timeline.changed(\blocks)
-~seq.panels.side.timeline.timeline_view.timeline.createNode(30,30)
-~seq.panels.side.timeline.timeline_view.timeline
-
-
-(
-~tl = ParaTimeline.new;
-~tl.userView.background = Color.red;
-~win = Window.new;
-~win.layout = VLayout.new(~tl.userView);
-~win.front;
-
-
-
-)
-~tl.createNode(30,30);

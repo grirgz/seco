@@ -48,6 +48,7 @@
 		switch(parent.kind,
 			\seqnode, {
 				//parent.children.do { arg child, i;
+				self.clear_row(-1);
 				msize.y.do { arg i;
 					var child = parent.children[i];
 					[i, child].debug("class_nodematrix_view: parent_node: seqnode, child");
@@ -66,7 +67,7 @@
 			},
 			\parnode, {
 				self.clear_column(-1);
-				parent.children.keep(msize.x).do { arg child, i;
+				parent.children.keep(msize.x+1).do { arg child, i;
 					[i, child].debug("class_nodematrix_view: parent_node: parnode, child");
 					if(child.notNil and: {child != \voidplayer}) {
 						self.set_column_controller(i, self.controller.get_main.get_node(child))
@@ -215,8 +216,8 @@
 
 	clear_row: { arg self, idx;
 		[idx].debug("class_nodematrix_view: clear_row");
-		self.controller.nodematrix_size.x.do { arg x;
-			var point = Point(x, idx);
+		(self.controller.nodematrix_size.x+1).do { arg x;
+			var point = Point(x-1, idx);
 			var label;
 			label = "";
 			self.set_cell_label(point, label);
@@ -226,8 +227,8 @@
 
 	clear_column: { arg self, idx;
 		[idx].debug("class_nodematrix_view: clear_column");
-		self.controller.nodematrix_size.y.do { arg y;
-			var point = Point(idx, y);
+		(self.controller.nodematrix_size.y+1).do { arg y;
+			var point = Point(idx, y-1);
 			var label;
 			label = "";
 			self.set_cell_label(point, label);
@@ -408,7 +409,7 @@
 		self = self.deepCopy;
 
 		self.matrix_size = (8@8) ?? size;
-		self.arming_matrix = 0 ! self.matrix_size.x;
+		self.arming_matrix = 0 ! self.matrix_size.x; // x -> y
 
 		self.controller = { controller }; // nodegroup
 		self.get_main = { main };
@@ -625,7 +626,24 @@
 
 	get_current_player: { arg self;
 		// FIXME: sheet only
-		self.get_group_node(self.current_column);
+		var pos = self.get_selection_point;
+		switch(self.parent_node.kind,
+			\seqnode, {
+				var group = self.get_group_node(pos.y);
+				var node;
+				if(group.notNil and: {group.uname != \voidplayer}) {
+					debug("bla1");
+					node = group.children[pos.x];
+					debug("bla2");
+					node = self.get_main.get_node(node);
+					debug("bla3");
+				};
+				node;
+			},
+			\parnode, {
+				self.get_group_node(self.current_column);
+			}
+		);
 	},
 
 	///////////// 
@@ -869,29 +887,60 @@
 		var scoreset;
 		var nodename;
 		var node;
-		nodename = self.parent_node.children[pos.x];
-		if(nodename.notNil and: {nodename != \voidplayer}) {
-			node = self.get_main.get_node(nodename);
-			switch(node.kind,
-				\player, {
-					scoreset = node.get_scoreset;
-					if(scoreset.is_sheet_selected(pos.y)) {
-						state = \armed;
-					} {
-						state = \normal;
-					};
-				},
-				\parnode, {
-					if(self.parent_node.playmatrix_manager.arming_matrix[pos.x] == pos.y) {
-						state = \armed;
-					} {
-						state = \normal
-					}
+		switch(self.parent_node.kind,
+			\seqnode, {
+				if(self.parent_node.playmatrix_manager.arming_matrix[pos.x] == pos.y) {
+					state = \armed;
+				} {
+					state = \normal
 				}
-			);
-		} {
-			state = \normal;
-		};
+			},
+			\parnode, {
+				nodename = self.parent_node.children[pos.x];
+				if(nodename.notNil and: {nodename != \voidplayer}) {
+					node = self.get_main.get_node(nodename);
+					switch(node.kind,
+						\player, {
+							scoreset = node.get_scoreset;
+							if(scoreset.is_sheet_selected(pos.y)) {
+								state = \armed;
+							} {
+								state = \normal;
+							};
+						},
+						\parnode, {
+							// TODO
+						},
+						\seqnode, {
+							// TODO
+						}
+					);
+					
+				}
+			}
+		);
+		//if(nodename.notNil and: {nodename != \voidplayer}) {
+		//	node = self.get_main.get_node(nodename);
+		//	switch(node.kind,
+		//		\player, {
+		//			scoreset = node.get_scoreset;
+		//			if(scoreset.is_sheet_selected(pos.y)) {
+		//				state = \armed;
+		//			} {
+		//				state = \normal;
+		//			};
+		//		},
+		//		\parnode, {
+		//			if(self.parent_node.playmatrix_manager.arming_matrix[pos.x] == pos.y) {
+		//				state = \armed;
+		//			} {
+		//				state = \normal
+		//			}
+		//		}
+		//	);
+		//} {
+		//	state = \normal;
+		//};
 		switch(selected, 
 			nil, {
 				if(pos == self.get_selection_point) {
@@ -917,8 +966,24 @@
 			if(self.parent_node.playmatrix_manager.isNil) {
 				self.parent_node.playmatrix_manager = ~class_playmatrix_manager.new(self.get_main, parent, self.nodematrix_size);
 			};
+
+			self.update_window_name;
+
 			self.changed(\parent_node);
-		}
+		};
+	},
+
+	update_window_name: { arg self;
+		var parent = self.parent_node;
+		if(self.window.notNil) {
+			var pname;
+			if(parent.name != parent.uname) {
+				pname = "% (%)".format(parent.name, parent.uname)
+			} {
+				pname = "%".format(parent.name)
+			};
+			self.window.name = "Nodematrix panel - %".format(pname)
+		};
 	},
 
 	make_bindings: { arg self;
@@ -951,6 +1016,17 @@
 
 				[\select_variant, 10, { arg i;
 					self.set_parent_node(self.get_main.panels.side.song_manager.change_variant(i))
+				}],
+
+				[\select_section, 10, { arg i;
+					switch(self.parent_node.kind,
+						\parnode, {
+							self.set_parent_node(self.get_main.panels.side.song_manager.get_path([nil,i,nil], true))
+						},
+						\seqnode, {
+							self.set_parent_node(self.get_main.panels.side.song_manager.get_path([nil,i,0], true))
+						}
+					);
 				}],
 
 
@@ -1015,6 +1091,7 @@
 	make_gui: { arg self;
 		Task {
 			self.window = Window.new("Nodematrix panel");
+			self.update_window_name;
 			self.main_view = ~class_nodematrix_panel_view.new(self);
 			self.window.layout = self.main_view.layout;
 			self.window.view.keyDownAction = self.get_main.commands.get_kb_responder(\nodematrix);

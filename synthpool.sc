@@ -1,3 +1,4 @@
+(
 SynthDef(\osc1, { arg out, gate=1, freq=300, amp=0.1, ffreq=200, rq=0.1, attack=0.1, release=0.1, doneAction=2;
 	var sig = LFSaw.ar(freq);
 	var env = EnvGen.kr(Env.adsr(attack,0.1,1,release), gate, doneAction:doneAction);
@@ -128,7 +129,7 @@ SynthDef(\comb1, { arg in, out, mix=0.5, inmix=1, maxdelaytime=0.4, delaytime=0.
 
 
 SynthDef(\dubecho,{|out=0, in=0, length = 1, fb = 0.8, sep = 0.012, mix=0.5, hpfreq=400, lpfreq=5000, noisefreq=12, delayfac=0,
-		offset=0, rotate=0, shift=0|
+		offset=0, rotate=0, shift=0, gate=1|
 	var input = In.ar(in, 2);
 	var output;
 	//length = length.lag(0.01);
@@ -175,7 +176,7 @@ SynthDef(\dubecho,{|out=0, in=0, length = 1, fb = 0.8, sep = 0.012, mix=0.5, hpf
 	)
 )).store;
 
-SynthDef(\dubecho_inmix,{|out=0, in=0, length = 1, fb = 0.8, sep = 0.012, mix=0.5, inmix=1|
+SynthDef(\dubecho_inmix,{|out=0, in=0, length = 1, fb = 0.8, sep = 0.012, mix=0.5, inmix=1, gate=1|
 	var input, output;
 	var mix_input;
 	input = In.ar(in, 2);
@@ -197,9 +198,10 @@ SynthDef(\dubecho_inmix,{|out=0, in=0, length = 1, fb = 0.8, sep = 0.012, mix=0.
 	Out.ar(out, output);
 }, metadata:(specs:(
 	inmix: \unipolar,
+	sep: ControlSpec(0.0001,0.5,\exp, 0,0.012),
 ))).store;
 
-SynthDef(\dubecho_orig,{|out=0, in=0, length = 1, fb = 0.8, sep = 0.012, mix=0.5|
+SynthDef(\dubecho_orig,{|out=0, in=0, length = 1, fb = 0.8, sep = 0.012, mix=0.5, gate=1|
 	var input = In.ar(in, 2);
 	var output = input + Fb({
 
@@ -216,7 +218,9 @@ SynthDef(\dubecho_orig,{|out=0, in=0, length = 1, fb = 0.8, sep = 0.012, mix=0.5
 	},length);
 	output = SelectX.ar(mix,[output, input]);
 	Out.ar(out, output);
-}).store;
+}, metadata:(specs:(
+	sep: ControlSpec(0.0001,0.5,\exp, 0,0.012),
+))).store;
 
 SynthDef(\guitar2, { arg out=0, freq=200, release=4, amp=0.1, pan = 0, doneAction=2;
 	var ou, pluck, period, string;
@@ -274,6 +278,7 @@ SynthDef(\ch, { | out=0, decay = 3, amp = 0.1, freqfactor = 1, doneAction=2, del
 		flt = LPF.ar(osc, fEnv + 100, aEnv);
 		Out.ar(out, flt);
 	}).add;
+);
 
 (
 SynthDef(\strings, { arg out, freq=440, amp=0.1, gate=1, pan, freqLag=0.2;
@@ -288,7 +293,8 @@ SynthDef(\strings, { arg out, freq=440, amp=0.1, gate=1, pan, freqLag=0.2;
 					in = in * EnvGen.kr(env, gate, doneAction:2);
 					Out.ar(out, Pan2.ar(in, pan, amp));
 }).add;
-)
+);
+
 (
 SynthDef(\sax, { |out, freq=440, amp=0.1, gate=1, rq=2, frs=0.1, fre=4, frt=0.01, hdelta=0.001|
 	var num = 16;
@@ -301,7 +307,7 @@ SynthDef(\sax, { |out, freq=440, amp=0.1, gate=1, rq=2, frs=0.1, fre=4, frt=0.01
 	snd = snd * amp * EnvGen.ar(Env.adsr(0.001, 0.2, 0.7, 0.2), gate, doneAction:2);
 	Out.ar(out, snd!2);
 }).store;
-)
+);
 
 (
 SynthDef('kicklank', { arg out=0, gate=1, release=0.3, pan=0, amp=0.1, distamp=20, wet=0.1, attack=0.005;
@@ -317,7 +323,7 @@ SynthDef('kicklank', { arg out=0, gate=1, release=0.3, pan=0, amp=0.1, distamp=2
 	signal = Pan2.ar(signal, pan, amp);
     Out.ar(out, signal);
 }).store;
-)
+);
 
 (
 SynthDef(\kick1, { |out=0, amp=0.1, pan=0|
@@ -536,7 +542,7 @@ SynthDef(\stereosampler_sec, {| out = 0, amp=0.1, buf = 0, gate = 1, start=0, en
 }, metadata:(specs:(
 	bufnum: (numchan: 2)
 ))).store;
-)
+);
 
 
 ///////////////////// effects
@@ -552,4 +558,4 @@ SynthDef(\echo, { arg out=0, in=0, maxdtime=0.6, dtime=0.2, decay=2, wet=1, gate
 }, [\ir, \ir, \ir, 0.1, 0.1, 0]).store;
 
 
-)
+);
