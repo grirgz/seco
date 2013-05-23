@@ -1,26 +1,23 @@
 
 // FIXME: use the same format than mouse
 ~mouse_bindings = (
-	note_track: [
-		["toggle_note", 0, \left_click],
-		["resize_note", \shift, \left_click],
-		["create_note", \ctrl, \left_click],
-		["remove_note", \ctrl, \right_click],
-		["set_end", 0, \right_click],
-		["set_start", \ctrl, \right_click],
-	],
-	timeline_mouse_down: [ 
-		["create_block", \ctrl, \left_click],
-		["set_start", 0, \right_click],
-		["add_last_block", \shift, \left_click],
-		["remove_block", \ctrl, \right_click],
-	],
-	timeline_on_node: [ 
-	],
+	note_track: (
+		toggle_note: [0, \left_click],
+		resize_note: [\shift, \left_click],
+		create_note: [\ctrl, \left_click],
+		remove_note: [\ctrl, \right_click],
+		set_end: [0, \right_click],
+		set_start: [\ctrl, \right_click],
+	),
+	timeline_mouse_down: (
+
+	)
+	timeline_on_node: (
+
+	)
 );
 
-
-~old_mouse_bindings = (
+~mouse_bindings = (
 	toggle_note: [0, \left_click],
 	resize_note: [\shift, \left_click],
 	create_note: [\ctrl, \left_click],
@@ -30,6 +27,24 @@
 
 );
 
+~mouse_button_to_symbol = ~keycode.mouse.invert;
+
+~rev_mouse_bindings = Dictionary.newFrom(~mouse_bindings.invert);
+
+~mouse_responder = { arg mod, button, click, panel, handlers;
+	var sym, funkey, fun;
+	var butsym;
+	sym = ~modifier_to_symbol.(mod);
+	butsym = ~mouse_button_to_symbol[button];
+	funkey = ~rev_mouse_bindings[[sym, butsym]];
+	fun = handlers[funkey];
+	if(fun.isNil) {
+		[sym, button].debug("No mouse handler");
+	} {
+		fun.()
+	}
+
+};
 
 ~common_bindings = (
 	playing: [

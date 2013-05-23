@@ -942,6 +942,7 @@
 			};
 			data[\current_player] = self.current_player.uname;
 			data[\current_group] = self.current_group.uname;
+			data[\timeline] = self.timeline.save_data;
 			data;
 		},
 
@@ -954,6 +955,9 @@
 			self.set_current_group( group );
 			self.reload_selected_slot;
 			//self.set_current_player( main.get_node(group.selected_child), group.selected_child_index );
+			if(data[\timeline].notNil) {
+				self.timeline.load_data(data[\timeline]);
+			};
 			self.refresh;
 		},
 

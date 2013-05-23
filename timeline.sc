@@ -323,12 +323,29 @@
 		self.timeline.mouseDownAction = { arg view, x, y, modifiers, buttonNumber, clickCount;
 			var pos_x = (x/self.beat_size_x).asInteger;
 			var pos_y = (y/self.track_size_y).asInteger;
+			// FIXME: use point_to_notepoint
+			self.mouse_data = ( mod: modifiers, but: buttonNumber, click: clickCount, pos: Point(pos_x, pos_y) );
 			buttonNumber.debug("class_timeline_view: tracks: buttonNumber");
-			~mouse_responder.(modifiers, buttonNumber, clickCount, (
-				create_note: {
+			~panel_mouse_responder.(modifiers, buttonNumber, clickCount, \timeline_mouse_down, (
+				create_block: {
 					self.controller.add_block_from_lib(pos_y, pos_x);
 				},
-				set_end: { // misnamed, due to shared mouse bindings
+				remove_block: {
+					self.controller.remove_block(pos_x, pos_y);
+					//var selnodes = self.timeline.selNodes.copy;
+					//if( selnodes.size == 0 ) {
+					//	selnodes = [node]
+					//};
+					//self.timeline.selNodes.copy.do { arg snode;
+					//	self.controller.remove_block(pos_x, pos_y, false);
+					//	//self.timeline.deleteNode(snode.spritenum);
+					//	//tl.setNodeLoc_( snode.spritenum, snode.temp.x, snode.temp.y );
+					//};
+				},
+				add_last_block: {
+					self.controller.add_last_block_copy(pos_y, pos_x);
+				},
+				set_start: { // misnamed, due to shared mouse bindings
 					self.controller.set_start_cursor(pos_x);
 				}
 			));
@@ -345,23 +362,22 @@
 			var old_track_index, new_track_index, old_block_index, new_block_time;
 			var newx, newy;
 
-			~mouse_responder.(modifiers, buttonNumber, clickCount, (
-				resize_note: {
-					self.controller.add_block_from_lib(pos_y, pos_x);
-				},
-				{}
-			));
-			newx = tl.getNodeLoc(node.spritenum)[0].trunc(self.beat_size_x);
-			newy = tl.getNodeLoc(node.spritenum)[1].trunc(self.track_size_y) + self.block_top_padding;
-			//newx = tl.getNodeLoc(node.spritenum)[0].round(self.beat_size_x);
-			//newy = tl.getNodeLoc(node.spritenum)[1].round(self.track_size_y) + self.block_top_padding;
+			//~panel_mouse_responder.(self.mouse_data[\mod], self.mouse_data[\but], self.mouse_data[\click], \timeline_on_node, (
+			//	move_block: {
+			//		newx = tl.getNodeLoc(node.spritenum)[0].trunc(self.beat_size_x);
+			//		newy = tl.getNodeLoc(node.spritenum)[1].trunc(self.track_size_y) + self.block_top_padding;
+			//		self.moving_notes.add(node.spritenum);
+			//		tl.setNodeLoc_( node.spritenum, newx, newy );
+			//	}
+			//));
 
-			//new_track_index = ( tl.getNodeLoc(node.spritenum)[1].trunc(self.track_size_y)/self.track_size_y ).asInteger;
-			//new_block_time = ( tl.getNodeLoc(node.spritenum)[0].trunc(self.beat_size_x)/self.beat_size_x ).asInteger;
-
-			//controller.move_block(self.block_dict[node.spritenum], new_track_index, new_block_time);
-			self.moving_notes.add(node.spritenum);
-			tl.setNodeLoc_( node.spritenum, newx, newy );
+			self.timeline.selNodes.do { arg node;
+			
+				newx = tl.getNodeLoc(node.spritenum)[0].trunc(self.beat_size_x);
+				newy = tl.getNodeLoc(node.spritenum)[1].trunc(self.track_size_y) + self.block_top_padding;
+				self.moving_notes.add(node.spritenum);
+				tl.setNodeLoc_( node.spritenum, newx, newy );
+			}
 
 		});
 
@@ -373,8 +389,9 @@
 				point = Point(loc[0], loc[1]);
 
 				notepoint = self.point_to_notepoint(point);
-				self.controller.move_block(self.block_dict[snum], notepoint.y, notepoint.x);
+				self.controller.move_block(self.block_dict[snum], notepoint.y, notepoint.x, false);
 			};
+			self.controller.changed(\notes);
 			self.moving_notes = IdentitySet.new;
 		};
 
@@ -428,6 +445,7 @@
 		self.block_dict = Dictionary.new;
 		controller.get_blocks.do { arg block, i;
 			var uname, name, name_string;
+			var pos;
 			uname = block.nodename;
 			name = self.controller.get_main.get_node(uname).name;
 			name_string = if(uname != name) {
@@ -437,10 +455,15 @@
 			};
 			[spritenum, block].debug("timeline_view: blocks: creating block");
 
-			self.timeline.createNode(block.time*self.beat_size_x, block.track_index*self.track_size_y+self.block_top_padding);
+			pos = Point(
+				block.time*self.beat_size_x,
+				block.track_index*self.track_size_y+self.block_top_padding
+			);
+			self.timeline.createNode(pos.x, pos.y);
 			self.timeline.setNodeString_(spritenum, name_string);
 			self.timeline.setNodeSize_(spritenum, self.block_size_y);
 			self.timeline.paraNodes[spritenum].setLen = block.sustain * self.beat_size_x;
+			self.timeline.paraNodes[spritenum].temp = pos;
 
 			self.block_dict[spritenum] = block;
 
@@ -492,6 +515,14 @@
 		id = block.identityHash;
 		self.changed(\blocks);
 		id;
+	},
+
+	remove_block: { arg self, time, track_index;
+		self.notes = self.notes.reject { arg no;
+			no.time == time and: {
+				no.track_index == track_index
+			}
+		}
 	},
 
 	move_block: { arg self, block, new_track_index, new_block_time;
@@ -557,6 +588,16 @@
 		self;
 	},
 
+	save_data: { arg self;
+		var data = IdentityDictionary.new;
+		data[\score] = self.timeline_score.save_data;
+		data;
+	},
+
+	load_data: { arg self, data;
+		self.timeline_score.load_data(data[\score]);
+	},
+
 	set_start_cursor: { arg self, pos;
 		self.start_cursor = pos;	
 		//self.changed(\start_cursor);
@@ -587,18 +628,33 @@
 
 	add_block_from_lib: { arg self, track_index, abstime;
 		~class_node_chooser.new(self.get_main, { arg blockname;
+			self.last_blockname = blockname;
 			self.add_block(blockname, track_index, abstime);
 		})
 	},
 
-	move_block: { arg self, block, new_track_index, new_block_time;
+	add_last_block_copy: { arg self, track_index, abstime;
+		if(self.last_blockname.notNil) {
+			self.add_block(self.last_blockname, track_index, abstime);
+		}
+	},
+
+	move_block: { arg self, block, new_track_index, new_block_time, refresh=true;
 		var old_block, new_block_index;
 		[ block, new_track_index, new_block_time ].debug("class_timeline.move_block: block, new_track_index, new_block_time");
 		block.track_index = new_track_index;
 		block.time = new_block_time;
 		self.timeline_score.set_abs_notes(self.current_notes);
-		self.changed(\blocks);
+		if(refresh) {
+			self.changed(\blocks);
+		}
+	},
 
+	remove_block: { arg self, time, track_index, refresh=true;
+		self.timeline_score.remove_block(time, track_index);
+		if(refresh) {
+			self.changed(\tracks);
+		}
 	},
 
 	refresh: { arg self;

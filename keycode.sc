@@ -1182,3 +1182,61 @@ if(GUI.current == QtGUI) {
 	//"%, ".format(unicode).postln;
 
 };
+
+/////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////
+//////////////////// mouse
+/////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////
+
+
+
+~parse_mouse_bindings = { arg mouse_bindings;
+	var shortcuts = IdentityDictionary.new;
+	mouse_bindings.keys.do { arg key;
+		var dico = Dictionary.new;
+		mouse_bindings[key].do { arg line;
+			dico[line.drop(1)] = line[0].asSymbol;
+		};
+		shortcuts[key] = dico;
+	};
+	shortcuts;
+};
+
+~mouse_shortcuts = ~parse_mouse_bindings.(~mouse_bindings);
+
+~mouse_button_to_symbol = ~keycode.mouse.invert;
+
+~rev_mouse_bindings = Dictionary.newFrom(~old_mouse_bindings.invert);
+
+~panel_mouse_responder = { arg mod, button, click, panel, handlers;
+	var sym, funkey, fun;
+	var butsym;
+	sym = ~modifier_to_symbol.(mod);
+	butsym = ~mouse_button_to_symbol[button];
+	funkey = ~mouse_shortcuts[panel][[sym, butsym]];
+	[panel, sym, butsym, funkey].debug("kbshortcut pressed");
+	fun = handlers[funkey];
+	if(fun.isNil) {
+		[sym, button].debug("No mouse handler");
+	} {
+		fun.()
+	}
+
+};
+
+~mouse_responder = { arg mod, button, click, handlers;
+	var sym, funkey, fun;
+	var butsym;
+	sym = ~modifier_to_symbol.(mod);
+	butsym = ~mouse_button_to_symbol[button];
+	funkey = ~rev_mouse_bindings[[sym, butsym]];
+	fun = handlers[funkey];
+	if(fun.isNil) {
+		[sym, button].debug("No mouse handler");
+	} {
+		fun.()
+	}
+
+};

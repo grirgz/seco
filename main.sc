@@ -339,8 +339,8 @@ if(~silent_audio2_bus.isNil) {
 [
 	"abcparser",
 	"synth",
-	"keycode", 
 	"bindings", 
+	"keycode", 
 	"wavetable",
 	"eventscore",
 	"player_display",
