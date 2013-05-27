@@ -259,6 +259,7 @@ s.latency
 { SinOsc.ar(100) }.play
 
 
+Mdef.node("setbus_l1003")
 
 Mdef.sample(\)
 

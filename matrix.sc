@@ -424,6 +424,36 @@
 	},
 );
 
+~class_node_group_chooser = (
+	parent: ~class_matrix_chooser,
+
+	new: { arg self, main, action;
+		self = self.parent[\new].(self, action, "Choose node");
+
+		self.model.part_bank = 0;
+		self.model.section_bank = 0;
+		self.model.matrix_size = 8@8;
+		self.get_main = { arg self; main };
+		self.update_datalist;
+		self.show_window;
+		self;
+	},
+
+
+	set_bank: { arg self, idx;
+		self.model.section_bank = idx;
+		self.update_datalist;
+		self.changed(\redraw);
+	},
+
+	update_datalist: { arg self;
+		self.set_datalist( 
+			self.get_main.panels.side.song_manager.get_path([nil,nil,0], false).children
+				.collect{ arg name; if(name == \voidplayer) { "" } {name} }
+		);
+	},
+);
+
 ~class_symbol_chooser = (
 
 	parent: ~class_matrix_chooser,

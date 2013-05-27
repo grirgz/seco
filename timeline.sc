@@ -48,31 +48,39 @@
 
 				(width/beat_size_x).asInteger.do{|i| 
 					Pen.color = Color.black;
-					case
-						{ i%32==0 } { 
-							Pen.color = Color.blue;
-							Pen.line((i*beat_size_x)@0, (i*beat_size_x)@height); Pen.stroke
-						}
-						{ i%8==0 } { 
-						
-							Pen.line((i*beat_size_x)@0, (i*beat_size_x)@height); Pen.stroke
-						}
-						{ i%4==0 } { 
-						
-							Pen.line((i*beat_size_x)@(height/2), (i*beat_size_x)@height); Pen.stroke
-						}
-						//
-						{ 
-							Pen.line((i*beat_size_x)@(3*height/4), (i*beat_size_x)@height); Pen.stroke
-						}
+					[i, self.controller.get_display_range].debug("class_timeline_view: drawFunc: before, i, range");
+					j = i + self.controller.get_display_range[0];
+					[i, self.controller.get_display_range].debug("class_timeline_view: drawFunc: i, range");
+					if(i >= 0) {
+
+						case
+							{ j%32==0 } { 
+								Pen.color = Color.blue;
+								Pen.line((i*beat_size_x)@0, (i*beat_size_x)@height); Pen.stroke
+							}
+							{ j%8==0 } { 
+							
+								Pen.line((i*beat_size_x)@0, (i*beat_size_x)@height); Pen.stroke
+							}
+							{ j%4==0 } { 
+							
+								j.asString.drawAtPoint(Point(i*beat_size_x-5, height/8-5));
+
+								Pen.line((i*beat_size_x)@(height/2), (i*beat_size_x)@height); Pen.stroke
+							}
+							//
+							{ 
+								Pen.line((i*beat_size_x)@(3*height/4), (i*beat_size_x)@height); Pen.stroke
+							}
 
 					
+					}
 				};
 		};
 	},
 
 	play_cursor: { arg self, controller;
-		controller = controller ?? self.controller;
+		controller = self.controller;
 		{
 			self.view.refresh;
 		}.defer;
@@ -102,6 +110,7 @@
 
 		debug("class_timeline_view.new");
 		self.controller = controller;
+		self.make_bindings;
 		self.make_gui;
 		self.main_responder = ~make_class_responder.(self, self.window.view, controller, [
 			\tracks, \blocks, \redraw, \insert_cursor,
@@ -255,6 +264,19 @@
 		np;
 	},
 
+	make_bindings: { arg self;
+		self.controller.get_main.commands.parse_action_bindings(\track_timeline, [
+			[\remove_notes, {
+				self.timeline.selNodes.copy.do { arg snode;
+					self.controller.remove_block(self.block_dict[snode.spritenum], false);
+				};
+				self.controller.changed(\blocks);
+			}]
+
+		])
+	},
+
+
 	tracks: { arg self, controller;
 		var tl;
 		var stext;
@@ -320,6 +342,9 @@
 		self.moving_notes = IdentitySet.new;
 
 		debug("timeline_view.tracks2 4");
+
+		self.timeline.keyDownAction = self.controller.get_kb_responder;
+
 		self.timeline.mouseDownAction = { arg view, x, y, modifiers, buttonNumber, clickCount;
 			var pos_x = (x/self.beat_size_x).asInteger;
 			var pos_y = (y/self.track_size_y).asInteger;
@@ -330,8 +355,11 @@
 				create_block: {
 					self.controller.add_block_from_lib(pos_y, pos_x);
 				},
+				create_group_block: {
+					self.controller.add_block_group_from_lib(pos_y, pos_x);
+				},
 				remove_block: {
-					self.controller.remove_block(pos_x, pos_y);
+					self.controller.remove_block_playing_at_abstime(x/self.beat_size_x, pos_y);
 					//var selnodes = self.timeline.selNodes.copy;
 					//if( selnodes.size == 0 ) {
 					//	selnodes = [node]
@@ -399,13 +427,14 @@
 			// play cursor
 			var cursors_pos;
 			//cursors_pos = (TempoClock.default.beats % 32 / 32 * self.track_size_x).asInteger;
-			cursors_pos = self.controller.start_cursor*self.beat_size_x;
+			cursors_pos = ( self.controller.start_cursor - self.controller.get_display_range[0] ) *self.beat_size_x;
 			Pen.color = Color.red;
 			Pen.line(cursors_pos@0, cursors_pos@( self.track_size_y*controller.tracks.size )); Pen.stroke;
 
 			// x lines
 			(self.track_size_x/self.beat_size_x).asInteger.do{|i| 
-				Pen.color = if(i%8==0) {
+				j = i + self.controller.get_display_range[0];
+				Pen.color = if(j%8==0) {
 					Color.gray(0.2);
 				} {
 					Color.gray(0.8);
@@ -443,31 +472,38 @@
 		controller = self.controller;
 		self.timeline.clearSpace;
 		self.block_dict = Dictionary.new;
+		//self.controller.display_range;
 		controller.get_blocks.do { arg block, i;
 			var uname, name, name_string;
 			var pos;
-			uname = block.nodename;
-			name = self.controller.get_main.get_node(uname).name;
-			name_string = if(uname != name) {
-				"%\n%".format(name, uname);
-			} {
-				"%".format(uname);
-			};
-			[spritenum, block].debug("timeline_view: blocks: creating block");
+			if(block.time >= self.controller.get_display_range[0] and: {
+				block.time < self.controller.get_display_range[1]
+			}) {
+				var display_time = block.time - self.controller.get_display_range[0];
 
-			pos = Point(
-				block.time*self.beat_size_x,
-				block.track_index*self.track_size_y+self.block_top_padding
-			);
-			self.timeline.createNode(pos.x, pos.y);
-			self.timeline.setNodeString_(spritenum, name_string);
-			self.timeline.setNodeSize_(spritenum, self.block_size_y);
-			self.timeline.paraNodes[spritenum].setLen = block.sustain * self.beat_size_x;
-			self.timeline.paraNodes[spritenum].temp = pos;
+				uname = block.nodename;
+				name = self.controller.get_main.get_node(uname).name;
+				name_string = if(uname != name) {
+					"%\n%".format(name, uname);
+				} {
+					"%".format(uname);
+				};
+				[spritenum, block].debug("timeline_view: blocks: creating block");
 
-			self.block_dict[spritenum] = block;
+				pos = Point(
+					display_time*self.beat_size_x,
+					block.track_index*self.track_size_y+self.block_top_padding
+				);
+				self.timeline.createNode(pos.x, pos.y);
+				self.timeline.setNodeString_(spritenum, name_string);
+				self.timeline.setNodeSize_(spritenum, self.block_size_y);
+				self.timeline.paraNodes[spritenum].setLen = block.sustain * self.beat_size_x;
+				self.timeline.paraNodes[spritenum].temp = pos;
 
-			spritenum = spritenum + 1;
+				self.block_dict[spritenum] = block;
+
+				spritenum = spritenum + 1;
+			}
 		}
 	
 	},
@@ -517,12 +553,11 @@
 		id;
 	},
 
-	remove_block: { arg self, time, track_index;
-		self.notes = self.notes.reject { arg no;
-			no.time == time and: {
-				no.track_index == track_index
-			}
-		}
+	remove_block_playing_at_abstime: { arg self, time, track_index;
+		self.remove_notes_playing_at_abstime(time, { arg note;
+		   note.track_index == track_index;
+
+		})
 	},
 
 	move_block: { arg self, block, new_track_index, new_block_time;
@@ -576,6 +611,7 @@
 	insert_cursor: 0,
 	play_cursor: 0,
 	current_track: 0,
+	display_range: [0,50],
 	node: EventPatternProxy.new,
 
 
@@ -596,6 +632,28 @@
 
 	load_data: { arg self, data;
 		self.timeline_score.load_data(data[\score]);
+	},
+
+	get_kb_responder: { arg self;
+		self.get_main.commands.get_kb_responder(\track_timeline);
+	},
+
+	get_display_range: { arg self;
+		self.display_range;
+	},
+
+	forward_in_timeline: { arg self;
+		self.display_range = self.display_range + 1;
+		self.changed(\blocks);
+		self.changed(\play_cursor);
+	},
+
+	backward_in_timeline: { arg self;
+		if(self.display_range[0] > 0) {
+			self.display_range = self.display_range - 1;
+			self.changed(\blocks);
+			self.changed(\play_cursor);
+		}
 	},
 
 	set_start_cursor: { arg self, pos;
@@ -619,11 +677,49 @@
 		res;
 	},
 
-	add_block: { arg self, blockname, track_index, abstime;
+	add_block: { arg self, blockname, track_index, abstime, update=true;
 		var res;
 		res = self.timeline_score.add_block(blockname, track_index, abstime);
-		self.changed(\blocks);
+		if(update) {
+			self.changed(\blocks);
+		};
 		res;
+	},
+
+	add_block_group: { arg self, blockname, track_index, abstime;
+		var main = self.get_main;
+		var node = main.get_node(blockname);
+		var maxdur = 0;
+		var childs = IdentityDictionary.new;
+		//if(node.subkind == \parnode) {
+			node.children.do { arg childname;
+				var child;
+				var dur;
+				if(childname != \voidplayer) {
+
+					childname.debug("class_timeline: add_block_group: childname");
+					child = main.get_node(childname);
+					dur = child.get_duration;
+					maxdur = max(maxdur, dur);
+					childs[childname] = dur;
+				}
+			};
+			childs.keys.do { arg childname, i;
+				( maxdur/childs[childname] ).asInteger.do { arg time;
+					self.add_block(childname, track_index+i, abstime + ( time*childs[childname] ), false)
+				}
+
+			};
+			self.changed(\blocks);
+
+		//}
+	},
+
+	add_block_group_from_lib: { arg self, track_index, abstime;
+		~class_node_group_chooser.new(self.get_main, { arg blockname;
+			//self.last_blockname = blockname;
+			self.add_block_group(blockname, track_index, abstime);
+		})
 	},
 
 	add_block_from_lib: { arg self, track_index, abstime;
@@ -650,8 +746,17 @@
 		}
 	},
 
-	remove_block: { arg self, time, track_index, refresh=true;
-		self.timeline_score.remove_block(time, track_index);
+	remove_block_playing_at_abstime: { arg self, time, track_index, refresh=true;
+		self.timeline_score.remove_block_playing_at_abstime(time, track_index);
+		if(refresh) {
+			self.changed(\tracks);
+		}
+	},
+
+	remove_block: { arg self, block, refresh=true;
+		self.timeline_score.remove_notes_at_abstime(block.time, { arg note;
+			note.track_index == block.track_index;
+		});
 		if(refresh) {
 			self.changed(\tracks);
 		}
@@ -761,6 +866,12 @@
 
 			[\play_timeline, {
 				self.play_node;
+			}],
+			[\forward_in_timeline, {
+				self.forward_in_timeline;
+			}],
+			[\backward_in_timeline, {
+				self.backward_in_timeline;
 			}],
 			[\stop_timeline, {
 				self.stop_node;

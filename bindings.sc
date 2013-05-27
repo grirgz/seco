@@ -11,6 +11,7 @@
 	],
 	timeline_mouse_down: [ 
 		["create_block", \ctrl, \left_click],
+		["create_group_block", \ctrlalt, \left_click],
 		["set_start", 0, \right_click],
 		["add_last_block", \shift, \left_click],
 		["remove_block", \ctrl, \right_click],
@@ -138,6 +139,8 @@
 		["play_timeline", \kb, 0, \f5],
 		["stop_timeline", \kb, 0, \f6],
 		["close_timeline", \kb, 0, \escape],
+		["forward_in_timeline", \kb, 0, \right],
+		["backward_in_timeline", \kb, 0, \left],
 	],
 	track_notes: [
 		["remove_notes", \kb, 0, \delete],
@@ -147,6 +150,9 @@
 		["paste_notes_in_place", \kb, \ctrlalt, "v"],
 		["duplicate_score", \kb, \ctrl, "d"],
 		["edit_noterange", \kb, \alt, "r"],
+	],
+	track_timeline: [
+		["remove_notes", \kb, 0, \delete],
 	],
 	track_curve: [
 		["remove_notes", \kb, 0, \delete],

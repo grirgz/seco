@@ -1,0 +1,6 @@
+
+bla = (
+
+	Server.new("kjkj")
+)
+
