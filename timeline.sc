@@ -41,16 +41,18 @@
 		self.view.fixedHeight = height;
 		//self.view.background = Color.blue;
 		self.view.drawFunc = {
+				var pos_x;
 
 				Pen.color = Color.red;
-				Pen.line((self.controller.play_cursor*beat_size_x)@0, (self.controller.play_cursor*beat_size_x)@height); 
+				pos_x = self.controller.play_cursor - self.controller.get_display_range[0] * beat_size_x;
+				Pen.line(pos_x@0, pos_x@height); 
 				Pen.stroke;
 
 				(width/beat_size_x).asInteger.do{|i| 
 					Pen.color = Color.black;
-					[i, self.controller.get_display_range].debug("class_timeline_view: drawFunc: before, i, range");
+					//[i, self.controller.get_display_range].debug("class_timeline_view: drawFunc: before, i, range");
 					j = i + self.controller.get_display_range[0];
-					[i, self.controller.get_display_range].debug("class_timeline_view: drawFunc: i, range");
+					//[i, self.controller.get_display_range].debug("class_timeline_view: drawFunc: i, range");
 					if(i >= 0) {
 
 						case
@@ -260,7 +262,14 @@
 	point_to_notepoint: { arg self, point;
 		var np = Point(0,0);
 		np.y = ((point.y - self.block_top_padding) / self.track_size_y).asInteger;
-		np.x = ( point.x / self.beat_size_x ).asInteger;
+		np.x = (( point.x / self.beat_size_x ) + self.controller.get_display_range[0] ).asInteger;
+		np;
+	},
+
+	notepoint_to_point: { arg self, notepoint;
+		var np = Point(0,0);
+		np.y = notepoint.y * self.track_size_y + self.block_top_padding;
+		np.x = notepoint.x - self.controller.get_display_range[0] * self.beat_size_x;
 		np;
 	},
 
@@ -346,8 +355,10 @@
 		self.timeline.keyDownAction = self.controller.get_kb_responder;
 
 		self.timeline.mouseDownAction = { arg view, x, y, modifiers, buttonNumber, clickCount;
-			var pos_x = (x/self.beat_size_x).asInteger;
-			var pos_y = (y/self.track_size_y).asInteger;
+			var notepoint = self.point_to_notepoint(Point(x, y));
+			var pos_x = notepoint.x;
+			var pos_y = notepoint.y;
+			
 			// FIXME: use point_to_notepoint
 			self.mouse_data = ( mod: modifiers, but: buttonNumber, click: clickCount, pos: Point(pos_x, pos_y) );
 			buttonNumber.debug("class_timeline_view: tracks: buttonNumber");
@@ -359,7 +370,7 @@
 					self.controller.add_block_group_from_lib(pos_y, pos_x);
 				},
 				remove_block: {
-					self.controller.remove_block_playing_at_abstime(x/self.beat_size_x, pos_y);
+					self.controller.remove_block_playing_at_abstime(pos_x, pos_y);
 					//var selnodes = self.timeline.selNodes.copy;
 					//if( selnodes.size == 0 ) {
 					//	selnodes = [node]
