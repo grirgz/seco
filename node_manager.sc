@@ -1306,7 +1306,8 @@
 							res.add(\voidplayer!8) // FIXME: hardcoded
 						}
 					};
-					res.flop.flatNoString;
+					//res.flop.flatNoString;
+					res.flatNoString;
 				}
 			}
 		},

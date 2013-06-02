@@ -1219,7 +1219,7 @@ if(GUI.current == QtGUI) {
 	[panel, sym, butsym, funkey].debug("kbshortcut pressed");
 	fun = handlers[funkey];
 	if(fun.isNil) {
-		[sym, button].debug("No mouse handler");
+		[sym, butsym, button].debug("panel_mouse_responder: No mouse handler: sym, butsym, button");
 	} {
 		fun.()
 	}
@@ -1234,8 +1234,9 @@ if(GUI.current == QtGUI) {
 	funkey = ~rev_mouse_bindings[[sym, butsym]];
 	fun = handlers[funkey];
 	if(fun.isNil) {
-		[sym, button].debug("No mouse handler");
+		[sym, butsym, button].debug("mouse_responder: No mouse handler: sym, butsym, button");
 	} {
+		[sym, butsym, button].debug("mouse_responder: mouse handler called: sym, butsym, button");
 		fun.()
 	}
 

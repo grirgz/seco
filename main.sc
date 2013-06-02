@@ -564,6 +564,8 @@ if(~silent_audio2_bus.isNil) {
 
 			is_stop_using_quant: true,
 
+			audio_overlap_time: 0.002,
+
 		),
 		archive_modules: [\play_manager, \midi_bindings_manager],
 

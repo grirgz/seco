@@ -491,6 +491,12 @@
 			archive_data = self.archive_data
 		};
 
+		archive_data.do { arg key;
+			if(data[key].notNil) {
+				self[key] = data[key]
+			}
+		};
+
 		self.get_args.do { arg key;
 			argdat = self.get_arg(key);	
 			if(self.archive_param_data.includes(argdat.classtype), {
@@ -501,11 +507,6 @@
 		};
 		self.modulation.load_data(data.modulation, options);
 		self.effects.load_data(data.effects, options);
-		archive_data.do { arg key;
-			if(data[key].notNil) {
-				self[key] = data[key]
-			}
-		};
 		if(data.current_mode.notNil) {
 			self.set_mode(data.current_mode);
 		};

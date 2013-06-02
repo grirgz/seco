@@ -2514,20 +2514,24 @@
 ~make_recordline_track_controller = { arg node, display;
 	var ctrl;
 
-	ctrl = switch(node.get_mode,
-		\stepline, {
-			~class_stepline_track_controller.new(node, display);
-		},
-		\scoreline, {
-			~class_step_track_controller.new(node, display);
-		},
-		\noteline, {
-			~class_note_track_controller.new(node, display);
-		},
-		\sampleline, {
-			~class_sampleline_track_controller.new(node, display);
-		}
-	);
+	ctrl = if(node.is_audiotrack) {
+		~class_audio_track_controller.new(node, display);
+	} {
+		switch(node.get_mode,
+			\stepline, {
+				~class_stepline_track_controller.new(node, display);
+			},
+			\scoreline, {
+				~class_step_track_controller.new(node, display);
+			},
+			\noteline, {
+				~class_note_track_controller.new(node, display);
+			},
+			\sampleline, {
+				~class_sampleline_track_controller.new(node, display);
+			}
+		);
+	};
 
 	ctrl;
 };
@@ -2859,6 +2863,56 @@
 //////////////////////////////////// audiotrack
 
 
+~class_audio_track_view = (
+	new: { arg self, controller;
+		self = self.deepCopy;
+
+		self.controller = { controller };
+		self.make_layout;
+
+		self.main_responder = ~make_class_responder.(self, self.responder_anchor, controller.get_buf_param, [
+			\val
+		]);
+	
+		self;
+	},
+	
+	val: { arg self;
+		self.controller.do_with_buffer_file_path({ arg path;
+			path.debug("class_audio_track_view: make_layout");
+			self.soundfile.openRead(path);
+			self.soundfile_view.soundfile = self.soundfile;
+			self.soundfile_view.read(0, self.soundfile.numFrames);
+		});
+	},
+
+	make_layout: { arg self;
+		var soundfile, sfview;
+		var path;
+		//self.window = Window.new("audio tracks", Rect(300,300,900,300));
+		sfview = SoundFileView.new;
+
+		soundfile = SoundFile.new;
+		self.soundfile = soundfile;
+
+		sfview.maxHeight = 60;
+		sfview.elasticMode = true;
+		sfview.waveColors = Color.new255(103, 148, 103) ! 4;
+
+		sfview.timeCursorOn = false;
+		//sfview.timeCursorColor = Color.red;
+		//sfview.timeCursorPosition = 2050;
+		sfview.drawsWaveForm = true;
+		sfview.gridOn = true;
+		sfview.gridColor = Color.red;
+		sfview.gridResolution = 1;
+		//self.window.front;
+		self.responder_anchor = sfview;
+		self.soundfile_view = sfview;
+		self.layout = sfview;
+		
+	},
+);
 
 ~class_audio_track_controller = (
 
@@ -2867,16 +2921,28 @@
 
 		self.display = display;
 		
-		self.get_node = node;
-		self.scoreset = node.get_arg(\noteline).get_scoreset;
+		self.get_node = { node };
+		//self.scoreset = node.get_arg(\noteline).get_scoreset;
 	
 		self;
 	},
 
+	get_label: { arg self;
+		"% (audio %)".format(self.get_node.name, self.get_buf_param.buffer_list_position + 1);
+	},
+
+	get_buf_param: { arg self;
+		self.get_node.get_arg(\bufnum)
+	},
+
+	do_with_buffer_file_path: { arg self, action;
+		self.get_node.get_arg(\bufnum).do_with_buffer_file_path(nil, action);
+	},
+
 
 	make_gui: { arg self, parent;
-		self.track_view = ~class_audio_track_view.new(parent, self);
-		self.track_view.as_view;
+		self.track_view = ~class_audio_track_view.new(self);
+		self.track_view.layout;
 	},
 
 );

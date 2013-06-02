@@ -3290,20 +3290,76 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		audio_id: nil,
 		pkey_mode: false,
 		buffer_list_position: 0,
-		archive_data: [\name, \classtype, \selected, \spec, \has_custom_buffer, \audio_id, \buffer_list_position, \pkey_mode],
+		archive_data: [\name, \classtype, \selected, \spec, \has_custom_buffer, \buffer_list_position, \pkey_mode],
 
 		destructor: { arg self;
 			BufferPool.release_client(player.uid)
 		},
 
+		do_with_buffer_file_path: { arg self, idx, action;
+			[idx, self.buffer_list_position].debug("make_buf_param: do_with_buffer_file_path: idx");
+			idx = idx ?? self.buffer_list_position;
+			self.buffer_file_path.debug("make_buf_param: do_with_buffer_file_path: buffer_file_path");
+			if(self.buffer_file_path[idx].notNil) {
+				[self.buffer_file_path[idx]].debug("make_buf_param: do_with_buffer_file_path: path");
+				action.(self.buffer_file_path[idx]);
+			} {
+				if(self.has_custom_buffer) { // FIXME: clashing ID, should save when saving project, should save in project dir
+					{
+						debug("make_buf_param: do_with_buffer_file_path: saving bufs");
+						self.save_buffers;
+						s.sync;
+						debug("make_buf_param: do_with_buffer_file_path: synced");
+						action.(self.buffer_file_path[idx])
+					}.fork(AppClock)
+
+				} {
+					debug("make_buf_param: get_buffer_file_path: not implemented");
+					nil;
+				};
+			}
+			
+		},
+
+		gen_buffer_path: { arg self, idx;
+			var savepath = player.get_main.get_audio_save_path;
+			savepath +/+ "audio_%_%_%.wav".format(player.uname, name, idx);
+		},
+
+		save_buffers: { arg self, data;
+			if(self.has_custom_buffer) { // FIXME: clashing ID, should save when saving project, should save in project dir
+				self.buffer_file_path = List.new;
+				self.buffer_list.do { arg buf, idx;
+					[buf, idx].debug("make_buf_param: save_buffers: buf, idx");
+					self.buffer_file_path.add( self.gen_buffer_path(idx) );
+					buf.write(self.buffer_file_path[idx], "WAV", "float");
+				};
+				self.buffer_file_path.debug("make_buf_param: save_buffers: buffer_file_path");
+				if(data.notNil) {
+					data[\buffer_list_size] = self.buffer_list.size;
+				};
+			};
+		},
+
+		load_buffers: { arg self, size=1;
+			if(self.has_custom_buffer) {
+				var buflist;
+				self.buffer_file_path = List.new;
+				size.debug("make_buf_param: load_buffers: size");
+				buflist = size.collect { arg idx;
+					var path = self.gen_buffer_path(idx);
+					[idx, path].debug("make_buf_param: load_buffers: path generated");
+					self.buffer_file_path.add( path );
+					Buffer.read(s, path);
+				};
+				self.set_custom_buffer_list(buflist, "AudioInput", self.buffer_list_position);
+			}
+		},
+
 		save_data: { arg self;
 			var data = ();
 			var savepath;
-			if(self.has_custom_buffer) { // FIXME: clashing ID, should save when saving project, should save in project dir
-				self.audio_id = "audio_" ++ player.uname ++ "_" ++ name;
-				savepath = player.get_main.get_audio_save_path;
-				self.buffer.write(savepath +/+ self.audio_id ++ ".wav", "WAV", "float");
-			};
+			self.save_buffers(data);
 			self.archive_data.do {
 				arg key;
 				data[key] = self[key];
@@ -3320,9 +3376,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				self[key] = data[key];
 			};
 			if(self.has_custom_buffer) { // FIXME: clashing ID, 
-				savepath = player.get_main.get_audio_save_path;
-				self.buffer = Buffer.read(s, savepath +/+ self.audio_id ++ ".wav");
-				//self.buffer.debug("make_buf_param: load_data: loaded buffer!!");
+				self.load_buffers(data[\buffer_list_size]);
 				self.val = data[\val];
 			} {
 				self.set_val(data[\val]);
@@ -3350,6 +3404,8 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		},
 
 		set_custom_buffer: { arg self, buf, name;
+			// PRIVATE, should not be used outside because buffer_list should be also set
+			[buf, name].debug("make_buf_param: set_custom_buffer: buf, name");
 			self.val = name;
 			self.has_custom_buffer = true;
 			self.buffer = buf;
@@ -3358,13 +3414,16 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 		set_custom_buffer_list: { arg self, bufs, name, position=0;
 			//FIXME: save it
+			[bufs, name, position].debug("make_buf_param: set_custom_buffer_list: bufs, name, position");
 			self.buffer_list = bufs;
 			self.buffer_list_position = position;
+			self.buffer_file_path = List.new;
 			self.set_custom_buffer(bufs[position], name++position.asString); //FIXME: hardcoded
 		},
 
 		set_current_buffer_num: { arg self, num;
 			if(self.buffer_list.notNil and: { self.buffer_list[num].notNil }) {
+				self.buffer_list_position = num;
 				self.set_custom_buffer(self.buffer_list[num], "AudioInput"++num); //FIXME: hardcoded
 			} {
 				num.debug("Buffer not found in buffer list");
@@ -3372,13 +3431,13 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		},
 
 		forward_in_record_history: { arg self;
-			self.buffer_list_position = (self.buffer_list_position + 1).clip(0, self.buffer_list.size-1);
-			self.set_current_buffer_num(self.buffer_list_position);
+			var buffer_list_position = (self.buffer_list_position + 1).clip(0, self.buffer_list.size-1);
+			self.set_current_buffer_num(buffer_list_position);
 		},
 
 		backward_in_record_history: { arg self;
-			self.buffer_list_position = (self.buffer_list_position - 1).clip(0, self.buffer_list.size-1);
-			self.set_current_buffer_num(self.buffer_list_position);
+			var buffer_list_position = (self.buffer_list_position - 1).clip(0, self.buffer_list.size-1);
+			self.set_current_buffer_num(buffer_list_position);
 		},
 
 		set_val: { arg self, val;

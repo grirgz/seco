@@ -239,6 +239,17 @@
 				self.set_selection(i%8, (i/8).trunc);
 			}],
 
+			["select_column", 8, { arg i;
+				i = i.clip(1,9)-1;
+				self.set_selection(i, self.model.selection.y);
+			}],
+
+			["select_row", 8, { arg i;
+				i = i.clip(0,8);
+				self.set_selection(self.model.selection.x, i);
+			}],
+
+
 			["close_window", {
 				self.stop_selection;
 				self.window.close;
@@ -414,6 +425,19 @@
 		self.model.section_bank = idx;
 		self.update_datalist;
 		self.changed(\redraw);
+	},
+
+	selected: { arg self, data, address;
+		var newname;
+		var idx;
+		idx = self.address_to_index(address);
+		if(data != "" and: { idx.notNil && {self.oldsel == idx}}, {
+			self[\action].(data, address, idx);
+			self.stop_selection;
+			self.window.close;
+		}, {
+			self.oldsel = idx;	
+		});
 	},
 
 	update_datalist: { arg self;

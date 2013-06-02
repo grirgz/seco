@@ -651,7 +651,9 @@ a = SoundFileView.new(w, Rect(20,20, 700, 60));
 
 f = SoundFile.new;
 f.openRead(Platform.resourceDir +/+ "sounds/a11wlk01.wav");
-f.inspect;
+a.setBackground = Color(0, 0, 0.2, 0.9);
+a.waveColors = Color(0, 0, 0.2, 0.9) ! 4;
+//f.inspect;
 
 a.soundfile = f;
 a.read(0, f.numFrames);

@@ -27,7 +27,7 @@
 	create_note: [\ctrl, \left_click],
 	remove_note: [\ctrl, \right_click],
 	set_end: [0, \right_click],
-	set_start: [\ctrl, \right_click],
+	//set_start: [\ctrl, \right_click],
 
 );
 
@@ -93,6 +93,8 @@
 			["edit_name", \kb, \alt, "r"],
 			["remove_selected", \kb, \alt, \delete],
 			["select_cell", \kb, 0, \kbpad8x4_flat],
+			["select_row", \kb, \alt, \kbnumline],
+			["select_column", \kb, 0, \kbnumpad],
 			["create_batch", \kb, \alt, "c"],
 	],
 	nodematrix: 

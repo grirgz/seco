@@ -1387,7 +1387,7 @@
 					player.get_arg(\bufnum).buffer.free;
 				};
 				self.start_tempo_recording({ 
-					player.get_arg(\bufnum).set_custom_buffer(self.buf, "AudioInput");
+					player.get_arg(\bufnum).set_custom_buffer_list([self.buf], "AudioInput");
 					player.get_arg(\dur).change_kind(\scalar);
 					player.get_arg(\stepline).seq.change({ [1] });
 					player.get_arg(\dur).set_val(main.play_manager.get_record_length);
@@ -1493,7 +1493,7 @@
 					player.get_arg(\stepline).seq.change({ [1] });
 					player.get_arg(\dur).set_val(main.play_manager.get_record_length);
 					main.get_clock.debug("main.get_clock");
-					player.get_arg(\sustain).set_val(main.play_manager.get_record_length / main.play_manager.get_clock.tempo);
+					player.get_arg(\sustain).set_val(main.play_manager.get_record_length_in_seconds + main.model.audio_overlap_time);
 					finish_action.();
 				});
 			}
@@ -1553,7 +1553,7 @@
 						}
 					}),
 					\dur, dur,
-					\sustain, dur / main.play_manager.get_clock.tempo,
+					\sustain, ( dur / main.play_manager.get_clock.tempo ) + main.model.audio_overlap_time,
 					\monitor, 1
 				).trace.play;
 			} {

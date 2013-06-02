@@ -243,6 +243,9 @@ Mdef.main.load_project("rampant");
 Mdef.main.save_project("rampant2");
 Mdef.main.load_project("rampant2");
 
+Mdef.main.save_project("cuisine");
+Mdef.main.load_project("cuisine");
+
 Mdef.main.play_manager
 
 Debug.enableDebug = true;
@@ -464,3 +467,5 @@ MIDI
 
 )
 ~tl.createNode(30,30);
+
+{ SoundIn.ar([0,1]) }.play
