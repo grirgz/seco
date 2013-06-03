@@ -118,7 +118,7 @@
 
 	parse_samplekit_dir: { arg self, samplekit_dir;
 		var path;
-		samplekit_dir = samplekit_dir ?? "~/Musique/samplekit/";
+		samplekit_dir = samplekit_dir ?? (~seco_root_path +/+ "samplekit/");
 		path = PathName.new(samplekit_dir);
 		path.folders.do { arg dir;
 			var samplekit_name;

@@ -409,13 +409,21 @@
 			//		tl.setNodeLoc_( node.spritenum, newx, newy );
 			//	}
 			//));
+			if(self.timeline.selNodes.size > 0) {
 
-			self.timeline.selNodes.do { arg node;
-			
-				newx = tl.getNodeLoc(node.spritenum)[0].trunc(self.beat_size_x);
-				newy = tl.getNodeLoc(node.spritenum)[1].trunc(self.track_size_y) + self.block_top_padding;
-				self.moving_notes.add(node.spritenum);
-				tl.setNodeLoc_( node.spritenum, newx, newy );
+				self.timeline.selNodes.do { arg node;
+				
+					newx = tl.getNodeLoc(node.spritenum)[0].trunc(self.beat_size_x);
+					newy = tl.getNodeLoc(node.spritenum)[1].trunc(self.track_size_y) + self.block_top_padding;
+					self.moving_notes.add(node.spritenum);
+					tl.setNodeLoc_( node.spritenum, newx, newy );
+				}
+			} {
+
+					newx = tl.getNodeLoc(node.spritenum)[0].trunc(self.beat_size_x);
+					newy = tl.getNodeLoc(node.spritenum)[1].trunc(self.track_size_y) + self.block_top_padding;
+					self.moving_notes.add(node.spritenum);
+					tl.setNodeLoc_( node.spritenum, newx, newy );
 			}
 
 		});
@@ -622,7 +630,7 @@
 	insert_cursor: 0,
 	play_cursor: 0,
 	current_track: 0,
-	display_range: [0,50],
+	display_range: [0,80],
 	node: EventPatternProxy.new,
 
 
@@ -715,9 +723,12 @@
 					childs[childname] = dur;
 				}
 			};
-			childs.keys.do { arg childname, i;
-				( maxdur/childs[childname] ).asInteger.do { arg time;
-					self.add_block(childname, track_index+i, abstime + ( time*childs[childname] ), false)
+			node.children.do { arg childname, i;
+				if(childname != \voidplayer) {
+
+					( maxdur/childs[childname] ).asInteger.do { arg time;
+						self.add_block(childname, track_index+i, abstime + ( time*childs[childname] ), false)
+					}
 				}
 
 			};

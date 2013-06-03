@@ -110,10 +110,11 @@ Mdef.side_gui;
 //]);
 
 Mdef.main.samplekit_manager.parse_samplekit_dir;
-Mdef.main.samplekit_manager.parse_samplekit_dir("~/Musique/hydrogenkits/");
+Mdef.main.samplekit_manager.parse_samplekit_dir(~seco_root_path +/+ "hydrogenkits/");
 
 }
 )
+~seco_root_path +/+ "hydrogenkits/"
 SynthDescLib.global.synthDescs[\gater]
 SynthDescLib.global.synthDescs['s_ci selfgated_env_l1036']
 SynthDescLib.global.synthDescs[\rah]
@@ -246,6 +247,12 @@ Mdef.main.load_project("rampant2");
 Mdef.main.save_project("cuisine");
 Mdef.main.load_project("cuisine");
 
+Mdef.main.save_project("bizzare_3_line");
+Mdef.main.load_project("bizzare_3_line");
+
+Mdef.main.save_project("prog1");
+Mdef.main.load_project("prog1");
+
 Mdef.main.play_manager
 
 Debug.enableDebug = true;
@@ -258,6 +265,8 @@ s.latency = 0.2
 s.latency = 0.4
 s.latency = 0.6
 s.latency
+
+"/home/ggz/Musique/sc/vipere/ventregris.wav".pathExists
 
 { SinOsc.ar(100) }.play
 
@@ -469,3 +478,6 @@ MIDI
 ~tl.createNode(30,30);
 
 { SoundIn.ar([0,1]) }.play
+
+
+"/home/ggz/.vimrc".pathExists.dump

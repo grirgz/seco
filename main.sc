@@ -12,6 +12,7 @@
 	"~/code/sc/seco/".standardizePath
 };
 
+~seco_root_path = "~/Musique/sc/".standardizePath;
 
 ~toggle_value = { arg value;
 	if( value.isNil, { value = 0 });
@@ -532,12 +533,14 @@ if(~silent_audio2_bus.isNil) {
 	};
 };
 
+
 ~mk_sequencer = {
 
 	var main;
 
 	main = (
 		model: (
+			root_path: ~seco_root_path,
 			current_panel: \parlive,
 			clipboard: nil,
 			
@@ -813,7 +816,7 @@ if(~silent_audio2_bus.isNil) {
 
 			fork {
 				name.debug("Saving project");
-				projpath = "projects/"++name;
+				projpath = self.model.root_path +/+ "projects/"++name;
 				self.model.project_path = projpath;
 				("mkdir "++projpath).unixCmd;
 				1.wait;
@@ -830,7 +833,7 @@ if(~silent_audio2_bus.isNil) {
 		
 		load_project: { arg self, name;
 			var proj, projpath;
-			projpath = "projects/"++name;
+			projpath = self.model.root_path +/+ "projects/"++name;
 			proj = Object.readArchive(projpath++"/core");
 
 			name.debug("Loading project");
@@ -901,7 +904,7 @@ if(~silent_audio2_bus.isNil) {
 			if(name.size > 1) {
 				fork {
 					name.debug("Saving presets");
-					projpath = "projects/presets/"++name;
+					projpath = self.model.root_path +/+ "projects/presets/"++name;
 					//("rmdir "++projpath).unixCmd { // too dangerous :-O
 					("mkdir "++projpath).unixCmd {
 						self.archive_livenodepool(projpath, pool);
@@ -917,7 +920,7 @@ if(~silent_audio2_bus.isNil) {
 			var pool, proj, projpath;
 			name.debug("Loading presets");
 
-			projpath = "projects/presets/"++name;
+			projpath = self.model.root_path +/+ "projects/presets/"++name;
 			proj = Object.readArchive(projpath++"/core");
 
 			if(proj.notNil, {
@@ -942,9 +945,10 @@ if(~silent_audio2_bus.isNil) {
 		},
 
 		quick_save_project: { arg self;
+			var path = self.model.root_path +/+ "projects/quicksave";
 			
 			fork {
-				("rm -rf projects/quicksave").unixCmd;
+				("rm -rf '%s'".format(path)).unixCmd;
 				1.wait;
 				self.save_project("quicksave");
 			};
