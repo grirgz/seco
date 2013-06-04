@@ -3290,6 +3290,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		audio_id: nil,
 		pkey_mode: false,
 		buffer_list_position: 0,
+		old_sample_path: "~/Musique/".standardizePath, // used to find moved samples
 		archive_data: [\name, \classtype, \selected, \spec, \has_custom_buffer, \buffer_list_position, \pkey_mode],
 
 		destructor: { arg self;
@@ -3371,6 +3372,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 		load_data: { arg self, data;
 			var savepath;
+			var newval;
 			self.archive_data.do {
 				arg key;
 				self[key] = data[key];
@@ -3379,7 +3381,18 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				self.load_buffers(data[\buffer_list_size]);
 				self.val = data[\val];
 			} {
-				self.set_val(data[\val]);
+				if(data[\val].pathExists != \file) {
+					//"~/Musique/samplekit/bla/bli.wav".standardizePath.findReplace("~/Musique/samplekit".standardizePath, ~seco_root_path +/+ "samplekit")
+					newval = data[\val].findReplace(self.old_sample_path, ~seco_root_path);
+					if(newval.pathExists != \file) {
+						[data[\val], newval].debug("Error: Can't find sample in old path and can't find it in new path");
+						"Error".errorerror
+					}
+
+				} {
+					newval = data[\val];
+				};
+				self.set_val(newval);
 			}
 		},
 
