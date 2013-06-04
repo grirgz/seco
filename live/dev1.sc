@@ -118,6 +118,7 @@ SynthDescLib.global.synthDescs[\gater]
 SynthDescLib.global.synthDescs['s_ci selfgated_env_l1036']
 SynthDescLib.global.synthDescs[\rah]
 "~/code/sc/seco/classinstr.sc".standardizePath.load
+"~/code/sc/seco/synthpool.sc".standardizePath.load
 0.04*32
 1/32
 
@@ -469,3 +470,47 @@ MIDI
 ~tl.createNode(30,30);
 
 { SoundIn.ar([0,1]) }.play
+
+
+(
+Instr(\ci_noise, { arg kind, amp=0.1;
+	//TODO
+	var sig;
+	sig = switch(kind,
+		\white, {
+			WhiteNoise.ar(amp);
+		},
+		\pink, {
+			PinkNoise.ar(amp);
+		},
+		\brown, {
+			BrownNoise.ar(amp);
+		},
+		\gray, {
+			GrayNoise.ar(amp);
+		},
+		\clip, {
+			ClipNoise.ar(amp);
+		},
+		{
+			//kind.debug("p_noise: ERROR: noise kind not found");
+			WhiteNoise.ar(amp);
+		}
+	);
+	sig;
+
+}, [NonControlSpec()]);
+)
+
+
+(
+Instr(\blai, {
+	
+	Instr(\ci_noise).value((kind:\white))
+
+}).asSynthDef(\bli)
+)
+
+Patch(\blai).play
+
+Synth(\bli)

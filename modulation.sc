@@ -268,6 +268,8 @@
 				self.kind_label,
 
 		);
+		self.label.maxHeight = 30;
+		self.kind_label.maxHeight = 30;
 		self.layout
 	}
 
@@ -510,7 +512,10 @@
 				self.mod_param = ~class_modulated_param_view.new(self.controller); self.mod_param.layout,
 				//0.1.wait;
 				[VLayout(
-					self.mod_header = ~class_modulator_header_view.new(self.controller); self.mod_header.layout,
+					[
+						self.mod_header = ~class_modulator_header_view.new(self.controller); self.mod_header.layout,
+						stretch:0
+					],
 					//0.1.wait;
 					self.mod_body = ~class_modulator_body_basic.new(self.controller); self.mod_body.layout,
 					//0.1.wait;

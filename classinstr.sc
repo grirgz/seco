@@ -2489,6 +2489,7 @@
 				view;
 			} ++ [
 				View.new.layout_(modview.body_layout),
+				//View.new.layout_(modview.mod_body.layout),
 			]
 		);
 		debug("NUIT 1.5");
