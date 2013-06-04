@@ -254,18 +254,10 @@ Mdef.main.load_project("bizzare_3_line");
 Mdef.main.save_project("prog1");
 Mdef.main.load_project("prog1");
 
-Mdef.main.save_project("testperf");
-Mdef.main.load_project("testperf");
-
-Mdef.main.save_project("prog2");
-Mdef.main.load_project("prog2");
-
 Mdef.main.play_manager
 
 Debug.enableDebug = true;
 Debug.enableDebug = false;
-
-"bla".findReplace("niark", "blu")
 
 s.latency = 3
 s.latency = 1.2
@@ -535,15 +527,3 @@ Synth(\bli)
 =======
 "/home/ggz/.vimrc".pathExists.dump
 >>>>>>> f8955caae5e52a8b910dfbd3898470b976933e73
-
-PathName("./l/home").isRelativePath
-PathName("/home/ggz/Musique").asRelativePath("/hoime").dump
-root: /home/tytel/Musique/sc/
-in: /home/tytel/Musique/sc/hydrogenkits/YamahaVintageKit/Szl_Cym_02.flac
-out: ../hydrogenkits/YamahaVintageKit/Szl_Cym_02.flac
-PathName("/home/tytel/Musique/sc/hydrogenkits/YamahaVintageKit/Szl_Cym_02.flac").asRelativePath("/home/tytel/Musique/sc");
-
-o = Server.default.options;
-o.memSize 
-o.numPrivateAudioBusChannels
-o.numAudioBusChannels

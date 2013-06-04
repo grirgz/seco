@@ -4,43 +4,43 @@
 
 ~samplekit_bank = Dictionary[
 	\default -> [
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/kick_Dry_b.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/sn_Wet_b.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/sn_Jazz_c.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/hhp_Dry_a.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/cym_Jazz.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/clap_Dry_c.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/stick_Woody.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/hhc_Rock_b.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/misc_Cowbell.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/tom_Rock_mid.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/cra_Rock_a.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/hhc_Dry_a.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/tom_Rock_hi.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/cym_Rock_b.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/tom_Rock_lo.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/cra_Jazz.flac",
+		"sounds/hydrogen/GMkit/kick_Dry_b.flac",
+		"sounds/hydrogen/GMkit/sn_Wet_b.flac",
+		"sounds/hydrogen/GMkit/sn_Jazz_c.flac",
+		"sounds/hydrogen/GMkit/hhp_Dry_a.flac",
+		"sounds/hydrogen/GMkit/cym_Jazz.flac",
+		"sounds/hydrogen/GMkit/clap_Dry_c.flac",
+		"sounds/hydrogen/GMkit/stick_Woody.flac",
+		"sounds/hydrogen/GMkit/hhc_Rock_b.flac",
+		"sounds/hydrogen/GMkit/misc_Cowbell.flac",
+		"sounds/hydrogen/GMkit/tom_Rock_mid.flac",
+		"sounds/hydrogen/GMkit/cra_Rock_a.flac",
+		"sounds/hydrogen/GMkit/hhc_Dry_a.flac",
+		"sounds/hydrogen/GMkit/tom_Rock_hi.flac",
+		"sounds/hydrogen/GMkit/cym_Rock_b.flac",
+		"sounds/hydrogen/GMkit/tom_Rock_lo.flac",
+		"sounds/hydrogen/GMkit/cra_Jazz.flac",
 
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/PowR_HH_2.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/CHH_1.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/HardHse_K_03_B.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/PowR_HH_1.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/Hard_CHH_02.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/yFX_3.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/HardHse_K_02.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/FX_Chh_01.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/PowR_BD_1.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/yFX_8.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/xFX_6.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/Hard_Hse_OHH_1.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/Hard_CHH_01.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/PowR_SN_1.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/Clap_1.flac",
-		"/home/ggz/share/SuperCollider/sounds/hydrogen/HardElectro1/Amp_Clap_1.flac",
+		"sounds/hydrogen/HardElectro1/PowR_HH_2.flac",
+		"sounds/hydrogen/HardElectro1/CHH_1.flac",
+		"sounds/hydrogen/HardElectro1/HardHse_K_03_B.flac",
+		"sounds/hydrogen/HardElectro1/PowR_HH_1.flac",
+		"sounds/hydrogen/HardElectro1/Hard_CHH_02.flac",
+		"sounds/hydrogen/HardElectro1/yFX_3.flac",
+		"sounds/hydrogen/HardElectro1/HardHse_K_02.flac",
+		"sounds/hydrogen/HardElectro1/FX_Chh_01.flac",
+		"sounds/hydrogen/HardElectro1/PowR_BD_1.flac",
+		"sounds/hydrogen/HardElectro1/yFX_8.flac",
+		"sounds/hydrogen/HardElectro1/xFX_6.flac",
+		"sounds/hydrogen/HardElectro1/Hard_Hse_OHH_1.flac",
+		"sounds/hydrogen/HardElectro1/Hard_CHH_01.flac",
+		"sounds/hydrogen/HardElectro1/PowR_SN_1.flac",
+		"sounds/hydrogen/HardElectro1/Clap_1.flac",
+		"sounds/hydrogen/HardElectro1/Amp_Clap_1.flac",
 	]
 ];
 
-~empty_sample_path = "/home/ggz/share/SuperCollider/sounds/hydrogen/GMkit/emptySample.flac";
+~empty_sample_path = "sounds/hydrogen/GMkit/emptySample.flac";
 
 ~samplekit_manager = (
 	samplekit_part: 0,
@@ -56,15 +56,7 @@
 			//BufferPool.get_sample(\samplekit, ~empty_sample_path).bufnum; // FIXME: find a way to not play at all;
 			path =  ~empty_sample_path;
 		} {
-			if(self.samplekit_bank[samplekit].isNil or: {self.samplekit_bank[samplekit][slot].isNil}) {
-				samplekit.debug("error: samplekit_manager: slot_to_bufnum: no such samplekit or slotnum!");
-				path =  ~empty_sample_path;
-			} {
-				path = self.samplekit_bank[samplekit][slot];
-				if(path.isString.not) {
-					path = path[0]
-				};
-			}
+			path = self.slot_to_path(samplekit, slot);
 		};
 		if(channels == \mono) {
 			bufnum = BufferPool.get_mono_sample(\samplekit, path).bufnum;		
@@ -75,18 +67,32 @@
 		bufnum;
 	},
 
-	// TODO: use it
-	slot_to_path: { arg self, samplekit, slot;
+	slot_to_path: { arg self, samplekit, slot, use_empty=true;
 		var path;
 		if(self.samplekit_bank[samplekit].isNil or: {self.samplekit_bank[samplekit][slot].isNil}) {
 			samplekit.debug("error: samplekit_manager: slot_to_bufnum: no such samplekit or slotnum!");
+			if(use_empty) {
+				path =  ~empty_sample_path;
+			} {
+				path = nil;
+			}
 		} {
+			path = self.samplekit_bank[samplekit][slot];
 			if(path.isString) {
 				path
 			} {
-				path[0]
+				path = path[0]
 			};
-		}
+		};
+		path = self.path_to_absolute_path(path);
+		path;
+	},
+
+	path_to_absolute_path: { arg self, path;
+		if(path.notNil and: {PathName(path).isRelativePath}) {
+			path = ~seco_root_path +/+ path;
+		};
+		path;
 	},
 
 	slot_to_startPos: { arg self, slot, samplekit;
@@ -113,7 +119,8 @@
 
 	get_samplelist_from_samplekit: { arg self, samplekit;
 		samplekit.debug("samplekit_manager.get_samplelist_from_samplekit: samplekit:");
-		self.samplekit_bank[samplekit] 
+		//self.samplekit_bank[samplekit].collect{ arg path; self.path_to_absolute_path(path) }
+		self.samplekit_bank[samplekit];
 	},
 
 	parse_samplekit_dir: { arg self, samplekit_dir;
@@ -145,7 +152,16 @@
 				};
 				samples = samples.sort;
 			};
+			samples = samples.collect { arg smp; 
+				var out;
+				~seco_root_path.debug("root");
+				smp.debug("in");
+				out = PathName(smp).asRelativePath(~seco_root_path_nude);
+				out.debug("out");
+				out;
+			};
 			samplekit_name = dir.folderName;
+			[samplekit_name, samples].debug("parse_samplekit_dir: added samplekit");
 			self.add_samplekit(samplekit_name.asSymbol, samples);
 		};
 	},

@@ -16,7 +16,7 @@
 	new: { arg self, parent, controller, header_size_x, beat_size_x=10, view_size;
 		self = self.deepCopy;
 
-		self.view_size = view_size ?? 800@30;
+		self.view_size = view_size ?? (800@30);
 		self.parent = parent;
 		self.header_size_x = header_size_x;
 

@@ -411,7 +411,7 @@
 		//0.1.wait;
 		debug("class_modulator_body_basic: make_gui 3");
 		self.stack_layout = StackLayout(
-			View.new.layout_(self.param_group_layout),
+			View.new.layout_(self.param_group_layout).minHeight_(300),
 			self.custom_view;
 		);
 		//0.1.wait;
@@ -575,7 +575,8 @@
 		self.mod_body = ~class_modulator_body_basic.new(self.controller);
 		self.body_layout = VLayout(
 			[self.header_layout, stretch:0],
-			self.mod_body.layout,
+			[self.mod_body.layout, stretch:1],
+			//StaticText.new.string_("fucking bug"),
 		);
 	},
 

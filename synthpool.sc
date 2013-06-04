@@ -1,4 +1,44 @@
 (
+SynthDef(\zegrainer, { arg out=0, amp=0.1, gate=1, pan=0, freq=200, mbufnum,
+						gdur=12, trate=100, time_stretch=1, pos=0, pitch_stretch = 1, randframes=0.01, randrate=1, doneAction=0, finepos=0;
+	var ou;
+	var dur, clk;
+	var bufnum = mbufnum;
+	var randclk;
+	var pitch;
+	var sr, phasor;
+
+	clk = Impulse.kr(trate);
+	randclk = Impulse.kr(randrate * trate);
+	dur = gdur/trate;
+	pan = (WhiteNoise.kr(0.6) + pan).clip(-1,1);
+	sr = SampleRate.ir;
+	phasor = Phasor.ar(0, time_stretch.abs / sr / BufDur.kr(bufnum), 0, 1);
+	phasor = Select.ar(time_stretch.sign + 1 /2, [
+		pos - phasor,
+		phasor + pos,
+	]);
+
+	pos = phasor * BufDur.kr(bufnum) + finepos + TRand.kr(0, randframes, randclk);
+	ou = TGrains.ar(2, clk, bufnum, pitch_stretch, pos % BufDur.kr(bufnum), dur, pan, 1);
+	//ou = TGrains.ar(2, clk, bufnum, pitch_stretch, pos.clip(0, BufDur.kr(bufnum)), dur, pan, 1);
+
+	ou = ou * EnvGen.ar(Env.adsr(0.005,0.1,0.8,0.5),gate,doneAction:doneAction);
+
+	//pitch = Tartini.kr(ou);
+	//pitch = Pitch.kr(ou);
+	//pitch.poll;
+	ou = Splay.ar(ou, 1, amp);
+	Out.ar(out, ou);
+}, metadata: (specs:(
+	gdur: ControlSpec(1,30,\lin,0,12),
+	finepos: ControlSpec(-0.3,0.3,\lin, 0, 0),
+	randframes: ControlSpec(0.000001,1,\exp,0,0.01),
+	time_stretch: ControlSpec(-8,8,\lin,0,0),
+	pitch_stretch: ControlSpec(-8,8,\lin,0,0),
+
+))).store;
+
 SynthDef(\osc1, { arg out, gate=1, freq=300, amp=0.1, ffreq=200, rq=0.1, attack=0.1, release=0.1, doneAction=2;
 	var sig = LFSaw.ar(freq);
 	var env = EnvGen.kr(Env.adsr(attack,0.1,1,release), gate, doneAction:doneAction);

@@ -3351,7 +3351,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 					var path = self.gen_buffer_path(idx);
 					[idx, path].debug("make_buf_param: load_buffers: path generated");
 					self.buffer_file_path.add( path );
-					Buffer.read(s, path);
+					self.path_to_buffer(path);
 				};
 				self.set_custom_buffer_list(buflist, "AudioInput", self.buffer_list_position);
 			}
@@ -3366,7 +3366,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				data[key] = self[key];
 			};
 			data[\val] = self.get_val;
-			//data.debug("make_buf_param: save_data: data");
+			data.debug("make_buf_param: save_data: data");
 			data;
 		},
 
@@ -3377,20 +3377,39 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				arg key;
 				self[key] = data[key];
 			};
+			data.debug("make_buf_param: load_data");
 			if(self.has_custom_buffer) { // FIXME: clashing ID, 
 				self.load_buffers(data[\buffer_list_size]);
 				self.val = data[\val];
 			} {
-				if(data[\val].pathExists != \file) {
-					//"~/Musique/samplekit/bla/bli.wav".standardizePath.findReplace("~/Musique/samplekit".standardizePath, ~seco_root_path +/+ "samplekit")
-					newval = data[\val].findReplace(self.old_sample_path, ~seco_root_path);
-					if(newval.pathExists != \file) {
-						[data[\val], newval].debug("Error: Can't find sample in old path and can't find it in new path");
-						"Error".errorerror
-					}
+				var oldval = data[\val];
+				var pathname = PathName(oldval);
+				newval = oldval;
+				if(pathname.isRelativePath.not) {
 
-				} {
-					newval = data[\val];
+					//"~/Musique/samplekit/bla/bli.wav".standardizePath.findReplace("~/Musique/samplekit".standardizePath, ~seco_root_path +/+ "samplekit")
+					var oldmusique_path = "/home/ggz/Musique";
+					var oldabs_path = "/home/ggz/Musique/sc";
+					var oldsound_path = "/home/ggz/share/SuperCollider";
+					var abspath;
+					oldval.debug("make_buf_param: load_data: Warning: sample has not a relative path");
+
+					case
+						{ oldval.beginsWith(oldabs_path) } {
+							newval = pathname.asRelativePath(oldabs_path)
+						}
+						{ oldval.beginsWith(oldmusique_path) } {
+							newval = pathname.asRelativePath(oldmusique_path)
+						}
+						{ oldval.beginsWith(oldsound_path) } {
+							newval = pathname.asRelativePath(oldsound_path)
+						};
+
+					abspath = ~seco_root_path +/+ newval;
+					if(abspath.pathExists != \file) {
+						[data[\val], newval, abspath].debug("Error: Can't find sample in old path and can't find it in new path");
+						"Error".errorerror
+					};
 				};
 				self.set_val(newval);
 			}
@@ -3409,11 +3428,18 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 		new_buffer: { arg self, path;
 			[player.uid, path].debug("new_buffer: player.uname, path");
+			self.buffer = self.path_to_buffer(path);
+		},
+
+		path_to_buffer: { arg self, path;
+			var buffer;
+			path = ~samplekit_manager.path_to_absolute_path(path);
 			if(self.channels == \mono) {
-				self.buffer = BufferPool.get_mono_sample(player.uid, path);
+				buffer = BufferPool.get_mono_sample(player.uid, path);
 			} {
-				self.buffer = BufferPool.get_forced_stereo_sample(player.uid, path);
-			}
+				buffer = BufferPool.get_forced_stereo_sample(player.uid, path);
+			};
+			buffer;
 		},
 
 		set_custom_buffer: { arg self, buf, name;
@@ -4084,7 +4110,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				arg key;
 				data[key] = self[key];
 			};
-			data.debug("make_buf_param: save_data: data");
+			data.debug("make_samplekit_param: save_data: data");
 			data;
 		},
 

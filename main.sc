@@ -12,7 +12,16 @@
 	"~/code/sc/seco/".standardizePath
 };
 
+~remove_trailing_slash = { arg path;
+	if(path.last == $/) {
+		path.drop(-1)
+	} {
+		path
+	}
+};
+
 ~seco_root_path = "~/Musique/sc/".standardizePath;
+~seco_root_path_nude = ~remove_trailing_slash.(~seco_root_path);
 
 ~toggle_value = { arg value;
 	if( value.isNil, { value = 0 });
@@ -948,7 +957,7 @@ if(~silent_audio2_bus.isNil) {
 			var path = self.model.root_path +/+ "projects/quicksave";
 			
 			fork {
-				("rm -rf '%s'".format(path)).unixCmd;
+				("rm -rf \"%\"".format(path)).debug("removing old quicksavepath").unixCmd;
 				1.wait;
 				self.save_project("quicksave");
 			};
