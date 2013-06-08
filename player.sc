@@ -117,6 +117,29 @@
 		}
 	},
 
+	set_root_player_name: { arg self, nodename;
+		self.root_player_name = nodename
+	},
+
+	get_root_player_name: { arg self;
+		if(self.root_player_name.isNil) {
+			self.uname;
+		} {
+			self.root_player_name;
+		}
+		
+	},
+
+	update_modulation_pattern: { arg self;
+		var root;
+		if(self.root_player_name.isNil) {
+			root = self;
+		} {
+			root = self.get_main.get_node(self.root_player_name)
+		};
+		root.modulation.update_modulation_pattern;
+	},
+
 	init: { arg self, data;
 		var colpreset;
 		
@@ -1372,6 +1395,7 @@
 		self.modulation.set_mod_kind(\pattern);
 		self.set_mode(\scoreline);
 
+		self.get_arg(\val).set_val(1);
 		self.get_arg(\val).change_kind(\scoreseq);
 		notescore = ~make_notescore.();
 		notes = [

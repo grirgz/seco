@@ -661,6 +661,7 @@
 	connect_modulator: { arg self, source, target;
 		var param_name = self.param_ctrl.name;
 		self.parent_modulation_ctrl.connect_modulator(source, param_name, target);
+		//self.modulation_ctrl.update_modulation_pattern; // FIXME: hack, should be integrated to modmixer
 	},
 
 	disconnect_modulator: { arg self, target;
@@ -718,7 +719,7 @@
 				~class_symbol_chooser.new(self.get_main, self.get_main.model.modnodelib, { arg libmodnodename;
 					var nodename;
 					var mod = self.player_ctrl.modulation;
-					nodename = self.get_main.node_manager.make_livenode_from_libmodnode(libmodnodename);
+					nodename = self.get_main.node_manager.make_livenode_from_libmodnode(libmodnodename, self.player_ctrl.get_root_player_name);
 					mod.set_modulator_name(self.selected_slot, nodename);
 					self.select_slot(self.selected_slot);
 				})
@@ -933,7 +934,7 @@
 	},
 
 	update_modulation_pattern: { arg self;
-		self.player.modulation.update_modulation_pattern;
+		self.player.update_modulation_pattern;
 	},
 
 	save_data: { arg self;
@@ -1154,7 +1155,7 @@
 					var defname;
 					var node;
 					if(nodedata.notNil) {
-						nodename = main.node_manager.make_livenode_from_libmodnode(nodedata.instrname);
+						nodename = main.node_manager.make_livenode_from_libmodnode(nodedata.instrname, self.player.get_root_player_name);
 						node = main.get_node(nodename);
 						defname = node.defname;
 						node.load_data(nodedata);
@@ -1349,6 +1350,7 @@
 		var pattern_control_bus_alloc_list = List.new;
 		var clean_started = false;
 		var cleanup_function;
+		var main = mainplayer.get_main;
 		///////// building effects patterns
 		"%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% update_modulation_pattern: START".debug;
 
@@ -1604,6 +1606,13 @@
 
 		walk_modulators.( mainplayer, \normal );
 
+		mainplayer.effects.get_effect_list.do { arg fx_name;
+			var fxnode;
+			if(fx_name.notNil) {
+				fxnode = main.get_node(fx_name);
+				walk_modulators.( fxnode, \normal );
+			};
+		};
 
 
 
@@ -1824,8 +1833,10 @@
 			///////// creating global groups
 
 			if(pattern_modulator_list.size > 0 or: { note_modulator_list.size > 0 }) {
-				ppatch.global_group[\modulator] = Group.new(s);
-				ppatch.global_group[\mixer] = Group.after(ppatch.global_group[\modulator]);
+				//ppatch.global_group[\modulator] = Group.new(s);
+				//ppatch.global_group[\mixer] = Group.after(ppatch.global_group[\modulator]);
+				ppatch.global_group[\mixer] = Group.new(s);
+				ppatch.global_group[\modulator] = Group.after(ppatch.global_group[\mixer]);
 			};
 
 			if(ppatch.global_group[\mixer].notNil) {
@@ -2363,7 +2374,7 @@
 				~class_symbol_chooser.new(self.get_main, self.get_main.model.effectlib, { arg libnodename;
 					var nodename;
 					var fx = self.player_ctrl.effects;
-					nodename = self.get_main.node_manager.make_livenode_from_libfxnode(libnodename);
+					nodename = self.get_main.node_manager.make_livenode_from_libfxnode(libnodename, self.player_ctrl.get_root_player_name);
 					fx.set_effect(self.selected_slot, nodename);
 					self.set_current_player(self.get_main.get_node(nodename));
 					self.changed(\groupnode);
@@ -2485,7 +2496,7 @@
 					~class_symbol_chooser.new(self.get_main, self.get_main.model.effectlib, { arg libnodename;
 						var nodename;
 						var fx = self.player_ctrl.effects;
-						nodename = self.get_main.node_manager.make_livenode_from_libfxnode(libnodename);
+						nodename = self.get_main.node_manager.make_livenode_from_libfxnode(libnodename, self.player_ctrl.get_root_player_name);
 						fx.set_effect(self.selected_slot, nodename);
 						self.set_current_player(self.get_main.get_node(nodename));
 						self.changed(\groupnode);
@@ -2542,7 +2553,7 @@
 	},
 
 	update_modulation_pattern: { arg self;
-		self.get_player.modulation.update_modulation_pattern;
+		self.get_player.update_modulation_pattern;
 	},
 
 	load_data: { arg self, data, options;
@@ -2559,7 +2570,7 @@
 					var node;
 					if(nodedata.notNil) {
 						// FIXME: can use clone instead, no ?
-						nodename = main.node_manager.make_livenode_from_libmodnode(nodedata.instrname);
+						nodename = main.node_manager.make_livenode_from_libmodnode(nodedata.instrname, self.get_player.get_root_player_name);
 						node = main.get_node(nodename);
 						defname = node.defname;
 						node.load_data(nodedata);
@@ -2585,6 +2596,10 @@
 	set_effect: { arg self, idx, effect_node_name;
 		self.effect_list[idx] = effect_node_name;
 		self.update_modulation_pattern;
+	},
+
+	get_effect_list: { arg self;
+		self.effect_list;
 	},
 
 	get_effect: { arg self, idx;

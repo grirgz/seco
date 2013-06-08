@@ -171,11 +171,12 @@
 			newplayer;
 		},
 
-		make_livenode_from_libmodnode: { arg self, libnodename;
+		make_livenode_from_libmodnode: { arg self, libnodename, root_player_name;
 			var livenodename;
 			var player;
 			livenodename = self.make_livenodename_from_libnodename(libnodename);
 			player = ~make_player.(main, libnodename);
+			player.set_root_player_name(root_player_name);
 			player.name = livenodename;
 			player.uname = livenodename;
 			player.get_arg(\dur).select_cell(0); // avoid too fast pattern per default
@@ -184,11 +185,12 @@
 			player.uname;
 		},
 
-		make_livenode_from_libfxnode: { arg self, libnodename;
+		make_livenode_from_libfxnode: { arg self, libnodename, root_player_name;
 			var livenodename;
 			var player;
 			livenodename = self.make_livenodename_from_libnodename(libnodename);
 			player = ~make_player.(main, libnodename);
+			player.set_root_player_name(root_player_name);
 			player.get_arg(\dur).select_cell(0); // avoid too fast pattern per default
 			player.get_arg(\repeat).set_val(0);
 			player.name = livenodename;
