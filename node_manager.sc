@@ -1045,7 +1045,11 @@
 			nodename.debug("pm: play_node");
 			[self.top_nodes, self.children_nodes].debug("pm: state");
 			~notNildo.(main.get_node(nodename), { arg node;
-				children = ~find_children.(main, node);
+				if(self.top_nodes.size == 0) {
+					children = [];
+				} {
+					children = ~find_children.(main, node);
+				};
 				if( self.top_nodes.keys.includes(nodename) ) {
 					self.start_new_session;
 

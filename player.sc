@@ -80,8 +80,8 @@
 	muted: false,
 	temp_muted: false,
 	available_modes: [\stepline, \noteline, \scoreline, \sampleline],
-	archive_param_data: [\control, \stepline, \adsr, \noteline, \scoreline, \nodeline, \sampleline, \buf, \wavetable,\custom_env, \samplekit],
-	archive_data: [\sourcewrapper, \instrname, \defname, \name, \uname, \kind, \subkind, \bank],
+	archive_param_data: [\control, \stepline, \adsr, \noteline, \scoreline, \nodeline, \sampleline, \basic_param, \buf, \wavetable,\custom_env, \samplekit],
+	archive_data: [\sourcewrapper, \instrname, \defname, \name, \uname, \kind, \subkind, \bank, \muted],
 	effects: List.new,
 	is_effect: false,
 	ccbus_set: IdentitySet.new,
@@ -255,6 +255,10 @@
 		};
 		self.name = "FREED";
 		self.to_destruct = [];
+	},
+
+	refresh: { arg self;
+		self.changed(\redraw_node);
 	},
 
 	clone: { arg self;
@@ -522,6 +526,7 @@
 
 		self.get_args.do { arg key;
 			argdat = self.get_arg(key);	
+			[argdat.isNil, key].debug("class_synthdef_player: load_data: argdat.isNil, key");
 			if(self.archive_param_data.includes(argdat.classtype), {
 				if( data.args[key].notNil ) {
 					argdat.load_data( data.args[key] )
@@ -534,7 +539,9 @@
 			self.set_mode(data.current_mode);
 		};
 		self.set_wrapper_code(data.sourcewrapper);
-		self.build_real_sourcepat;
+		if(options[\build_synthdef] != false) {
+			self.build_real_sourcepat;
+		}
 	},
 
 	save_column_preset: { arg self;
@@ -1414,7 +1421,7 @@
 		notescore.set_notes(notes);
 		notescore.no_first_rest = true;
 		notescore.set_end(4);
-		self.get_arg(\scoreline).get_scoreset.set_notescore(notescore);
+		self.get_arg(\scoreline).get_scoreset.set_current_sheet(notescore);
 
 		self.build_sourcepat;
 		self.build_real_sourcepat;
@@ -1749,7 +1756,7 @@
 		name: \new,
 		uname: \new,
 		data: Dictionary.new,
-		archive_data: [\children, \kind, \subkind, \name, \uname, \instrname, \selected_child, \selected_child_index, \expset_mode],
+		archive_data: [\children, \kind, \subkind, \name, \uname, \instrname, \selected_child, \selected_child_index, \expset_mode, \muted],
 		archive_classtype: [\control, \stepline, \adsr, \noteline, \sampleline, \samplekit, \nodeline, \buf],
 		playlist: List.new,
 		playing_state: \stop,

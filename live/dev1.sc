@@ -55,6 +55,7 @@ Window.closeAll;
 	\dubecho,
 	\dubecho_inmix,
 	\dubecho_orig,
+	\limiter,
 ].collect({arg i; i -> i });
 
 ~modlib = [
@@ -259,6 +260,12 @@ Mdef.main.load_project("testperf");
 
 Mdef.main.save_project("prog2");
 Mdef.main.load_project("prog2");
+
+Mdef.main.save_project("profondeur");
+Mdef.main.load_project("profondeur");
+
+Mdef.main.save_project("hurlement");
+Mdef.main.load_project("hurlement");
 
 Mdef.main.play_manager
 
@@ -547,3 +554,26 @@ o = Server.default.options;
 o.memSize 
 o.numPrivateAudioBusChannels
 o.numAudioBusChannels
+
+
+Mdef.node("setbus_l1003").get_arg(\scoreline).get_notes
+Mdef.node("setbus_l1003").subkind
+Mdef.node("setbus_l1007").get_arg(\scoreline).get_notes
+Mdef.node("setbus_l1007").get_arg(\scoreline).get_scoreset.sheets.do { arg sh, i; sh.notNil and:{ sh.notes.debug(i+"============")  }}
+Mdef.node("setbus_l1007").get_arg(\scoreline).get_scoreset.current_sheet
+Mdef.node("setbus_l1003").get_arg(\scoreline).get_scoreset.current_sheet
+Mdef.node("setbus_l1003").get_arg(\scoreline).get_scoreset.sheets.do { arg sh, i; sh.notNil and:{ sh.notes.debug(i+"============")  }}
+
+a = Dictionary.new
+a.size
+a[\a] = 1
+a[\b] = 1
+a[\b] = nil
+a
+
+
+
+
+
+Mdef.node("ci osc3filter2_l1021").modulation.get_modulation_mixers.keys.do(_.postln)
+Mdef.node("ci osc3filter2_l1021").modulation.modulation_mixers[\wtpos_spread] = nil

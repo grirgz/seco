@@ -1,4 +1,15 @@
 (
+
+SynthDef(\limiter, { arg in, out=0, mix=1, level=1, postamp=1, gate=1;
+	var sig, dry;
+	dry = In.ar(in, 2);
+	sig = Limiter.ar(dry, level);
+	sig = sig * postamp;
+	sig = sig * EnvGen.ar(Env.asr(0.0001,1,0.1), gate);
+	sig = SelectX.ar(mix, [dry, sig]);
+	Out.ar(out, sig);
+}).add;
+
 SynthDef(\zegrainer, { arg out=0, amp=0.1, gate=1, pan=0, freq=200, mbufnum,
 						gdur=12, trate=100, time_stretch=1, pos=0, pitch_stretch = 1, randframes=0.01, randrate=1, doneAction=0, finepos=0;
 	var ou;
@@ -142,6 +153,7 @@ SynthDef(\adsr1, { arg out, attack, gate=1, doneAction=0;
 
 SynthDef(\comb1, { arg in, out, mix=0.5, inmix=1, maxdelaytime=0.4, delaytime=0.4, decaytime=2, gate=1;
 	//var sig = EnvGen.kr(Env.adsr(attack,0.1,1,0.1), gate, doneAction:doneAction);
+	//FIXME: sigwet is in fact sigdry: the original signal
 	var sig, sigwet;
 	sigwet = In.ar(in, 2);
 	//in.poll;

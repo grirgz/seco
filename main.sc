@@ -692,7 +692,7 @@ if(~silent_audio2_bus.isNil) {
 
 		make_node_from_data: { arg self, data;
 			var node;
-			var options = (build_synthdef:false);
+			var options = (build_synthdef:false); // FIXME: should be named build_synthdef_and_sourcepat
 			switch(data.kind,
 				\player, {
 					switch(data.subkind,

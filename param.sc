@@ -1772,6 +1772,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 //- not displayed in sidepanel
 
 ~class_param_controller = (
+	classtype: \basic_param,
 	new: { arg self;
 		self = self.deepCopy;
 	
@@ -2603,10 +2604,13 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 							if(self.scalar.should_free_bus_mode) {
 								//debug("vpattern: BUS MODE: free bus");
 								{ arg self, ev;
+									var oldbus = self.scalar.bus;
 									self.scalar.should_free_bus_mode = false;
 									// FIXME: defer free to avoid glitch bug ?
-									self.scalar.bus.free;
 									self.scalar.bus = nil;
+									{
+										oldbus.free;
+									}.defer(1);
 									ev = self.scalar.get_val.yield;
 									self.update_vpattern;
 									ev;
@@ -3671,7 +3675,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			};
 			self.model.val_uname = curve;
 			self.model.val = curve_idx;
-			self.set_buffer_range(0);
+			self.set_buffer_range(1); // 1 so can be used as another argument to classic osc
 
 			//if(was_custom) {
 			//	self.main_controller.update_arg(self.model.uname);
@@ -3728,6 +3732,11 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			\LFSaw,
 			\LFPulse,
 			\LFTri,
+			\LFCub,
+			\LFPar,
+			\Blip,
+			\Formant,
+
 		]
 	},
 
@@ -5158,6 +5167,8 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 ~class_param_opmatrix_controller = (
 	parent: ~class_param_controller,
+	archive_data: [\opmatrix],
+
 	new: { arg self, name, spec, size;
 		self = self.deepCopy;
 		

@@ -1491,6 +1491,7 @@
 			var out_bus_name;
 			var spec;
 			var mixer_level;
+			var param;
 
 			//if(kind == \normal) {
 			//	mixer_group_name = \mixer;
@@ -1506,7 +1507,14 @@
 
 			mixer_group_name = \mixer;
 
-			spec = player.get_arg(key).spec;
+			param = player.get_arg(key);
+			if(param.isNil) {
+				key.debug("WARNING: class_modulation_manager: update_modulation_pattern: modulated param not found");
+				player.modulation.modulation_mixers[key] = nil; // delete reference to bad param
+				spec = \unipolar.asSpec;
+			} {
+				spec = player.get_arg(key).spec;
+			};
 
 			mixer_synthdef_name = ~make_modmixer.(key, rate, spec, kind);
 			out_bus_name = "mixer_%_%".format(player.uname, key).asSymbol;
@@ -1610,7 +1618,9 @@
 			var fxnode;
 			if(fx_name.notNil) {
 				fxnode = main.get_node(fx_name);
-				walk_modulators.( fxnode, \normal );
+				if(fxnode.notNil) { // FIXME: why could it be nil ?
+					walk_modulators.( fxnode, \normal );
+				} 
 			};
 		};
 
@@ -1974,9 +1984,11 @@
 
 	set_player_controller: { arg self, player;
 		var arg_mix;
+		debug("class_effect_mini_view: set_player_controller");
 		self.player_ctrl = {player};
 		self.player_responder !? { self.player_responder.remove };
 		if(player.notNil) {
+			player.uname.debug("class_effect_mini_view: set_player_controller: player");
 			self.player_responder = ~make_class_responder.(self, self.bt_name, player, [
 				\redraw_node
 			]);
@@ -2003,6 +2015,7 @@
 	},
 
 	redraw_node: { arg self;
+		debug("class_effect_mini_view: redraw_node");
 		self.bt_mute.value = if(self.player_ctrl.muted) { 1 } { 0 };
 		self.update_selection;
 	},
@@ -2205,7 +2218,9 @@
 	groupnode: { arg self;
 		self.mini_views.do { arg view, idx;
 			var player = self.controller.get_player_at(idx);
-			view.set_player_controller(player);
+			if(player.notNil) {
+				view.set_player_controller(player);
+			}
 		}
 	},
 
@@ -2340,7 +2355,10 @@
 	},
 
 	get_player_at: { arg self, idx;
-		self.get_main.get_node(self.effects_ctrl.get_effect(idx));
+		var nodename = self.effects_ctrl.get_effect(idx);
+		if(nodename.notNil) {
+			self.get_main.get_node(nodename);
+		}
 	},
 
 

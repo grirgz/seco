@@ -324,6 +324,7 @@
 		env: ControlSpec(0, 16, 'linear', 0, 0.1, ""),
 		boost: ControlSpec(-500, 100, 'lin', 0, 0),
 		amp: ControlSpec(0, 1, 'amp', 0, 0.1, ""),
+		preamp: ControlSpec(0, 16, 'amp', 0, 1, ""),
 		wideamp: ControlSpec(0, 6, 'amp', 0, 0.1, ""),
 		crush: ControlSpec(1, 31, 'lin', 0, 1, ""),
 		smalldelay: ControlSpec(0, 0.02, 'lin', 0, 0.001, ""),
@@ -573,6 +574,10 @@
 				uname: \width,
 			),
 			(
+				name: "Phase",
+				uname: \phase,
+			),
+			(
 				name: "Bend",
 				uname: \bend,
 			),
@@ -591,7 +596,15 @@
 			(
 				name: "Fold",
 				uname: \fold,
-			)
+			),
+			(
+				name: "Tanh",
+				uname: \tanh,
+			),
+			(
+				name: "Distort",
+				uname: \distort,
+			),
 		]
 	},
 
@@ -1051,7 +1064,19 @@
 				uname: \hardclipper,
 				args: ["Wet/Dry", "Drive"],
 				specs: [\unipolar, \unipolar]
-			)
+			),
+			(
+				name: "Tanh",
+				uname: \tanh,
+				args: ["Wet/Dry", "Preamp", "Postamp"],
+				specs: [\unipolar, specs[\preamp], specs[\preamp]]
+			),
+			(
+				name: "Distort",
+				uname: \distort,
+				args: ["Wet/Dry", "Preamp", "Postamp"],
+				specs: [\unipolar, specs[\preamp], specs[\preamp]]
+			),
 		]
 	},
 
@@ -2072,6 +2097,10 @@
 		self.insertfxs = 2.collect { arg idx;
 			~class_ci_insertfx.new(main, player, self.make_namer("insfx%_".format(idx)));
 		};
+
+		self.voices_keys = [\pitch_spread, \wt_pos_spread, \osc_intensity_spread, \arg1_spread];
+		self.voices_panel = ~class_voices_panel.new(self, self.voices_keys);
+
 		self.master = ~class_ci_master_dadsr.new(main, player);
 		self.modules = [self.master] ++ self.oscs ++ self.filters ++ self.insertfxs;
 
@@ -2079,7 +2108,8 @@
 			[
 				"Master Env", {  self.master.make_layout_env },
 				"Routing", {  self.make_layout_routing },
-				"Voices", {  self.make_layout_voices },
+				//"Voices", {  self.make_layout_voices },
+				"Voices", {  self.voices_panel.make_layout },
 			]
 		);
 
@@ -2088,9 +2118,33 @@
 		self;
 	},
 
+	load_data: { arg self, data;
+
+		var rename_data = Dictionary.new;
+		rename_data = (
+			enable_wtpos_spread: \enable_wt_pos_spread,
+			//wtpos_spread: \wt_pos_spread, // not static
+		);
+
+		//self.get_player.da
+
+		data.static_data.keysValuesDo { arg key, val;
+			[key].debug("class_ci_gens_filter2: load_data");
+
+			if(rename_data[key].notNil) {
+				key = rename_data[key]
+			};
+			self.static_data[key].load_data(val)
+		};
+		self.archive_data.do { arg key;
+			self[key] = data[key];
+		};
+		self.build_synthdef;
+	},
+
 	build_freq_spread_array: { arg self, i, freq;
 		if(i.enable_pitch_spread == 1) {
-			var array = self.build_spread_array(i.voices);
+			var array = self.build_spread_array_by_kind(i.voices, i.spread_kind);
 			array.debug("spread array");
 			freq = (freq.cpsmidi + (i.pitch_spread * array)).midicps;
 		} {
@@ -2099,16 +2153,28 @@
 		freq;
 	},
 
-	build_wtpos_spread_array: { arg self, i, wtrange, wtpos;
-		[wtrange, wtpos, i.enable_wtpos_spread, i.voices, i.wtpos_spread, i].debug("build_wtpos_spread_array");
-		if(i.enable_wtpos_spread == 1) {
-			var array = self.build_spread_array(i.voices);
+	build_wt_pos_spread_array: { arg self, i, wtrange, wtpos;
+		[wtrange, wtpos, i.enable_wt_pos_spread, i.voices, i.wt_pos_spread, i].debug("build_wt_pos_spread_array");
+		if(i.enable_wt_pos_spread == 1) {
+			var array = self.build_spread_array_by_kind(i.voices, i.spread_kind);
 			(wtrange * array).debug("build_wtpos_spread_array: array");
-			wtpos = (wtpos + (i.wtpos_spread * wtrange * array));
+			wtpos = (wtpos + (i.wt_pos_spread * wtrange * array));
 		} {
 			wtpos = wtpos ! i.voices;
 		};
 		wtpos;
+	},
+
+	build_intensity_spread_array: { arg self, i, intensity;
+		//[wtrange, wtpos, i.enable_wtpos_spread, i.voices, i.wtpos_spread, i].debug("build_wtpos_spread_array");
+		if(i.enable_osc_intensity_spread == 1) {
+			var array = self.build_spread_array_by_kind(i.voices, i.spread_kind);
+			//(wtrange * array).debug("build_wtpos_spread_array: array");
+			intensity = (intensity + (i.osc_intensity_spread * array));
+		} {
+			intensity = intensity ! i.voices;
+		};
+		intensity;
 	},
 
 
@@ -2149,14 +2215,17 @@
 		var main = self.get_main;
 		var player = self.get_player;
 		var specs = self.get_specs;
+		var static_voices_params = ();
+		var static_data;
+		var ordered_args;
 		var filtermix = ~make_control_param.(main, player, \filtermix, \scalar, 0.5, \unipolar.asSpec);
 		var filterparseq = ~make_control_param.(main, player, \filterparseq, \scalar, 0.5, \unipolar.asSpec);
-		self.ordered_args = self.modules.collect({ arg a; a.get_ordered_args }).flat;
-		self.ordered_args = self.ordered_args ++ [
+		//self.ordered_args = self.modules.collect({ arg a; a.get_ordered_args }).flat;
+		ordered_args = [
 			filtermix: filtermix,
 			filterparseq: filterparseq,
-			pitch_spread: ~make_control_param.(main, player, \pitch_spread, \scalar, 0, \bipolar.asSpec),
-			wtpos_spread: ~make_control_param.(main, player, \wtpos_spread, \scalar, 0, \bipolar.asSpec),
+			//pitch_spread: ~make_control_param.(main, player, \pitch_spread, \scalar, 0, \bipolar.asSpec),
+			//wtpos_spread: ~make_control_param.(main, player, \wtpos_spread, \scalar, 0, \bipolar.asSpec),
 
 			feedback: ~make_control_param.(main, player, \feedback_outmix, \scalar, 0.0, ControlSpec(0,1.5,\lin, 0, 0)),
 			feedback_outmix: ~make_control_param.(main, player, \feedback_outmix, \scalar, 0.5, \unipolar.asSpec),
@@ -2164,16 +2233,23 @@
 		filtermix.set_label("Filter Mix");
 		filterparseq.set_label("Par Seq");
 
+		self.voices_keys.do { arg key;
+			var enable_key = "enable_%".format(key).asSymbol;
+			static_voices_params[enable_key] = 
+				~class_param_static_controller.new(enable_key, specs[\onoff], 0);
+		};
 
-		self.static_data = (
+		static_data = (
 			route_insertfx1: ~class_param_kind_chooser_controller.new(\route_insertfx1, self.get_route_insfx_variants, "Insert Fx 1"),
 			route_insertfx2: ~class_param_kind_chooser_controller.new(\route_insertfx2, self.get_route_insfx_variants, "Insert Fx 2"),
-			enable_pitch_spread: ~class_param_static_controller.new(\enable_pitch_spread, specs[\onoff], 0),
-			enable_wtpos_spread: ~class_param_static_controller.new(\enable_wtpos_spread, specs[\onoff], 0),
+			//enable_pitch_spread: ~class_param_static_controller.new(\enable_pitch_spread, specs[\onoff], 0),
+			//enable_wtpos_spread: ~class_param_static_controller.new(\enable_wtpos_spread, specs[\onoff], 0),
 			voices: ~class_param_static_controller.new(\voices, ControlSpec(1,16,\lin,1), 1),
+			spread_kind: ~class_param_kind_chooser_controller.new(\spread_kind, self.get_spread_kind_variants, "Spread kind"),
 
 			enable_feedback: ~class_param_static_controller.new(\enable_feedback, specs[\onoff], 0),
 		);
+		static_data.putAll(static_voices_params);
 
 		self.ordered_args.clump(2).do { arg keyval;
 			keyval[0].debug("ORDERED ARGS:key");
@@ -2181,10 +2257,29 @@
 		};
 
 		//self.static_data = IdentityDictionary.new;
-		self.modules.collect { arg mo;
-			self.static_data.putAll(mo.get_static_data);
-		};
-		self.data = IdentityDictionary.newFrom(self.ordered_args);
+		//self.modules.collect { arg mo;
+		//	self.static_data.putAll(mo.get_static_data);
+		//};
+		//self.data = IdentityDictionary.newFrom(self.ordered_args);
+
+		
+
+		self.help_build_data2(
+			self.modules,
+			self.make_control_params(
+				[
+					[\freq, \freq, 200],
+				] 
+				++
+				self.voices_keys.collect ({ arg key;
+					[key, \bipolar, 0]
+				})
+			) 
+			++ ordered_args,
+			static_data
+		);
+
+
 		self.data.copy;
 	},
 
@@ -2207,69 +2302,69 @@
 		routing_layout;
 	},
 
-	make_layout_voices: { arg self;
-		HLayout(
-			VLayout(
-				StaticText.new
-					.string_("Voices:"),
-				TextField.new
-					.string_(self.static_data[\voices].get_val)
-					.action_({ arg field;
-						self.static_data[\voices].set_val(field.string.asInteger)
-					}),
-				nil
-			),
-			[VLayout(
-				HLayout(
-					Button.new
-						.states_([["Off"],["On"]])
-						.value_(self.static_data[\enable_pitch_spread].get_val)
-						.action_({ arg bt; 
-							self.static_data[\enable_pitch_spread].set_val(bt.value);
-						}),
-					{
-						var slider;
-						slider = ~class_ci_modslider_view.new(self.data[\pitch_spread],Rect(0,0,300,20));
-						slider.namelabel.minWidth_(100);
-						slider.layout;
-					}.value
+	//make_layout_voices: { arg self;
+	//	HLayout(
+	//		VLayout(
+	//			StaticText.new
+	//				.string_("Voices:"),
+	//			TextField.new
+	//				.string_(self.static_data[\voices].get_val)
+	//				.action_({ arg field;
+	//					self.static_data[\voices].set_val(field.string.asInteger)
+	//				}),
+	//			nil
+	//		),
+	//		[VLayout(
+	//			HLayout(
+	//				Button.new
+	//					.states_([["Off"],["On"]])
+	//					.value_(self.static_data[\enable_pitch_spread].get_val)
+	//					.action_({ arg bt; 
+	//						self.static_data[\enable_pitch_spread].set_val(bt.value);
+	//					}),
+	//				{
+	//					var slider;
+	//					slider = ~class_ci_modslider_view.new(self.data[\pitch_spread],Rect(0,0,300,20));
+	//					slider.namelabel.minWidth_(100);
+	//					slider.layout;
+	//				}.value
 
-				),
-				HLayout(
-					Button.new
-						.states_([["Off"],["On"]])
-						.value_(self.static_data[\enable_wtpos_spread].get_val)
-						.action_({ arg bt; 
-							self.static_data[\enable_wtpos_spread].set_val(bt.value);
-						}),
-					{
-						var slider;
-						slider = ~class_ci_modslider_view.new(self.data[\wtpos_spread],Rect(0,0,300,20));
-						slider.namelabel.minWidth_(100);
-						slider.layout;
-					}.value
+	//			),
+	//			HLayout(
+	//				Button.new
+	//					.states_([["Off"],["On"]])
+	//					.value_(self.static_data[\enable_wtpos_spread].get_val)
+	//					.action_({ arg bt; 
+	//						self.static_data[\enable_wtpos_spread].set_val(bt.value);
+	//					}),
+	//				{
+	//					var slider;
+	//					slider = ~class_ci_modslider_view.new(self.data[\wtpos_spread],Rect(0,0,300,20));
+	//					slider.namelabel.minWidth_(100);
+	//					slider.layout;
+	//				}.value
 
-				),
-				HLayout(
-					Button.new
-						.states_([["Off"],["On"]])
-						.enabled_(false)
-						.value_(1)
-						,
-					{
-						var slider;
-						slider = ~class_ci_modslider_view.new(self.data[\spread],Rect(0,0,300,20));
-						slider.namelabel.minWidth_(100);
-						slider.layout;
-					}.value
-					//~class_ci_modslider_view.new(self.data[\spread],Rect(0,0,300,20)).layout
-				), 
-				nil
-			
-			), stretch:1],
+	//			),
+	//			HLayout(
+	//				Button.new
+	//					.states_([["Off"],["On"]])
+	//					.enabled_(false)
+	//					.value_(1)
+	//					,
+	//				{
+	//					var slider;
+	//					slider = ~class_ci_modslider_view.new(self.data[\spread],Rect(0,0,300,20));
+	//					slider.namelabel.minWidth_(100);
+	//					slider.layout;
+	//				}.value
+	//				//~class_ci_modslider_view.new(self.data[\spread],Rect(0,0,300,20)).layout
+	//			), 
+	//			nil
+	//		
+	//		), stretch:1],
 
-		)
-	},
+	//	)
+	//},
 
 	make_tab_panel: { arg self;
 		self.tab_panel.make_layout;
@@ -2368,12 +2463,14 @@
 			oscs = self.oscs.collect { arg osc;
 				var freq;
 				var wtpos;
+				var intensity;
 				freq = self.build_freq_spread_array(i, i.freq);
 				if(osc.static_data[\wt_range].notNil) {
 					var oscargs = osc.get_synthargs(args);
-					wtpos = self.build_wtpos_spread_array(i, oscargs.wt_range, oscargs.wt_pos);
+					wtpos = self.build_wt_pos_spread_array(i, oscargs.wt_range, oscargs.wt_pos);
+					intensity = self.build_intensity_spread_array(i, oscargs.intensity);
 				};
-				osc.synthfun.((freq:freq, wt_pos:wtpos));
+				osc.synthfun.((freq:freq, wt_pos:wtpos, intensity:intensity));
 			};
 			rsig = oscs[0];
 			oscs.debug("OSCS");
@@ -2382,6 +2479,10 @@
 			if(i.enable_feedback == 1) {
 				feedback = LocalIn.ar(1) * i.feedback;
 				feedback = feedback.clip(-1,1);
+
+				feedback = self.insert_effect(i, feedback, \in_feedback);
+				feedback = self.insert_effect(i, feedback, \in_feedback);
+
 				feedback1 = SelectX.ar(i.feedback_outmix, [feedback, DC.ar(0)]);
 				feedback2 = SelectX.ar(i.feedback_outmix, [DC.ar(0), feedback]);
 			};
@@ -4047,7 +4148,10 @@ Instr(\ci_oscillator, {
 		if(spectrum == \width) {
 			width = intensity;
 		};
-		ou = Instr(\ci_classic_oscillator).value((kind:wt_classic, freq:endfreq, width:width, phase:phase)) * mul;
+		if(spectrum == \phase) {
+			phase = intensity;
+		};
+		ou = Instr(\ci_classic_oscillator).value((kind:wt_classic, freq:endfreq, width:width, phase:phase, generic_arg:wt_position)) * mul;
 	} {
 		if(phase.isNil) {
 			phase = 0;
@@ -4063,6 +4167,12 @@ Instr(\ci_oscillator, {
 			//endfreq = SinOsc.ar(endfreq).range(0,8)*(intensity)*endfreq + endfreq;
 			// modulo
 			ou = (ou * (intensity*2+1)).wrap(-1,1)
+		},
+		\tanh, {
+			ou = (ou * (intensity*8+1)).tanh;
+		},
+		\distort, {
+			ou = (ou * (intensity*8+1)).distort;
 		},
 		\fold, {
 			//endfreq = SinOsc.ar(endfreq).range(0,8)*(intensity)*endfreq + endfreq;
@@ -4081,21 +4191,41 @@ Instr(\ci_oscillator, {
 	ou;
 }, [NonControlSpec(), NonControlSpec(), NonControlSpec()]);
 
-Instr(\ci_classic_oscillator, { arg kind=\void, freq=200, phase=nil, width=0.5;
+Instr(\ci_classic_oscillator, { arg kind=\void, freq=200, phase=nil, width=0.5, generic_arg=1;
 	if(phase.isNil) {
 		phase = 0;
 	};
 	switch(kind,
 		\SinOsc, {
+			phase = generic_arg;
 			SinOsc.ar(freq, phase*pi)
 		},
 		\LFSaw, {
-			LFSaw.ar(freq, phase, width)
+			phase = generic_arg;
+			LFSaw.ar(freq, phase)
+		},
+		\LFCub, {
+			phase = generic_arg;
+			LFCub.ar(freq, phase)
+		},
+		\LFPar, {
+			phase = generic_arg;
+			LFPar.ar(freq, phase)
+		},
+		\Blip, {
+			width = generic_arg;
+			Blip.ar(freq, width*100)
+		},
+		\Formant, {
+			var freqspec = \freq.asSpec;
+			Formant.ar(freq, freqspec.map(generic_arg), freqspec.map(width));
 		},
 		\LFPulse, {
+			phase = generic_arg;
 			LFPulse.ar(freq, phase/2, width)
 		},
 		\LFTri, {
+			phase = generic_arg;
 			LFTri.ar(freq, phase*2)
 		},
 		{
@@ -4193,6 +4323,12 @@ Instr(\ci_insertfx, { arg kind, in, arg1, arg2, arg3, ktr;
 		\hardclipper, {
 			Instr(\p_hardclipper).value((in:in, mix: arg1, drive:arg2));
 		},
+		\tanh, {
+			Instr(\p_tanh).value((in:in, mix: arg1, preamp:arg2, postamp:arg3));
+		},
+		\distort, {
+			Instr(\p_distort).value((in:in, mix: arg1, preamp:arg2, postamp:arg3));
+		},
 		{
 			kind.debug("p_ins_effect: ERROR: effect kind not found");
 			in;
@@ -4275,13 +4411,29 @@ Instr(\p_hardclipper, { arg in, mix, drive;
 	SelectX.ar(mix, [in, sig]);
 }, [\audio]);
 
+Instr(\p_tanh, { arg in, mix, preamp=1, postamp=1;
+	var sig = in;
+	sig = sig * preamp;
+	sig = sig.tanh;
+	sig = sig * postamp;
+	SelectX.ar(mix, [in, sig]);
+}, [\audio]);
+
+Instr(\p_distort, { arg in, mix, preamp=1, postamp=1;
+	var sig = in;
+	sig = sig * preamp;
+	sig = sig.distort;
+	sig = sig * postamp;
+	SelectX.ar(mix, [in, sig]);
+}, [\audio]);
+
 /////////// effects
 
 Instr(\p_reverb, { arg in, mix, room, damp, gate=1, amp=1;
 	var sig;
 	in = In.ar(in, 2);
 	sig = FreeVerb.ar(in, mix, room, damp);
-	sig = sig * amp;
+	sig = sig * (((1-mix) * 1) + (mix * amp));
 	//sig.poll;
 }, [\audio]).storeSynthDef([\ar]);
 
@@ -4323,9 +4475,9 @@ Instr(\p_chorus, { arg in, mix=0, rate, offset, depth, gate=1;
 }, [\audio])
 .storeSynthDef([\ar], metadata:(
 	specs: (
-		rate: ControlSpec(0.0000001,4,\exp,0,0),
-		depth: ControlSpec(0.0000001,4,\exp,0,0),
-		offset: ControlSpec(0.0000001,1,\exp,0,0),
+		rate: ControlSpec(0.00001,4,\exp,0,0),
+		depth: ControlSpec(0.00001,4,\exp,0,0),
+		offset: ControlSpec(0.00001,1,\exp,0,0),
 	)
 ));
 
