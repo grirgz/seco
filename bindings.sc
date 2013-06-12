@@ -93,6 +93,7 @@
 			["edit_name", \kb, \alt, "r"],
 			["remove_selected", \kb, \alt, \delete],
 			["select_cell", \kb, 0, \kbpad8x4_flat],
+			["select_bank", \kb, \ctrl, \kbnumpad],
 			["select_row", \kb, \alt, \kbnumline],
 			["select_column", \kb, 0, \kbnumpad],
 			["create_batch", \kb, \alt, "c"],

@@ -799,6 +799,18 @@ if(~silent_audio2_bus.isNil) {
 			}
 		},
 
+		save_current_project: { arg self;
+			self.save_project(self.model.project_name);
+		},
+
+		set_project_name: { arg self, name;
+			self.model.project_name = name
+		},
+
+		get_project_name: { arg self;
+			self.model.project_name;
+		},
+
 		save_project: { arg self, name;
 			var proj, projpath;
 
@@ -827,7 +839,12 @@ if(~silent_audio2_bus.isNil) {
 				name.debug("Saving project");
 				projpath = self.model.root_path +/+ "projects/"++name;
 				self.model.project_path = projpath;
-				("mkdir "++projpath).unixCmd;
+				if(projpath.pathExists == \folder) {
+					("mv '%' '/tmp/%_%'".format(projpath, name, Date.gmtime.rawSeconds.asInteger)).debug("move command");
+					("mv '%' '/tmp/%_%'".format(projpath, name, Date.gmtime.rawSeconds.asInteger)).unixCmd;
+					1.wait;
+				};
+				("mkdir '%'".format(projpath)).unixCmd;
 				1.wait;
 				//TODO: save context
 
@@ -956,11 +973,11 @@ if(~silent_audio2_bus.isNil) {
 		quick_save_project: { arg self;
 			var path = self.model.root_path +/+ "projects/quicksave";
 			
-			fork {
-				("rm -rf \"%\"".format(path)).debug("removing old quicksavepath").unixCmd;
-				1.wait;
+			//fork {
+				//("rm -rf \"%\"".format(path)).debug("removing old quicksavepath").unixCmd;
+				//1.wait;
 				self.save_project("quicksave");
-			};
+			//};
 
 		},
 

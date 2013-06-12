@@ -205,6 +205,11 @@
 				}
 			}],
 
+			["select_bank", 9, { arg idx;
+				idx = idx.clip(1,9);
+				self.set_bank(idx);
+			}],
+
 			["remove_selected", {
 				if(self.model.selection.isNil, {
 					"No selection to load".error;

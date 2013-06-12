@@ -267,6 +267,10 @@ Mdef.main.load_project("profondeur");
 Mdef.main.save_project("hurlement");
 Mdef.main.load_project("hurlement");
 
+
+Mdef.main.save_project("testmove");
+Mdef.main.load_project("testmove");
+
 Mdef.main.play_manager
 
 Debug.enableDebug = true;

@@ -3212,7 +3212,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	norm_val: 0,
 	muted: false,
 	spec: \bipolar.asSpec,
-	archive_data: [\val, \target_slot, \slot_index],
+	archive_data: [\val, \target_slot, \slot_index, \muted],
 
 	new: { arg self, main, modmixer, idx, name;
 		self = self.deepCopy;
