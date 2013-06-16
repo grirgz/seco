@@ -2269,6 +2269,7 @@
 			self.make_control_params(
 				[
 					[\freq, \freq, 200],
+					[\pitchbend, specs[\pitch], 0],
 				] 
 				++
 				self.voices_keys.collect ({ arg key;
@@ -2464,7 +2465,8 @@
 				var freq;
 				var wtpos;
 				var intensity;
-				freq = self.build_freq_spread_array(i, i.freq);
+				freq = (i.freq.cpsmidi + i.pitchbend).midicps;
+				freq = self.build_freq_spread_array(i, freq);
 				if(osc.static_data[\wt_range].notNil) {
 					var oscargs = osc.get_synthargs(args);
 					wtpos = self.build_wt_pos_spread_array(i, oscargs.wt_range, oscargs.wt_pos);

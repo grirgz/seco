@@ -10,6 +10,7 @@
 		[ label, Color.black, Color.white],
 		[ label, Color.white, Color.black],
 	];
+	bt.font_(Font("Arial",11));
 	bt.value = 0;
 
 };
@@ -120,6 +121,10 @@
 		self;
 	},
 
+	set_window_name: { arg self, name;
+		self.window.name = name;
+	},
+
 	model: (
 		datalist: [],
 		selection: nil, // is an address
@@ -189,9 +194,9 @@
 		self.changed(\cell, address, val)
 	},
 
-	make_bindings: { arg self;
-		//FIXME: should not use global var
-		~shortcut.parse_action_bindings(\matrix_chooser, [
+	bindings_list: { arg self;
+		[
+
 			["edit_name", {
 				if( self.model.selection.notNil ) {
 					self.edit_value;
@@ -244,7 +249,7 @@
 				self.set_selection(i%8, (i/8).trunc);
 			}],
 
-			["select_column", 8, { arg i;
+			["select_column", 9, { arg i;
 				i = i.clip(1,9)-1;
 				self.set_selection(i, self.model.selection.y);
 			}],
@@ -259,8 +264,14 @@
 				self.stop_selection;
 				self.window.close;
 			}],
+		]
+	},
 
-		]);
+	make_bindings: { arg self;
+		//FIXME: should not use global var
+		~shortcut.parse_action_bindings(\matrix_chooser,
+			self.bindings_list
+		);
 	},
 
 	set_bindings2: { arg self;
@@ -413,23 +424,72 @@
 ~class_node_chooser = (
 	parent: ~class_matrix_chooser,
 
-	new: { arg self, main, action;
-		self = self.parent[\new].(self, action, "Choose node");
+	new: { arg self, main, song_address, action;
+	//new: { arg self, main, action;
+		self = self.parent[\new].(self, action, "");
+		self.name = "Choose node";
 
-		self.model.part_bank = 0;
-		self.model.section_bank = 0;
 		self.model.matrix_size = 8@8;
+		self.model.song_address = song_address;
+		self.update_window_name;
 		self.get_main = { arg self; main };
 		self.update_datalist;
 		self.show_window;
 		self;
 	},
 
+	update_window_name: { arg self;
+		self.set_window_name("% - part:%, sect:%, var:%".format(
+			self.name,
+			self.model.song_address.part,
+			self.model.song_address.section,
+			self.model.song_address.variant,
+		));
+	},
 
 	set_bank: { arg self, idx;
-		self.model.section_bank = idx;
-		self.update_datalist;
-		self.changed(\redraw);
+		self.set_variant(idx)
+	},
+
+	set_section: { arg self, val;
+		//if(val > 0) {
+		//	val = val - 1;
+			self.model.song_address.section = val;
+			self.update_datalist;
+		//}
+	},
+
+	set_variant: { arg self, val;
+		//if(val > 0) {
+		//	val = val - 1;
+			self.model.song_address.variant = val;
+			self.update_datalist;
+		//}
+	},
+
+	set_part: { arg self, val;
+		//if(val > 0) {
+		//	val = val - 1;
+			self.model.song_address.part = val;
+			self.update_datalist;
+		//}
+	},
+
+	bindings_list: { arg self;
+		~class_matrix_chooser[\bindings_list].(self) ++ [
+			[\select_section, 9, { arg idx;
+				self.set_section(idx)
+			}],
+
+			//[\select_variant, 9, { arg idx; // use select_bank instead
+			//	self.set_variant(idx)
+			//}],
+
+			[\select_part, 9, { arg idx;
+				self.set_part(idx)
+			}],
+		]
+		
 	},
 
 	selected: { arg self, data, address;
@@ -445,9 +505,24 @@
 		});
 	},
 
+	data_to_string: { arg self, data;
+		if(data == "") {
+			""
+		} {
+			var node = self.get_main.get_node(data);
+			if(node.name != node.uname) {
+				"%\n%".format(node.name, node.uname);
+			} {
+				data
+			}
+		}
+	},
+
 	update_datalist: { arg self;
+		self.update_window_name;
 		self.set_datalist( 
-			self.get_main.panels.side.song_manager.get_section_matrix(self.model.part_bank,self.model.section_bank)
+			self.get_main.panels.side.song_manager
+				.get_section_matrix(self.model.song_address.part-1, self.model.song_address.section-1)
 				.collect{ arg name; if(name == \voidplayer) { "" } {name} }
 		);
 	},
@@ -456,11 +531,12 @@
 ~class_node_group_chooser = (
 	parent: ~class_matrix_chooser,
 
-	new: { arg self, main, action;
-		self = self.parent[\new].(self, action, "Choose node");
+	new: { arg self, main, song_address, action;
+		self = self.parent[\new].(self, action, "");
+		self.name = "Choose group node";
 
-		self.model.part_bank = 0;
-		self.model.section_bank = 0;
+		self.model.song_address = song_address;
+		self.update_window_name;
 		self.model.matrix_size = 8@8;
 		self.get_main = { arg self; main };
 		self.update_datalist;
@@ -468,18 +544,86 @@
 		self;
 	},
 
+	update_window_name: { arg self;
+		self.set_window_name("% - part:%, sect:%, var:%".format(
+			self.name,
+			self.model.song_address.part,
+			self.model.song_address.section,
+			self.model.song_address.variant,
+		));
+	},
 
 	set_bank: { arg self, idx;
-		self.model.section_bank = idx;
-		self.update_datalist;
-		self.changed(\redraw);
+		self.set_variant(idx)
+	},
+
+	set_section: { arg self, val;
+		//if(val > 0) {
+		//	val = val - 1;
+			self.model.song_address.section = val;
+			self.update_datalist;
+		//}
+	},
+
+	set_variant: { arg self, val;
+		//if(val > 0) {
+		//	val = val - 1;
+			self.model.song_address.variant = val;
+			self.update_datalist;
+		//}
+	},
+
+	set_part: { arg self, val;
+		//if(val > 0) {
+		//	val = val - 1;
+			self.model.song_address.part = val;
+			self.update_datalist;
+		//}
+	},
+
+	bindings_list: { arg self;
+		~class_matrix_chooser[\bindings_list].(self) ++ [
+			[\select_section, 9, { arg idx;
+				self.set_section(idx)
+			}],
+
+			//[\select_variant, 9, { arg idx; // use select_bank instead
+			//	self.set_variant(idx)
+			//}],
+
+			[\select_part, 9, { arg idx;
+				self.set_part(idx)
+			}],
+		]
+		
 	},
 
 	update_datalist: { arg self;
-		self.set_datalist( 
-			self.get_main.panels.side.song_manager.get_path([nil,nil,0], false).children
-				.collect{ arg name; if(name == \voidplayer) { "" } {name} }
-		);
+		var datalist = List.new;
+		var x = self.model.matrix_size.x + 1; // +1 because sparsearray bug
+		var y = self.model.matrix_size.y + 1; // +1 because sparsearray bug
+		var children;
+		self.model.song_address.debug("class_node_group_chooser.update_datalist: address");
+		self.update_window_name;
+		children = self.get_main.panels.side.song_manager.get_path(
+				[self.model.song_address.part,0,0],
+				false
+		//).children.keep(8).do { arg childname;
+		).children.do { arg childname;
+			var node;
+			if(childname == \voidplayer) {
+				datalist = datalist ++ (\voidplayer ! (x-1)); // sparsearray bug
+				//(1 ! 16).keep(8).size
+				//a = SparseArray.newClear(16, \bla)
+				//a.keep(8).size
+			} {
+				node = self.get_main.get_node(childname);
+				[childname, node.children.keep(x).size, node.children].debug("childname");
+				datalist = datalist ++ node.children.keep(x);
+			}
+		};
+		datalist = datalist.collect{ arg name; if(name == \voidplayer) { "" } {name} };
+		self.set_datalist(datalist); 
 	},
 );
 

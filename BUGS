@@ -17,3 +17,8 @@
 - le play_manager state est corrompu, des nodes s'enlevent pas: cause inconnue
 - apres un record, il passe les anciennes notes au lieu des nouvelles
 - jouer une section entiere bouffe les premiers notes
+
+
+
+////////////////////// bugs supercollider
+SparseArray.keep(8) retourne un array de 7 items

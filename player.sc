@@ -301,6 +301,7 @@
 			file.close;
 		};
 		("xterm -r -fn 10x20 -e \"vim -c 'set ft=supercollider' "++tmp++"\"").unixCmd({
+			//debug("plop");
 			var file, code, res;
 			file = File.new(tmp, "r");
 			code = file.readAllString;
@@ -332,6 +333,7 @@
 			}
 		} {
 			"Interpretation of wrapper file FAILED!".error;
+			self.set_wrapper(nil, code);
 		};
 	},
 

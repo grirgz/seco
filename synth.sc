@@ -97,18 +97,18 @@ SynthDef(\freeze_player, { arg out=0, amp=1, gate=1, doneAction=2, buffer;
 }).store;
 
 
-SynthDef(\audiotrack, { arg out = 0, amp=0.20, bufnum = 0, sustain;
+SynthDef(\audiotrack, { arg out = 0, amp=0.20, bufnum = 0, sustain, delay=0.046;
         var playbuf, ou;
-        playbuf = PlayBuf.ar(2,bufnum,startPos:44100*0.046,doneAction:0);
+        playbuf = PlayBuf.ar(2,bufnum,startPos:BufSampleRate.kr(bufnum)*delay,doneAction:0);
         //playbuf = PlayBuf.ar(2,bufnum,startPos:0,doneAction:0);
 		//ou = playbuf * EnvGen.ar(Env.asr(0.01,1,0.01), gate, doneAction:2);
 		ou = playbuf * EnvGen.ar(Env.linen(0.001,sustain,0.001), doneAction:2);
         Out.ar(out, ou * amp);
 }).store;
 
-SynthDef(\audiotrack_noisegate, { arg out = 0, amp=0.20, bufnum = 0, sustain, noisegate=0.0, at=0.2, rt=0.2;
+SynthDef(\audiotrack_noisegate, { arg out = 0, amp=0.20, bufnum = 0, sustain, noisegate=0.0, at=0.2, rt=0.2, delay=0.046;
         var playbuf, ou;
-        playbuf = PlayBuf.ar(2,bufnum,startPos:44100*0.046,doneAction:0);
+        playbuf = PlayBuf.ar(2,bufnum,startPos:BufSampleRate.kr(bufnum)*delay,doneAction:0);
         //playbuf = PlayBuf.ar(2,bufnum,startPos:0,doneAction:0);
 		//ou = playbuf * EnvGen.ar(Env.asr(0.01,1,0.01), gate, doneAction:2);
 		ou = playbuf;
@@ -127,7 +127,7 @@ SynthDef(\audiotrack_expander, { arg out = 0, amp=0.20, bufnum = 0, sustain,
 			delay=0.046, fadein=0.001, fadeout=0.001,
 			wet=1, threshold=0.0, slopeBelow=1, slopeAbove=1, clampTime=0, relaxTime=0;
         var playbuf, ou, cou;
-        playbuf = PlayBuf.ar(2,bufnum,startPos:44100*delay,doneAction:0);
+        playbuf = PlayBuf.ar(2,bufnum,startPos:BufSampleRate.kr(bufnum)*delay,doneAction:0);
 		ou = playbuf;
 		ou = ou * EnvGen.ar(Env.linen(fadein,sustain,fadeout), doneAction:2);
 		cou = Compander.ar(ou, ou, threshold, slopeBelow, slopeAbove, clampTime, relaxTime);
@@ -151,4 +151,17 @@ SynthDef(\metronome, { arg out=0, amp=1, gate=1, freq=220, pan=0;
 	Out.ar(out,ou);
 }).store;
 
+SynthDef(\record_input, { arg out = 0, bufnum = 0, sustain;
+		var input, env;
+        input = SoundIn.ar([0,1]);
+		env = EnvGen.kr(Env.linen(0,sustain,0), doneAction:2); // stop recording after dur..
+        RecordBuf.ar(input, bufnum, doneAction: 0, run:env, loop: 0);
+}).store;
+
+SynthDef(\record_input_mono, { arg out = 0, bufnum = 0, sustain;
+		var input, env;
+        input = SoundIn.ar([0,1]).sum;
+		env = EnvGen.kr(Env.linen(0,sustain,0), doneAction:2); // stop recording after dur..
+        RecordBuf.ar(input, bufnum, doneAction: 0, run:env, loop: 0);
+}).store;
 )

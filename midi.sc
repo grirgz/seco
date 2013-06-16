@@ -1358,6 +1358,7 @@
 
 
 ~make_audio_recorder = { arg player, main;
+	// not used anymore
 	var pman = main.play_manager;
 
 	var obj = (
@@ -1402,7 +1403,7 @@
 		start_tempo_recording: { arg self, action;
 			var tc, supertc;
 			var session, supersession;
-			self.buf = Buffer.alloc(s, 44100 * pman.get_record_length_in_seconds, 2); 
+			self.buf = Buffer.alloc(s, s.sampleRate * (pman.get_record_length_in_seconds + main.model.audio_latency), 2); 
 			self.buf.bufnum.debug("************************created buffer");
 
 			~do_record_session.(main,
@@ -1493,7 +1494,8 @@
 					player.get_arg(\stepline).seq.change({ [1] });
 					player.get_arg(\dur).set_val(main.play_manager.get_record_length);
 					main.get_clock.debug("main.get_clock");
-					player.get_arg(\sustain).set_val(main.play_manager.get_record_length_in_seconds + main.model.audio_overlap_time);
+					player.get_arg(\sustain).set_val(main.play_manager.get_record_buffer_length);
+					player.get_arg(\delay).set_val(main.model.audio_latency);
 					finish_action.();
 				});
 			}
@@ -1504,7 +1506,7 @@
 			var tc, supertc;
 			var session, supersession;
 			self.bufs = 4.collect {
-				Buffer.alloc(s, 44100 * pman.get_record_length_in_seconds, 2); 
+				Buffer.alloc(s, s.sampleRate * pman.get_record_buffer_length, 2); 
 			};
 			self.bufs.debug("************************created buffer");
 
@@ -1552,8 +1554,8 @@
 							}
 						}
 					}),
-					\dur, dur,
-					\sustain, ( dur / main.play_manager.get_clock.tempo ) + main.model.audio_overlap_time,
+					\dur, dur, 
+					\sustain, main.play_manager.get_record_buffer_length,
 					\monitor, 1
 				).trace.play;
 			} {

@@ -97,6 +97,10 @@
 			["select_row", \kb, \alt, \kbnumline],
 			["select_column", \kb, 0, \kbnumpad],
 			["create_batch", \kb, \alt, "c"],
+			//["select_variant, \kb, \ctrl, \kbnumpad"], // use select_bank instead
+			["select_section", \kb, \alt, \kbnumpad],
+			["select_part", \kb, \ctrlalt, \kbnumpad],
+
 	],
 	nodematrix: 
 		//~common_bindings.playing ++
@@ -215,7 +219,7 @@
 		["select_player", \kb, 0, \kbnumpad],
 		["edit_modulator", \kb, \alt, "m"],
 		["change_param_kind", \kb, \altshift, "s"],
-		["remove_effect", \kb, \shift, \f3],
+		["remove_effect", \kb, \alt, \delete],
 		["edit_selected_param", \kb, 0, \npenter],
 		["edit_free_defer_time", \kb, \alt, "d"],
 		["select_param_preset", \kb, \alt, \kbnumline],
@@ -235,8 +239,8 @@
 		["change_modulated_param_kind", \kb, \shift, "s"],
 		["change_modulator_mode", \kb, \altshift, "q"],
 		["change_mod_kind", \kb, \altshift, "d"],
-		["remove_modulator", \kb, \shift, \f3],
-		["disconnect_modulator", \kb, 0, \f3],
+		["remove_modulator", \kb, \alt, \delete],
+		["disconnect_modulator", \kb, 0, \delete],
 		["edit_selected_param", \kb, 0, \npenter],
 		["select_param_preset", \kb, \alt, \kbnumline],
 		//["edit_selected_param", \kb, 0, \enter],
@@ -285,8 +289,8 @@
 		["cut_node", \kb, \ctrl, "x"],
 		["paste_node", \kb, \ctrl, "v"],
 		//["copy_group", \kb, \ctrl, \kbnumpad],
-		["remove_node", \kb, \ctrlshift, \f4],
-		["remove_and_free_node", \kb, \ctrlaltshift, \f4],
+		["remove_node", \kb, \alt, \delete],
+		["remove_and_free_node", \kb, \altshift, \delete],
 
 		["load_node_from_lib", \kb, 0, \f1],
 		["create_default_node", \kb, \alt, "c"],

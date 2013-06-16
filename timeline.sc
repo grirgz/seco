@@ -631,6 +631,11 @@
 	play_cursor: 0,
 	current_track: 0,
 	display_range: [0,80],
+	chooser_song_address: (
+		part: 1,
+		section: 1,
+		variant: 1,
+	),
 	node: EventPatternProxy.new,
 
 
@@ -738,14 +743,14 @@
 	},
 
 	add_block_group_from_lib: { arg self, track_index, abstime;
-		~class_node_group_chooser.new(self.get_main, { arg blockname;
+		~class_node_group_chooser.new(self.get_main, self.chooser_song_address, { arg blockname;
 			//self.last_blockname = blockname;
 			self.add_block_group(blockname, track_index, abstime);
 		})
 	},
 
 	add_block_from_lib: { arg self, track_index, abstime;
-		~class_node_chooser.new(self.get_main, { arg blockname;
+		~class_node_chooser.new(self.get_main, self.chooser_song_address, { arg blockname;
 			self.last_blockname = blockname;
 			self.add_block(blockname, track_index, abstime);
 		})

@@ -707,7 +707,7 @@
 // PLAY MANAGER
 // ==========================================
 
-~find_children = { arg main, node;
+~find_children_slow = { arg main, node;
 	var res = Set[];
 	node.uname.debug("find_children: entering");
 	if([\parnode, \seqnode].includes(node.kind) or: {node.subkind == \nodesampler} ) {
@@ -726,6 +726,38 @@
 					if([\parnode, \seqnode].includes(child.kind) ) {
 						"da".debug;
 						res.addAll(~find_children.(main, child));
+					};
+				};
+			};
+		};
+	};
+	//[node.uname, res].debug("result for");
+	res; // return real nodes (not names)
+};
+
+~find_children = { arg main, node;
+	~find_children_uname.(main, node).collect { arg nodename; main.get_node(nodename) };
+};
+
+~find_children_uname = { arg main, node;
+	var res = Set[];
+	node.uname.debug("find_children: entering");
+	if([\parnode, \seqnode].includes(node.kind) or: {node.subkind == \nodesampler} ) {
+		node.get_children.do { arg child;
+			child.uname.debug("processing child");
+			if(child.uname.isNil) {
+				//"child is nil".debug;
+			} {
+				//"aa".debug;
+				if( res.includes(child.uname) ) {
+					child.uname.debug("find_children: loop");
+				} {
+					//"ba".debug;
+					res.add(child.uname);
+					//"ca".debug;
+					if([\parnode, \seqnode].includes(child.kind) ) {
+						//"da".debug;
+						res.addAll(~find_children_uname.(main, child));
 					};
 				};
 			};
@@ -864,6 +896,11 @@
 
 		get_record_length_in_seconds: { arg self;
 			self.get_record_length / self.myclock.tempo;
+		},
+
+		get_record_buffer_length: { arg self;
+			// used by buffers containing live recorded audio
+			self.get_record_length_in_seconds + main.model.audio_latency + main.model.audio_overlap_time
 		},
 
 		set_record_length: { arg self, val;
@@ -1045,15 +1082,15 @@
 			nodename.debug("pm: play_node");
 			[self.top_nodes, self.children_nodes].debug("pm: state");
 			~notNildo.(main.get_node(nodename), { arg node;
-				if(self.top_nodes.size == 0) {
-					children = [];
-				} {
-					children = ~find_children.(main, node);
-				};
 				if( self.top_nodes.keys.includes(nodename) ) {
 					self.start_new_session;
 
 					/////==== already playing: unmuting children ====/////
+					if(self.top_nodes.size == 0) {
+						children = [];
+					} {
+						children = ~find_children.(main, node);
+					};
 
 					nodename.debug("pm: play_node: already playing, unmuting children");
 					children.do { arg child;
@@ -1076,6 +1113,12 @@
 					} {
 
 						/////==== not playing: play it ====/////
+
+						if(self.top_nodes.size == 0) {
+							children = [];
+						} {
+							children = ~find_children.(main, node);
+						};
 
 						nodename.debug("pm: play_node: play!");
 
@@ -1412,3 +1455,34 @@
 	)
 
 };
+
+~node_tools = (
+	new: { arg self, main;
+		self = self.deepCopy;
+	
+		self.get_main = { main };
+	
+		self;
+	},
+
+	get_main: { arg self;
+		Mdef.main
+	},
+	
+	get_unused_nodenames: { arg self;
+		var unused_nodes, all_nodes, used_nodes;
+		var song_manager;
+		song_manager = self.get_main.panels.side.song_manager;
+		
+		all_nodes = self.get_main.model.livenodepool.keys;
+		used_nodes = ~find_children_uname.(self.get_main, song_manager.current_song);
+		unused_nodes = all_nodes - used_nodes;
+		unused_nodes;
+	},
+
+	free_unused_nodes: { arg self;
+		self.get_unused_nodenames.do { arg nname;
+			self.get_main.free_node(nname);
+		};
+	},
+);

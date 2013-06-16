@@ -34,6 +34,7 @@ Window.closeAll;
 	\guitar,
 	\guitar2,
 	\ch,
+	\membraneHex,
 
 	\kick1,
 	\kick2,
@@ -67,6 +68,7 @@ Window.closeAll;
 	\lfo_tri,
 	\lfo_asr,
 	\line1,
+	\varline1,
 	"ci mod_osc",
 	"ci mod_envosc",
 	"ci dadsr_kr",
@@ -270,6 +272,9 @@ Mdef.main.load_project("hurlement");
 
 Mdef.main.save_project("testmove");
 Mdef.main.load_project("testmove");
+
+Mdef.main.save_project("sousmarin");
+Mdef.main.load_project("sousmarin");
 
 Mdef.main.play_manager
 
@@ -581,3 +586,139 @@ a
 
 Mdef.node("ci osc3filter2_l1021").modulation.get_modulation_mixers.keys.do(_.postln)
 Mdef.node("ci osc3filter2_l1021").modulation.modulation_mixers[\wtpos_spread] = nil
+
+
+
+(
+	
+	w = Window.new;
+	w.front;
+	w.layout = HLayout(
+b = Button.new;
+	);
+	b.states  = [
+		["plop\nbla"],
+		["plop"],
+	];
+)
+
+
+
+
+(
+	var bla = [1,2,3];
+	a = (
+		a: bla,
+		b: bla,
+	);
+	b = a.deepCopy;
+)
+	b.a.dump
+	b.b.dump
+	a.a.dump
+	a.b.dump
+
+	Membrane
+
+
+
+// Change MembraneHexagon to MembraneCircle for a different shaped
+// circular drum head
+s.boot;
+s.reboot;
+(
+{ var excitation = EnvGen.kr(Env.perc,
+                            MouseButton.kr(0, 1, 0),
+                             timeScale: 1, doneAction: 0
+                            ) * PinkNoise.ar(0.4);
+  var tension = MouseX.kr(0.01, 0.1);
+  var loss = MouseY.kr(0.999999, 0.999, 1);
+  MembraneHexagon.ar(excitation, tension, loss);
+}.play;
+)
+
+
+(
+SynthDef(\membraneHex, { arg out=0, amp=0.1, gate=1, pan=0, timeScale=0.1, noiseamp=0.4, tension=0.05, loss= 0.999,
+		doneAction=2;
+	var ou;
+	var excitation;
+	excitation = EnvGen.kr(Env.perc,
+		gate,
+        timeScale: timeScale, doneAction: doneAction
+	) * PinkNoise.ar(noiseamp);
+	ou = MembraneHexagon.ar(excitation, tension, loss);
+	ou = Pan2.ar(ou, pan, amp);
+	Out.ar(out, ou);
+}, metadata:(specs:(
+	duration: ControlSpec(0.001,4,\lin, 0, 1),
+	tension: ControlSpec(0.01,0.1,\lin, 0, 0.05),
+	loss: ControlSpec(0.999,0.999999,\exp, 0, 0.05),
+	timeScale: ControlSpec(0.01,1,\lin, 0, 0.1),
+	noiseamp: ControlSpec(0.01,1,\lin, 0, 0.4),
+))).store;
+)
+
+
+
+
+
+
+- variable
+- pattern
+- nodeproxy
+- outputproxy
+
+- array
+- env
+- synthfunc
+
+
+(
+	a = Pseq([(
+		freq: Pseq([200, 300],inf)
+	)],2);
+	a.play
+
+
+)
+
+(
+~side = Mdef.main.panels.side;
+~node = ~side.get_current_player;
+~param = ~node.get_arg(\pitchbend);
+~side[\edit_modulator_callback].(~node, ~param);
+)
+
+Line
+
+120.cpsmidi
+80.midicps
+
+~param
+
+
+
+(
+	Mdef.main.model.livenodepool
+	Mdef.main.model.song_manager.current_song
+	~cs = Mdef.main.panels.side.song_manager.current_song
+	~used_nodes = ~find_children.(Mdef.main, ~cs).collect { arg no; no.uname };
+	~used_nodes = ~find_children_uname.(Mdef.main, ~cs);
+	~all_nodes = Mdef.main.model.livenodepool.keys
+	~unused_nodes = ~all_nodes - ~used_nodes
+	~unused_nodes.do(_.postln)
+	~unused_nodes.do { arg nname;
+		Mdef.main.free_node(nname)
+	}
+
+)
+\bla === \bla
+"bla" === "bla"
+'ci bla'
+
+(
+)
+
+~node_tools.get_unused_nodenames
+~node_tools.free_unused_nodes

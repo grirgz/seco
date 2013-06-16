@@ -558,7 +558,6 @@ if(~silent_audio2_bus.isNil) {
 			velocity_ratio: 0.3,
 			velocity_ratio_pad: 0.7,
 
-			latency: 0.0,
 
 			nodelib: List.new,
 			modnodelib: List.new,
@@ -577,6 +576,8 @@ if(~silent_audio2_bus.isNil) {
 			is_stop_using_quant: true,
 
 			audio_overlap_time: 0.002,
+			latency: 0.0,
+			audio_latency: 0.046,
 
 		),
 		archive_modules: [\play_manager, \midi_bindings_manager],

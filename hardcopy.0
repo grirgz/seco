@@ -1,41 +1,41 @@
- l/dev1.sc  + l/crap59.sc  synthpool.sc  eventscore.sc  nodematrix.sc  side.sc                                                                 X
-    );
-    //sig = sig * EnvGen.ar(Env([0,1,0],[0.00001,1.5], [0,-8]),DelayN.ar(ex, 0.3,0.0001), doneAction:2);
-    //sig = sig + (osc * 80);
-    //sig = sig.clip(0.1) + sig;
-    //sig = sig + sig.tanh;
-    sig = sig*1;
-    //sig = osc;
-    //sig = sig.tanh * 4;
-    //sig = sig * 47;
-    //sig = sig * 477;
-    ffreq = 1790;
-    center_ffreq = 1;
-    ffreq = ((0..4).normalize*2-1).mirror * center_ffreq * ffreq/2 + (ffreq/2 + 30);
-    ffreq.debug("ffreq");
-    //sig = LPF.ar(sig, [1100,400,4100,100,4400,590,1100]);
-    //sig = [sig.distort, sig.tanh];
-    //sig = sig.distort;
-    //env = Env([-1, -0.1, -0.3, 0.1, -0.9,1], [ 0.4666, 0.1, 0.66, 0.5,0.1668 ].normalize, \lin, -1.0);
-    env = Env([-1, -0.7, 0.7,1], [ 0.4666, 0.66, 0.1668 ].normalize, \lin, -1.0);
-    sig = IEnvGen.ar(env, sig); sig = sig * 7;
-    sig = LPF.ar(sig, ffreq, 0.1); sig = sig * 7;
-    //sig = sig.clip2(0.51);
-    //sig = sig.tanh;
-    //sig = sig * 7;
-    //sig = LPF.ar(sig, XLine.kr(1000,30,0.2));
-    sig = sig * 0.05;
-    sig = sig * EnvGen.ar(Env([0,1,0],[0.00001,0.8], [0,-8]),gate, doneAction:2);
-    //sig = osc;
-    //sig = sig ! 2;
-    sig = sig.flat;
-    sig = Splay.ar(sig, 1, 1, 0);
-    Out.ar(0, sig)
-}).add;
-)
+ + l/dev1.sc  timeline.sc  matrix.sc  node_manager.sc  bindings.sc                                                                             X
+Mdef.node("setbus_l1003").get_arg(\scoreline).get_scoreset.sheets.do { arg sh, i; sh.notNil and:{ sh.notes.debug(i+"============")  }}
+
+a = Dictionary.new
+a.size
+a[\a] = 1
+a[\b] = 1
+a[\b] = nil
+a
+
+
+
+
+
+Mdef.node("ci osc3filter2_l1021").modulation.get_modulation_mixers.keys.do(_.postln)
+Mdef.node("ci osc3filter2_l1021").modulation.modulation_mixers[\wtpos_spread] = nil
+
 
 
 (
-{
-    var sin = SinOsc.ar(440, 0, MouseX.kr(0, 1));
-"/tmp/sclang-pipe" [Périph.] 1L, 2C ajouté(s)                                                                                 53,50         39%
+
+    w = Window.new;
+    w.front;
+w.layout = Button.new;
+)
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+"/tmp/sclang-pipe" [Périph.] 1L, 2C ajouté(s)                                                                                 591,11        Bas
