@@ -17,6 +17,8 @@
 		make_livenode_from_libnode: main[\make_livenode_from_libnode],
 		duplicate_livenode: main[\duplicate_livenode],
 
+		get_main: { main },
+
 		make_groupplayer: { arg self, name, kind=\par;
 			var pl;
 			if(kind == \par) {
@@ -171,6 +173,11 @@
 			newplayer;
 		},
 
+		make_inline_node: { arg self, name, player;
+			var cinstr = ~classinstr_lib[name.replace("ci ", "").asSymbol];
+			cinstr.new(self.get_main, player)
+		},
+
 		make_livenode_from_libmodnode: { arg self, libnodename, root_player_name;
 			var livenodename;
 			var player;
@@ -265,6 +272,11 @@
 				nodename = main.duplicate_livenode(livenodename);
 				action.(nodename)
 			});
+		},
+
+		load_inlinefx_node: { arg self, action;
+			debug("node_manager: load_inlinefx_node");
+			~class_inlinefx_node_chooser.new(self.get_main, nil, action)
 		},
 
 		create_default_livenode: { arg self;

@@ -1924,6 +1924,44 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	},
 );
 
+~class_param_inlinefx_controller = (
+	parent: ~class_param_static_controller,
+	classtype: \inlinefx,
+
+	new: { arg self, main, player, name;
+		self = self.deepCopy;
+	
+		self.name = name;
+		self.get_main = { main };
+		self.get_player = { player };
+		self.make_inline_node("ci empty_inlinefx_node");
+	
+		self;
+	},
+
+	load_inline_node: { arg self;
+		debug("class_param_inlinefx_controller: load_inline_node");
+		self.get_main.node_manager.load_inlinefx_node({ arg name;
+			self.make_inline_node(name);
+		})
+	},
+
+	make_inline_node: { arg self, name;
+		debug("class_param_inlinefx_controller: make_inline_node");
+		self.inline_node = self.get_main.node_manager.make_inline_node(name, self.get_player);
+		self.changed(\val);
+		self.changed(\inline_node);
+	},
+
+	get_inline_node: { arg self;
+		self.inline_node
+	},
+	
+	get_val: { arg self;
+		self.inline_node.synthfun
+	},
+);
+
 
 // ==========================================
 // SYNTH CONTROL

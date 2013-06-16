@@ -635,7 +635,7 @@
 	],
 
 	new: { arg self, main, list, action, current;
-		self = self.parent[\new].(self, action, "Choose kind");
+		self = ~class_matrix_chooser[\new].(self, action, "Choose kind");
 
 		self.get_main = { arg self; main };
 
@@ -655,6 +655,14 @@
 
 	},
 
+);
+
+~class_inlinefx_node_chooser = (
+	parent: ~class_symbol_chooser,
+	my_datalist: { arg self;
+		debug("class_inlinefx_node_chooser: my_datalist");
+		self.get_main.model.inlinefxlib;
+	},
 );
 
 ~class_player_mode_chooser = (

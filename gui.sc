@@ -494,6 +494,7 @@
 );
 
 ~class_ci_frame_view = (
+	//FIXME: should be named ~class_frame_view
 	new: { arg self, label, knobs_ctrl, onoff_ctrl, popup1_ctrl, popup2_ctrl, fader_ctrl, display;
 		self = self.deepCopy;
 
@@ -516,6 +517,13 @@
 		}
 	},
 
+	make_body: { arg self;
+		self.body = HLayout(*
+				self.knobs.collect(_.layout)
+		);
+		self.body;
+	},
+
 	make_gui: { arg self;
 		var header, vheader;
 		var body, vbody;
@@ -529,6 +537,7 @@
 			~class_ci_modknob_view.new(ctrl, self.display);
 		};
 		header = HLayout.new;
+		self.header = header;
 		if(self.onoff_ctrl.notNil) {
 			header.add(
 				self.onoff = Button.new
@@ -563,9 +572,7 @@
 					self.popup2.layout,
 			)
 		};
-		body = HLayout(*
-				self.knobs.collect(_.layout)
-		);
+		body = self.make_body;
 		vheader = View.new;
 		vheader.layout = header;
 		vheader.background = Color.gray(0.6);
@@ -606,6 +613,69 @@
 		0.01.wait;
 
 		self.layout;
+	},
+);
+
+~class_inline_frame_view = (
+	parent: ~class_ci_frame_view,
+	new: { arg self, inline, display;
+		var inline_node;
+		self = self.deepCopy;
+
+		// TODO: get controllers from inline controller
+		self.inline_ctrl = { inline };
+		inline_node = inline.get_inline_node;
+
+		self.label_string = inline_node.get_label;
+		self.onoff_ctrl = inline_node.get_onoff_controller;
+		self.popup1_ctrl = inline_node.get_popup1_controller;
+		self.popup2_ctrl = inline_node.get_popup2_controller;
+		self.fader_ctrl = inline_node.get_fader_controller;
+		self.display = inline_node.get_display;
+
+		self.make_gui;
+
+		self.responder = ~make_class_responder.(self, self.body_view, self.inline_ctrl, [ \inline_node ]);
+
+		self;
+	},
+
+	inline_node: { arg self;
+		self.reload_body;
+	},
+
+	make_body: { arg self;
+		debug("class_inline_frame_view:make_body");
+		self.body_view = View.new;
+		self.body_view;
+	},
+
+	reload_body: { arg self;
+		Task({
+			debug("class_inline_frame_view:reload_body");
+			self.body_view.removeAll;
+			self.body = self.inline_ctrl.get_inline_node.get_body_layout;
+			self.body_view.layout = self.body;
+			self.body_view;
+		}).play(AppClock)
+	},
+
+	make_gui: { arg self;
+		debug("class_inline_frame_view:make_gui");
+		~class_ci_frame_view[\make_gui].(self);
+		self.header.insert(
+			Button.new
+				.states_(
+					[["IN"]]
+				)
+				.action_({
+					self.inline_ctrl.load_inline_node;
+				}),
+			1,
+			stretch: 0
+		);
+		self.layout;
+		
 	},
 );
 

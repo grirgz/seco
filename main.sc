@@ -569,6 +569,8 @@ if(~silent_audio2_bus.isNil) {
 			patpool: Dictionary.new,
 			samplelist: List.new,
 
+			inlinefxlib: List.new,
+
 			livenodepool: Dictionary.new,
 
 			bus_mode_enabled: true,
@@ -1026,6 +1028,10 @@ if(~silent_audio2_bus.isNil) {
 
 			self.model.modnodelib = list.collect { arg asso; asso.key };
 			//self.model.effectpool = patpool;
+		},
+
+		load_inlinefxlib: { arg self, list;
+			self.model.inlinefxlib = list;
 		},
 
 		load_samplelib: { arg self, samplelist;

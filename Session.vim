@@ -9,10 +9,15 @@ if expand('%') == '' && !&modified && line('$') <= 1 && getline(1) == ''
 endif
 set shortmess=aoO
 badd +15 live/dev1.sc
-badd +1 timeline.sc
-badd +0 bindings.sc
-badd +0 matrix.sc
-badd +1346 node_manager.sc
+badd +676 timeline.sc
+badd +13 bindings.sc
+badd +638 matrix.sc
+badd +177 node_manager.sc
+badd +1027 main.sc
+badd +4002 classinstr.sc
+badd +1952 param.sc
+badd +1 player.sc
+badd +674 gui.sc
 silent! argdel *
 edit live/dev1.sc
 set splitbelow splitright
@@ -29,13 +34,13 @@ setlocal fdl=0
 setlocal fml=1
 setlocal fdn=20
 setlocal nofen
-let s:l = 1 - ((0 * winheight(0) + 9) / 18)
+let s:l = 84 - ((10 * winheight(0) + 9) / 18)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-1
-normal! 0
-tabedit timeline.sc
+84
+normal! 013l
+tabedit classinstr.sc
 set splitbelow splitright
 set nosplitbelow
 set nosplitright
@@ -50,13 +55,13 @@ setlocal fdl=0
 setlocal fml=1
 setlocal fdn=20
 setlocal nofen
-let s:l = 676 - ((15 * winheight(0) + 19) / 39)
+let s:l = 475 - ((20 * winheight(0) + 19) / 39)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-676
-normal! 03l
-tabedit matrix.sc
+475
+normal! 090l
+tabedit gui.sc
 set splitbelow splitright
 set nosplitbelow
 set nosplitright
@@ -71,12 +76,33 @@ setlocal fdl=0
 setlocal fml=1
 setlocal fdn=20
 setlocal nofen
-let s:l = 451 - ((23 * winheight(0) + 19) / 39)
+let s:l = 342 - ((8 * winheight(0) + 8) / 17)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-451
-normal! 032l
+342
+normal! 02l
+tabedit param.sc
+set splitbelow splitright
+set nosplitbelow
+set nosplitright
+wincmd t
+set winheight=1 winwidth=1
+argglobal
+setlocal fdm=indent
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal nofen
+let s:l = 1974 - ((8 * winheight(0) + 8) / 17)
+if s:l < 1 | let s:l = 1 | endif
+exe s:l
+normal! zt
+1974
+normal! 024l
 tabedit node_manager.sc
 set splitbelow splitright
 set nosplitbelow
@@ -92,13 +118,13 @@ setlocal fdl=0
 setlocal fml=1
 setlocal fdn=20
 setlocal nofen
-let s:l = 1346 - ((19 * winheight(0) + 19) / 39)
+let s:l = 177 - ((8 * winheight(0) + 8) / 17)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-1346
+177
 normal! 03l
-tabedit bindings.sc
+tabedit player.sc
 set splitbelow splitright
 set nosplitbelow
 set nosplitright
@@ -113,13 +139,13 @@ setlocal fdl=0
 setlocal fml=1
 setlocal fdn=20
 setlocal nofen
-let s:l = 13 - ((12 * winheight(0) + 19) / 39)
+let s:l = 982 - ((8 * winheight(0) + 8) / 17)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-13
-normal! 06l
-tabnext 3
+982
+normal! 0
+tabnext 2
 if exists('s:wipebuf')
   silent exe 'bwipe ' . s:wipebuf
 endif

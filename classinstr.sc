@@ -451,11 +451,28 @@
 			[name, datum.name].debug("class_instr.set_static_responders: param name");
 			sc.put(\val, {
 				[name, datum.name].debug("static_responder");
+				if(datum.subclasstype == \varparam) {
+					self.update_param_list(datum);
+				};
 				self.build_synthdef;
 			});
 			resp[name] = sc;
 		};
 		self.static_responders = resp;
+	},
+
+	update_param_list: { arg self, param_container;
+		var rpl = param_container.get_removed_param_list;
+		var npl = param_container.get_new_param_list;
+		var ordered_args;
+		var data = self.get_player.data;
+		rpl.do { arg key;
+			data[key].destructor;
+			data[key] = nil;
+		};
+		ordered_args = param_container.get_ordered_args;
+		self.data.putAll(self.ordered_args);
+		// TODO: write player.update_param_list which recursively retrieve params from classinstr
 	},
 
 	set_param_abs_labels: { arg self;
@@ -3782,6 +3799,230 @@
 	},
 
 );
+/////////////// inlinefx 
+
+~class_ci_inlinefx = (
+	parent: ~class_instr,
+	synth_rate: \ar,
+	new: { arg self, main, player, namer;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.namer = { namer };
+		self.synthdef_name = \ci_inlinefx;
+		self.build_data;
+
+		self.simple_args = (gate:1, doneAction:2);
+	
+		self;
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		var specs = self.get_specs;
+
+		self.help_build_data2(
+			[
+				//self.insertfxs,
+			],
+			self.make_control_params([
+				[\mix, \unipolar, 0.5],
+				[\amp, \amp, 0.1],
+			]),
+			[
+				inlinefx: ~class_param_inlinefx_controller.new(main, player, \inlinefx),
+			]
+		);
+		self.data.copy;
+	},
+
+	make_layout: { arg self;
+		var frame_view;
+		frame_view = ~class_inline_frame_view.new(self.param[\inlinefx]);
+		self.layout = HLayout(frame_view.layout);
+		self.layout;
+	},
+
+	synthfun: { arg self;
+		{ arg args;
+			var i = self.get_synthargs(args);
+			var sig;
+			
+			sig = LFSaw.ar(i.freq);
+			sig = i.inlinefx.(sig, args);
+			sig = sig * EnvGen.ar(Env.adsr(0.01,0.1,0.8,0.1),i.gate,doneAction:i.doneAction);
+			sig = Pan2.ar(sig, 0, i.amp);
+			sig;
+		}
+	},
+
+);
+
+~class_ci_empty_inlinefx_node = (
+	parent: ~class_instr,
+	synth_rate: \ar,
+	new: { arg self, main, player, namer;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.namer = { namer };
+		self.synthdef_name = \ci_;
+		self.build_data;
+
+		self.simple_args = (gate:1, doneAction:2);
+	
+		self;
+	},
+
+	get_label: { arg self;
+		"Empty inlineFX"
+	},
+
+	get_onoff_controller: { arg self;
+		nil
+	},
+
+	get_popup1_controller: { arg self;
+		nil
+	},
+
+	get_popup2_controller: { arg self;
+		nil
+	},
+
+	get_fader_controller: { arg self;
+		nil
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		var specs = self.get_specs;
+
+		//self.help_build_data2(
+		//	[
+		//		//self.insertfxs,
+		//	],
+		//	self.make_control_params([
+		//		[\mix, \unipolar, 0.5],
+		//	])
+		//);
+		self.data.copy;
+	},
+
+	make_layout: { arg self;
+
+		self.layout = HLayout(
+			StaticText.new.string_("Empty")
+		);
+		self.layout;
+	},
+
+	get_body_layout: { arg self;
+		self.make_layout;
+	},
+
+	synthfun: { arg self;
+		{ arg in, args;
+			var i = self.get_synthargs(args);
+			var sig;
+			sig = in;
+			
+			sig;
+		}
+	},
+
+);
+
+~class_ci_inlinefx_rlpf = (
+	parent: ~class_instr,
+	synth_rate: \ar,
+	new: { arg self, main, player, namer;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.namer = { namer };
+		self.synthdef_name = \ci_;
+		self.build_data;
+
+		self.simple_args = (gate:1, doneAction:2);
+	
+		self;
+	},
+
+	get_label: { arg self;
+		"RLPF"
+	},
+
+	get_onoff_controller: { arg self;
+		self.param[\enabled]
+	},
+
+	get_popup1_controller: { arg self;
+		nil
+	},
+
+	get_popup2_controller: { arg self;
+		nil
+	},
+
+	get_fader_controller: { arg self;
+		nil
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		var specs = self.get_specs;
+
+		self.help_build_data2(
+			[
+				//self.insertfxs,
+			],
+			self.make_control_params([
+				[\ffreq, \freq.asSpec, 200],
+				[\rq, \rq.asSpec, 0.5],
+			]) ++ 
+			[
+				enabled: ~class_param_static_controller.new(\enabled, specs[\onoff], 1),
+			]
+		);
+		self.data.copy;
+	},
+
+	make_layout: { arg self;
+		var knobs;
+		knobs = [\ffreq, \rq].collect { arg knob; 
+			var ctrl = self.param[knob];
+			~class_ci_modknob_view.new(ctrl);
+		};
+
+		self.layout = HLayout(
+			*knobs.collect{ arg knob; knob.layout }
+		);
+		self.layout;
+	},
+
+	get_body_layout: { arg self;
+		self.make_layout;
+	},
+
+	synthfun: { arg self;
+		{ arg in, args;
+			var i = self.get_synthargs(args);
+			var sig;
+			//sig = RLPF.ar(in, i.ffreq, i.rq);
+			sig = RLPF.ar(in, 1000, 0.5);
+			
+			sig;
+		}
+	},
+
+);
 
 ////////////// Modulators
 
@@ -4117,6 +4358,12 @@
 	// effects
 
 	insertfx3: ~class_ci_insertfx3,
+
+	// inline nodes
+
+	inlinefx: ~class_ci_inlinefx,
+	empty_inlinefx_node: ~class_ci_empty_inlinefx_node,
+	infx_rlpf: ~class_ci_inlinefx_rlpf,
 
 );
 

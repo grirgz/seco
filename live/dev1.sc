@@ -25,6 +25,8 @@ Window.closeAll;
 	"ci bufosc_filt_spread",
 	"ci samplerfilter2",
 
+	"ci inlinefx",
+
 	\bufsin1,
 	\zegrainer,
 	\sampleosc1,
@@ -58,6 +60,7 @@ Window.closeAll;
 	\dubecho_orig,
 	\limiter,
 ].collect({arg i; i -> i });
+~seq.load_effectlib( ~effectlib );
 
 ~modlib = [
 	\setbus,
@@ -75,6 +78,13 @@ Window.closeAll;
 	"ci custom_env",
 	"ci selfgated_env",
 ].collect({arg i; i -> i });
+~seq.load_modlib( ~modlib );
+
+~inlinefxlib = [
+	"ci empty_inlinefx_node",
+	"ci infx_rlpf",
+];
+~seq.load_inlinefxlib( ~inlinefxlib );
 
 //~samplelib = [
 //	"sounds/perc1.wav",
@@ -82,8 +92,6 @@ Window.closeAll;
 //	"sounds/amen-break.wav",
 //	"sounds/default.wav"
 //];
-~seq.load_effectlib( ~effectlib );
-~seq.load_modlib( ~modlib );
 ~seq.set_presetlib_path("mypresets");
 //~seq.append_samplelib_from_path("sounds/" );
 //~seq.append_samplelib_from_path("sounds/hydrogen/GMkit" );

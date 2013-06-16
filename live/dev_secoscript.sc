@@ -52,6 +52,7 @@
 					EnvGen.kr(Env.asr(0.1,1,i.release),i.gate))
 				}, \release),
 				release: Pseq([1,2],inf),
+				freq: ~setbus.({ arg in; (in.cpsmidi + ~param.(\pitchbend)).midicps })
 			),
 	),       
 
