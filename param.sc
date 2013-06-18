@@ -357,7 +357,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			clock.beatInBar.debug("beatInBar");
 			posstring = play_manager.get_rel_beat.round(0.01).asString.padLeft(3, " ")
 							+ "/" + play_manager.get_record_length.asString
-							+ "|" + clock.beats.asString; // FIXME: find a way to zero pad
+							+ "|" + play_manager.get_total_beat.asString; // FIXME: find a way to zero pad
 			barrange = play_manager.get_rel_beat / play_manager.get_record_length;
 			bib = clock.beatInBar;
 			col = if(play_manager.is_near_end) { Color.red } { Color.green };

@@ -26,6 +26,10 @@
 		self.displayable_args
 	},
 
+	rebuild_arg_list: { arg self;
+		// TODO
+	},
+
 	update_ordered_args: { arg self;
 		var args;
 		var param_types = ~class_player_display.param_types;

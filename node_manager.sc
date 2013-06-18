@@ -842,10 +842,19 @@
 		freezer_mode: false,
 
 		init: { arg self;
+			self.myclock.beatsPerBar = 4;
 
 		},
 
 		reset_state: { arg self;
+			//(self.top_nodes.keys.union( self.children_nodes )).do { nodename;
+			//	var node = main.get_node(nodename);
+			//	node.temp_mute(false);
+			//	node.set_playing_state(\stop);
+			//};
+			//self.top_nodes.keysValuesDo { arg key, val;
+			//	val.esp.changed(\stopped);
+			//};
 			self.top_nodes = Dictionary.new;
 			self.children_nodes = Set.new;
 			self.solomuted_nodes = Set.new;
@@ -878,9 +887,13 @@
 
 		get_rel_beat: { arg self;
 			[self.get_clock.beats, self.start_pos, self.get_record_length,
-				((self.get_clock.beats - self.start_pos) % self.get_record_length)
+				(self.get_total_beat % self.get_record_length)
 			].debug("beats, spos, reclen, relbeat");
-			((self.get_clock.beats - self.start_pos) % self.get_record_length)
+			(self.get_total_beat % self.get_record_length)
+		},
+
+		get_total_beat: { arg self;
+			(self.get_clock.beats - self.start_pos)
 		},
 
 		is_recording: { arg self;
@@ -959,16 +972,20 @@
 				self.changed(\visual_metronome);
 			} {
 				"start_new_session: new session!!".debug;
-				if(self.myclock != TempoClock.default) {
-					//self.myclock.stop // TODO: make sure there is no ressource leak
-					//FIXME: this stop cause bug, why ?
-				};
-				self.myclock = TempoClock.new(self.tempo);
-				self.myclock.permanent = true;
-				self.myclock.beats.debug("start_new_session: new clock beats");
-				self.myclock.hash.debug("hash");
-				self.start_pos = 0;
-				self.changed(\visual_metronome);
+				//if(self.myclock != TempoClock.default) {
+				//	//self.myclock.clear;
+				//	//self.myclock.stop; // TODO: make sure there is no ressource leak
+				//	//FIXME: this stop cause bug, why ?
+				//};
+				//self.myclock = TempoClock.new(self.tempo);
+				//self.myclock.permanent = true; // FIXME: why should it be permanent ?
+				self.myclock.schedAbs(self.myclock.nextBar, { 
+					self.myclock.beatsPerBar = 4;
+					self.myclock.beats.debug("start_new_session: new clock beats");
+					self.myclock.hash.debug("hash");
+					self.start_pos = self.myclock.beats;
+					self.changed(\visual_metronome);
+				});
 				//self.start_visual_metronome;
 			}
 		},
@@ -978,7 +995,7 @@
 			var oldclock;
 			//oldclock = self.myclock;
 			//self.myclock = clock;
-			self.start_pos = 0;
+			//self.start_pos = 0;
 			self.set_record_length(dur);
 			Task {
 				//self.changed(\visual_metronome);
@@ -1098,11 +1115,12 @@
 					self.start_new_session;
 
 					/////==== already playing: unmuting children ====/////
-					if(self.top_nodes.size == 0) {
-						children = [];
-					} {
-						children = ~find_children.(main, node);
-					};
+					//if(self.top_nodes.size == 0) {
+					//	children = [];
+					//} {
+					//	children = ~find_children.(main, node);
+					//};
+					children = ~find_children.(main, node);
 
 					nodename.debug("pm: play_node: already playing, unmuting children");
 					children.do { arg child;
@@ -1123,14 +1141,16 @@
 							self.stop_node(node_to_stop, true);
 						};
 					} {
+						var set_responder = 
 
 						/////==== not playing: play it ====/////
 
-						if(self.top_nodes.size == 0) {
-							children = [];
-						} {
-							children = ~find_children.(main, node);
-						};
+						//if(self.top_nodes.size == 0) {
+						//	children = [];
+						//} {
+						//	children = ~find_children.(main, node);
+						//};
+						children = ~find_children.(main, node);
 
 						nodename.debug("pm: play_node: play!");
 
@@ -1156,14 +1176,51 @@
 
 						// playing
 
+						self.start_new_session;
+
 						self.get_rel_beat.debug("pm: play node");
 
 						node.node.source = node.vpattern_loop;
-						quant = if(self.is_playing) { self.get_quant } { 1 };
 
-						self.start_new_session;
 
-						node.node.play(self.get_clock,quant:quant);
+
+						set_responder = {
+							esp = node.node.player;
+							sc = SimpleController(esp);
+							self.top_nodes[nodename] = (
+								esp: esp,
+								sc: sc
+							);
+							sc.put(\stopped, {
+								nodename.debug("pm: stop handler called");
+								self.top_nodes.removeAt(nodename);
+								node.temp_mute(false);
+								node.set_playing_state(\stop);
+								children.do { arg child;
+									self.children_nodes.remove(child.uname);
+									child.set_playing_state(\stop);
+								};
+								children.collect(_.uname).debug("pm: stop handler: children removed");
+								if(self.is_playing.debug("isplaying").not) {
+									self.changed(\head_state, \stop);
+								};
+								sc.remove;
+								[self.top_nodes, self.children_nodes].debug("pm: end state");
+							});
+						};
+
+						//quant = if(self.is_playing) { self.get_quant } { 1 };
+						if(self.is_playing) { 
+							node.node.play(self.get_clock,quant:self.get_quant);
+							self.get_clock.schedAbs(self.get_clock.nextTimeOnGrid(self.get_quant), {
+								set_responder.();
+							})
+						} {
+							self.get_clock.schedAbs(self.get_clock.nextBar, {
+								node.node.play(self.get_clock,quant:self.get_quant);
+								set_responder.();
+							})
+						};
 
 						node.set_playing_state(\play);
 						children.do { arg child;
@@ -1174,29 +1231,6 @@
 						// registering
 
 						children.collect(_.uname).debug("pm: play_node: children");
-
-						esp = node.node.player;
-						sc = SimpleController(esp);
-						self.top_nodes[nodename] = (
-							esp: esp,
-							sc: sc
-						);
-						sc.put(\stopped, {
-							nodename.debug("pm: stop handler called");
-							self.top_nodes.removeAt(nodename);
-							node.temp_mute(false);
-							node.set_playing_state(\stop);
-							children.do { arg child;
-								self.children_nodes.remove(child.uname);
-								child.set_playing_state(\stop);
-							};
-							children.collect(_.uname).debug("pm: stop handler: children removed");
-							if(self.is_playing.debug("isplaying").not) {
-								self.changed(\head_state, \stop);
-							};
-							sc.remove;
-							[self.top_nodes, self.children_nodes].debug("pm: end state");
-						});
 					}
 				}
 			}); 
@@ -1219,7 +1253,10 @@
 			~notNildo.(main.get_node(nodename), { arg node;
 				if( self.top_nodes.keys.includes(nodename) ) {
 					nodename.debug("pm: stop_node: stoping!");
-					stop_action = { self.top_nodes[nodename].esp.stop };
+					stop_action = { 
+						main.get_node(nodename).node.stop;
+						//self.top_nodes[nodename].esp.stop
+					};
 				} {
 					if( self.children_nodes.includes(nodename) ) {
 						nodename.debug("pm: stop_node: mute");
@@ -1250,7 +1287,7 @@
 			self.top_nodes.keys.union(self.children_nodes).do { arg nname;
 				if(nodename != nname) {
 					~notNildo.(main.get_node(nname), { arg node;
-						if(node.temp_muted.not) {
+						if(node.temp_muted != true) {
 							smn.add(nname);
 							node.temp_mute(true);
 						}

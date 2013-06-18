@@ -1015,6 +1015,8 @@
 
 
 		start_recording: { arg self;
+			/// deprecated no ?
+			// FIXME: are you sure using TempoClock raw class is good ?
 			if(self.recording, {
 				"already recording!!!".debug;
 			}, {

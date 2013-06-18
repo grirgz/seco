@@ -730,3 +730,57 @@ Line
 
 ~node_tools.get_unused_nodenames
 ~node_tools.free_unused_nodes
+
+
+Mdef.main.play_manager.myclock = TempoClock.default
+
+
+
+(
+a = Pbind(
+	\instrument, \default,
+	\freq, 200,
+	\dur, 1,
+	\amp, 0.1
+).play;
+)
+a.stop
+
+
+~clock = TempoClock.default;
+(
+a = EventPatternProxy.new;
+a.source = Pbind(
+	\instrument, \default,
+	\degree, Pseq([0],inf),
+	\dur, 1,
+	\amp, 0.1
+);
+				~clock.schedAbs(~clock.nextBar, { 
+					~clock.beatsPerBar = 4;
+					~clock.beats.debug("start_new_session: new clock beats");
+					~clock.hash.debug("hash");
+				});
+				~clock.schedAbs(~clock.nextBar, { 
+					a.play(~clock)
+				});
+				a.player.postln;
+~sc = SimpleController(a);
+~sc.put(\stopped, { "NIARK".postln; });
+);
+
+a.stop
+a.player
+
+
+(
+Pdef(\plop, Pbind(
+	\instrument, \default,
+	\degree, Pseq([0],inf),
+	\dur, 1,
+	\amp, 0.1
+)).play;
+);
+
+Pdef(\plop).stop
+

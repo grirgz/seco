@@ -96,3 +96,28 @@ refresh modes:
 )
 	~seq1 = [1,2];
 
+
+
+//////////////////////////
+// tracks
+
+
+~tlist = [
+	\modenv_l1011,
+	\modenv_l1020,
+	\modenv_l1021,
+];
+
+~global_vars = (
+	tseqs: ~tlist.collect {~pseq_tracks.()}
+)
+
+~tseqs = ~tlist.collect { arg idx;
+	~pseq_track.(ysize:~tlist[idx].get_scoreset.get_sheets.size, dict: { arg y; ~tlist[idx].get_scoreset.get_sheet(y) })
+}
+
+~gui = {
+	VLayout(
+		*~tseqs.collect(_.layout)
+	)
+}

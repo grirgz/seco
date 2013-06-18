@@ -51,7 +51,7 @@
 	slot_to_bufnum: { arg self, slot, samplekit, channels=\stereo;
 		var path;
 		var bufnum;
-		[slot, samplekit].debug("slot_to_bufnum");
+		//[slot, samplekit].debug("slot_to_bufnum");
 		if(slot == \rest) {
 			//BufferPool.get_sample(\samplekit, ~empty_sample_path).bufnum; // FIXME: find a way to not play at all;
 			path =  ~empty_sample_path;
