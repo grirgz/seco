@@ -121,3 +121,14 @@ refresh modes:
 		*~tseqs.collect(_.layout)
 	)
 }
+
+
+/////////////////////////
+
+(
+	~win = Window.new;
+	~win.
+	~win.front;
+)
+
+Mdef.node("gater_l1077")

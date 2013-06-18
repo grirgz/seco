@@ -8,10 +8,12 @@
 
 ~class_abstract_node = (
 
+	base_data: IdentityDictionary.new,
+
 	///////// ordered args
 
 	get_ordered_args: { arg self;
-		~sort_by_template.(self.data.keys, self.get_desc.controls.collect { arg x; x.name });
+		~sort_by_template.(self.get_arg_keys, self.get_desc.controls.collect { arg x; x.name });
 	},
 
 	get_pattern_args: { arg self;
@@ -28,6 +30,50 @@
 
 	rebuild_arg_list: { arg self;
 		// TODO
+		self.data = IdentityDictionary.new;
+		self.data.putAll(self.base_data);
+		if(self.external_player.notNil) {
+			self.external_data = self.external_player.rebuild_arg_list);
+			if(self.external_data.notNil) {
+				self.data.putAll(self.external_data);
+			};
+		};
+		self.build_sourcepat;
+		self.build_real_sourcepat;
+
+	},
+
+	has_arg: { arg self, name;
+		self.data[name].notNil;
+	},
+
+	get_arg: { arg self, name;
+		if(self.data[name].notNil) {
+			self.data[name];
+		} {
+			"ERROR: player % has no such arg: %".format(self.uname, name).postln;
+			nil
+		}
+	},
+
+	get_base_arg: { arg self, name;
+		self.base_data[name];
+	},
+
+	get_data: { arg self;
+		self.data;
+	},
+
+	set_arg: { arg self, name, val;
+		self.data[name] = val;
+	},
+
+	get_args: { arg self;
+		self.data.keys;
+	},
+
+	get_arg_keys: { arg self;
+		self.data.keys;
 	},
 
 	update_ordered_args: { arg self;
@@ -79,7 +125,6 @@
 	sourcepat: nil,
 	selected_param: \stepline,
 	wrapper: nil,
-	sourcewrapper: nil,
 	playing_state: \stop,
 	muted: false,
 	temp_muted: false,
@@ -90,6 +135,8 @@
 	is_effect: false,
 	ccbus_set: IdentitySet.new,
 	env_mode: false,
+
+	sourcewrapper: "Pbind(\n\t\\freq, Pkey(\\freq)\n) <> ~pat;\nfalse",
 
 	new: { arg self, main, instr, data=nil;
 		var desc;
@@ -147,12 +194,10 @@
 	init: { arg self, data;
 		var colpreset;
 		
-		self.sourcewrapper = "Pbind(\n\t\\freq, Pkey(\\freq)\n) <> ~pat;\nfalse";
-
 		self.modulation = ~class_modulation_manager.new(self);
 		self.effects = ~class_effect_manager.new(self);
 
-		self.data = {
+		self.base_data = {
 				// use args and defaults values from synthdef to build data dict
 				// if data dict given, deep copy it instead
 				var dict;
@@ -226,19 +271,18 @@
 		self.build_standard_args;
 
 		if(self.is_audiotrack) {
-			self.data[\amp].change_kind(\bus)
+			self.base_data[\amp].change_kind(\bus)
 		};
 
 		//TODO: handle t_trig arguments
 
 		// load default preset
-		colpreset = try { self.get_main.model.colpresetlib[self.defname][0] };
-		if(colpreset.notNil) {
-			self.load_column_preset(colpreset, \scalar);
-		};
+		//colpreset = try { self.get_main.model.colpresetlib[self.defname][0] };
+		//if(colpreset.notNil) {
+		//	self.load_column_preset(colpreset, \scalar);
+		//};
 
-		self.build_sourcepat;
-		self.build_real_sourcepat;
+		self.rebuild_arg_list;
 	},
 
 	get_scoreset: { arg self;
@@ -254,7 +298,7 @@
 		self.to_destruct.do { arg i;
 			i.destructor;
 		};
-		self.data.keysValuesDo { arg name, datum;
+		self.get_data.keysValuesDo { arg name, datum;
 			datum.destructor;
 		};
 		self.name = "FREED";
@@ -352,7 +396,7 @@
 					self.select_param(val);
 				};
 				self.current_mode = val;
-				self.data.keysValuesDo { arg key, datum;
+				self.get_data.keysValuesDo { arg key, datum;
 					datum.update_vpattern;
 				};
 				self.update_ordered_args;
@@ -379,7 +423,7 @@
 
 	select_param: { arg self, name;
 		var oldsel;
-		if( self.get_arg(name).notNil ) {
+		if( self.has_arg(name) ) {
 			oldsel = self.selected_param;
 			name.debug("player selected_param");
 			self.selected_param = name;
@@ -398,20 +442,14 @@
 		self.get_arg(self.selected_param);
 	},
 
-	get_raw_arg: ~player_get_arg,
-	set_arg: ~player_set_arg,
-
 	map_arg: { arg self, argName, val;
+		// FIXME: who use this ?
 		argName.debug("mapping hidden!!!");
 		~get_spec.(argName, self.defname).map(val);
 	},
 
 	unmap_arg: { arg self, argName, val;
 		~get_spec.(argName, self.defname).unmap(val);
-	},
-
-	get_args: { arg self;
-		self.data.keys
 	},
 
 	get_all_args: { arg self;
@@ -426,26 +464,48 @@
 		res;
 	},
 
-	get_arg: { arg self, key;
-		var splited, argname, fxnum;
-		splited = key.asString.split($_);
-		if(splited.last[0..1] == "fx") {
-			fxnum = splited.pop[2].asString.asInteger;
-			argname = splited.join("_").asSymbol;
-			self.get_main.get_node(self.effects[fxnum]).get_arg(argname);
-		} {
-			self.get_raw_arg(key)
-		}
-	},
+	///////////// deprecated
 
 	set_bank: { arg self, bank;
 		self.bank = bank;
-		self.data.do { arg x; x.changed(\cells); };
+		self.get_arg_keys.do { arg x; x.changed(\cells); };
 	},
 
 	get_bank: { arg self;
 		self.bank;
 	},
+
+	save_column_preset: { arg self;
+		var data = ();
+		data.defname = self.defname;
+		self.get_data.keysValuesDo { arg key, val;
+			if([\control].includes(val.classtype) ) { 
+				data[key] = val.get_val;
+			};
+			if([\adsr].includes(val.classtype)) {
+				data[key] = val.get_val;
+			};
+		};
+		data;
+	},
+
+	load_column_preset: { arg self, data, kind=\scalar;
+		self.get_data.keysValuesDo { arg key, val;
+			if( data[key].notNil ) {
+				[key, val.current_kind, kind].debug("load_column_preset");
+				if( val.current_kind == kind ) {
+					[key, data[key]].debug("load_column_preset vraiment");
+					if([\adsr].includes(val.classtype)) {
+						val.set_all_val( data[key] );
+					} {
+						val.set_val(data[key]);
+					};
+				}
+			};
+		};
+	},
+
+	/////////////////
 
 	get_duration: { arg self;
 		// TODO: return correct value for others modes
@@ -530,7 +590,7 @@
 			}
 		};
 
-		self.get_args.do { arg key;
+		self.get_arg_keys.do { arg key;
 			argdat = self.get_arg(key);	
 			[argdat.isNil, key].debug("class_synthdef_player: load_data: argdat.isNil, key");
 			if(self.archive_param_data.includes(argdat.classtype), {
@@ -550,39 +610,9 @@
 		}
 	},
 
-	save_column_preset: { arg self;
-		var data = ();
-		data.defname = self.defname;
-		self.data.keysValuesDo { arg key, val;
-			if([\control].includes(val.classtype) ) { 
-				data[key] = val.get_val;
-			};
-			if([\adsr].includes(val.classtype)) {
-				data[key] = val.get_val;
-			};
-		};
-		data;
-	},
-
-	load_column_preset: { arg self, data, kind=\scalar;
-		self.data.keysValuesDo { arg key, val;
-			if( data[key].notNil ) {
-				[key, val.current_kind, kind].debug("load_column_preset");
-				if( val.current_kind == kind ) {
-					[key, data[key]].debug("load_column_preset vraiment");
-					if([\adsr].includes(val.classtype)) {
-						val.set_all_val( data[key] );
-					} {
-						val.set_val(data[key]);
-					};
-				}
-			};
-		};
-	},
-
 	as_event: { arg self;
 		var ev = ();
-		self.data.keysValuesDo { arg key, val;
+		self.get_data.keysValuesDo { arg key, val;
 			ev[key] = val.get_val;
 		};
 		ev;
@@ -617,7 +647,7 @@
 			patkeys = patkeys ++ [\freq];
 		};
 		patkeys.do { arg key;
-			if(self.data[key].notNil) {
+			if(self.has_arg(key)) {
 				val = self.get_arg(key);
 				if(val.notNil) {
 					arglist.add(key);
@@ -640,31 +670,37 @@
 		}
 	},
 
-	build_standard_args: { arg self;
-			self.data[\noteline] = self.data[\noteline] ?? ~make_noteline_param.(\noteline);
-			self.data[\scoreline] = self.data[\scoreline] ?? ~make_scoreline_param.(\scoreline);
+	build_standard_args: { arg self, used_keys;
+		var data = self.base_data;
+		var std_args;
 
-			self.data[\dur] = self.data[\dur] ?? 
-				~make_control_param.(self.get_main, self, \dur, \scalar, 0.5, ~get_spec.(\dur, self.defname));
-			self.data[\segdur] = self.data[\segdur] ??
-				~make_control_param.(self.get_main, self, \segdur, \scalar, 0.5, ~get_spec.(\dur, self.defname));
-			self.data[\velocity] = self.data[\velocity] ??
-				~make_control_param.(self.get_main, self, \velocity, \scalar, 0.8, \unipolar.asSpec);
-			self.data[\stretchdur] = self.data[\stretchdur] ??
-				~make_control_param.(self.get_main, self, \stretchdur, \scalar, 1, ~get_spec.(\dur, self.defname));
-			self.data[\legato] = self.data[\legato] ??
-				~make_control_param.(self.get_main, self, \legato, \scalar, 0.5, ~get_spec.(\legato, self.defname));
-			self.data[\sustain] = self.data[\sustain] ??
-				~make_control_param.(self.get_main, self, \sustain, \scalar, 0.5, ~get_spec.(\sustain, self.defname));
-			self.data[\repeat] = self.data[\repeat] ?? 
-				// FIXME: should be simple numeric param
-				~make_control_param.(self.get_main, self, \repeat, \scalar, 1, ~get_spec.(\repeat, self.defname));
+		used_keys = used_keys ?? IdentitySet.new;
+		used_keys.addAll(self.base_data.keys);
 
-			self.data[\stepline] = self.data[\stepline] ?? ~make_stepline_param.(\stepline, 1 ! 8 );
-		if(self.is_effect.not) {
-			self.data[\type] = ~make_type_param.(\type);
+		std_args = (
+			noteline: { ~make_noteline_param.(\noteline); },
+			scoreline: { ~make_scoreline_param.(\scoreline); },
+			dur: { ~make_control_param.(self.get_main, self, \dur, \scalar, 0.5, ~get_spec.(\dur, self.defname)); },
+			segdur: { ~make_control_param.(self.get_main, self, \segdur, \scalar, 0.5, ~get_spec.(\dur, self.defname)); },
+			velocity: {~make_control_param.(self.get_main, self, \velocity, \scalar, 0.8, \unipolar.asSpec);},
+			stretchdur: {	~make_control_param.(self.get_main, self, \stretchdur, \scalar, 1, ~get_spec.(\dur, self.defname));},
+			legato: {~make_control_param.(self.get_main, self, \legato, \scalar, 0.5, ~get_spec.(\legato, self.defname))},
+			sustain: {~make_control_param.(self.get_main, self, \sustain, \scalar, 0.5, ~get_spec.(\sustain, self.defname))},
+			// FIXME: repeat should be simple numeric param
+			repeat: {~make_control_param.(self.get_main, self, \repeat, \scalar, 1, ~get_spec.(\repeat, self.defname))},
+			stepline: {~make_stepline_param.(\stepline, 1 ! 8 )},
+			instrument: {~make_literal_param.(\instrument, self.defname)},
+		);
+
+		std_args.keysValuesDo { arg key, val;
+			if(used_keys.includes(key).not) {
+				data[key] = val.value
+			}
 		};
-		self.data[\instrument] = self.data[\instrument] ?? ~make_literal_param.(\instrument, self.defname);
+
+		if(self.is_effect.not) {
+			data[\type] = ~make_type_param.(\type);
+		};
 	},
 
 	build_sourcepat: { arg self;
@@ -685,15 +721,16 @@
 		list.add(\current_mode); list.add(Pfunc({ self.get_mode }));
 		list.add(\muted); list.add(Pfunc({ self.muted or: self.temp_muted }));
 		prio.difference(reject).do { arg key;
-			if(self.data[key].notNil) {
-				list.add(key); list.add( self.data[key].vpattern );
+			if(self.has_arg(key)) {
+				list.add(key); list.add( self.get_arg(key).vpattern );
 			}
 		};
-		self.data.keys.difference(prio).difference(reject).do { arg key;
-			if(self.data[key].notNil) {
-				list.add(key); list.add( self.data[key].vpattern );
+		self.get_arg_keys.difference(prio).difference(reject).do { arg key;
+			if(self.has_arg(key)) {
+				list.add(key); list.add( self.get_arg(key).vpattern );
 			}
 		};
+		// TODO: additional_data is depecated in favor of rebuild_arg_list, remove it
 		if(self.additional_data.notNil) {
 			self.additional_data.keysValuesDo { arg key, val;
 				list.add(key); list.add(val);
@@ -705,7 +742,7 @@
 		//Pbind(*list).dump;
 		self.sourcepat_list = list;
 
-		self.update_ordered_args; // dont found a better place for this
+		self.update_ordered_args; // didnt found a better place for this
 
 
 		self.build_sourcepat_finalize;
@@ -714,7 +751,7 @@
 	build_sourcepat_finalize: { arg self;
 		var list = self.sourcepat_list;
 		self.sourcepat = if(self.is_effect) {
-			Pmono(self.data[\instrument].get_val, *list)
+			Pmono(self.get_arg(\instrument).get_val, *list)
 		} {
 			//DebugPbind(*list); //debug
 			Pbind(*list); //debug
@@ -855,57 +892,57 @@
 			\type, \dur, \segdur, \velocity, \legato, \sustain,
 			\amp, \bufnum, \mbufnum, \freq,
 		];
-		self.data.keys.difference(exclu).do { arg key;
-			var val = self.data[key].vpiano ?? self.data[key].vpattern;
+		self.get_arg_keys.difference(exclu).do { arg key;
+			var val = self.get_arg(key).vpiano ?? self.get_arg(key).vpattern;
 			list.add(key); list.add( val ) 
 		};
 		if(kind == \nsample) {
 				[\freq, \bufnum, \mbufnum].do { arg paramname;
-					if(self.data[paramname].notNil) {
-						list.add(paramname); list.add( self.data[paramname].vpiano ?? self.data[paramname].vpattern );
+					if(self.has_arg(paramname)) {
+						list.add(paramname); list.add( self.get_arg(paramname).vpiano ?? self.get_arg(paramname).vpattern );
 					};
 				};
 				{ arg slotnum, veloc=1; 
 					veloc = veloc ?? 1;
-					Synth(self.data[\instrument].vpiano, (
-						[\amp, self.get_main.calcveloc(self.data[\amp].vpiano.value, veloc) ] ++
+					Synth(self.get_arg(\instrument).vpiano, (
+						[\amp, self.get_main.calcveloc(self.get_arg( \amp ).vpiano.value, veloc) ] ++
 							list.collect(_.value)).debug("nsample arg listHHHHHHHHHHHHHHHHHHHHHHHHHHH")
 					) 
 				}
 		} {
 			if(self.get_mode == \sampleline) {
-				if(self.data[\freq].notNil) {
-					list.add(\freq); list.add( self.data[\freq].vpiano ?? self.data[\freq].vpattern );
+				if(self.has_arg( \freq )) {
+					list.add(\freq); list.add( self.get_arg( \freq ).vpiano ?? self.get_arg( \freq ).vpattern );
 				};
 				{ arg slotnum, veloc=1; 
 					veloc = veloc ?? 1;
-					[slotnum, self.data[\samplekit].get_val].debug("slotnum, samplekit get val");
-					~samplekit_manager.slot_to_bufnum(slotnum, self.data[\samplekit].get_val).debug("bufnum");
-					Synth(self.data[\instrument].vpiano, (
-						[\bufnum, ~samplekit_manager.slot_to_bufnum(slotnum, self.data[\samplekit].get_val),
-							\amp, self.get_main.calcveloc(self.data[\amp].vpiano.value, veloc) ] ++
+					[slotnum, self.get_arg( \samplekit ).get_val].debug("slotnum, samplekit get val");
+					~samplekit_manager.slot_to_bufnum(slotnum, self.get_arg( \samplekit ).get_val).debug("bufnum");
+					Synth(self.get_arg( \instrument ).vpiano, (
+						[\bufnum, ~samplekit_manager.slot_to_bufnum(slotnum, self.get_arg( \samplekit ).get_val),
+							\amp, self.get_main.calcveloc(self.get_arg( \amp ).vpiano.value, veloc) ] ++
 							list.collect(_.value)).debug("sampleline arg listHHHHHHHHHHHHHHHHHHHHHHHHHHH")) 
 				}
 			} {
 				//FIXME: why freq could be nil ?
-				//if(self.data[\freq].notNil) {
-				//	list.add(\freq); list.add( freq ?? self.data[\freq].vpiano ?? self.data[\freq].vpattern );
+				//if(self.has_arg( \freq ).notNil) {
+				//	list.add(\freq); list.add( freq ?? self.get_arg( \freq ).vpiano ?? self.get_arg( \freq ).vpattern );
 				//};
-				if(self.data[\bufnum].notNil) {
-					list.add(\bufnum); list.add( self.data[\bufnum].vpiano ?? self.data[\bufnum].vpattern );
+				if(self.has_arg( \bufnum )) {
+					list.add(\bufnum); list.add( self.get_arg( \bufnum ).vpiano ?? self.get_arg( \bufnum ).vpattern );
 				};
 				{ arg freq, veloc=1; 
 					var spatch;
 					veloc = veloc ?? 1;
-					[self.data[\amp].vpiano.value, veloc].debug("CESTLA?");
+					[self.get_arg( \amp ).vpiano.value, veloc].debug("CESTLA?");
 					if(freq.isNil) { "get_piano: why freq is nil ?".debug; };
-					self.data[\instrument].vpiano.value.debug("making Synth()");
+					self.get_arg( \instrument ).vpiano.value.debug("making Synth()");
 
 					spatch = self.modulation.vpiano;
 
-					Synth(self.data[\instrument].vpiano.value, (
+					Synth(self.get_arg( \instrument ).vpiano.value, (
 						[
-							\amp, self.get_main.calcveloc(self.data[\amp].vpiano.value, veloc),
+							\amp, self.get_main.calcveloc(self.get_arg( \amp ).vpiano.value, veloc),
 							\freq, freq,
 						] 
 						++ list.collect(_.value(spatch))).debug("arg listHHHHHHHHHHHHHHHHHHHHHHHHHHH")
@@ -942,7 +979,7 @@
 		if(val != self.muted) {
 			self.muted = val;
 			if(self.is_audiotrack) {
-				self.data[\amp].bus.mute(val);
+				self.get_arg( \amp ).bus.mute(val);
 			};
 			self.changed(\redraw_node);
 		}
@@ -953,7 +990,7 @@
 			self.temp_muted = val;
 			if(self.is_audiotrack) {
 				//FIXME: temp_mute on audiotrack ?
-				self.data[\amp].bus.mute(val);
+				self.get_arg( \amp ).bus.mute(val);
 			};
 			self.changed(\redraw_node);
 		}
@@ -962,12 +999,12 @@
 	play_repeat_node: { arg self; 
 		// not used anymore: use vpattern_loop instead
 		var rep;
-		rep = self.data[\repeat].get_val;
-		self.data[\repeat].set_val(0);
+		rep = self.get_arg( \repeat ).get_val;
+		self.get_arg( \repeat ).set_val(0);
 		self.node.play;
 		fork {
 			1.wait; //FIXME: use quant
-			self.data[\repeat].set_val(rep);
+			self.get_arg( \repeat ).set_val(rep);
 		};
 	},
 
@@ -1005,8 +1042,8 @@
 		};
 
 		"on est la2".debug;
-		self.data[\dur].select_cell(2);
-		//self.data[\repeat].set_val(0);
+		self.get_arg( \dur ).select_cell(2);
+		//self.get_arg( \repeat ).set_val(0);
 
 		"on est la3".debug;
 		self;
@@ -1058,7 +1095,7 @@
 	},
 
 	get_ordered_args: { arg self;
-		~sort_by_template.(self.data.keys, self.external_player.get_ordered_args_names);
+		~sort_by_template.(self.get_arg_keys, self.external_player.get_ordered_args_names);
 	},
 
 	external_wrap: { arg self, pat; pat },
@@ -1070,19 +1107,17 @@
 		var name;
 		var macro_ctrl;
 
-		self.sourcewrapper = "Pbind(\n\t\\freq, Pkey(\\freq)\n) <> ~pat;\nfalse";
 
 		self.modulation = ~class_modulation_manager.new(self);
 		self.effects = ~class_effect_manager.new(self);
 
-		self.data = self.external_player.data.copy;
+		self.external_data = self.external_player.rebuild_arg_list;
 
-		self.build_standard_args;
-		self.data[\instrument] = ~make_dynamic_literal_param.(\instrument, { self.external_player.synthdef_name });
-		//self.data[\dur].set_val(2);
+		self.build_standard_args(self.external_data.keys);
+		self.base_data[\instrument] = ~make_dynamic_literal_param.(\instrument, { self.external_player.synthdef_name });
+		//self.base_data[\dur].set_val(2);
 
-		self.build_sourcepat;
-		self.build_real_sourcepat;
+		self.rebuild_arg_list;
 	
 	},
 
@@ -1162,11 +1197,11 @@
 			~get_spec.(name, self.defname)
 		);
 
-		self.data = dict;
+		self.base_data = dict;
 
 		self.build_standard_args;
-		self.data[\instrument] = ~make_dynamic_literal_param.(\instrument, { self.external_player.synthdef_name });
-		self.data[\dur].set_val(2);
+		self.base_data[\instrument] = ~make_dynamic_literal_param.(\instrument, { self.external_player.synthdef_name });
+		self.base_data[\dur].set_val(2);
 
 		reject = Set[\freq, \velocity, \instrument];
 
@@ -1187,8 +1222,7 @@
 
 		self.additional_data = additional;
 
-		self.build_sourcepat;
-		self.build_real_sourcepat;
+		self.rebuild_arg_list;
 	
 	},
 
@@ -1198,7 +1232,7 @@
 		macros = 8.collect { arg x;
 			"macro%_control".format(x+1).asSymbol;
 		};
-		~sort_by_template.(self.data.keys, macros);
+		~sort_by_template.(self.get_arg_keys, macros);
 	},
 
 	external_wrap: { arg self, pat;
@@ -1319,9 +1353,9 @@
 
 		self.modulation.set_mod_kind(\pattern);
 
-		self.data[\tsustain] = ~class_param_tsustain_controller.new(\tsustain);
-		//self.data[\val] = ~class_param_scorekey_controller.new(self, \val);
-		self.data[\val] = ~class_param_modenv_val_controller.new(self, \val);
+		self.base_data[\tsustain] = ~class_param_tsustain_controller.new(\tsustain);
+		//self.base_data[\val] = ~class_param_scorekey_controller.new(self, \val);
+		self.base_data[\val] = ~class_param_modenv_val_controller.new(self, \val);
 		self.set_mode(\noteline);
 		notescore = ~make_notescore.();
 		notes = [
@@ -1341,14 +1375,13 @@
 		notescore.no_first_rest = true;
 		notescore.set_end(16);
 		//self.get_arg(\noteline).get_scoreset.set_notescore(notescore);
-		self.get_arg(\noteline).get_scoreset.set_current_sheet(notescore);
-		self.get_arg(\val).set_notes(notescore.get_rel_notes);
-		self.data[\firstsynth] = nil;
-		self.data[\firstval] = nil;
+		self.get_base_arg(\noteline).get_scoreset.set_current_sheet(notescore);
+		self.get_base_arg(\val).set_notes(notescore.get_rel_notes);
+		self.base_data[\firstsynth] = nil;
+		self.base_data[\firstval] = nil;
 
 
-		self.build_sourcepat;
-		self.build_real_sourcepat;
+		self.rebuild_arg_list;
 
 		self.make_fake_external_player;
 		debug("fin make_fake_external_player");
@@ -1488,12 +1521,11 @@
 		self.init(data);
 
 
-		self.data[\gtrig] = ~class_param_gtrig.new(\gtrig);
+		self.base_data[\gtrig] = ~class_param_gtrig.new(\gtrig);
 		self.modulation.set_mod_kind(\pattern);
 		self.set_mode(\scoreline);
 
-		self.build_sourcepat;
-		self.build_real_sourcepat;
+		self.rebuild_arg_list;
 
 		self.make_fake_external_player;
 		debug("fin make_fake_external_player");
@@ -1623,11 +1655,12 @@
 };
 
 ~make_player_from_patfun = { arg patfun, data=nil;
+	// FIXME: out of date, update it
 	var player;
 	player = (
 		init: { arg self;
 
-			self.data = {
+			self.base_data = {
 					// use args and defaults values from synthdef to build data dict
 					// if data dict given, deep copy it instead
 					var dict;
@@ -1648,7 +1681,7 @@
 		},
 		patfun: { arg self; patfun; },
 		clone: { arg self;
-			~make_player_from_patfun.(patfun, self.data);
+			~make_player_from_patfun.(patfun, self.get_data);
 		},
 		map_arg: { arg self, argName, val;
 			// TODO: how to get synthdef spec
@@ -1773,9 +1806,10 @@
 		expset_mode: false,
 
 		init: { arg self;
-			self.data[\repeat] = self.data[\repeat] ?? ~make_control_param.(main, self, \repeat, \scalar, 1, ~get_spec.(\repeat));
-			self.data[\amp] = self.data[\amp] ?? ~make_control_param.(main, self, \amp, \scalar, 1, ~get_spec.(\amp)); // dummy param FTM
-			self.get_arg(\repeat).get_val.debug("init repeat.get_val");
+			self.base_data[\repeat] = self.base_data[\repeat] ?? ~make_control_param.(main, self, \repeat, \scalar, 1, ~get_spec.(\repeat));
+			self.base_data[\amp] = self.base_data[\amp] ?? ~make_control_param.(main, self, \amp, \scalar, 1, ~get_spec.(\amp)); // dummy param FTM
+			self.get_base_arg(\repeat).get_val.debug("init repeat.get_val");
+			self.rebuild_arg_list;
 			self.update_ordered_args;
 		},
 
@@ -1807,12 +1841,12 @@
 
 		select_param: { arg self, name;
 			var oldsel;
-			if( self.data[name].notNil ) {
+			if( self.has_arg( name )) {
 				oldsel = self.selected_param;
 				name.debug("player selected_param");
 				self.selected_param = name;
-				self.data[oldsel].changed(\selected);
-				self.data[name].changed(\selected);
+				self.get_arg( oldsel ).changed(\selected);
+				self.get_arg( name ).changed(\selected);
 			} {
 				[self.uname, name].debug("can't select param: not found");
 			}
@@ -2127,16 +2161,8 @@
 			pl
 		},
 
-		get_args: { arg self;
-			self.data.keys;
-		},
-
 		get_ordered_args: { arg self;
-			~sort_by_template.(self.data.keys, [\nodeline, \amp, \repeat]);
-		},
-
-		get_arg: { arg self, argu;
-			self.data[argu];
+			~sort_by_template.(self.get_arg_keys, [\nodeline, \amp, \repeat]);
 		},
 	
 		save_data: { arg self;
@@ -2190,9 +2216,11 @@
 		kind: \seqnode,
 
 		init: { arg self;
-			self.data[\repeat] = self.data[\repeat] ?? ~make_control_param.(main, self, \repeat, \scalar, 1, ~get_spec.(\repeat));
-			self.data[\amp] = self.data[\amp] ?? ~make_control_param.(main, self, \amp, \scalar, 1, ~get_spec.(\amp)); // dummy param FTM
-			self.get_arg(\repeat).get_val.debug("init repeat.get_val");
+			self.base_data[\repeat] = self.base_data[\repeat] ?? ~make_control_param.(main, self, \repeat, \scalar, 1, ~get_spec.(\repeat));
+			self.base_data[\amp] = self.base_data[\amp] ?? ~make_control_param.(main, self, \amp, \scalar, 1, ~get_spec.(\amp)); // dummy param FTM
+			self.get_base_arg(\repeat).get_val.debug("init repeat.get_val");
+
+			self.rebuild_arg_list;
 			self.update_ordered_args;
 		},
 
@@ -2239,6 +2267,7 @@
 };
 
 ~make_nodesampler = { arg main, children=List[];
+	// FIXME: out of date, update it
 	var pplayer;
 	var obj;
 	obj = ~make_parplayer.(main, children);
@@ -2249,10 +2278,10 @@
 		responders: List.new,
 
 		init: { arg self;
-			self.data[\repeat] = self.data[\repeat] ?? ~make_control_param.(main, self, \repeat, \scalar, 1, ~get_spec.(\repeat));
-			self.data[\nodeline] = self.data[\nodeline] ?? ~make_nodeline_param.(\nodeline);
-			self.data[\dur] = self.data[\dur] ?? ~make_control_param.(main, self, \dur, \scalar, 0.25, ~get_spec.(\dur));
-			//self.data[\noteline] = self.data[\noteline] ?? ~make_noteline_param.(\noteline);
+			self.base_data[\repeat] = self.base_data[\repeat] ?? ~make_control_param.(main, self, \repeat, \scalar, 1, ~get_spec.(\repeat));
+			self.base_data[\nodeline] = self.base_data[\nodeline] ?? ~make_nodeline_param.(\nodeline);
+			self.base_data[\dur] = self.base_data[\dur] ?? ~make_control_param.(main, self, \dur, \scalar, 0.25, ~get_spec.(\dur));
+			//self.base_data[\noteline] = self.base_data[\noteline] ?? ~make_noteline_param.(\noteline);
 			self.get_arg(\repeat).get_val.debug("init repeat.get_val");
 		},
 
@@ -2267,7 +2296,7 @@
 					\nsample, {
 						~notNildo.(main.get_node(child[1])) { arg node;
 							self.children.add(child[1]);
-							sc = SimpleController(self.data[\nodeline]);
+							sc = SimpleController(self.get_arg( \nodeline ));
 							node.set_mode(\noteline);
 							sc.put(\notes, { arg self, msg, val;
 								var notescore = self.scoreset.get_notescore.filter_by_slot( slotnum );

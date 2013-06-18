@@ -59,6 +59,8 @@ Window.closeAll;
 	\dubecho_inmix,
 	\dubecho_orig,
 	\limiter,
+	\bufstut,
+	\multitap8,
 ].collect({arg i; i -> i });
 ~seq.load_effectlib( ~effectlib );
 
@@ -784,3 +786,114 @@ Pdef(\plop, Pbind(
 
 Pdef(\plop).stop
 
+
+
+(
+
+SynthDef(\bufstut, { arg in, out=0, mix=1, amp=1, gate=1, pan=0, freq=200, bufdur=1,stutgate=0, stutdur=1, start_pos=0;
+	var ou;
+	var bufnum;
+	var stutenv;
+	var rd_phase;
+	var rate = 1;
+	in = In.ar(in, 2);
+	bufnum = LocalBuf(s.sampleRate * 2, 2);
+	RecordBuf.ar(in, bufnum, 0, run: Trig.kr(stutgate, stutdur), trigger: stutgate, doneAction: 0, loop: 0);
+	//stutgate = Impulse.kr(stutfreq);
+	
+	//ou = PlayBuf.ar(2, bufnum, BufRateScale.kr(bufnum), stutgate, start_pos*BufSamples.kr(bufnum), 1, doneAction:0);
+	rd_phase = Phasor.ar(stutgate, BufRateScale.kr(bufnum) * rate, 0, stutdur * BufFrames.kr(bufnum));
+	ou = BufRd.ar(2, bufnum, rd_phase, 1);
+	ou = Select.ar(stutgate, [in, ou]);
+	//ou = ou;
+	//ou = ou * EnvGen.ar(Env.asr(0.01,1,0.01),stutgate,doneAction:2);
+
+	//ou = ou * EnvGen.ar(Env.adsr(0.01,0.1,0.8,0.1),gate,doneAction:2);
+	ou = SelectX.ar(mix, [in, ou]);
+	Out.ar(out, ou * amp);
+}, metadata:(specs:(
+	stutgate: \unipolar.asSpec,
+))).add;
+)
+
+(
+
+SynthDef(\bufstut_glitch, { arg in, out=0, mix=0.5, amp=1, gate=1, pan=0, freq=200, bufdur=1,stutgate=0, stutfreq=4, start_pos=0;
+	var ou;
+	var bufnum;
+	var stutenv;
+	var wr_phase, rd_phase, rate=1;
+	in = In.ar(in, 2);
+	bufnum = LocalBuf(s.sampleRate * 2, 2);
+	stutgate = Impulse.kr(stutfreq);
+
+	wr_phase = Phasor.ar(0, BufRateScale.kr(bufnum) * rate, 0, BufFrames.kr(bufnum));
+	rd_phase = Phasor.ar(stutgate, BufRateScale.kr(bufnum) * rate, (wr_phase-0.1)*BufSampleRate.kr(bufnum), BufFrames.kr(bufnum));
+
+	BufWr.ar(in, bufnum, wr_phase, loop:1);
+	ou = BufRd.ar(2, bufnum, rd_phase, 1);
+
+	ou = SelectX.ar(mix, [in, ou]);
+	Out.ar(out, ou * amp);
+}, metadata:(specs:(
+	stutgate: \unipolar.asSpec,
+))).add;
+)
+
+s.sampleRate
+
+
+MultiTap
+
+(
+var num = [4,8];
+num.do {
+	SynthDef("multitap%".format(num).asSymbol, { arg in, out=0, mix=0.5, amp=1, ;
+		var sig;
+		sig = 
+		sig = sig * EnvGen.ar(Env.adsr(0.01,0.1,0.8,0.1),gate,doneAction:2);
+		sig = Pan2.ar(sig, pan, amp);
+		Out.ar(out, sig);
+	}).add;
+}
+)
+
+
+(1..8)*0.125
+b = Buffer.alloc(s, s.sampleRate * 0.125 * 9,2);
+(
+SynthDef(\multitap8, { arg in, out=0, mix=0.5, amp=1, gate=1,
+		del1=1, del2=1, del3=1, del4=1, del5=1, del6=1, del7=1, del8=1, workbufnum;
+	var sigin, sig;
+	var delay = 0.125;
+	var numdelay = 8;
+	var bufnum;
+	sigin = In.ar(in, 2);
+	bufnum = LocalBuf(s.sampleRate * delay * (numdelay+1), 2);
+	bufnum.clear;
+	//bufnum = b;
+	sig = MultiTap.ar(Ref( (1..numdelay) * delay), Ref([del1, del2, del3, del4, del5, del6, del7, del8]), sigin, 1, 0, bufnum);
+	//sig = sig * EnvGen.ar(Env.asr(0.0001,1,0.0001),gate,doneAction:2);
+	sig = SelectX.ar(mix, [sigin, sig]);
+	Out.ar(out, sig);
+}, metadata:(specs:(
+	del1: \amp.asSpec,
+	del2: \amp.asSpec,
+	del3: \amp.asSpec,
+	del4: \amp.asSpec,
+	del5: \amp.asSpec,
+	del6: \amp.asSpec,
+	del7: \amp.asSpec,
+	del8: \amp.asSpec,
+	//workbufnum: (numChannels:2, numFrames: Buffer.alloc(s, s.sampleRate * 0.125 * 9,2),
+)
+))).store;
+)
+
+(
+{
+	var buf = LocalBuf(s.sampleRate * 1);
+	MultiTap.ar(`[0.1, 0.2, 0.3, 0.4], `[0.1, 0.2, 0.4, 0.8],
+		Decay.ar(Dust.ar(2), 0.1, PinkNoise.ar), bufnum: buf)
+}.play
+)

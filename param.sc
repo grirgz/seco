@@ -112,6 +112,7 @@
 };
 
 ~player_get_arg = { arg self, argName;
+	// DEPRECATED
 	var ret;
 	//argName.dump;
 	//self.get_args.do { arg an; an.debug("an====").dump };
@@ -131,6 +132,7 @@
 };
 
 ~player_set_arg = { arg self, argName, val;
+	// DEPRECATED
 	if([\type, \stepline].includes(argName), {
 		self.data[argName] = val;
 	}, {
@@ -3315,6 +3317,27 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 ////////////////////////// Buffer
 
+~class_param_workbuf_controller = (
+	parent: ~class_param_controller,
+	classtype: \workbuf,
+	new: { arg self, player, name, spec, channels=\stereo;
+		self = self.deepCopy;
+	
+		self.get_player = { player };
+		self.buf = BufferPool.alloc(player.uid, name, spec.numFrames, spec.numChannels);
+	
+		self;
+	},
+
+	destructor: { arg self;
+		BufferPool.release(self.buf, self.get_player.uid);
+	},
+
+	vpattern: { arg self;
+		self.buf
+	},
+);
+
 ~make_buf_param = { arg name, default_value, player, spec, channels=\stereo;
 
 	var param;
@@ -3336,7 +3359,8 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		archive_data: [\name, \classtype, \selected, \spec, \has_custom_buffer, \buffer_list_position, \pkey_mode],
 
 		destructor: { arg self;
-			BufferPool.release_client(player.uid)
+			BufferPool.release_client(player.uid);
+			self.buffer_list.do { arg buf; buf.free };
 		},
 
 		do_with_buffer_file_path: { arg self, idx, action;

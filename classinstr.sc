@@ -345,6 +345,7 @@
 	},
 
 	get_data: { arg self;
+		// FIXME: who use this ?
 		var res = IdentityDictionary.new;
 		self.data.keysValuesDo { arg key, val;
 			res[self.rel_namer(key)] = val;
@@ -382,12 +383,18 @@
 		self.param.putAll(self.static_data);
 	},
 
-	help_build_data2: { arg self, modules, datalist=[], static_datalist=();
+	help_build_data2: { arg self, modules, datalist=[], static_datalist=(), param_containers=[];
 		//debug("BEGIN help_build_data2");
 		//self.ordered_args.debug("ordered_args");
 		modules.do { arg mod;
 			self.ordered_args = self.ordered_args ++ mod.get_ordered_args;
 			self.static_data.putAll( mod.get_static_data );
+			self.param_containers.addAll(mod.get_param_containers);
+		};
+		static_datalist.clump(2).do { arg val;
+			if(val[1].subclasstype == \varparam) {
+				self.param_containers.add(val[1]);
+			}
 		};
 		//self.ordered_args.do { arg x; x.debug("=========================\nordered_args"); };
 
@@ -452,7 +459,7 @@
 			sc.put(\val, {
 				[name, datum.name].debug("static_responder");
 				if(datum.subclasstype == \varparam) {
-					self.update_param_list(datum);
+					self.get_player.rebuild_arg_list
 				};
 				self.build_synthdef;
 			});
@@ -461,18 +468,21 @@
 		self.static_responders = resp;
 	},
 
-	update_param_list: { arg self, param_container;
-		var rpl = param_container.get_removed_param_list;
-		var npl = param_container.get_new_param_list;
-		var ordered_args;
-		var data = self.get_player.data;
-		rpl.do { arg key;
-			data[key].destructor;
-			data[key] = nil;
+	get_param_containers: { arg self;
+		self.param_containers;
+	},
+
+	set_param_containers: { arg self, val;
+		self.param_containers = val;
+	},
+
+	rebuild_arg_list: { arg self;
+		self.exported_data = IdentityDictionary.new;
+		self.exported_data.putAll(self.data);
+		self.param_containers.do { arg param;
+			self.exported_data.putAll( param.get_ordered_args )
 		};
-		ordered_args = param_container.get_ordered_args;
-		self.data.putAll(self.ordered_args);
-		// TODO: write player.update_param_list which recursively retrieve params from classinstr
+		self.exported_data;
 	},
 
 	set_param_abs_labels: { arg self;
