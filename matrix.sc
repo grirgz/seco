@@ -657,6 +657,14 @@
 
 );
 
+~class_inlinegen_node_chooser = (
+	parent: ~class_symbol_chooser,
+	my_datalist: { arg self;
+		debug("class_inlinegen_node_chooser: my_datalist");
+		self.get_main.model.inlinegenlib;
+	},
+);
+
 ~class_inlinefx_node_chooser = (
 	parent: ~class_symbol_chooser,
 	my_datalist: { arg self;

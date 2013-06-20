@@ -493,9 +493,18 @@
 	},
 );
 
+~make_module_loader_button = { arg action;
+	Button.new
+		.states_(
+			[["(o)"]]
+		)
+		.maxWidth_(20)
+		.action_( action );
+};
+
 ~class_ci_frame_view = (
 	//FIXME: should be named ~class_frame_view
-	new: { arg self, label, knobs_ctrl, onoff_ctrl, popup1_ctrl, popup2_ctrl, fader_ctrl, display;
+	new: { arg self, label, knobs_ctrl, onoff_ctrl, popup1_ctrl, popup2_ctrl, fader_ctrl, display, loader;
 		self = self.deepCopy;
 
 		self.label_string = label;
@@ -505,6 +514,7 @@
 		self.popup2_ctrl = { popup2_ctrl };
 		self.fader_ctrl = { fader_ctrl };
 		self.display = { display };
+		self.loader = { loader };
 		self.make_gui;
 
 
@@ -555,6 +565,15 @@
 			)
 
 		};
+
+		if(self.loader.notNil) {
+			header.add(
+				~make_module_loader_button.(self.loader),
+				1,
+				stretch: 0
+			);
+		};
+
 		header.add(
 			self.framelabel = StaticText.new
 				.string_(self.label_string);
@@ -575,9 +594,9 @@
 		body = self.make_body;
 		vheader = View.new;
 		vheader.layout = header;
-		vheader.background = Color.gray(0.6);
+		vheader.background = ~color_scheme.frame_header;
 
-		vframe.background = Color.gray(0.7);
+		vframe.background = ~color_scheme.frame_body;
 		vframe.layout = HLayout(
 			VLayout(
 				vheader,
@@ -616,6 +635,80 @@
 	},
 );
 
+~class_inline_container_view = (
+
+	new: { arg self, inline, display;
+		var inline_node;
+		self = self.deepCopy;
+
+		self.inline_ctrl = { inline };
+		//inline_node = inline.get_inline_node;
+
+		self.make_gui;
+
+		self.responder = ~make_class_responder.(self, self.body_view, self.inline_ctrl, [ \inline_node ]);
+
+		self;
+	},
+
+	inline_node: { arg self;
+		if(self.inline_ctrl.get_inline_node.notNil) {
+			self.inline_ctrl.set_all_bus_mode(true);
+			self.inline_ctrl.get_inline_node.module_loader = {
+				{
+					self.inline_ctrl.load_inline_node;
+				}
+			};
+			self.reload_body;
+			self.body_view.onClose = self.body_view.onClose.addFunc{
+				self.inline_ctrl.set_all_bus_mode(false);
+			}
+		} {
+			self.reload_body;
+		}
+	},
+
+	make_body: { arg self;
+		debug("class_inline_container_view:make_body");
+		self.body_view = View.new;
+		self.reload_body;
+		self.body_view;
+	},
+
+	reload_body: { arg self;
+		Task({
+			debug("class_inline_container_view:reload_body");
+			self.body_view.removeAll;
+			if(self.inline_ctrl.get_inline_node.isNil) {
+				self.body = View.new;
+				self.body.maxHeight = 30;
+				self.body.background = ~color_scheme.frame_header;
+				self.body.layout = HLayout(
+					[
+						~make_module_loader_button.({
+							self.inline_ctrl.load_inline_node;
+						}),
+						align: \left
+					]
+				);
+				self.body.layout.margins = 3;
+			} {
+				self.body = self.inline_ctrl.get_inline_node.make_layout;
+			};
+			self.body_view.layout = HLayout(self.body);
+			self.body_view;
+		}).play(AppClock)
+	},
+
+	make_gui: { arg self;
+		debug("class_inline_container_view:make_gui");
+		self.layout = self.make_body;
+		self.layout;
+		
+	},
+
+);
+
 ~class_inline_frame_view = (
 	parent: ~class_ci_frame_view,
 	new: { arg self, inline, display;
@@ -641,7 +734,11 @@
 	},
 
 	inline_node: { arg self;
+		self.inline_ctrl.set_all_bus_mode(true);
 		self.reload_body;
+		self.body_view.onClose = self.body_view.onClose.addFunc{
+			self.inline_ctrl.set_all_bus_mode(false);
+		}
 	},
 
 	make_body: { arg self;

@@ -25,7 +25,9 @@ Window.closeAll;
 	"ci bufosc_filt_spread",
 	"ci samplerfilter2",
 
-	"ci inlinefx",
+	//"ci inlinefx",
+	"ci inlinegen",
+	"ci inline_genfx",
 
 	\bufsin1,
 	\zegrainer,
@@ -82,11 +84,19 @@ Window.closeAll;
 ].collect({arg i; i -> i });
 ~seq.load_modlib( ~modlib );
 
+~inlinegenlib = [
+	\empty,
+	"ci ingen_osc",
+	"ci sin",
+];
+~seq.load_inlinegenlib( ~inlinegenlib );
+
 ~inlinefxlib = [
-	"ci empty_inlinefx_node",
-	"ci infx_rlpf",
+	\empty,
+	"ci infx_filter",
 ];
 ~seq.load_inlinefxlib( ~inlinefxlib );
+
 
 //~samplelib = [
 //	"sounds/perc1.wav",
@@ -897,3 +907,36 @@ SynthDef(\multitap8, { arg in, out=0, mix=0.5, amp=1, gate=1,
 		Decay.ar(Dust.ar(2), 0.1, PinkNoise.ar), bufnum: buf)
 }.play
 )
+
+
+(
+	a = { arg bla=(); bla.postln; 1 };
+)
+a.(nil)
+a.()
+
+(
+a = ();
+b = [bla: 3, rah:5];
+a.putAll(b);
+	
+)
+a
+
+{
+	jjj
+
+}
+
+(
+	{
+		var a = \bla.kr.dump;
+		a.name.postln;
+		a;
+	}.play
+)
+Named
+
+
+
+Synth("s_ci inline_genfx_l1170", [\freq, 300])

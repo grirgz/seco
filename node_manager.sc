@@ -279,6 +279,11 @@
 			~class_inlinefx_node_chooser.new(self.get_main, nil, action)
 		},
 
+		load_inlinegen_node: { arg self, action;
+			debug("node_manager: load_inlinegen_node");
+			~class_inlinegen_node_chooser.new(self.get_main, nil, action)
+		},
+
 		create_default_livenode: { arg self;
 			var livenodename;
 			switch(self.default_newnode[0],

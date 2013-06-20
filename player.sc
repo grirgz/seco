@@ -33,7 +33,7 @@
 		self.data = IdentityDictionary.new;
 		self.data.putAll(self.base_data);
 		if(self.external_player.notNil) {
-			self.external_data = self.external_player.rebuild_arg_list);
+			self.external_data = self.external_player.rebuild_arg_list;
 			if(self.external_data.notNil) {
 				self.data.putAll(self.external_data);
 			};
@@ -1111,7 +1111,7 @@
 		self.modulation = ~class_modulation_manager.new(self);
 		self.effects = ~class_effect_manager.new(self);
 
-		self.external_data = self.external_player.rebuild_arg_list;
+		self.external_data = self.external_player.rebuild_arg_list(false);
 
 		self.build_standard_args(self.external_data.keys);
 		self.base_data[\instrument] = ~make_dynamic_literal_param.(\instrument, { self.external_player.synthdef_name });

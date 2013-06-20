@@ -110,7 +110,10 @@
 	led: Color.newHex("A788BA"),
 	led_ok: Color.newHex("A7BBBA"),
 
-	header_cell: Color.newHex("BBBBA9")
+	header_cell: Color.newHex("BBBBA9"),
+
+	frame_header: Color.gray(0.6),
+	frame_body: Color.gray(0.7),
 
 );
 //~color_scheme = (
@@ -360,6 +363,7 @@ if(~silent_audio2_bus.isNil) {
 	"node_manager",
 	"gui",
 	"classinstr",
+	"ci_pool",
 	"player",
 	"matrix",
 	//"hmatrix",
@@ -569,6 +573,7 @@ if(~silent_audio2_bus.isNil) {
 			patpool: Dictionary.new,
 			samplelist: List.new,
 
+			inlinegenlib: List.new,
 			inlinefxlib: List.new,
 
 			livenodepool: Dictionary.new,
@@ -1028,6 +1033,10 @@ if(~silent_audio2_bus.isNil) {
 
 			self.model.modnodelib = list.collect { arg asso; asso.key };
 			//self.model.effectpool = patpool;
+		},
+
+		load_inlinegenlib: { arg self, list;
+			self.model.inlinegenlib = list;
 		},
 
 		load_inlinefxlib: { arg self, list;

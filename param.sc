@@ -2516,7 +2516,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 						};
 						self.scalar.bus_mode_counter = self.scalar.bus_mode_counter + 1;
 					} {
-						self.scalar.bus_mode_counter = self.scalar.bus_mode_counter - 1;
+						self.scalar.bus_mode_counter = max(self.scalar.bus_mode_counter - 1, 0);
 						if(self.scalar.bus_mode_counter == 0) {
 							debug("make_control_param: set_bus_mode: free bus");
 							self.scalar.bus_mode = false;
