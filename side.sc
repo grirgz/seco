@@ -1401,27 +1401,28 @@
 
 		edit_selected_param: { arg self;
 			var param = self.get_selected_param;
-			switch(param.classtype,
-				\control, {
-					~make_edit_number_view.(main, "edit param", param, [\knob, 0]);
-				},
-				\buf, {
-					var pl = self.get_current_player;
-					//~choose_sample.(main, { arg buf; param.set_val(buf);  }, pl.get_arg(\samplekit).get_val)
-					self.get_current_group.identityHash.debug("edit_selected_param: nodegroup: identityHash");
-					~class_sample_chooser.new(main, 
-						{ arg buf; param.set_val(buf);  },
-						pl.get_arg(\samplekit).get_val,
-						pl,
-						self.get_current_group,
-						param.name
-					)
-				},
-				\samplekit, {
-					~class_samplekit_chooser.new(main, { arg kit; param.set_val(kit);  })
+			~class_player_display.edit_param_value(self.get_main, self.get_current_player, param);
+			//switch(param.classtype,
+			//	\control, {
+			//		~make_edit_number_view.(main, "edit param", param, [\knob, 0]);
+			//	},
+			//	\buf, {
+			//		var pl = self.get_current_player;
+			//		//~choose_sample.(main, { arg buf; param.set_val(buf);  }, pl.get_arg(\samplekit).get_val)
+			//		self.get_current_group.identityHash.debug("edit_selected_param: nodegroup: identityHash");
+			//		~class_sample_chooser.new(main, 
+			//			{ arg buf; param.set_val(buf);  },
+			//			pl.get_arg(\samplekit).get_val,
+			//			pl,
+			//			self.get_current_group,
+			//			param.name
+			//		)
+			//	},
+			//	\samplekit, {
+			//		~class_samplekit_chooser.new(main, { arg kit; param.set_val(kit);  })
 
-				}
-			);
+			//	}
+			//);
 		},
 
 		///// player
@@ -2279,6 +2280,11 @@
 
 				[\edit_selected_param, {
 					self.edit_selected_param;
+				}],
+
+				[\alternate_edit_selected_param, {
+					var param = self.get_selected_param;
+					~class_player_display.edit_param_value(self.get_main, self.get_current_player, param, true);
 				}],
 
 				///// new node

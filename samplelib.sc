@@ -95,6 +95,39 @@
 		path;
 	},
 
+	bogus_absolute_path_to_relative_path: { arg self, path, crash_on_error=true;
+		var oldval = path;
+		var pathname = PathName(oldval);
+		var newval = oldval;
+		if(pathname.isRelativePath.not) {
+
+			//"~/Musique/samplekit/bla/bli.wav".standardizePath.findReplace("~/Musique/samplekit".standardizePath, ~seco_root_path +/+ "samplekit")
+			var oldmusique_path = "/home/ggz/Musique";
+			var oldabs_path = "/home/ggz/Musique/sc";
+			var oldsound_path = "/home/ggz/share/SuperCollider";
+			var abspath;
+			oldval.debug("make_buf_param: load_data: Warning: sample has not a relative path");
+
+			case
+				{ oldval.beginsWith(oldabs_path) } {
+					newval = pathname.asRelativePath(oldabs_path)
+				}
+				{ oldval.beginsWith(oldmusique_path) } {
+					newval = pathname.asRelativePath(oldmusique_path)
+				}
+				{ oldval.beginsWith(oldsound_path) } {
+					newval = pathname.asRelativePath(oldsound_path)
+				};
+
+			abspath = ~seco_root_path +/+ newval;
+			if(abspath.pathExists != \file and: { crash_on_error == true }) {
+				[oldval, newval, abspath].debug("Error: Can't find sample in old path and can't find it in new path");
+				"Error".errorerror
+			};
+		};
+		newval
+	},
+
 	slot_to_startPos: { arg self, slot, samplekit;
 		var path = self.samplekit_bank[samplekit][slot];
 		if(path.isString) {

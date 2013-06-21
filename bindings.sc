@@ -77,6 +77,8 @@
 		["assign_global_midi_knob", \kb, \ctrlalt, "k"],
 		["forward_in_record_history", \kb, 0, \end],
 		["backward_in_record_history", \kb, 0, \home],
+		["edit_selected_param", \kb, 0, \npenter],
+		["alternate_edit_selected_param", \kb, \ctrl, \npenter],
 	
 	],
 );
@@ -138,7 +140,6 @@
 		~common_bindings.side_shared ++
 		~common_bindings.windowing ++
 		[
-			["edit_selected_param", \kb, 0, \npenter],
 			["change_param_kind", \kb, \altshift, "s"],
 
 	],
@@ -220,7 +221,6 @@
 		["edit_modulator", \kb, \alt, "m"],
 		["change_param_kind", \kb, \altshift, "s"],
 		["remove_effect", \kb, \alt, \delete],
-		["edit_selected_param", \kb, 0, \npenter],
 		["edit_free_defer_time", \kb, \alt, "d"],
 		["select_param_preset", \kb, \alt, \kbnumline],
 	],
@@ -241,7 +241,6 @@
 		["change_mod_kind", \kb, \altshift, "d"],
 		["remove_modulator", \kb, \alt, \delete],
 		["disconnect_modulator", \kb, 0, \delete],
-		["edit_selected_param", \kb, 0, \npenter],
 		["select_param_preset", \kb, \alt, \kbnumline],
 		//["edit_selected_param", \kb, 0, \enter],
 
@@ -281,7 +280,6 @@
 		["toggle_solo_selected", \kb, \ctrl, \f7],
 		["midi.toggle_solo_selected", \midi, 0, \pause],
 		["panic", \kb, 0, \f8],
-		["edit_selected_param", \kb, 0, \npenter],
 
 
 		["copy_node", \kb, \ctrl, "c"],

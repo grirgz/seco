@@ -278,7 +278,7 @@
 		param_name;
 	},
 
-	edit_param_value: { arg self, main, player, param;
+	edit_param_value: { arg self, main, player, param, alternate=false;
 		param = param ?? { self.get_selected_param };
 		main = main ?? self.get_main;
 		debug("class_player_display: edit_param_value");
@@ -289,14 +289,23 @@
 			\buf, {
 				var pl = player ?? self.get_current_player;
 				//~choose_sample.(main, { arg buf; param.set_val(buf);  }, pl.get_arg(\samplekit).get_val)
-				self.get_current_group.identityHash.debug("edit_selected_param: nodegroup: identityHash");
-				~class_sample_chooser.new(main, 
-					{ arg buf; param.set_val(buf);  },
-					pl.get_arg(\samplekit).get_val,
-					pl,
-					self.get_current_group, // not used
-					param.name
-				)
+				if(alternate == true) {
+					~open_file_dialog.({ arg file;
+						if(file.notNil) {
+							file = ~samplekit_manager.bogus_absolute_path_to_relative_path(file);
+							param.set_val(file);
+						}
+					})
+				} {
+					self.get_current_group.identityHash.debug("edit_selected_param: nodegroup: identityHash");
+					~class_sample_chooser.new(main, 
+						{ arg buf; param.set_val(buf);  },
+						pl.get_arg(\samplekit).get_val,
+						pl,
+						self.get_current_group, // not used
+						param.name
+					);
+				};
 			},
 			\samplekit, {
 				~class_samplekit_chooser.new(main, { arg kit; param.set_val(kit);  })
@@ -305,9 +314,8 @@
 		);
 	},
 
-	edit_selected_param: { arg self;
-		self.edit_param_value
-	
+	edit_selected_param: { arg self, main, player, param, alternate=false;
+		self.edit_param_value(main, player, param, alternate)
 	},
 
 	get_bindings: { arg self, get_top_player, get_param;

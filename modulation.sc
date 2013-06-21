@@ -742,6 +742,10 @@
 				self.edit_selected_param;
 			}],
 
+			[\alternate_edit_selected_param, {
+				self.edit_selected_param(nil,nil,nil,true);
+			}],
+
 
 			[\disconnect_modulator, {
 				self.disconnect_modulator(self.modmixer_ctrl.selected_slot);
@@ -2386,6 +2390,10 @@
 
 			[\edit_selected_param, {
 				self.edit_selected_param;
+			}],
+
+			[\alternate_edit_selected_param, {
+				self.edit_selected_param(nil,nil,nil,true);
 			}],
 
 			[\load_effect, {

@@ -2077,6 +2077,21 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			self.changed(\val);
 		},
 
+		///////////////////////// inline
+
+		set_inline_synthfun: { arg self, val;
+			self.inline_synthfun = val;
+			self.inline_synthfun_thunk = ArgThunk.new(val);
+		},
+
+		get_inline_synthfun: { arg self;
+			self[\inline_synthfun];
+		},
+
+		get_inline_synthfun_thunk: { arg self;
+			self[\inline_synthfun_thunk];
+		},
+
 		///////////////////////// kinds
 
 		seq: (
@@ -3448,35 +3463,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				self.load_buffers(data[\buffer_list_size]);
 				self.val = data[\val];
 			} {
-				var oldval = data[\val];
-				var pathname = PathName(oldval);
-				newval = oldval;
-				if(pathname.isRelativePath.not) {
-
-					//"~/Musique/samplekit/bla/bli.wav".standardizePath.findReplace("~/Musique/samplekit".standardizePath, ~seco_root_path +/+ "samplekit")
-					var oldmusique_path = "/home/ggz/Musique";
-					var oldabs_path = "/home/ggz/Musique/sc";
-					var oldsound_path = "/home/ggz/share/SuperCollider";
-					var abspath;
-					oldval.debug("make_buf_param: load_data: Warning: sample has not a relative path");
-
-					case
-						{ oldval.beginsWith(oldabs_path) } {
-							newval = pathname.asRelativePath(oldabs_path)
-						}
-						{ oldval.beginsWith(oldmusique_path) } {
-							newval = pathname.asRelativePath(oldmusique_path)
-						}
-						{ oldval.beginsWith(oldsound_path) } {
-							newval = pathname.asRelativePath(oldsound_path)
-						};
-
-					abspath = ~seco_root_path +/+ newval;
-					if(abspath.pathExists != \file) {
-						[data[\val], newval, abspath].debug("Error: Can't find sample in old path and can't find it in new path");
-						"Error".errorerror
-					};
-				};
+				newval = ~samplekit_manager.bogus_absolute_path_to_relative_path(data[\val]);
 				self.set_val(newval);
 			}
 		},
@@ -3815,6 +3802,35 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	//		self.val = val;	
 	//		self.changed(\val)
 	//	}
+	//},
+);
+
+~class_param_ir_kernel_controller = (
+
+	// use normal buffer param for the moment
+
+	//parent: ~class_param_controller,
+	//classtype: \kernel,
+	//new: { arg self, player, name, spec, channels=\stereo;
+	//	self = self.deepCopy;
+	//
+	//	self.get_player = { player };
+	//	//self.buf = //BufferPool.alloc(player.uid, name, spec.numFrames, spec.numChannels);
+	//
+	//	self;
+	//},
+
+	//load_kernel_from_file: { arg self, path;
+	//	self.buf = Buffer.read(s, path);
+	//	BufferPool.alloc(self.get_player.uid, name, spec.numFrames, spec.numChannels);
+	//},
+
+	//destructor: { arg self;
+	//	BufferPool.release(self.buf, self.get_player.uid);
+	//},
+
+	//vpattern: { arg self;
+	//	self.buf
 	//},
 );
 

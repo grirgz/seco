@@ -38,6 +38,9 @@
 				self.data.putAll(self.external_data);
 			};
 		};
+		if(self.compositor.notNil) {
+			self.data.putAll(self.compositor.data);
+		};
 		self.build_sourcepat;
 		self.build_real_sourcepat;
 

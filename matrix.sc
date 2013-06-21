@@ -1,6 +1,5 @@
 
 
-(
 
 ~make_matrix_cell = { arg parent, label;
 	var bt;
@@ -1344,4 +1343,30 @@
 //~choose_sample.(nil, { arg x; x.debug("yeak") });
 //~save_pat.(nil, { arg x; x.debug("yeak") });
 
-)
+///////////////////////////////////
+
+~file_dialog = { arg action, save=false, path, multiple=false, directory=false, confirm=true;
+	var str;
+	var result;
+	path = path ?? ~seco_root_path;
+	str = "";
+	str = str ++ if(save) { "--save " } { "" };
+	str = str ++ if(multiple) { "--multiple " } { "" };
+	str = str ++ if(directory) { "--directory " } { "" };
+	str = str ++ if(confirm) { "--confirm-overwrite " } { "" };
+
+	fork{
+		result = "zenity --file-selection --filename='%' %".format(path, str).debug("cmd").unixCmdGetStdOut;
+		result = result.drop(-1);
+		if(result == "") { result = nil };
+		action.(result);
+	};
+};
+
+~save_file_dialog = { arg action, path, multiple=false, directory=false, confirm=true;
+	~file_dialog.(action, true, path, false, false, true);
+};
+
+~open_file_dialog = { arg action, path, multiple=false, directory=false, confirm=true;
+	~file_dialog.(action, false, path, false, false, true);
+};

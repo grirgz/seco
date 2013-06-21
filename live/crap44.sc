@@ -104,13 +104,13 @@ SynthDef( "conv-test", { arg kernel, trig=0;
 
         //must have power of two framesize
         Out.ar(0,sig);
-}).send(s)
+}).add
 
 )
 
-b = Buffer.read(s, "/home/ggz/Musique/ir/King Tubby/kingtubby-fm1a.wav")
-b = Buffer.read(s, "/home/ggz/Musique/ir/Classic/classic-fm1b.wav")
-b = Buffer.read(s, "/home/ggz/Musique/ir/King Tubby/kingtubby-tm1a.wav")
+b = Buffer.read(s, "/home/ggz/Musique/sc/ir/King Tubby/kingtubby-fm1a.wav")
+b = Buffer.read(s, "/home/ggz/Musique/sc/ir/Classic/classic-fm1b.wav")
+b = Buffer.read(s, "/home/ggz/Musique/sc/ir/King Tubby/kingtubby-tm1a.wav")
 
 x = Synth.new("conv-test",[\kernel,b.bufnum]);
 
@@ -133,6 +133,7 @@ x.set(\trig,1); // after this trigger, the change will take effect.
 
 
 { SoundIn.ar([0,1])  }.play
+{ SoundIn.ar([2,3])  }.play
 
 
 

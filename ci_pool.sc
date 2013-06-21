@@ -1492,9 +1492,9 @@
 			//};
 			//sig = SinOsc.ar(i.freq);
 
-			\freq.kr.poll(label:"FREQ");
-			i.freq.poll(label:"i.Freq");
-			sig.poll;
+			//\freq.kr.poll(label:"FREQ");
+			//i.freq.poll(label:"i.Freq");
+			//sig.poll;
 			//SinOsc.ar(i.freq);
 			//sig.poll;
 			sig = self.infx.inline_synthfun.(sig, args);

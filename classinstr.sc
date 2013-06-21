@@ -243,6 +243,7 @@
 		i = args.copy;
 		self.synthdef_name.debug("class_instr: get_synthargs =================================");
 		i.keys.debug("class_instr: herited args");
+
 		self.data.keysValuesDo { arg name, datum;
 			var control_name;
 			[name, datum.name].debug("class_instr.get_synthargs: data");
@@ -257,6 +258,13 @@
 						i[name] = control_name.kr(datum.default_value);
 					}
 				);
+				if(self.get_player.compositor.notNil) {
+					//[name, datum.name, control_name].debug("setting argthunk +++++++++++++");
+					i[name] = self.get_player.compositor.compose_synth_param(name, i[name]);
+					if(datum.get_inline_synthfun_thunk.notNil) {
+						i[name] = datum.get_inline_synthfun_thunk.value(i[name])
+					}
+				}
 			}
 		};
 		self.simple_args.keysValuesDo { arg name, def;
@@ -707,10 +715,10 @@
 			var i = self.get_synthargs(args);
 			var sig;
 			i.debug("III");
-			args.debug("ARGS");
-			i.freq.debug("FREQ");
-			i.freq.poll(label:"osc_freq");
-			\freq.kr.poll(label:"osc_ barefreq");
+			//args.debug("ARGS");
+			//i.freq.debug("FREQ");
+			//i.freq.poll(label:"osc_freq");
+			//\freq.kr.poll(label:"osc_ barefreq");
 
 			sig = Instr(\ci_oscillator).value((
 				midinote:i.freq.cpsmidi, 

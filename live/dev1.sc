@@ -63,6 +63,7 @@ Window.closeAll;
 	\limiter,
 	\bufstut,
 	\multitap8,
+	\ir_reverb,
 ].collect({arg i; i -> i });
 ~seq.load_effectlib( ~effectlib );
 
@@ -798,6 +799,7 @@ Pdef(\plop).stop
 
 
 
+
 (
 
 SynthDef(\bufstut, { arg in, out=0, mix=1, amp=1, gate=1, pan=0, freq=200, bufdur=1,stutgate=0, stutdur=1, start_pos=0;
@@ -940,3 +942,103 @@ Named
 
 
 Synth("s_ci inline_genfx_l1170", [\freq, 300])
+
+
+
+(
+Dialog.openPanel({ arg path;
+        path.postln;
+},{
+        "cancelled".postln;
+});
+)
+
+2048*16
+(
+SynthDef(\ir_reverb, { arg in, out=0, mix=0.5, amp=1, gate=1, mbufnum, t_change_kernel;
+	var sigin, sig;
+	var kernel = mbufnum;
+	sigin = In.ar(in, 2);
+	sig = Convolution2.ar(sigin,kernel,t_change_kernel, 2048, 0.5)/8;
+	//sig = sig * EnvGen.ar(Env.asr(0.0001,1,0.0001),gate,doneAction:2);
+	sig = sig * amp;
+	sig = SelectX.ar(mix, [sigin, sig]);
+	Out.ar(out, sig);
+}, metadata:(specs:(
+	t_change_kernel: \unipolar.asSpec,
+))).store;
+)
+
+
+
+~open_file_dialog.({})
+
+
+
+SinOsc.ar(\bla.kr)
+
+(
+
+	a = { arg in;
+
+		SinOsc.ar(\bla.kr) * in;
+	};
+	b = { arg iin; var x = a.(iin); Thunk.new({ x })};
+)
+b.value(2)
+
+	a = { arg in;
+
+		"calc".postln;
+		Rand(100,300) * in;
+	};
+	b = { arg iin; Thunk.new({ a.(iin) })};
+	~a = b.value(4);
+	//~a = { Rand(100,1000) };
+
+(
+	~a = ArgThunk.new({ arg in; Rand(100,110)*in });
+	//~a.value(3);
+	
+	{
+		var a, b, c;
+		var sig;
+
+		sig = [
+			SinOsc.ar(~a.value(1)),
+			SinOsc.ar(~a.value(1)),
+			SinOsc.ar(~a.value(6)),
+		];
+		sig = Splay.ar(sig, 1);
+		sig = sig * 0.1
+
+
+	}.play
+)
+
+
+
+
+Fdef(\x, { |x=10| x.rand });
+
+Fdef(\x).value
+
+
+~mythunk = { arg fun;
+	(
+		eval: {
+
+		}
+
+	)
+	
+}
+
+
+Thunk
+(
+	{
+	
+UGen.buildSynthDef.postln;
+}.play
+)
