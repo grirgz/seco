@@ -40,7 +40,7 @@
 	hlayout = HLayoutView.new(vlayout, Rect(0,0,size.x,size.y/2));
 	slider = Slider(vlayout, Rect(0,0,size.x,5));
 	txt_midi_label = StaticText.new(hlayout, Rect(0,0,bsize-7,size.y/2));
-	kind = StaticText.new(hlayout, Rect(0,0,bsize,size.y/2));
+	kind = StaticText.new(hlayout, Rect(0,0,bsize+10,size.y/2));
 	txt_midi_val = StaticText.new(hlayout, Rect(0,0,(size.x-(bsize*2)-15)/2,size.y/2));
 	paramval = StaticText.new(hlayout, paramval_size);
 
@@ -102,7 +102,7 @@
 				if([\stepline,\sampleline,\noteline].includes(self.classtype)) {
 					""
 				} {
-					~param_kind_to_string.(self.current_kind);
+					~param_kind_to_string.(self.current_kind, self.get_modulation_mode);
 				}
 			};
 		},

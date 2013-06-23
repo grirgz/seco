@@ -257,7 +257,8 @@
 							dragsink.string = View.currentDrag;
 							[View.currentDrag, self.controller.name, idx].debug("CONNECT MOD");
 							self.controller.get_player.modulation.connect_modulator(View.currentDrag, self.controller.name, idx);
-							self.controller.change_kind(\modulation);
+							//self.controller.change_kind(\modulation);
+							self.controller.set_modulation_mode(true);
 						}
 					})
 					.mouseDownAction_({ arg view, x, y, modifier, buttonNumber, clickCount;

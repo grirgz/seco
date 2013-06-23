@@ -551,8 +551,9 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 };
 
-~param_kind_to_string = { arg kind;
-	switch(kind,
+~param_kind_to_string = { arg kind, modulation_mode=false;
+	var res;
+	res = switch(kind,
 		\seq, { "seq" },
 		\seg, { "sg" },
 		\scalar, { "sca" },
@@ -563,7 +564,11 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		\recordbus, { "rbu" },
 		\preset, { "pre" },
 		{ "..." }
-	)
+	);
+	if(modulation_mode == true) {
+		res = res ++ "M";
+	};
+	res;
 };
 
 ~make_edit_number_view = { arg main, name, param, midi_cc, tempo_midi; // tempo_midi is a hack waiting to be taken out of the general code
@@ -1996,8 +2001,12 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		bar_length: bar_length,
 		default_val: default_value,
 		pkey_mode: false,
+		modulation_mode: false,
 		muted: false,
-		archive_data: [\name, \classtype, \current_kind, \spec, \selected, \selected_cell, \default_val, \noteline, \muted, \pkey_mode],
+		archive_data: [
+			\name, \classtype, \current_kind, \spec, \selected, \selected_cell, \default_val, \noteline, \muted, 
+			\pkey_mode, \modulation_mode,
+		],
 		archive_kind: [\seq, \scalar, \preset, \bus, \scoreseq, \synchrone, \synchrone_rate, \recordbus], // modulation use scalar data
 
 		get_player: { arg self;
@@ -2029,7 +2038,9 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 		load_data: { arg self, data;
 			self.archive_data.do {
 				arg key;
-				self[key] = data[key];
+				if(data[key].notNil) {
+					self[key] = data[key];
+				}
 			};
 			self.archive_kind.do { arg kind;
 				[\val, \selected_cell, \record].do { arg key;
@@ -2040,7 +2051,15 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			};
 			self.scalar.set_val( data[\scalar][\val] ); // to update bus in bus mode
 			self[\seq][\initialized] = data.seq.initialized;
-			self.current_kind = nil; self.change_kind(data[\current_kind]);
+
+			if(data[\current_kind] == \modulation) {
+				// backward compatibility
+				self.current_kind = \scalar;
+				self.set_modulation_mode(true);
+			} {
+				self.current_kind = nil; self.change_kind(data[\current_kind]);
+			}
+
 		},
 
 		destructor: { arg self;
@@ -2533,7 +2552,19 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 		set_pkey_mode: { arg self, set=true;
 			self.pkey_mode = set;
+			self.update_vpattern;
 			self.changed(\kind);
+		},
+
+		set_modulation_mode: { arg self, set=true;
+			self.modulation_mode = set;
+			self.update_vpattern;
+			self.changed(\kind);
+		},
+
+		get_modulation_mode: { arg self;
+			self.modulation_mode.debug("make_control_param: get_modulation_mode");
+			self.modulation_mode;
 		},
 
 		refresh: { arg self;
@@ -2579,6 +2610,9 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			kind = self.current_kind;
 			mode = player.get_mode;
 			self.name.debug("class_param_controller: update_vpattern");
+
+			// use the value in the score, return nil if no value specified in score
+			// for special type of param only, regular one use \scoreseq kind
 			score_val = switch(self.name,
 				\dur, {
 					{ arg ev;
@@ -2629,6 +2663,9 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 					nil
 				}
 			);
+
+			// if in pkey mode, use the value given by the composed pattern
+			// else give the value specified by the current kind
 			pat_val = 
 				if(self.pkey_mode) {
 					{ arg self, ev;
@@ -2746,20 +2783,26 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 							}
 						},
 						\modulation, {
+							// deprecated, use modulation_mode now
+							//{ arg self, ev;
+							//	var bus;
+							//	if(ev[\ppatch].notNil) {
+							//		bus = ev[\ppatch].get_mod_bus(player.uname, self.name);
+							//		if(bus.isNil or:{bus.index.isNil}) { // why bus index can be freed ?
+							//			[player.uname, self.name, ev].debug("============== bus is nil: ev");
+							//			ev = self.scalar.val.yield;
+							//		} {
+							//			ev = bus.asMap.yield;
+							//		}
+							//	} {
+							//		[ev, player.uname, self.name].debug("param modulation: ppatch not found");
+							//		ev = self.scalar.val.yield;
+							//	};
+							//};
+
 							{ arg self, ev;
-								var bus;
-								if(ev[\ppatch].notNil) {
-									bus = ev[\ppatch].get_mod_bus(player.uname, self.name);
-									if(bus.isNil or:{bus.index.isNil}) { // why bus index can be freed ?
-										[player.uname, self.name, ev].debug("============== bus is nil: ev");
-										ev = self.scalar.val.yield;
-									} {
-										ev = bus.asMap.yield;
-									}
-								} {
-									[ev, player.uname, self.name].debug("param modulation: ppatch not found");
-									ev = self.scalar.val.yield;
-								};
+								[player.uname, self.name].debug("ERROR: modulation kind is DEPRECATED");
+								self.scalar.val.yield;
 							}
 						},
 						\bus, {
@@ -2799,6 +2842,50 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 					}
 				}
 			};
+
+			// used as carrier when param is modulated
+			self.get_vpattern_carrier_value = if(score_val.isNil) {
+				pat_val;
+			} {
+				if(mode == \stepline) {
+					pat_val;
+				} {
+					{ arg self, ev;
+						var val;
+						val = score_val.(ev);
+						if(val.isNil) {
+							ev = pat_val.(self, ev);
+						} {
+							ev = val.yield;
+						};
+					}
+				}
+			};
+
+			self.get_vpattern_value = if(self.get_modulation_mode) {
+				{ arg self, ev;
+					var bus;
+					if(ev[\ppatch].notNil) {
+						bus = ev[\ppatch].get_mod_bus(player.uname, self.name);
+						if(bus.isNil or:{bus.index.isNil}) { // why bus index can be freed ?
+							var val;
+							[player.uname, self.name, ev].debug("============== bus is nil: ev");
+							// no modulation bus found, fall back to carrier pattern
+							ev = self.get_vpattern_carrier_value(ev);
+							//ev = self.scalar.val.yield;
+						} {
+							ev = bus.asMap.yield;
+						}
+					} {
+						var val;
+						[ev, player.uname, self.name].debug("param modulation: ppatch not found");
+						// no modulation found, fall back to carrier pattern
+						ev = self.get_vpattern_carrier_value(ev);
+					};
+				}
+			} {
+				self[\get_vpattern_carrier_value]
+			}
 			
 		},
 
@@ -2810,6 +2897,17 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 				var repeat = ~general_sizes.safe_inf;
 				repeat.do { arg x;
 					ev = self.get_vpattern_value(ev);
+				}
+			});
+		},
+
+		vpattern_carrier: { arg self; 
+			//self.update_vpattern; // FIXME: is needed ?
+
+			Prout({ arg ev;
+				var repeat = ~general_sizes.safe_inf;
+				repeat.do { arg x;
+					ev = self.get_vpattern_carrier_value(ev);
 				}
 			});
 		},

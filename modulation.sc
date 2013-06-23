@@ -43,7 +43,14 @@
 	},
 
 	kind: { arg self, obj;
-		self.kind_label.string = "(%)".format(self.controller.param_ctrl.current_kind);
+		//self.kind_label.string = "(%)".format(self.controller.param_ctrl.current_kind);
+		self.kind_label.string = "(%)".format(
+			if( self.controller.param_ctrl.get_modulation_mode ) {
+				"% - MOD".format(self.controller.param_ctrl.current_kind)
+			} {
+				self.controller.param_ctrl.current_kind
+			}
+		);
 	},
 
 	selected_slot: { arg self, obj;
@@ -812,9 +819,10 @@
 			[\change_modulated_param_kind, {
 				var param = self.param_ctrl;
 				if(param.notNil) {
-					~class_symbol_chooser.new(self.get_main, [\scalar,\modulation], { arg kind;
-						param.change_kind(kind);
-					}, param.current_kind)
+					param.set_modulation_mode(param.get_modulation_mode.not);
+					//~class_symbol_chooser.new(self.get_main, [true,false\modulation], { arg kind;
+					//	param.change_kind(kind);
+					//}, param.current_kind)
 				}
 			}],
 
@@ -1528,7 +1536,8 @@
 				mixerarglist = List[
 					\instrument, mixer_synthdef_name,
 					//\ppatch, Pfunc{ppatch},
-					\carrier, Pfunc{ player.get_arg(key).get_val },
+					//\carrier, Pfunc{ player.get_arg(key).get_val },
+					\carrier, player.get_arg(key).vpattern_carrier,
 					\out, make_note_out_bus.(out_bus_name, mixer_group_name),
 				];
 
@@ -1536,7 +1545,8 @@
 				mixerarglist = List[
 					//\instrument, mixer_synthdef_name,
 					\group, Pfunc{ arg ev; ev[\ppatch].global_group[mixer_group_name] },
-					\carrier, Pfunc{ player.get_arg(key).get_val },
+					//\carrier, Pfunc{ player.get_arg(key).get_val },
+					\carrier, player.get_arg(key).vpattern_carrier,
 					\out, make_global_out_bus.(out_bus_name, mixer_group_name),
 				];
 			};
