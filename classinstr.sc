@@ -260,10 +260,7 @@
 				);
 				if(self.get_player.compositor.notNil) {
 					//[name, datum.name, control_name].debug("setting argthunk +++++++++++++");
-					i[name] = self.get_player.compositor.compose_synth_param(name, i[name]);
-					if(datum.get_inline_synthfun_thunk.notNil) {
-						i[name] = datum.get_inline_synthfun_thunk.value(i[name])
-					}
+					i[name] = self.get_player.compositor.compose_synth_param(control_name, i[name]);
 				}
 			}
 		};
@@ -402,6 +399,42 @@
 		ret;
 	},
 
+	build_freq_spread_array: { arg self, i, freq;
+		if(i.enable_pitch_spread == 1) {
+			var array = self.build_spread_array_by_kind(i.voices, i.spread_kind);
+			array.debug("spread array");
+			freq = (freq.cpsmidi + (i.pitch_spread * array)).midicps;
+		} {
+			freq = freq ! i.voices;
+		};
+		freq;
+	},
+
+	build_spread_array_for_param_with_args: { arg self, paramkey;
+		//TODO
+	},
+
+	build_spread_array_for_param: { arg self, i, key, enabled_key, spread_key;
+		var enabled, paramval, param, param_spread, res;
+		enabled_key = enabled_key ?? "enable_%_spread".format(key).asSymbol;
+		spread_key = spread_key ?? "%_spread".format(key).asSymbol;
+		enabled = i[enabled_key].();
+		paramval = i[key].();
+		param = self.param[key];
+		param_spread = i[spread_key].();
+		res;
+		[enabled_key, enabled].debug("BOUBOU");
+		if(enabled == 1) {
+			var array = self.build_spread_array_by_kind(i.voices, i.spread_kind);
+			[array, param_spread, param.spec.range].debug("build_spread_array_for_param: BOUH: range");
+			res = (paramval + (param_spread * param.spec.range * array));
+		} {
+			res = paramval ! i.voices;
+		};
+		res;
+	},
+
+
 	//////////////////////
 
 	destructor: { arg self;
@@ -538,6 +571,10 @@
 		var synthdef_name;
 		//self.synthdef_name = self.synthdef_basename ++ self.synthdef_name_suffix;
 		if(self.freeze_build_synthdef.not) {
+
+			if(self.get_player.compositor.notNil) {
+				self.get_player.compositor.reset_inline_synthfun_thunks;
+			};
 
 			self.synthdef_name = "%_%".format(self.synthdef_basename, self.get_player.uname);
 			self.synthdef_name.debug("REBUILD SYNTH");
@@ -2366,6 +2403,126 @@
 //////////////////////////////////////////////////////
 
 
+~class_ci_internal_modulator = (
+	parent: ~class_instr,
+	synth_rate: \ar,
+	new: { arg self, main, player, namer, oscs;
+		self = self.deepCopy;
+
+		self.get_main = { main };
+		self.get_player = { player };
+		self.namer = { namer };
+		self.oscs = { oscs };
+		self.synthdef_name = \ci_internal_modulator;
+
+		self.modulation_keys = [\ring, \phase,\wt_pos];
+
+		self.build_data;
+		self.simple_args = (gate:1, doneAction:2);
+	
+		self;
+	},
+
+	build_data: { arg self;
+		var main = self.get_main;
+		var player = self.get_player;
+		var specs = self.get_specs;
+		debug("class_ci_internal_modulator.build_data");
+
+		self.enabled_ctrl = IdentityDictionary.new;
+		self.enabled_static_data = IdentityDictionary.new;
+		self.mod_ctrl = IdentityDictionary.new;
+		self.mod_ordererd_args = List.new;
+
+		self.modulation_keys.collect { arg key;
+			var name;
+			self.enabled_ctrl[key] = self.oscs.collect {  arg osc, idx;
+				var param;
+				var name = "enabled_mod_%_osc_%".format(key, idx).asSymbol;
+				param = ~class_param_static_controller.new(name, specs[\onoff], 0);
+				self.enabled_static_data[ name ] = param;
+				param;
+			};
+			name = "intmod_%".format(key).asSymbol;
+			self.mod_ctrl[key] = ~make_control_param.(main, player, name, \scalar, 0, \unipolar.asSpec);
+			self.mod_ordererd_args.add(name);
+			self.mod_ordererd_args.add(self.mod_ctrl[key]);
+			
+		};
+
+		self.help_build_data(
+			self.mod_ordererd_args ++
+			self.make_control_params([
+				[\intmod_pitch, specs[\pitch], 0.5],
+			]),
+			self.enabled_static_data,
+			[
+				//self.insertfxs,
+			],
+		);
+	},
+
+	make_layout: { arg self;
+		var modkinds;
+		var intmod;
+		modkinds = self.modulation_keys.collect { arg key;
+			(
+				label: key.asString,
+				mod_ctrl: self.mod_ctrl[key],
+				oscs: self.enabled_ctrl[key],
+			)
+		};
+		//modkinds.debug("ouais c'est le bordel");
+		intmod = ~class_internal_modulator_gui.new(self.param[\intmod_pitch], modkinds);
+		self.layout = intmod.layout;
+		self.layout;
+	},
+
+	modulate: { arg self, key, idx, in;
+		[key, idx].debug("class_ci_internal_modulator.modulate");
+		{ arg args;
+			var i = self.get_synthargs(args);
+			var osc;
+
+			osc = SinOsc.ar((i.intmod_pitch + i.freq.cpsmidi).midicps);
+			//osc = self.osc_ugen;
+
+			if(self.enabled_ctrl[key][idx].get_val == 1) {
+				switch(key,
+					\phase, {
+						in + (osc * i.intmod_phase * 2 * in)
+					},
+					\ring, {
+						in * (osc * i.intmod_ring)
+					},
+					\wt_pos, {
+						in
+						// TODO: casse les couilles
+					},
+					{
+						in
+					}
+				)
+			} {
+				in
+			}
+
+		}
+	},
+
+	synthfun: { arg self;
+		{ arg args;
+			var i = self.get_synthargs(args);
+			var osc;
+
+			osc = SinOsc.ar((i.intmod_pitch + i.freq.cpsmidi).midicps);
+			self.osc_ugen = osc;
+			osc;
+
+		}
+	},
+
+);
 
 ~class_ci_gens_filter2 = (
 	parent: ~class_instr,
@@ -2387,11 +2544,13 @@
 			~class_ci_insertfx.new(main, player, self.make_namer("insfx%_".format(idx)));
 		};
 
+		self.internal_modulator = ~class_ci_internal_modulator.new(main, player, self.make_namer, self.oscs);
+
 		self.voices_keys = [\pitch_spread, \wt_pos_spread, \osc_intensity_spread, \arg1_spread];
 		self.voices_panel = ~class_voices_panel.new(self, self.voices_keys);
 
 		self.master = ~class_ci_master_dadsr.new(main, player);
-		self.modules = [self.master] ++ self.oscs ++ self.filters ++ self.insertfxs;
+		self.modules = [self.master, self.internal_modulator] ++ self.oscs ++ self.filters ++ self.insertfxs;
 
 		self.tab_panel = ~class_ci_tabs_modfx.new(self, main, player, 
 			[
@@ -2545,6 +2704,7 @@
 			keyval[1].name.debug("ORDERED ARGS");
 		};
 
+
 		//self.static_data = IdentityDictionary.new;
 		//self.modules.collect { arg mo;
 		//	self.static_data.putAll(mo.get_static_data);
@@ -2697,7 +2857,10 @@
 						//debug("****************************************** LAYOUT master");
 					VLayout(*
 						[
-							[self.master.make_layout, stretch:0],
+							HLayout(
+								[self.internal_modulator.make_layout],
+								[self.master.make_layout, stretch:0],
+							)
 						] ++
 						//[self.make_layout_routing, stretch:0],
 							//debug("****************************************** LAYOUT fx");
@@ -2744,23 +2907,33 @@
 			var f1_out, f2_out;
 			var feedback, feedback1 = 0, feedback2 = 0;
 			var dout;
+			var freq;
 
 			//[1,2,4].sum
 			//[[1,2],[2,4],[4,6]].sum
 			//[[[1.1,2.1],[1,2]],[[2.1,4.1],[2,4]]].flop[0].sum
 
-			oscs = self.oscs.collect { arg osc;
-				var freq;
+			freq = (i.freq.cpsmidi + i.pitchbend).midicps;
+			freq = self.build_freq_spread_array(i, freq);
+
+			oscs = self.oscs.collect { arg osc, idx;
+				var osc_freq;
 				var wtpos;
 				var intensity;
-				freq = (i.freq.cpsmidi + i.pitchbend).midicps;
-				freq = self.build_freq_spread_array(i, freq);
+				var res;
+
+				osc_freq = self.internal_modulator.modulate(\phase, idx, freq).((freq:freq));
+				//wtpos = self.internal_modulator.modulate(\wt_pos, idx, wtpos).((freq:freq));
+
 				if(osc.param[\wt_range].notNil) {
 					var oscargs = osc.get_synthargs(args);
 					wtpos = self.build_wt_pos_spread_array(i, oscargs.wt_range, oscargs.wt_pos);
 					intensity = self.build_intensity_spread_array(i, oscargs.intensity);
 				};
-				osc.synthfun.((freq:freq, wt_pos:wtpos, intensity:intensity));
+
+				res = osc.synthfun.((freq:osc_freq, wt_pos:wtpos, intensity:intensity));
+				res = self.internal_modulator.modulate(\ring, idx, res).((freq:freq));
+				res;
 			};
 			rsig = oscs[0];
 			oscs.debug("OSCS");
@@ -2860,6 +3033,12 @@
 		self.fx_ctrl.layout;
 	},
 
+	make_layout_compositor: { arg self;
+		if(self.get_player.compositor.notNil) {
+			self.get_player.compositor.make_layout;
+		}
+	},
+
 	make_tab_panel: { arg self;
 		var header, body, layout;
 		var content;
@@ -2873,6 +3052,7 @@
 
 		content = 
 			self.tabs ++ [
+				"Compo", {  self.make_layout_compositor }, 
 				"Effects", {  self.make_layout_effects }, // should be last
 		];
 		self.tabs_count = content.size/2;

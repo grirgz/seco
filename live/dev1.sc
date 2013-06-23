@@ -1042,3 +1042,27 @@ Thunk
 UGen.buildSynthDef.postln;
 }.play
 )
+
+
+
+
+(
+
+~windowize_task.({~class_internal_modulator_gui.new.make_layout})
+)
+
+(
+	{
+		arg in=300;
+		~bla = SinOsc.ar(in);
+	}.play
+)
+~bla = 1
+~bla
+
+(
+	{
+		arg in=300;
+		~bla;
+	}.play
+)

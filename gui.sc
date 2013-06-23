@@ -1,4 +1,20 @@
 
+~windowize = { arg layout;
+	var win;
+	win = Window.new;
+	win.layout = layout;
+	win.front;
+};
+
+~windowize_task = { arg layout;
+	Task{
+		var win;
+		win = Window.new;
+		win.layout = layout.value;
+		win.front;
+	}.play(AppClock)
+};
+
 ~global_controller = (
 	current_param: nil,
 );
@@ -502,6 +518,22 @@
 		.action_( action );
 };
 
+~onoff_button = { arg ctrl;
+	var onoff;
+	onoff = Button.new
+		.states_([
+			["Off"],
+			["On"],
+		])
+		.value_(ctrl.get_val)
+		.action_({
+			ctrl.set_val(onoff.value)
+		})
+		.maxWidth_(25)
+		;
+	onoff;
+};
+
 ~class_ci_frame_view = (
 	//FIXME: should be named ~class_frame_view
 	new: { arg self, label, knobs_ctrl, onoff_ctrl, popup1_ctrl, popup2_ctrl, fader_ctrl, display, loader;
@@ -634,6 +666,33 @@
 		self.layout;
 	},
 );
+
+~class_frame_view_custom = (
+	parent: ~class_ci_frame_view,
+	new: { arg self, label, body, onoff_ctrl;
+		self = self.deepCopy;
+
+		self.label_string = label;
+		self.body_ctrl = { body };
+		self.onoff_ctrl = { onoff_ctrl };
+		self.make_gui;
+
+
+		self;
+	},
+
+	val: { arg self;
+		if(self.fader_ctrl.notNil) {
+			self.fader.value = self.fader_ctrl.get_norm_val;
+		}
+	},
+
+	make_body: { arg self;
+		self.body = self.body_ctrl.value;
+		self.body;
+	},
+);
+
 
 ~class_inline_container_view = (
 
@@ -946,5 +1005,64 @@
 		layout.add( self.slider );
 		self.layout = layout;
 		self.layout;
+	},
+);
+
+~class_internal_modulator_gui = (
+	new: { arg self, pitch_ctrl, modkinds;
+		self = self.deepCopy;
+	
+		
+		self.modkinds = { modkinds };
+		self.pitch_ctrl = { pitch_ctrl };
+		self.make_layout;
+	
+		self;
+	},
+
+	make_layout: { arg self;
+		var frame;
+
+		var pitch_knob;
+		var mod_knob;
+		var modkinds = self.modkinds;
+		
+
+		pitch_knob = ~class_ci_modknob_view.new(self.pitch_ctrl);
+		mod_knob =   ~class_ci_modknob_view.new;
+
+		frame = ~class_frame_view_custom.new("Internal modulator", {
+			HLayout(
+				pitch_knob.layout,
+				mod_knob.layout,
+				GridLayout.rows(*
+					modkinds.collect { arg modkind;
+						[ 
+							Button.new
+								.states_([
+									[modkind.label, nil, Color.white],
+									[modkind.label, nil, Color.gray],
+								])
+								.action_({ arg but;
+									if(self.selected_button.notNil) {
+										self.selected_button.value = 0;
+									};
+									mod_knob.set_controller(modkind.mod_ctrl);
+									self.selected_button = but;
+									self.selected_button.value = 1;
+								})
+						] ++ modkind.oscs.collect { arg osc, idx;
+							[osc, modkind.label, idx].debug("OSC");
+							~onoff_button.(osc);
+						};
+					}
+				)
+			)
+			
+		}
+		);
+		self.layout = HLayout(frame.layout);
+		self.layout;
+		
 	},
 );

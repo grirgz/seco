@@ -113,12 +113,36 @@
 	~class_player_compositor = (
 		data: IdentityDictionary.new,
 		show_paramlist: List.new,
+		inline_synthfun: IdentityDictionary.new,
+		inline_synthfun_thunk: IdentityDictionary.new,
+		archive_data: [\inline_synthfun, \show_paramlist, \param_declaration],
 		new: { arg self, player;
 			self = self.deepCopy;
 
 			self.get_player = { player };
 		
 			self;
+		},
+
+		save_data: { arg self;
+			var data = ();
+			data.data = ()
+			self.data.keysValuesDo { arg key, val;
+				data.data[key] = val.save_data;
+			};
+			~save_archive_data.(self, self.archive_data, data);
+		},
+
+		load_data: { arg self, data;
+			~load_archive_data.(self, self.archive_data, data);
+			self.declare_params(data.param_declaration);
+
+			self.data.keysValuesDo: { arg key, val;
+				if(data.data[key].notNil) {
+					self.data[key].load_data(data.data[key])
+				}
+			}
+			
 		},
 
 		get_arg: { arg self, key;
@@ -132,16 +156,14 @@
 		destructor: { arg self;
 			self.data.keysValuesDo { arg key, val;
 				val.destructor;
-			}
+			};
 		},
 
-		make_gui: { arg self;
+		make_layout: { arg self;
 			var count = 0;
 			var vlayout = VLayout.new;
 			var hlayout = HLayout.new;
 			var datalist = List.new;
-			self.window = Window.new("Compositor");
-			self.window.layout = vlayout;
 			vlayout.add(hlayout);
 
 			Task{
@@ -168,10 +190,64 @@
 						);
 					};
 				};
-				self.window.front;
 
 			}.play(AppClock);
+			self.layout = vlayout;
+			self.layout;
+			
 		},
+
+		make_gui: { arg self;
+			self.window = Window.new("Compositor");
+			self.make_layout;
+			self.window.layout = self.layout;
+		},
+
+		///////////////////////// inline
+
+		set_inline_synthfun: { arg self, key, val;
+			self.inline_synthfun[key] = val;
+			self.inline_synthfun_thunk[key] = ArgThunk.new(val);
+		},
+
+		reset_inline_synthfun_thunks: { arg self;
+			self.inline_synthfun.keysValuesDo { arg key, val;
+				self.inline_synthfun_thunk[key] = ArgThunk.new(self.inline_synthfun[key])
+			}
+		},
+
+		compose_synth_param: { arg self, key, val;
+			if(self.inline_synthfun_thunk[key].notNil) {
+				key.debug("class_player_compositor.compose_synth_param: composing");
+				self.inline_synthfun_thunk[key].value(val)
+			} {
+				val;
+			}
+		},
+
+		declare_params: { arg self, params;
+			var comp = self;
+			self.param_declaration = params;
+			params.keysValuesDo { arg key, val;
+				switch(val.classtype,
+					\syntharg, {
+						if( comp.has_arg(key).not ) {
+							comp.data[key] = ~make_control_param.(main, node, key, \scalar, val.default_value, val.spec);
+						} {
+							comp.data[key].spec = val.spec;
+							comp.data[key].default_val = val.default_value;
+						}
+					}
+				)
+			};
+			(comp.data.keys - params.keys).do { arg key;
+				comp.data[key].destructor;
+				comp.data[key] = nil;
+			}
+
+		};
+
+
 	);
 
 	~reset_node = { arg node;
@@ -197,8 +273,9 @@
 		var main = Mdef.main;
 		var node = ~node;
 		if(node.notNil) {
+			var comp = node.compositor;
 			params.keysValuesDo { arg key, val;
-				node.get_arg(key).set_inline_synthfun( val );
+				comp.set_inline_synthfun( key, val );
 			}
 		};
 	};
@@ -208,22 +285,6 @@
 		var node = ~node;
 		if(node.notNil) {
 			var comp = node.compositor;
-			params.keysValuesDo { arg key, val;
-				switch(val.classtype,
-					\syntharg, {
-						if( comp.has_arg(key).not ) {
-							comp.data[key] = ~make_control_param.(main, node, key, \scalar, val.default_value, val.spec);
-						} {
-							comp.data[key].spec = val.spec;
-							comp.data[key].default_val = val.default_value;
-						}
-					}
-				)
-			};
-			(comp.data.keys - params.keys).do { arg key;
-				comp.data[key].destructor;
-				comp.data[key] = nil;
-			}
 		};
 	};
 
@@ -269,16 +330,32 @@
 			\osc1_detune,
 		]);
 		~declare_params.((
-			osc1_detune_freq: ~syntharg.(\widefreq.asSpec, 2)
+			osc1_detune_freq: ~syntharg.(\widefreq.asSpec, 2),
+			//freq_fm: ~syntharg.(\widefreq.asSpec, 0),
+			freq_modfreq: ~syntharg.(ControlSpec(0.01,40,\exp,0,1), 1),
+			freq_index: ~syntharg.(\unipolar.asSpec, 2),
 		));
 
 		~params.((
-			osc1_detune: { arg in; LFSaw.ar(\osc1_detune_freq.kr(2)*[1.1,0.9,1])*(in/2)+in }
+			osc1_detune: { arg in; 
+				LFSaw.ar(
+					\osc1_detune_freq.kr(2) + ([-1,0,1]*\pitch_spread.kr)
+				) * (in/2) + in 
+			},
+			//freq: { arg in; freq + (\freq_fm.ar(0) * \freq_index.kr(0.5)*freq) }
+			freq: { arg in; in + (SinOsc.ar(\freq_modfreq.kr(2)*in) * \freq_index.kr(0.5)*in) }
 		))
 		
 	});
 
 )
+~mynode.rebuild_arg_list
+~mynode.compositor
 
+~mynode.external_player.param[\osc1_wt].set_val_uname(\LFSaw)
+~mynode.external_player.param[\osc0_wt].set_val_uname(\SinOsc)
+~mynode.play_node
 ~mynode.compositor.make_gui
 	~reset_node.(~mynode);
+
+	~mynode.compositor.inline_synthfun_thunk[\osc1_detune].value(4)

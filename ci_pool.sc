@@ -1014,17 +1014,6 @@
 		);
 	},
 
-	build_freq_spread_array: { arg self, i, freq;
-		if(i.enable_pitch_spread == 1) {
-			var array = self.build_spread_array_by_kind(i.voices, i.spread_kind);
-			array.debug("spread array");
-			freq = (freq.cpsmidi + (i.pitch_spread * array)).midicps;
-		} {
-			freq = freq ! i.voices;
-		};
-		freq;
-	},
-
 	build_wt_pos_spread_array: { arg self, i, wtrange, wtpos;
 		[wtrange, wtpos, i.enable_wt_pos_spread, i.voices, i.wt_pos_spread, i].debug("build_wtpos_spread_array");
 		if(i.enable_wt_pos_spread == 1) {
@@ -1035,24 +1024,6 @@
 			wtpos = wtpos ! i.voices;
 		};
 		wtpos;
-	},
-
-	build_spread_array_for_param: { arg self, i, key;
-		var enabled_key = "enable_%_spread".format(key).asSymbol;
-		var enabled = i[enabled_key].();
-		var paramval = i[key].();
-		var param = self.param[key];
-		var param_spread = i["%_spread".format(key).asSymbol].();
-		var res;
-		[enabled_key, enabled].debug("BOUBOU");
-		if(enabled == 1) {
-			var array = self.build_spread_array_by_kind(i.voices, i.spread_kind);
-			[array, param_spread, param.spec.range].debug("build_spread_array_for_param: BOUH: range");
-			res = (paramval + (param_spread * param.spec.range * array));
-		} {
-			res = paramval ! i.voices;
-		};
-		res;
 	},
 
 	make_layout: { arg self;

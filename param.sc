@@ -2077,21 +2077,6 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			self.changed(\val);
 		},
 
-		///////////////////////// inline
-
-		set_inline_synthfun: { arg self, val;
-			self.inline_synthfun = val;
-			self.inline_synthfun_thunk = ArgThunk.new(val);
-		},
-
-		get_inline_synthfun: { arg self;
-			self[\inline_synthfun];
-		},
-
-		get_inline_synthfun_thunk: { arg self;
-			self[\inline_synthfun_thunk];
-		},
-
 		///////////////////////// kinds
 
 		seq: (
@@ -3647,11 +3632,20 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	},
 
 	load_data: { arg self, data;
-		self.model.val = self.menu_items.detectIndex { arg item; item == data.model.val_uname };
-		[data.model.val_uname, self.model.val].debug("class_param_wavetable_controller: load_data");
-		self.model.val_uname = data.model.val_uname;
 		self.model.pathlist = data.model.pathlist.collect{ arg dat; ~class_wavetable_file.new_from_data(dat) };
-		self.set_curve(self.model.val, true)
+		self.set_val_uname(data.model.val_uname);
+		[data.model.val_uname, self.model.val].debug("class_param_wavetable_controller: load_data");
+	},
+
+	set_val_uname: { arg self, uname;
+		self.model.val = self.menu_items.detectIndex { arg item; item == uname };
+		self.model.val.debug("class_param_wavetable_controller.set_val_uname: uname");
+		self.model.val_uname = uname;
+		self.set_curve(self.model.val, true);
+	},
+
+	get_val_uname: { arg self;
+		self.model.val_uname;
 	},
 
 	get_menu_items_names: { arg self;
