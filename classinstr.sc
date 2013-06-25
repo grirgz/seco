@@ -589,7 +589,7 @@
 			}).add;
 
 			if(self.is_effect) {
-				self.get_player.build_sourcepat_finalize;
+				self.get_player.build_sourcepat;
 				self.get_player.build_real_sourcepat;
 			};
 		};

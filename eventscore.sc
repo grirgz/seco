@@ -266,6 +266,11 @@
 		};
 		res.add(elm);
 	};
+	if(res[0].time == 0 and: {res[0].type == \rest}) {
+		//res.debug("event_rel_to_abs: before droping rest");
+		res = res.drop(1);
+		//res.debug("event_rel_to_abs: after droping rest");
+	};
 	res;
 };
 
@@ -364,7 +369,7 @@
 		abs_start: 0,
 		archive_data: [\name, \abs_start, \abs_end, \notes],
 		no_first_rest: false,
-		//remove_first_rest_if_not_needed: false,
+		remove_first_rest_if_not_needed: false,
 
 		sort_func: { arg a, b;
 			a.time < b.time;
@@ -535,6 +540,7 @@
 		get_rel_notes: { arg self, start=0, dur=nil;
 			var notes, last, end;
 			var rest_note;
+			debug("get_rel_notes");
 			start = self.abs_start + start;
 			end = if(dur.isNil) {
 				if(self.abs_end.isNil) {
@@ -561,11 +567,14 @@
 						time: start // FIXME: why time=start ? c'est sensé etre la premiere note
 					);
 				];
-				//if(self.remove_first_rest_if_not_needed) {
-				//	if(notes[0].time == start) {
-				//		rest_note = [];
-				//	};
-				//}; 
+				self.remove_first_rest_if_not_needed.debug("eventscore: remove_first_rest_if_not_needed");
+				if(self.remove_first_rest_if_not_needed) {
+					if(notes[0].time == start ) {
+						debug("eventscore: removing rest");
+						notes.debug("before: notes");
+						rest_note = [];
+					};
+				}; 
 				notes = rest_note ++ notes;
 			};
 			notes = ~event_abs_to_rel.(notes);

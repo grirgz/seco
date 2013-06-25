@@ -754,6 +754,8 @@
 	build_sourcepat_finalize: { arg self;
 		var list = self.sourcepat_list;
 		self.sourcepat = if(self.is_effect) {
+			self.get_arg(\instrument).get_val.debug("class_synthdef_player: build_sourcepat_finalize: pmono instr");
+			list.debug("list");
 			Pmono(self.get_arg(\instrument).get_val, *list)
 		} {
 			//DebugPbind(*list); //debug

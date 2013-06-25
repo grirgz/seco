@@ -178,10 +178,17 @@
 			cinstr.new(self.get_main, player)
 		},
 
-		make_livenode_from_libmodnode: { arg self, libnodename, root_player_name;
-			var livenodename;
+		make_livenode_from_libmodnode: { arg self, libnodename, root_player_name, livenodename=nil;
+			//var livenodename;
 			var player;
-			livenodename = self.make_livenodename_from_libnodename(libnodename);
+			if(livenodename.isNil) {
+				livenodename = self.make_livenodename_from_libnodename(libnodename);
+			} {
+				if(self.node_exists(livenodename)) {
+					"ERROR: name already exists in livenodepool".error;
+					livenodename = self.make_livenodename_from_libnodename(libnodename);
+				}
+			};
 			player = ~make_player.(main, libnodename);
 			player.set_root_player_name(root_player_name);
 			player.name = livenodename;

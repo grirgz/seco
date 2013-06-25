@@ -297,6 +297,9 @@ Mdef.main.load_project("testmove");
 Mdef.main.save_project("sousmarin");
 Mdef.main.load_project("sousmarin");
 
+Mdef.main.save_project("guitare1");
+Mdef.main.load_project("guitare1");
+
 Mdef.main.play_manager
 
 Debug.enableDebug = true;
@@ -1066,3 +1069,7 @@ UGen.buildSynthDef.postln;
 		~bla;
 	}.play
 )
+
+
+
+{ SoundIn.ar([0,1]) }.play
