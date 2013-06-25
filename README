@@ -1,1 +1,17 @@
-Seco is a supercollider graphical sequencer driven by keyboard and midi
+Seco is a graphical sequencer/synthetizer written in Supercollider.
+
+Main features:
+
+- pattern matrix
+- timeline
+- modulation
+- effects
+- note editor
+- sampler
+- audio and midi recording
+- complex synth guis
+
+See screenshots here: https://seco.trovebox.com/photos/list
+
+Track example: https://soundcloud.com/insomniark/viens-voir
+
