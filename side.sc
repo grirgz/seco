@@ -335,19 +335,21 @@
 	var hlayout, vlayout;
 	var size;
 	var paramview_list = List.new;
+	var param_per_line;
 	display.winsize= display.winsize ?? (700@800);
 	display.paramsize= display.paramsize ?? (170@26);
+	param_per_line = display.param_per_line ?? 4;
 
-	size = rows ?? 3;
+	size = rows ?? display.rows ?? 3;
 
 	vlayout = VLayoutView.new(parent, Rect(3,0,display.winsize.x-13,display.paramsize.y+15*2*size+35)); //FIXME: scaling is wrong
 	vlayout.minWidth = display.winsize.x-13;
 
 	size.do {
 		sep = VLayoutView(vlayout, Rect(0,0,display.winsize.x-158,display.paramsize.y*2+35));
-		2.do {
+		(8/param_per_line).do {
 			hlayout = HLayoutView.new(sep, Rect(0,0,display.winsize.x-150,display.paramsize.y+15));
-			4.do {
+			param_per_line.do {
 				paramview_list.add( ~make_mini_param_view.(hlayout, display.paramsize) );
 			};
 		};

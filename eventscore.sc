@@ -431,8 +431,10 @@
 		},
 
 		remove_notes_playing_at_abstime: { arg self, abstime, constraint;
+			abstime.debug("eventscore: remove_notes_playing_at_abstime: BEGIN-------------");
 			self.notes = self.notes.reject { arg no;
-				(abstime >= no.time) and: {
+				var res;
+				res = (abstime >= no.time) and: {
 					(abstime < (no.time + no.sustain)) and: {
 						if(constraint.notNil) {
 							constraint.(no)
@@ -440,8 +442,11 @@
 							true
 						}
 					}
-				} 
+				};
+				[res, abstime, no.time, no.time + no.sustain, no].debug("note");
+				res;
 			}.asList;
+			abstime.debug("eventscore: remove_notes_playing_at_abstime: END-------------");
 		},
 
 		is_note_playing_at_abstime: { arg self, abstime, constraint;

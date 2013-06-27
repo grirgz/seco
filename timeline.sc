@@ -774,6 +774,7 @@
 	},
 
 	remove_block_playing_at_abstime: { arg self, time, track_index, refresh=true;
+		self.timeline_score.set_abs_notes(self.current_notes);
 		self.timeline_score.remove_block_playing_at_abstime(time, track_index);
 		if(refresh) {
 			self.changed(\tracks);

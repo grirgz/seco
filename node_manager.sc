@@ -1118,7 +1118,7 @@
 			self.top_nodes.keys.includes(node.uname) || self.children_nodes.includes(node.uname)
 		},
 
-		play_node: { arg self, nodename;
+		play_node: { arg self, nodename, compositor;
 			var esp, sc, children, quant, play_action;
 			nodename.debug("pm: play_node");
 			[self.top_nodes, self.children_nodes].debug("pm: state");
@@ -1192,7 +1192,7 @@
 
 						self.get_rel_beat.debug("pm: play node");
 
-						node.node.source = node.vpattern_loop;
+						node.node.source = node.vpattern_loop(compositor);
 
 
 

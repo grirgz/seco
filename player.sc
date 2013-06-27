@@ -851,13 +851,14 @@
 		//self.real_sourcepat = res.postcs;
 	},
 
-	vpattern: { arg self;
+	vpattern: { arg self, compositor;
 		//self.wrapper.debug("vpattern called: wrapper");
-		self.real_sourcepat;
+		compositor = compositor ?? (vpattern:());
+		self.real_sourcepat <> compositor.vpattern;
 	},
 
-	vpattern_loop: { arg self;
-		Pn(self.vpattern, ~general_sizes.safe_inf);
+	vpattern_loop: { arg self, compositor;
+		Pn(self.vpattern(compositor), ~general_sizes.safe_inf);
 		//Pn(self.vpattern, 1); // debug
 		//self.vpattern; //debug
 	},
@@ -967,9 +968,9 @@
 		self.node;
 	},
 
-	play_node: { arg self;
+	play_node: { arg self, compositor;
 		self.uname.debug("++++++++++++++++++++++++++++++++++++++++++++++++++setting source(inf)");
-		self.get_main.play_manager.play_node(self.uname);
+		self.get_main.play_manager.play_node(self.uname, compositor);
 		//self.node.play;
 	},
 
@@ -2055,11 +2056,11 @@
 			}
 		},
 
-		play_node: { arg self;
+		play_node: { arg self, compositor;
 			//TODO: don't play subpattern if already playing
 			self.uname.debug("playing groupnode");
 			self.uname.debug("++++++++++++++++++++++++++++++++++++++++++++++++++setting source(inf)");
-			main.play_manager.play_node(self.uname);
+			main.play_manager.play_node(self.uname, compositor);
 			self.uname.debug("++++++++++++++++++++++++++++++++++++++++++++++++++play");
 		},
 
@@ -2147,16 +2148,17 @@
 			Ppar(self.get_children_sources);
 		},
 
-		vpattern: { arg self, noreplay=true;
+		vpattern: { arg self, compositor;
 			var repeat;
 			repeat = self.get_arg(\repeat).get_val.debug("vpattern repeat.get_val");
 			self.uname.debug("vpattern");
+			compositor = compositor ?? (vpattern:());
 			
-			Pn(~par_spawner.(main.play_manager, self.get_children), repeat);
+			Pn(~par_spawner.(main.play_manager, self.get_children) <> compositor.vpattern, repeat);
 		},
 
-		vpattern_loop: { arg self;
-			PnNilSafe(self.vpattern, ~general_sizes.safe_inf,3);
+		vpattern_loop: { arg self, compositor;
+			PnNilSafe(self.vpattern(compositor), ~general_sizes.safe_inf,3);
 		},
 
 		clone: { arg self;
@@ -2251,11 +2253,12 @@
 
 		},
 
-		vpattern: { arg self;
+		vpattern: { arg self, compositor;
 			var repeat;
 			repeat = self.get_arg(\repeat).get_val;
 			repeat.debug("ppattern.repeat");
-			~seq_spawner.(main.play_manager, self.get_children, repeat);
+			compositor = compositor ?? (vpattern:());
+			~seq_spawner.(main.play_manager, self.get_children, repeat) <> compositor.vpattern;
 		},
 
 		new_self: { arg self, main, children=List[];
@@ -2334,12 +2337,13 @@
 			}
 		},
 
-		vpattern: { arg self, noreplay=true;
+		vpattern: { arg self, compositor;
 			var repeat;
 			repeat = self.get_arg(\repeat).get_val.debug("vpattern repeat.get_val");
 			self.uname.debug("vpattern");
-			
-			Pn(~par_spawner.(main.play_manager, self.children.collect { arg x; main.get_node(x) }), repeat);
+
+			compositor = compositor ?? (vpattern:());
+			Pn(~par_spawner.(main.play_manager, self.children.collect { arg x; main.get_node(x) }), repeat) <> compositor.vpattern;
 		},
 
 		new_self: { arg self, main, children=List[];

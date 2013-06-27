@@ -850,7 +850,7 @@ if(~silent_audio2_bus.isNil) {
 				if(projpath.pathExists == \folder) {
 					("mv '%' '/tmp/%_%'".format(projpath, name, Date.gmtime.rawSeconds.asInteger)).debug("move command");
 					("mv '%' '/tmp/%_%'".format(projpath, name, Date.gmtime.rawSeconds.asInteger)).unixCmd;
-					1.wait;
+					2.wait;
 				};
 				("mkdir '%'".format(projpath)).unixCmd;
 				1.wait;

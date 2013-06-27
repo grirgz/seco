@@ -525,6 +525,34 @@
 				.collect{ arg name; if(name == \voidplayer) { "" } {name} }
 		);
 	},
+
+	update_datalist_TODO: { arg self;
+		var datalist = List.new;
+		var x = self.model.matrix_size.x + 1; // +1 because sparsearray bug
+		var y = self.model.matrix_size.y + 1; // +1 because sparsearray bug
+		var children;
+		self.model.song_address.debug("class_node_group_chooser.update_datalist: address");
+		self.update_window_name;
+		children = self.get_main.panels.side.song_manager.get_path(
+				[self.model.song_address.part,self.model.song_address.section,self.model.song_address.variant],
+				false
+		//).children.keep(8).do { arg childname;
+		).children.do { arg childname;
+			var node;
+			if(childname == \voidplayer) {
+				datalist = datalist ++ (\voidplayer ! (x-1)); // sparsearray bug
+			} {
+				node = self.get_main.get_node(childname);
+				if(node.children.notNil) {
+
+					[childname, node.children.keep(x).size, node.children].debug("childname");
+					datalist = datalist ++ node.children.keep(x);
+				}
+			}
+		};
+		datalist = datalist.collect{ arg name; if(name == \voidplayer) { "" } {name} };
+		self.set_datalist(datalist); 
+	},
 );
 
 ~class_node_group_chooser = (
@@ -612,9 +640,6 @@
 			var node;
 			if(childname == \voidplayer) {
 				datalist = datalist ++ (\voidplayer ! (x-1)); // sparsearray bug
-				//(1 ! 16).keep(8).size
-				//a = SparseArray.newClear(16, \bla)
-				//a.keep(8).size
 			} {
 				node = self.get_main.get_node(childname);
 				[childname, node.children.keep(x).size, node.children].debug("childname");

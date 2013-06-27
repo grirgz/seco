@@ -275,6 +275,10 @@
 	
 	},
 
+	vpattern: { arg self;
+		(compositor: self);
+	},
+
 );
 
 ~reset_node = { arg node;
@@ -411,6 +415,8 @@
 
 ) 
 
+~reload_node.("zegrainer_l1026")
+
 (
 	~mynode = Mdef.node_by_index(0);
 	~reset_node.(~mynode);
@@ -455,6 +461,22 @@
 		]);
 	});
 	~mynode.compositor.make_gui;
+
+)
+
+(
+	~mynode = Mdef.node_by_index(0);
+	~mynode.compositor = ~class_player_compositor.new(~mynode);
+	~mynode.compositor.score_sheet_index = 0;
+
+	~mynode.play_node(~mynode.compositor);
+
+)
+~mynode.get_arg(\noteline).get_scoreset.get_sheets[2]
+(
+	~mynode.compositor.score_sheet_index = 1
+
+	~mynode.play_node(~mynode.compositor)
 
 )
 	~mynode.compositor.window.front
@@ -619,3 +641,77 @@ SynthDef(\detune_scorizer, { arg out=0, amp=0.1, gate=1, freq=200, lag=0.1;
 	
 	).play
 	)
+
+	Mdef.main.commands
+
+(
+"~/code/sc/seco/player_display.sc".standardizePath.load;
+//~mynode = ~get_node.("osc1_l1002");
+	~mynode = Mdef.node_by_index(0);
+~pd = ~class_player_display.new(Mdef.main, ~mynode);
+~pd.make_gui;
+)
+(
+	
+	~display = (
+		winsize: 700@800,
+		player_view_y: 550,
+		paramsize:170@26,
+		mini_param_row_count: 3,
+		groupnode_row_count: 1,
+	);
+	Task{ 
+		~pv = ~class_player_view.new(Mdef.main, ~pd, nil, ~display); 
+		~windowize.(HLayout(~pv.vlayout))
+	}.play(AppClock)
+)
+
+
+
+(
+	'la.bla': \bla
+)
+
+
+
+
+
+
+
+
+
+
+
+	
+
+(
+	~freq = 100;
+		~truecomp = (
+
+		sfreq: 800
+
+		);
+	~ev = (
+		parent: ~truecomp,
+	);
+p = EventPatternProxy.new;
+p.source = (Pbind(
+	\instrument, \osc1,
+	\degree, Pseq([0,1,2,3,4,5,6],inf),
+	\ffreq, Pfunc { arg ev;
+		ev[\sfreq].postln;
+		"kj".postln;
+		1000;
+		ev.compo.sfreq
+	},
+	\dur, 1,
+	\amp, 0.1
+) <> (compo:~ev)).trace;
+p.play;
+)
+e = Environment.new;
+e[\freq] = 300;
+p.envir = (parent:~ev);
+p.defaultEvent = (parent:~ev)
+
+~ev.sfreq = 2000

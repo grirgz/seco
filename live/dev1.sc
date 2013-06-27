@@ -300,6 +300,12 @@ Mdef.main.load_project("sousmarin");
 Mdef.main.save_project("guitare1");
 Mdef.main.load_project("guitare1");
 
+Mdef.main.save_project("Bprog1");
+Mdef.main.load_project("Bprog1");
+
+Mdef.main.save_project("Bprog2");
+Mdef.main.load_project("Bprog2");
+
 Mdef.main.play_manager
 
 Debug.enableDebug = true;
@@ -1073,3 +1079,14 @@ UGen.buildSynthDef.postln;
 
 
 { SoundIn.ar([0,1]) }.play
+
+
+SparseArray.newFrom([1,2,3,4,5,6,7,8]).keep(8)
+Array.newFrom([1,2,3,4,5,6,7,8]).keep(8)
+
+
+
+
+Mdef.main.panels.side.song_manager.get_path([1,1,1]).children
+
+Mdef.node(\s1_part1_sect1_var5).children

@@ -22,3 +22,5 @@
 
 ////////////////////// bugs supercollider
 SparseArray.keep(8) retourne un array de 7 items
+very long symbol crash sc // no more ???
+File.openDialog

@@ -4894,7 +4894,21 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			Prout{ arg ev;
 				var repeat = ~compute_repeat.(ev, self.classtype);
 				repeat.do {
-					var notes = self.scoreset.get_notes;
+					var notes;
+					if(
+						ev.compositor.notNil 
+						and: {ev.compositor.score_sheet_index.notNil and: {
+							name == \noteline
+						}}
+					) {
+						var ns = self.scoreset.get_sheet(ev.compositor.score_sheet_index);
+						if(ns.notNil) {
+							notes = ns.get_rel_notes;
+						}
+					};
+					if (notes.isNil) {
+						notes = self.scoreset.get_notes;
+					};
 					notes.do { arg no;
 						ev = no.yield;
 					}

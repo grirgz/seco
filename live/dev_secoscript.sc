@@ -132,3 +132,17 @@ refresh modes:
 )
 
 Mdef.node("gater_l1077")
+
+
+~bla = (rah: (gaa:nil));
+
+if((~bla !? _.rah !? _.gaa).notNil) { "bla".postln; }
+
+(
+Pdef(\plop, Pbind(
+	\instrument, \default,
+	\degree, Pseq([0],inf),
+	\dur, 1,
+	\amp, 0.1
+) <> (vpattern:()).vpattern).trace.play;
+);

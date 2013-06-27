@@ -1,3 +1,116 @@
+~class_basic_player_view = (
+
+	new: { arg self, player_display;
+		var player;
+		self = self.deepCopy;
+		self.player_display = { player_display };
+
+		self.make_layout;
+		~make_class_responder.(self, self.param_group.layout, self.player_display, [
+			\player
+		]);
+		self.player;
+		//player = self.player_display.get_current_player;
+		//self.player_responder = ~make_class_responder.(self, self.responder_anchor, player, [\mode], false);
+
+		self;
+	},
+
+	selected_slot: { arg self;
+		//self.modulation_ctrl.selected_slot.debug("class_modulator_body_basic: selected_slot: mod: selected_slot");
+		//self.player_display.set_keydown_responder(\modulator);
+	},
+
+	player: { arg self;
+		var player = self.player_display.get_current_player;
+		player.uname.debug("class_basic_player_view: player responder");
+		self.show_body_layout;
+		if(player.notNil) {
+			self.current_player = player;
+
+			if(player.name != player.uname) {
+				self.player_label.string_("% (%)".format(player.name, player.uname));
+			} {
+				self.player_label.string_(player.name);
+			};
+
+			self.player_responder.remove;
+			self.player_responder = ~make_class_responder.(self, self.responder_anchor, player, [\mode], false);
+
+		}
+
+	},
+
+	mode: { arg self;
+		debug("class_basic_player_view: mode responder");
+		self.update_param_group;
+	},
+
+	update_param_group: { arg self;
+		var player = self.player_display.get_current_player;
+		self.get_controller = { player };
+		self.param_group.paramview_list.do { arg view, idx;
+			var param_name;
+			var param, display;
+			param_name = self.player_display.get_param_name_by_display_idx(idx);
+			param_name.debug("class_modulator_body_basic: set_controller: param_name");
+			[self.player_display.current_player.uname, player.uname].debug("class_modulator_body_basic: set_controller: current_player, controller");
+			if(param_name.notNil) {
+				param = player.get_arg(param_name);
+				display = self.player_display.make_param_display(param);
+				view.set_param(param, display);
+			} {
+				view.clear_view;
+			};
+			//0.01.wait;
+		};
+	},
+
+	switch_body_view: { arg self;
+		self.show_custom_view = self.show_custom_view.not;
+		self.show_body_layout;
+	},
+
+	show_body_layout: { arg self;
+		var extplayer = self.player_display.get_current_player.external_player;
+		Task{
+			var extlayout;
+			if(extplayer.notNil and: { self.show_custom_view }) {
+				// FIXME: external player should have custom gui
+				self.stack_layout.index = 1;
+				extlayout = extplayer.make_layout;
+				self.custom_view.children.do(_.remove);
+				self.custom_view.layout = extlayout;
+			} {
+				self.update_param_group;
+				self.stack_layout.index = 0;
+			}
+		}.play(AppClock)
+	},
+
+	make_layout: { arg self;
+
+		self.player_label = StaticText.new;
+		self.param_group = ~make_mini_param_group_widget.(nil, 4, (param_per_line:4));
+		self.responder_anchor = self.param_group;
+		self.param_group.debug("cassecouill");
+		self.param_group_layout = VLayout.new;
+		self.param_group_layout.add(self.param_group.layout);
+		self.custom_view = View.new;
+		self.stack_layout = StackLayout(
+			View.new.layout_(self.param_group_layout).minHeight_(300),
+			self.custom_view;
+		);
+		self.show_body_layout;
+		self.layout = VLayout(
+			self.player_label,
+			self.stack_layout,
+		);
+		self.layout
+	},
+
+);
+
 
 ~class_player_display = (
 	param_types: (
@@ -7,7 +120,7 @@
 		param_mode: [\scoreline, \stepline, \noteline, \sampleline, \nodeline],
 		param_kinds: [\scalar, \seq, \seg, \modulation, \scoreseq, \synchrone, \synchrone_rate, \bus, \recordbus, \pkey, \preset],
 		param_no_midi: { arg self; self.param_field_group ++ [\mbufnum, \bufnum, \samplekit] ++ self.param_mode; },
-		param_reject: { arg self; [\out, \instrument, \tsustain, \type, \gate, \agate, \t_trig, \legato, \doneAction] ++ self.param_mode; },
+		param_reject: { arg self; [\segdur, \out, \instrument, \tsustain, \type, \gate, \agate, \t_trig, \legato, \doneAction] ++ self.param_mode; },
 		param_accepted_displayed_kind: { arg self; self.param_mode ++ [\control, \samplekit, \adsr, \buf]},
 		param_midi_reject: { arg self; Set.newFrom(self.param_reject ++ self.param_no_midi); },
 		group_types: [\parnode, \seqnode],
@@ -30,10 +143,11 @@
 	new: { arg self, main, player;
 		self = self.deepCopy;
 
-		self.get_maim = { main };
+		self.get_main = { main };
 		if(player.notNil) {
 			self.set_current_player(player)
 		};
+		self.player_ctrl = { self.get_current_player };
 
 		self;
 	},
@@ -70,19 +184,6 @@
 		var player = self.get_current_player;
 		var param_name = player.get_selected_param;
 		player.get_arg(param_name);
-	},
-
-	set_keydown_responder: { arg self, key;
-		if(self.window.notNil) {
-			self.window.view.keyDownAction = if(self.binding_responder.notNil) {
-				key.debug("set_keydown_responder:using binding_responder");
-				self.binding_responder.get_kb_responder(key);
-			} {
-				self.get_main.commands.get_kb_responder(key, self);
-			};
-		} {
-			debug("Cant set keydown responder: window is nil")
-		}
 	},
 
 	select_param: { arg self, index;
@@ -251,7 +352,7 @@
 		res[..24] // FIXME: hardcoded
 	},
 
-	get_param_name_by_display_idx: { arg self, idx;
+	get_param_name_by_display_idx_OLD: { arg self, idx;
 		var args, args2, args3;
 		var param_name;
 		args = self.get_paramlist_splited;
@@ -274,6 +375,21 @@
 					param_name = args2[idx-8];
 				}
 			}
+		};
+		param_name;
+	},
+
+	get_param_name_by_display_idx: { arg self, idx;
+		var param_name;
+		var player = self.current_player;
+		var pat_args, dis_args;
+		pat_args = player.get_pattern_args ?? [];
+		dis_args = player.get_displayable_args ?? [];
+
+		if(idx < 8) {
+			param_name = pat_args[idx];
+		} {
+			param_name = dis_args[idx-8];
 		};
 		param_name;
 	},
@@ -316,6 +432,38 @@
 
 	edit_selected_param: { arg self, main, player, param, alternate=false;
 		self.edit_param_value(main, player, param, alternate)
+	},
+
+	make_gui: { arg self;
+		Task({
+			self.window = Window.new("Player display");
+			self.player_view = ~class_basic_player_view.new(self);
+			self.window.layout = self.player_view.layout;
+			self.make_default_bindings;
+			self.window.front;
+		}).play(AppClock);
+	},
+
+
+	set_keydown_responder: { arg self, key;
+		if(self.window.notNil) {
+			self.window.view.keyDownAction = if(self.binding_responder.notNil) {
+				key.debug("set_keydown_responder:using binding_responder");
+				self.binding_responder.get_kb_responder(key);
+			} {
+				self.get_main.commands.get_kb_responder(key, self);
+			};
+		} {
+			debug("Cant set keydown responder: window is nil")
+		}
+	},
+
+	make_default_bindings: { arg self;
+		var key = \modulator;
+		self.binding_responder = self.get_main.commands.make_binding_responder(key, 
+			self.get_bindings
+		);
+		self.set_keydown_responder(key);
 	},
 
 	get_bindings: { arg self, get_top_player, get_param;
@@ -367,6 +515,25 @@
 				}
 			}],
 
+			[\select_param_preset, 8, { arg idx;
+				// FIXME: factorize with side and effect
+				var param = self.get_selected_param;
+				switch( param.classtype,
+					\control, {
+						if( param.current_kind == \preset ) {
+							param.select_cell(idx);
+						} 
+					}
+				);
+			}],
+
+			[\change_player_mode, {
+				~class_player_mode_chooser.new(self.get_main, { arg sel;
+					self.get_current_player.set_mode(sel);
+				})
+			}],
+
+
 		];
 	
 	},
@@ -380,7 +547,7 @@
 	new: { arg self, main, player;
 		self = self.deepCopy;
 
-		self.get_maim = { main };
+		self.get_main = { main };
 		if(player.notNil) {
 			self.set_current_player(player)
 		};

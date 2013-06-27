@@ -716,6 +716,7 @@
 		//self.get_main.commands.parse_action_bindings(\modulator, 
 		self.binding_responder = self.get_main.commands.make_binding_responder(\modulator, 
 
+			self.get_bindings ++
 			self.get_main.panels.side.get_shared_bindings ++
 			self.get_main.panels.side.get_windows_bindings ++ [
 			[\close_window, {
@@ -809,12 +810,12 @@
 				}
 			}],
 
-			[\change_modulator_mode, {
-				var player = self.get_current_player;
-				~class_player_mode_chooser.new(self.get_main, { arg sel;
-					player.set_mode(sel);
-				})
-			}],
+			//[\change_modulator_mode, {
+			//	var player = self.get_current_player;
+			//	~class_player_mode_chooser.new(self.get_main, { arg sel;
+			//		player.set_mode(sel);
+			//	})
+			//}],
 
 			[\change_modulated_param_kind, {
 				var param = self.param_ctrl;
@@ -850,18 +851,6 @@
 						self.get_main.panels.side[\binding_assign_global_midi_knob].(param.get_player, param)
 					}
 				}
-			}],
-
-			[\select_param_preset, 8, { arg idx;
-				// FIXME: factorize with side and effect
-				var param = self.get_selected_param;
-				switch( param.classtype,
-					\control, {
-						if( param.current_kind == \preset ) {
-							param.select_cell(idx);
-						} 
-					}
-				);
 			}],
 
 		]);

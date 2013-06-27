@@ -11,7 +11,9 @@ SynthDef(\limiter, { arg in, out=0, mix=1, level=1, postamp=1, gate=1;
 }).add;
 
 SynthDef(\zegrainer, { arg out=0, amp=0.1, gate=1, pan=0, freq=200, mbufnum,
-						gdur=12, trate=100, time_stretch=1, pos=0, pitch_stretch = 1, randframes=0.01, randrate=1, doneAction=0, finepos=0;
+						gdur=12, trate=100, time_stretch=1, pos=0, pitch_stretch = 1, 
+						randframes=0.01, randrate=1, doneAction=0, finepos=0,
+						release=0.2;
 	var ou;
 	var dur, clk;
 	var bufnum = mbufnum;
@@ -34,7 +36,7 @@ SynthDef(\zegrainer, { arg out=0, amp=0.1, gate=1, pan=0, freq=200, mbufnum,
 	ou = TGrains.ar(2, clk, bufnum, pitch_stretch, pos % BufDur.kr(bufnum), dur, pan, 1);
 	//ou = TGrains.ar(2, clk, bufnum, pitch_stretch, pos.clip(0, BufDur.kr(bufnum)), dur, pan, 1);
 
-	ou = ou * EnvGen.ar(Env.adsr(0.005,0.1,0.8,0.5),gate,doneAction:doneAction);
+	ou = ou * EnvGen.ar(Env.adsr(0.005,0.1,0.8,release),gate,doneAction:doneAction);
 
 	//pitch = Tartini.kr(ou);
 	//pitch = Pitch.kr(ou);
@@ -47,6 +49,7 @@ SynthDef(\zegrainer, { arg out=0, amp=0.1, gate=1, pan=0, freq=200, mbufnum,
 	randframes: ControlSpec(0.000001,1,\exp,0,0.01),
 	time_stretch: ControlSpec(-8,8,\lin,0,0),
 	pitch_stretch: ControlSpec(-8,8,\lin,0,0),
+	release: ControlSpec(0.001,8,\exp,0,0.2),
 
 ))).store;
 
