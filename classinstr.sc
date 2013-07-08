@@ -399,11 +399,12 @@
 		ret;
 	},
 
-	build_freq_spread_array: { arg self, i, freq;
+	build_freq_spread_array: { arg self, i, freq, spread_key;
+		spread_key = spread_key ?? \pitch_spread;
 		if(i.enable_pitch_spread == 1) {
 			var array = self.build_spread_array_by_kind(i.voices, i.spread_kind);
 			array.debug("spread array");
-			freq = (freq.cpsmidi + (i.pitch_spread * array)).midicps;
+			freq = (freq.cpsmidi + (i[spread_key].() * array)).midicps;
 		} {
 			freq = freq ! i.voices;
 		};
@@ -424,6 +425,7 @@
 		param_spread = i[spread_key].();
 		res;
 		[enabled_key, enabled].debug("BOUBOU");
+		[i.keys, key, paramval].debug("BOUBOU2");
 		if(enabled == 1) {
 			var array = self.build_spread_array_by_kind(i.voices, i.spread_kind);
 			[array, param_spread, param.spec.range].debug("build_spread_array_for_param: BOUH: range");
@@ -2908,6 +2910,9 @@
 			var feedback, feedback1 = 0, feedback2 = 0;
 			var dout;
 			var freq;
+			var f1_arg1_spread;
+			var f2_arg1_spread;
+			//var arg1_spread;
 
 			//[1,2,4].sum
 			//[[1,2],[2,4],[4,6]].sum
@@ -2967,7 +2972,8 @@
 			//dout.poll;
 
 			// filtering 1
-			f1_out = self.filters[0].synthfun.(f1_in);
+			f1_arg1_spread = self.build_spread_array_for_param(i, \filter0_arg1, \enable_arg1_spread, \arg1_spread);
+			f1_out = self.filters[0].synthfun.(f1_in, (arg1: f1_arg1_spread));
 			f1_out.debug("F1OUT1");
 
 			// parseq
@@ -2982,7 +2988,8 @@
 			f2_in = f2_in + fmiddle_in;
 
 			// filtering 2
-			f2_out = self.filters[1].synthfun.(f2_in);
+			f2_arg1_spread = self.build_spread_array_for_param(i, \filter1_arg1, \enable_arg1_spread, \arg1_spread);
+			f2_out = self.filters[1].synthfun.(f2_in, (arg1: f2_arg1_spread));
 
 			// after effect
 			f1_out = self.insert_effect(i, f1_out, \after_filter1);

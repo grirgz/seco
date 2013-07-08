@@ -50,7 +50,7 @@ Window.closeAll;
 
 ~effectlib = [
 	\comb1,
-	\freeverb,
+	//\freeverb,
 	\p_reverb,
 	\p_flanger,
 	\p_chorus,
@@ -306,6 +306,9 @@ Mdef.main.load_project("Bprog1");
 Mdef.main.save_project("Bprog2");
 Mdef.main.load_project("Bprog2");
 
+Mdef.main.save_project("space1");
+Mdef.main.load_project("space1");
+
 Mdef.main.play_manager
 
 Debug.enableDebug = true;
@@ -319,6 +322,10 @@ s.latency = 1.0
 s.latency = 0.2
 s.latency = 0.4
 s.latency = 0.6
+
+BufRd
+{ BufRd.ar(1, 0, SinOsc.ar(1) * BufFrames.ir(0)) }.play;
+
 s.latency
 
 "/home/ggz/Musique/sc/vipere/ventregris.wav".pathExists
@@ -809,33 +816,7 @@ Pdef(\plop).stop
 
 
 
-(
-
-SynthDef(\bufstut, { arg in, out=0, mix=1, amp=1, gate=1, pan=0, freq=200, bufdur=1,stutgate=0, stutdur=1, start_pos=0;
-	var ou;
-	var bufnum;
-	var stutenv;
-	var rd_phase;
-	var rate = 1;
-	in = In.ar(in, 2);
-	bufnum = LocalBuf(s.sampleRate * 2, 2);
-	RecordBuf.ar(in, bufnum, 0, run: Trig.kr(stutgate, stutdur), trigger: stutgate, doneAction: 0, loop: 0);
-	//stutgate = Impulse.kr(stutfreq);
-	
-	//ou = PlayBuf.ar(2, bufnum, BufRateScale.kr(bufnum), stutgate, start_pos*BufSamples.kr(bufnum), 1, doneAction:0);
-	rd_phase = Phasor.ar(stutgate, BufRateScale.kr(bufnum) * rate, 0, stutdur * BufFrames.kr(bufnum));
-	ou = BufRd.ar(2, bufnum, rd_phase, 1);
-	ou = Select.ar(stutgate, [in, ou]);
-	//ou = ou;
-	//ou = ou * EnvGen.ar(Env.asr(0.01,1,0.01),stutgate,doneAction:2);
-
-	//ou = ou * EnvGen.ar(Env.adsr(0.01,0.1,0.8,0.1),gate,doneAction:2);
-	ou = SelectX.ar(mix, [in, ou]);
-	Out.ar(out, ou * amp);
-}, metadata:(specs:(
-	stutgate: \unipolar.asSpec,
-))).add;
-)
+Mdef.main.init_midi
 
 (
 
@@ -1089,4 +1070,30 @@ Array.newFrom([1,2,3,4,5,6,7,8]).keep(8)
 
 Mdef.main.panels.side.song_manager.get_path([1,1,1]).children
 
-Mdef.node(\s1_part1_sect1_var5).children
+Mdef.node(\s1_part1_sect1_var1).children
+
+
+~node = Mdef.node_by_index(0)
+~node.get_arg(\repeat).changed(\val)
+~node.get_arg(\repeat).classtype
+~node.get_arg(\repeat).set_val(10)
+
+~node.data.keys.as(Array).sort.do(_.postln)
+
+
+
+(
+	
+	~task = Task{
+		loop {
+			"======================= % - % - %".format(s.numUGens, s.numSynths, s.numGroups).postln;
+			0.5.wait;
+		}
+	}.play(AppClock)
+)
+
+
+a = Bus.control
+s.controlBusAllocator.debug
+ContiguousBlock
+ContiguousBlockAllocator.debug

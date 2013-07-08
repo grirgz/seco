@@ -399,6 +399,10 @@
 		main = main ?? self.get_main;
 		debug("class_player_display: edit_param_value");
 		switch(param.classtype,
+			\adsr, {
+				~class_adsr_view.new(param).make_window;
+
+			},
 			\control, {
 				~make_edit_number_view.(main, "edit param", param, [\knob, 0]);
 			},

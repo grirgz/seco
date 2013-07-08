@@ -1067,3 +1067,77 @@
 		
 	},
 );
+
+
+~class_adsr_view = (
+	new: { arg self, adsr_param;
+		self = self.deepCopy;
+	
+		self.adsr_param = { adsr_param };
+		self.param_order = { adsr_param.get_params };
+		self.param = { adsr_param.sub_param };
+	
+		self;
+	},
+
+	make_layout: { arg self;
+		//var knobs = [\delay, \attack_time, \decay_time, \sustain_level, \release_time, \curve];
+		var knobs = self.param_order;
+		//var faders = [\ampcomp, \velocity_mix];
+		var frame_view;
+		var env_view;
+		var layout;
+		var knobs_layouts;
+		knobs_layouts = knobs.collect { arg name;
+			~class_ci_modknob_view.new(self.param[name]).layout;
+			//ModKnob.new.asView;
+		};
+		//self.faders = faders.collect { arg name;
+		//	~class_ci_modslider_view.new(self.param[name], Rect(0,0,30,100)).layout;
+		//};
+		//self.layout = VLayout(
+		layout = VLayout(
+			HLayout(*
+				//self.faders ++
+				[
+					env_view = EnvelopeView.new; 0.01.wait; env_view
+				]
+			),
+			HLayout(*
+				knobs_layouts
+				//[HLayout.new]
+			)
+		);
+		knobs.do { arg name;
+			~make_view_responder.(env_view, self.param[name], (
+				val: {
+					env_view.setEnv( 
+						self.adsr_param.get_env;
+
+						//Env.adsr(
+							//env_view.setEnv( Env.dadsr(
+							//self.param[\delay].get_val,
+							//self.param[\attackTime].get_val,
+							//self.param[\decayTime].get_val,
+							//self.param[\sustainLevel].get_val,
+							//self.param[\releaseTime].get_val,
+							//1,
+							//self.param[\curve].get_val
+						//)
+					)
+				}
+			), true)
+		};
+		self.layout = layout;
+		layout;
+	},
+
+	make_window: { arg self;
+		Task {
+			self.window = Window.new("ADSR");
+			self.make_layout;
+			self.window.layout = self.layout;
+			self.window.front;
+		}.play(AppClock);
+	},
+)

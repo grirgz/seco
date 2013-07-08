@@ -175,6 +175,9 @@
 			txt_midi_label.string = "";
 			kind.string = "";
 			paramval.string = "";
+			if( self.responder.notNil ) {
+				self.responder.remove
+			};
 
 		},
 
@@ -653,6 +656,7 @@
 			var child = children[x];
 			var is_empty = false;
 			var amp;
+			[child !? _.uname].debug("class_groupnode_view.group_items: child");
 			if(child.notNil and: { child.uname != \voidplayer  }) {
 				amp = child.get_arg(\amp);
 				if( amp.isNil ) {

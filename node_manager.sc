@@ -263,7 +263,8 @@
 		},
 
 		load_libnode: { arg self, action, load_default_preset=true;
-			~choose_libnode.(main, { arg libnodename, livenodename; 
+			//~choose_libnode.(main, { arg libnodename, livenodename; 
+			~class_libnode_chooser.new(main, { arg libnodename, livenodename; 
 				var nodename;
 				"load_libnode: first func".debug;
 				self.default_newnode = [\libnode, libnodename];

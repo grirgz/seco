@@ -1,0 +1,188 @@
+//--redFrik 2013
+//req. Canvas3D quark
+//use mouse to rotate canvas
+//add your own sounds to x, y, z (maybe with InFeedback.ar)
+(
+//--settings
+var width= 640, height= 480;
+var fps= 60;
+var buffersize= 1024;
+var scale= 250;
+var perspective= 0.3;
+var distance= 2;
+
+//--
+var win= Window("3d soundwave canvas", Rect(128, 64, width, height), false).front;
+var can= Canvas3D(win, Rect(0, 0, width, height)).scale_(scale).perspective_(perspective).distance_(distance);
+var itemCube= Canvas3DItem.cube;
+var itemWave= Canvas3DItem.new;
+var path= [];
+var buffer;
+can.add(itemCube);
+can.add(itemWave);
+s.waitForBoot{
+	buffer= Buffer.alloc(s, buffersize, 3);
+	s.sync;
+	{
+		var x= SinOsc.ar(42);//sound x
+		var y= SinOsc.ar(83);//sound y
+		var z= LFSaw.ar(164);//sound z
+		RecordBuf.ar([x, y, z], buffer);
+		Silent.ar;
+	}.play;
+	s.sync;
+	can.animate(fps, {|frame|
+		buffer.getn(0, buffersize-1*3, {|data| path= data.clump(3)});
+		itemWave.paths= [path];
+	});
+	can.mouseMoveAction= {|v, x, y|
+		can.transforms= [
+			Canvas3D.mRotateY(x/scale.neg%2pi),
+			Canvas3D.mRotateX(y/scale%2pi)
+		];
+	};
+	CmdPeriod.doOnce({win.close; buffer.free});
+};
+)
+
+
+
+//req. Canvas3D quark
+//works with both cocoa and qt GUI
+//see thread https://www.listarc.bham.ac.uk/lists/sc-users/msg06458.html for more examples
+//cmd+period to stop
+
+(
+	var width = 500, height = 400;
+	var w, u;
+	
+	var segments= 40;
+	var minorRadius= 0.667;
+	var majorRadius= 1;
+	
+	w = Window("spinning doughnut", Rect(128, 64, width, height), false)
+		.front;
+	u = Canvas3D(w, Rect(0, 0, width, height));
+	u.add(Canvas3DItem()
+		.paths_(
+			Array.fill(segments+1, {|i|
+				var u= i/segments*2pi;
+				Array.fill(segments+1, {|j|
+						var v= j/segments*2pi;
+						var x= (minorRadius*cos(v)+majorRadius)*cos(u);
+						var y= (minorRadius*cos(v)+majorRadius)*sin(u);
+						var z= minorRadius*sin(v);
+						[x, y, z];
+					});
+				})
+		)
+	);
+	u.animate(40, {|t|
+		u.transforms = [
+			Canvas3D.mRotateY(t/52%2pi*sin(t/30)),
+			Canvas3D.mRotateX(t/50%2pi),
+			Canvas3D.mScale(1, 1, sin(t/32)*2)
+		];
+	});
+	CmdPeriod.doOnce({w.close});
+)
+
+
+
+//and with trails
+(
+	var width = 500, height = 400;
+	var w, u;
+	
+	var segments= 40;
+	var minorRadius= 2;
+	var majorRadius= 1;
+	
+	w = Window("spinning doughnut tails", Rect(128, 64, width, height), false)
+		.front;
+	u = Canvas3D(w, Rect(0, 0, width, height));
+	u.view.clearOnRefresh= false;
+	u.add(Canvas3DItem()
+		.paths_(
+			Array.fill(segments+1, {|i|
+				var u= i/segments*2pi;
+				Array.fill(segments+1, {|j|
+						var v= j/segments*2pi;
+						var x= (minorRadius*cos(v)+majorRadius)*cos(u);
+						var y= (minorRadius*cos(v)+majorRadius)*sin(u);
+						var z= minorRadius*sin(v);
+						[x, y, z];
+					});
+				})
+		)
+	);
+	u.view.drawFunc= {
+		Pen.fillColor= Color.grey(1, 0.1);	//alpha set trail amount
+		Pen.fillRect(Rect(0, 0, width, height));
+	}<>u.view.drawFunc;
+	u.animate(40, {|t|
+		u.transforms = [
+			Canvas3D.mRotateY(t/22),
+			Canvas3D.mRotateX(t/25*sin(t/23)),
+			Canvas3D.mScale(1, 1, sin(t/24))
+		];
+	});
+	CmdPeriod.doOnce({w.close});
+)
+
+
+
+//and with sound input from mic
+(
+	var width = 500, height = 400;
+	var w, u, amp= 0.1;
+	
+	var segments= 25;
+	var minorRadius= 0.5;
+	var majorRadius= 1.5;
+	
+	w = Window("spinning wireframe doughnut", Rect(128, 64, width, height), false)
+		.front;
+	u = Canvas3D(w, Rect(0, 0, width, height));
+	u.add(Canvas3DItem()
+		.paths_(
+			Array.fill(segments+1, {|i|
+				var u= i/segments*2pi;
+				Array.fill(segments+1, {|j|
+					var v= j/segments*2pi;
+					var x= (minorRadius*cos(v)+majorRadius)*cos(u);
+					var y= (minorRadius*cos(v)+majorRadius)*sin(u);
+					var z= minorRadius*sin(v);
+					[x, y, z];
+				});
+			})
+			++
+			Array.fill(segments+1, {|i|
+				var u= i/segments*2pi;
+				Array.fill(segments+1, {|j|
+					var v= j/segments*2pi;
+					var x= (minorRadius*cos(u)+majorRadius)*cos(v);
+					var y= (minorRadius*cos(u)+majorRadius)*sin(v);
+					var z= minorRadius*sin(u);
+					[x, y, z];
+				});
+			})
+		)
+	);
+	u.animate(60, {|t|
+		u.transforms = [
+			Canvas3D.mRotateY(sin(t/42)*sin(t/53)),
+			Canvas3D.mRotateX(sin(t/31)*sin(t/64)),
+			Canvas3D.mRotateX(sin(t/20)*sin(t/75)),
+			Canvas3D.mScale(amp, amp, sin(t/9)*sin(t/86))
+		];
+	});
+	
+	//--sound input
+	s.waitForBoot{
+		OSCresponder(s.addr, \tr, {|t, r, m| amp= m[3].explin(0.01, 1, 0.667, 1)}).add;
+		{SendTrig.kr(Impulse.kr(60), 0, Amplitude.kr(SoundIn.ar, 0.1, 0.4)); DC.ar(0)}.play;
+	};
+	
+	CmdPeriod.doOnce({w.close});
+)

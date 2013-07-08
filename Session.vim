@@ -8,15 +8,15 @@ if expand('%') == '' && !&modified && line('$') <= 1 && getline(1) == ''
   let s:wipebuf = bufnr('%')
 endif
 set shortmess=aoO
-badd +12 live/dev1.sc
+badd +12 ~/code/sc/seco/live/dev1.sc
 badd +676 timeline.sc
 badd +80 bindings.sc
 badd +1361 matrix.sc
 badd +279 node_manager.sc
-badd +853 main.sc
+badd +854 main.sc
 badd +264 classinstr.sc
 badd +1981 param.sc
-badd +42 player.sc
+badd +765 player.sc
 badd +112 gui.sc
 badd +235 live/crap64.sc
 badd +123 ~/.vim/UltiSnips-2.1/UltiSnips/supercollider.snippets
@@ -36,8 +36,11 @@ badd +115 live/crap44.sc
 badd +319 player_display.sc
 badd +125 samplelib.sc
 badd +13 ~/.local/share/SuperCollider/Extensions/custom/ArgThunk.sc
+badd +0 live/dev2.sc
+badd +0 live/live33.sc
+badd +90 synthpool.sc
 silent! argdel *
-edit live/dev1.sc
+edit live/dev2.sc
 set splitbelow splitright
 set nosplitbelow
 set nosplitright
@@ -52,11 +55,11 @@ setlocal fdl=0
 setlocal fml=1
 setlocal fdn=20
 setlocal nofen
-let s:l = 136 - ((17 * winheight(0) + 19) / 39)
+let s:l = 5 - ((4 * winheight(0) + 19) / 39)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-136
+5
 normal! 0
 tabedit main.sc
 set splitbelow splitright
@@ -73,13 +76,34 @@ setlocal fdl=0
 setlocal fml=1
 setlocal fdn=20
 setlocal nofen
-let s:l = 853 - ((19 * winheight(0) + 19) / 39)
+let s:l = 854 - ((19 * winheight(0) + 19) / 39)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-853
-normal! 05l
-tabnext 2
+854
+normal! 04l
+tabedit player.sc
+set splitbelow splitright
+set nosplitbelow
+set nosplitright
+wincmd t
+set winheight=1 winwidth=1
+argglobal
+setlocal fdm=indent
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal nofen
+let s:l = 765 - ((19 * winheight(0) + 19) / 39)
+if s:l < 1 | let s:l = 1 | endif
+exe s:l
+normal! zt
+765
+normal! 04l
+tabnext 1
 if exists('s:wipebuf')
   silent exe 'bwipe ' . s:wipebuf
 endif

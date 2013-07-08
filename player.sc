@@ -30,15 +30,19 @@
 
 	rebuild_arg_list: { arg self;
 		// TODO
+		debug("*********************** rebuild_arg_list");
 		self.data = IdentityDictionary.new;
 		self.data.putAll(self.base_data);
+		self.data.keys.debug("base_data");
 		if(self.external_player.notNil) {
 			self.external_data = self.external_player.rebuild_arg_list;
 			if(self.external_data.notNil) {
+				self.external_data.keys.debug("external_data");
 				self.data.putAll(self.external_data);
 			};
 		};
 		if(self.compositor.notNil) {
+			self.compositor.data.keys.debug("comp data");
 			self.data.putAll(self.compositor.data);
 		};
 		self.build_sourcepat;
@@ -691,6 +695,7 @@
 			sustain: {~make_control_param.(self.get_main, self, \sustain, \scalar, 0.5, ~get_spec.(\sustain, self.defname))},
 			// FIXME: repeat should be simple numeric param
 			repeat: {~make_control_param.(self.get_main, self, \repeat, \scalar, 1, ~get_spec.(\repeat, self.defname))},
+			//repeat: {~make_simple_number_param.(self.get_main, \repeat, ~get_spec.(\repeat, self.defname), 1)},
 			stepline: {~make_stepline_param.(\stepline, 1 ! 8 )},
 			instrument: {~make_literal_param.(\instrument, self.defname)},
 		);
@@ -753,10 +758,14 @@
 
 	build_sourcepat_finalize: { arg self;
 		var list = self.sourcepat_list;
-		self.sourcepat = if(self.is_effect) {
+		self.sourcepat = if(self.is_effect or: { self.is_pmono == true or: {self.is_pmonoartic == true}}) {
 			self.get_arg(\instrument).get_val.debug("class_synthdef_player: build_sourcepat_finalize: pmono instr");
 			list.debug("list");
-			Pmono(self.get_arg(\instrument).get_val, *list)
+			if(self.is_pmonoartic == true) {
+				PmonoArtic(self.get_arg(\instrument).get_val, *list)
+			} {
+				Pmono(self.get_arg(\instrument).get_val, *list)
+			}
 		} {
 			//DebugPbind(*list); //debug
 			Pbind(*list); //debug
@@ -1795,7 +1804,7 @@
 	var pplayer;
 	pplayer = (
 		//children: SparseArray.newClear(8, ~empty_player),
-		parent: ~class_abstract_node,
+		parent: ~class_abstract_node.deepCopy,
 		children: SparseArray.newClear(~general_sizes.children_per_groupnode, \voidplayer),
 		kind: \parnode,
 		name: \new,

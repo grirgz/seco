@@ -1923,7 +1923,8 @@ Instr(\p_delay, { arg in, mix, damp, delay_left, delay_right, gate=1;
 }, [\audio])
 .storeSynthDef([\ar], metadata:(
 	specs: (
-		damp: ControlSpec(0,4,\lin,0,0),
+		//damp: ControlSpec(0,4,\lin,0,0),
+		damp: \freq.asSpec,
 		delay_left: ControlSpec(0,4,\lin,0,0),
 		delay_right: ControlSpec(0,1,\lin,0,0),
 	)

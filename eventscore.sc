@@ -35,6 +35,59 @@
 	),
 ];
 
+~default_noteline = [
+	(
+		midinote: 64,
+		sustain: 0.25,
+		velocity: 0.8,
+		dur: 0.5
+	),
+	(
+		midinote: 66,
+		sustain: 0.25,
+		velocity: 0.8,
+		dur: 0.5
+	),
+];
+
+~default_noteline2 = [
+	(
+		midinote: 64,
+		sustain: 0.1,
+		velocity: 0.8,
+		dur: 0.5
+	),
+	(
+		midinote: 65,
+		sustain: 0.1,
+		velocity: 0.8,
+		dur: 0.4
+	),
+	(
+		midinote: 66,
+		sustain: 0.1,
+		velocity: 0.8,
+		dur: 0.9
+	),
+	(
+		midinote: 67,
+		sustain: 0.1,
+		velocity: 0.8,
+		dur: 0.1
+	),
+	(
+		midinote: 68,
+		sustain: 0.1,
+		velocity: 0.8,
+		dur: 1.5
+	),
+	(
+		midinote: 69,
+		sustain: 0.1,
+		velocity: 0.8,
+		dur: 0.6
+	)
+];
 ~default_noteline3 = [ // FIXME: crash when no notes
 	(
 		midinote: \rest,
@@ -62,7 +115,7 @@
 		dur: 2.0
 	),
 ];
-~default_noteline = [ // FIXME: crash when no notes
+~default_noteline4 = [ // FIXME: crash when no notes
 	(
 		midinote: \rest,
 		type: \rest,
@@ -106,44 +159,6 @@
 		velocity: 0.8,
 		dur: 0.5
 	),
-];
-~default_noteline2 = [
-	(
-		midinote: 64,
-		sustain: 0.1,
-		velocity: 0.8,
-		dur: 0.5
-	),
-	(
-		midinote: 65,
-		sustain: 0.1,
-		velocity: 0.8,
-		dur: 0.4
-	),
-	(
-		midinote: 66,
-		sustain: 0.1,
-		velocity: 0.8,
-		dur: 0.9
-	),
-	(
-		midinote: 67,
-		sustain: 0.1,
-		velocity: 0.8,
-		dur: 0.1
-	),
-	(
-		midinote: 68,
-		sustain: 0.1,
-		velocity: 0.8,
-		dur: 1.5
-	),
-	(
-		midinote: 69,
-		sustain: 0.1,
-		velocity: 0.8,
-		dur: 0.6
-	)
 ];
 
 ~default_sampleline = [ // FIXME: crash when no notes

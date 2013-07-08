@@ -399,17 +399,18 @@
 	var ltracks;
 	node = ~get_node.(node);
 	display = Mdef.main.panels.side.track_display;
-	ltracks = ~class_line_tracks_controller.new(Mdef.main, node, ~display);
+	ltracks = ~class_line_tracks_controller.new(Mdef.main, node, display);
 	ltracks.make_gui;
 
 };
 
 ~reload_node = { arg node;
 	var newnode, oldnode;
+	var name = ~get_node_name.(node);
 	node = ~get_node.(node);
 	newnode = node.clone;
-	oldnode = Mdef.main.model.livenodepool[~get_node_name.(node)];
-	Mdef.main.model.livenodepool[\my_detune_scorizer] = newnode;
+	oldnode = Mdef.main.model.livenodepool[name];
+	Mdef.main.model.livenodepool[name] = newnode;
 	oldnode.destructor;
 };
 
@@ -463,6 +464,27 @@
 	~mynode.compositor.make_gui;
 
 )
+
+(
+	~mynode = Mdef.node("stereosampler_l1018");
+	//~reset_node.(~mynode);
+	~compose_node.(~mynode, {
+		~declare_mods.((
+			my_delay_scorizer: ~note_mod.(\delay_scorizer),
+		));
+	});
+	~mynode_fx = Mdef.node("comb1_l1026");
+	~compose_node.(~mynode_fx, {
+		//~declare_mods.((
+		//	my_delay_scorizer: ~note_mod.(\delay_scorizer),
+		//));
+		~params_mod.((
+			delaytime: ~carmod.(\my_delay_scorizer),
+		))
+	});
+
+)
+~show_note_editor.(\my_delay_scorizer);
 
 (
 	~mynode = Mdef.node_by_index(0);
@@ -534,6 +556,15 @@ SynthDef(\detune_scorizer, { arg out=0, amp=0.1, gate=1, freq=200, lag=0.1;
 	//sig = Lag.kr(freq, 0.1);
 	freq = Lag.kr(freq, lag);
 	sig = freq.cpsmidi - 60;
+	//sig.poll;
+	Out.kr(out, sig);
+}).add;
+
+SynthDef(\delay_scorizer, { arg out=0, amp=0.1, gate=1, freq=200, lag=0.1;
+	var sig;
+	//sig = Lag.kr(freq, 0.1);
+	freq = Lag.kr(freq, lag);
+	sig = 1/freq;
 	//sig.poll;
 	Out.kr(out, sig);
 }).add;

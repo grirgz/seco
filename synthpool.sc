@@ -1,4 +1,30 @@
-(
+SynthDef(\bufstut, { arg in, out=0, mix=1, amp=1, gate=1, pan=0, freq=200, bufdur=1,stutgate=0, stutdur=1, start_pos=0, rate=1;
+	var ou;
+	var bufnum;
+	var stutenv;
+	var rd_phase;
+	//var rate = 1;
+	var stutgate_trig;
+	in = In.ar(in, 2);
+	bufnum = LocalBuf(s.sampleRate * 2, 2);
+	bufnum.clear;
+	stutgate_trig = stutgate* 4 - 2;
+	RecordBuf.ar(in, bufnum, 0, run: Trig1.kr(stutgate_trig, stutdur), trigger: stutgate_trig, doneAction: 0, loop: 0);
+	//stutgate = Impulse.kr(stutfreq);
+	
+	//ou = PlayBuf.ar(2, bufnum, BufRateScale.kr(bufnum), stutgate, start_pos*BufSamples.kr(bufnum), 1, doneAction:0);
+	rd_phase = Phasor.ar(stutgate_trig, BufRateScale.kr(bufnum) * rate, 0, stutdur * BufFrames.kr(bufnum));
+	ou = BufRd.ar(2, bufnum, rd_phase, 1);
+	ou = Select.ar(stutgate, [in, ou]);
+	//ou = ou;
+	//ou = ou * EnvGen.ar(Env.asr(0.01,1,0.01),stutgate,doneAction:2);
+
+	//ou = ou * EnvGen.ar(Env.adsr(0.01,0.1,0.8,0.1),gate,doneAction:2);
+	ou = SelectX.ar(mix, [in, ou]);
+	Out.ar(out, ou * amp);
+}, metadata:(specs:(
+	stutgate: \unipolar.asSpec,
+))).store;
 
 SynthDef(\limiter, { arg in, out=0, mix=1, level=1, postamp=1, gate=1;
 	var sig, dry;
@@ -53,7 +79,7 @@ SynthDef(\zegrainer, { arg out=0, amp=0.1, gate=1, pan=0, freq=200, mbufnum,
 
 ))).store;
 
-SynthDef(\osc1, { arg out, gate=1, freq=300, amp=0.1, ffreq=200, rq=0.1, attack=0.1, release=0.1, doneAction=2;
+SynthDef(\osc1, { arg out, gate=1, freq=300, amp=0.1, ffreq=200, rq=0.1, attack=0.1, release=0.1, doneAction=2, pan=0;
 	var sig = LFSaw.ar(freq);
 	var env = EnvGen.kr(Env.adsr(attack,0.1,1,release), gate, doneAction:doneAction);
 	sig = RLPF.ar(sig, ffreq, rq);
@@ -61,7 +87,7 @@ SynthDef(\osc1, { arg out, gate=1, freq=300, amp=0.1, ffreq=200, rq=0.1, attack=
 	//ffreq.poll;
 	//rq.poll;
 	sig = sig * env;
-	sig = sig ! 2;
+	sig = Pan2.ar(sig, pan, 1);
 	sig = sig * amp;
 	//sig.poll;
 	Out.ar(out, sig);
@@ -341,7 +367,6 @@ SynthDef(\ch, { | out=0, decay = 3, amp = 0.1, freqfactor = 1, doneAction=2, del
 		flt = LPF.ar(osc, fEnv + 100, aEnv);
 		Out.ar(out, flt);
 	}).add;
-);
 
 (
 SynthDef(\strings, { arg out, freq=440, amp=0.1, gate=1, pan, freqLag=0.2;
@@ -485,7 +510,7 @@ SynthDef(\kraftySnr, { |amp = 1, freq = 2000, rq = 3, decay = 0.3, pan, out|
     Out.ar(out, Pan2.ar(sig, pan))
 }).store;
 
-SynthDef("snare1", { 
+SynthDef("snare2", { 
 	arg out=0, gate=1, pan=0, amp=0.1, freq=111;
 	var mid, ou, ou2, env1, env2;
 
@@ -530,7 +555,7 @@ SynthDef(\lead, { |out, freq=440, amp=0.1, gate=1, bps=2|
 SynthDef(\lead2, {	arg out=0, freq = 100, pan=0, amp=0.1, mdetune=1.004, gate=1, rq=0.1, fratio = 1, fbase=400, wet=1, fbfreq=100, fbamp=0.8, fbpamp=1; 
 	var fb, ou, filtenv;
 	ou = LFSaw.ar(freq * [1, mdetune]).sum;
-	filtenv = EnvGen.ar(Env.adsr(0.01,0.25,0.07,0.3), gate, 1, fbase, doneAction:0) * freq * Lag.kr(fratio,0.1);
+	filtenv = EnvGen.kr(\adsr_filter.kr(Env.adsr(0.1,0.25,0.7,0.3)), gate, 1, 0, doneAction:0) * freq * fratio + fbase;
 	ou = RLPF.ar(ou, filtenv, rq);
 	fb = LocalIn.ar(1) + ou;
 	fb = HPF.ar(fb, fbfreq);
@@ -581,7 +606,7 @@ SynthDef(\monosampler, {| out = 0, amp=0.1, pan=0, bufnum = 0, gate = 1, pos = 0
 SynthDef(\stereosampler, {| out = 0, amp=0.1, bufnum = 0, gate = 1, pos = 0, speed = 1, loop=0, doneAction=2, pan=0|
 
 	var player,env;
-	env =  EnvGen.kr(~make_adsr.(\adsr), gate, doneAction:doneAction);
+	env =  EnvGen.kr(\adsr.kr(Env.adsr(0.1,0.1,0.8,0.1)), gate, doneAction:doneAction);
 	player = PlayBuf.ar(2, bufnum, BufRateScale.kr(bufnum) * speed, 1, startPos: (pos*BufFrames.kr(bufnum)), doneAction:doneAction, loop: loop);
 	player = Pan2.ar(player, pan, amp * 2);
 	Out.ar(out, player);

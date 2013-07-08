@@ -1010,6 +1010,11 @@ if(~silent_audio2_bus.isNil) {
 
 			self.model.patlist = patlist.collect { arg asso; asso.key };
 			self.model.patpool = patpool;
+			self.model.nodelib = self.model.patlist;
+		},
+
+		load_nodelib: { arg self, libnodelist;
+			self.load_patlib(libnodelist);
 		},
 
 		load_effectlib: { arg self, fxlist;

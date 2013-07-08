@@ -2168,6 +2168,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			val: if(default_value.isArray, { default_value[0] }, { default_value }),
 
 			set_val: { arg self, val, idx=nil;
+				[param.name, val, idx].debug("control_param.scalar.set_val: val");
 				self.val = val;
 				if(self.bus_mode) {
 					self.bus.set(self.val)
@@ -3956,7 +3957,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	decayTime:~env_time,
 	sustainLevel:~env_time, //FIXME: not time
 	releaseTime:~env_time,
-	curve:ControlSpec(-9, 9, 'linear', 1, 0, "")
+	curve:ControlSpec(-9, 9, 'linear', 0, 0, "")
 );
 
 
@@ -3968,11 +3969,56 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	Env.performWithEnvir(\adsr, adsr).asArray ++ [adsr.levelScale, adsr.levelBias, adsr.timeScale]
 };
 
+~env_array_to_env = { |array|
+	var curves = Array(array.size div: 4 - 1);
+	(6, 10 .. array.size).do { |i|
+		if(array[i] == 5) {
+			curves.add(array[i+1])
+		} {
+			curves.add(Env.shapeNames.findKeyForValue(array[i]))
+		}
+	};
+	Env(array[0, 4 .. ], array[5, 9 .. ], curves,
+		if(array[2] == -99) { nil } { array[2] },
+		if(array[3] == -99) { nil } { array[3] }
+	);
+};
+
+~env_adsr_array_to_event = { arg env_array;
+
+	var env;
+	var curve;
+	if(env_array == 0) {
+		"env_adsr_array_to_event: error, not an array".debug;
+	};
+	env = ~env_array_to_env.(env_array);
+	if(env.curves.isArray) {
+		curve = env.curves[0]
+	} {
+		curve = env.curves;
+	};
+
+	(
+		attackTime: env.times[0],
+		decayTime: env.times[1],
+		sustainLevel: env.levels[2],
+		releaseTime:env.times[2],
+		curve: curve,
+	);
+
+};
+
 ~make_adsr_param = { arg main, player, name, default_value;
 	var param, subparam;
 
+	default_value = if(default_value != 0 and: {default_value.notNil}) {
+		~env_adsr_array_to_event.(default_value);
+	} {
+		~default_adsr.deepCopy;
+	};
+
 	param = (
-		val: ~default_adsr.deepCopy,
+		val: default_value,
 		name: name,
 		classtype: \adsr,
 		current_kind: \scalar,
@@ -4025,6 +4071,10 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			}
 		},
 
+		get_env: { arg self;
+			~adsr_event_to_env.(self.val)
+		},
+
 		set_vals: { arg self, val;
 			self.get_params.do { arg param, idx;
 				self.get_param(param).set_val(val[idx] ?? 0);
@@ -4075,6 +4125,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 						[ ~adsr_event_to_env.(self.val).asArray ]
 					};
 				} {
+					self.get_env.asCompileString.debug("ADSR==========");
 					[ ~adsr_event_to_env.(self.val).asArray ]
 				}
 			});
@@ -4111,6 +4162,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 			},
 			refresh: { arg kself;
 				//FIXME: what a point need to refresh ? (midi)
+				kself.changed(\val);
 				key.debug("make_adsr_param: adsr point: refresh");
 				kself.midi.refresh;
 			}
@@ -4993,7 +5045,7 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	ret = (
 		parent: ~make_parent_recordline_param.(name, default_value),
 		classtype: \noteline,
-		notes: ~default_noteline3.deepCopy
+		notes: ~default_noteline.deepCopy
 	);
 	ret.init;
 	ret;

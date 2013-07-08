@@ -14,7 +14,8 @@
 		var env;
 		// [attackTime, decayTime, sustainLevel, releaseTime, peakLevel, curve]
 		env = default ?? Env.adsr(0.02, 0.2, 0.25, 0.1, 1, -4);
-		Control.names([argname]).kr( env.asArray );
+		//Control.names([argname]).kr( env.asArray );
+		argname.kr(default);
 };
 
 ~make_rgenadsr = { arg argname, gate, carrier, scale, doneAction=0;
