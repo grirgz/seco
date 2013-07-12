@@ -852,6 +852,44 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 	freq;
 };
 
+
+~class_param_array_view = (
+	new: { arg self, controller;
+		self = self.deepCopy;
+	
+		self.controller = { controller };
+		
+	
+		self;
+	},
+
+	make_layout: { arg self;
+		var mslider;
+		var layout;
+		layout = HLayout.new;
+		mslider = MultiSliderView.new; //default thumbWidth is 13
+		mslider.value = self.controller.get_norm_val; // size is set automatically when you set the value
+		mslider.elasticMode = true;
+		mslider.fillColor = Color.green;
+		mslider.indexThumbSize = 100;
+		mslider.isFilled = true;
+		mslider.action = { arg ms;
+			self.controller.set_norm_val(ms.value)
+		};
+		mslider.reference = self.controller.spec.unmap(1) ! mslider.value.size;
+		layout.add(mslider);
+		self.layout = layout;
+		self.layout;
+	},
+
+	make_window: { arg self;
+		self.window = Window.new("Array edit");
+		self.window.layout = self.make_layout;
+		self.window.front;
+	},
+
+);
+
 /////////////////////////////////////////////////////////////////////////
 /////////		Control views
 /////////////////////////////////////////////////////////////////////////
@@ -3929,6 +3967,42 @@ Spec.add(\spread, ControlSpec(0,1,\lin,0,0.5));
 
 
 ////////////////////////// Arrayed
+
+~class_param_array_controller = (
+	parent: ~class_param_controller,
+	classtype: \array,
+
+	new: { arg self, name, default_value, spec;
+		self = self.deepCopy;
+	
+		self.spec = spec;
+		self.val = default_value ?? [0.5];
+		self.name = name;
+		
+	
+		self;
+	},
+
+	set_norm_val: { arg self, val;
+		self.val = self.spec.map(val);
+	},
+
+	get_norm_val: { arg self;
+		self.spec.unmap(self.val);
+	},
+
+	set_val: { arg self, val;
+		self.val = val;
+	},
+
+	get_val: { arg self;
+		self.val;
+	},
+
+	vpattern: { arg self;
+		Pfunc { [ self.get_val ] }
+	}
+);
 
 ~default_adsr = (
 	attackTime:0.01,

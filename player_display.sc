@@ -121,7 +121,7 @@
 		param_kinds: [\scalar, \seq, \seg, \modulation, \scoreseq, \synchrone, \synchrone_rate, \bus, \recordbus, \pkey, \preset],
 		param_no_midi: { arg self; self.param_field_group ++ [\mbufnum, \bufnum, \samplekit] ++ self.param_mode; },
 		param_reject: { arg self; [\segdur, \out, \instrument, \tsustain, \type, \gate, \agate, \t_trig, \legato, \doneAction] ++ self.param_mode; },
-		param_accepted_displayed_kind: { arg self; self.param_mode ++ [\control, \samplekit, \adsr, \buf]},
+		param_accepted_displayed_kind: { arg self; self.param_mode ++ [\control, \samplekit, \adsr, \buf, \array]},
 		param_midi_reject: { arg self; Set.newFrom(self.param_reject ++ self.param_no_midi); },
 		group_types: [\parnode, \seqnode],
 
@@ -206,6 +206,7 @@
 			if(sel.notNil) {
 				player.select_param(sel);
 				self.model.selected_param = player.get_arg(sel);
+				~global_controller.current_param = self.model.selected_param;
 
 				if(self.param_types.param_mode.includes(sel)) {
 					"enable change_player_mode".debug;
@@ -405,6 +406,9 @@
 			},
 			\control, {
 				~make_edit_number_view.(main, "edit param", param, [\knob, 0]);
+			},
+			\array, {
+				~class_param_array_view.new(param).make_window;
 			},
 			\buf, {
 				var pl = player ?? self.get_current_player;

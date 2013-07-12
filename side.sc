@@ -1703,7 +1703,9 @@
 
 
 		make_gui: { arg self;
-			self.window = ~make_side_view.(main, self);
+			Task {
+				self.window = ~make_side_view.(main, self);
+			}.play(AppClock);
 			//self.window = ~make_side_view_BACKUP.(main, self);
 			//self.window = ~make_nodegroup_view.(main, self);
 		},

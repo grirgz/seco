@@ -950,8 +950,11 @@
 	new: { arg self, main, action;
 		var my_datalist;
 		self = ~class_matrix_chooser[\new].(self, action, "Choose libnode");
+
+		self.get_main = { main };
 	
 		my_datalist = main.model.nodelib;
+		self.set_bank(main.node_manager.model.libnode_chooser_bank ?? 0);
 		
 		self.set_datalist(my_datalist);
 		self.show_window;
@@ -963,6 +966,7 @@
 		~class_matrix_chooser[\bindings_list].(self) ++ [
 			["select_column", 9, { arg idx;
 				idx = idx.clip(1,9) - 1;
+				self.get_main.node_manager.model.libnode_chooser_bank = idx;
 				self.set_bank(idx);
 			}],
 		]

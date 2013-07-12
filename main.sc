@@ -1001,14 +1001,21 @@ if(~silent_audio2_bus.isNil) {
 			parlive: \to_init
 		),
 		
-		load_patlib: { arg self, patlist;
+		load_patlib: { arg self, inpatlist;
 			var patpool = Dictionary.new;
+			var patlist = List.new;
 
-			patlist.do { arg asso;
-				patpool[asso.key] = asso.value;
+			inpatlist.do { arg asso;
+				if(asso.class == Association) {
+					patpool[asso.key] = asso.value;
+					patlist.add(asso.key);
+				} {
+					patpool[asso] = asso;
+					patlist.add(asso);
+				}
 			};
 
-			self.model.patlist = patlist.collect { arg asso; asso.key };
+			self.model.patlist = patlist;
 			self.model.patpool = patpool;
 			self.model.nodelib = self.model.patlist;
 		},

@@ -240,6 +240,11 @@
 								//	~get_spec.(name, self.defname)
 								//)
 							}
+							{ control.defaultValue.isArray } {
+								dict[name] = ~class_param_array_controller.new(
+									name, control.defaultValue, ~get_spec.(name, self.defname)
+								)
+							}
 							{ (name == \bufnum) || name.asString.containsStringAt(0, "bufnum_") } {
 								dict[name] = ~make_buf_param.(name, "sounds/default.wav", self, ~get_special_spec.(name, self.defname));
 								if(dict[\samplekit].isNil) { // prevent multiple creation

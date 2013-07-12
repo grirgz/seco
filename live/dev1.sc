@@ -870,9 +870,9 @@ SynthDef(\multitap8, { arg in, out=0, mix=0.5, amp=1, gate=1,
 	var delay = 0.125;
 	var numdelay = 8;
 	var bufnum;
-	sigin = In.ar(in, 2);
-	bufnum = LocalBuf(s.sampleRate * delay * (numdelay+1), 2);
+	bufnum = LocalBuf(s.sampleRate * delay * (numdelay+2), 2);
 	bufnum.clear;
+	sigin = In.ar(in, 2);
 	//bufnum = b;
 	sig = MultiTap.ar(Ref( (1..numdelay) * delay), Ref([del1, del2, del3, del4, del5, del6, del7, del8]), sigin, 1, 0, bufnum);
 	//sig = sig * EnvGen.ar(Env.asr(0.0001,1,0.0001),gate,doneAction:2);
@@ -1097,3 +1097,39 @@ a = Bus.control
 s.controlBusAllocator.debug
 ContiguousBlock
 ContiguousBlockAllocator.debug
+
+
+
+(
+Pdef(\plop, Pbind(
+	\instrument, \default,
+	\degree, Pseq([0,1,2,3,4],inf)+Pwhite(0,1),
+	\dur, Pseq(~dur),
+	\legato, 0.9,
+	\amp, 0.1
+)).play;
+);
+
+(
+Pdef(\plop, Pbind(
+	\instrument, \default,
+	//\degree, Pseq([0,1,2,3,4],inf)+Pwhite(0,1),
+	\degree, Pseq([Pn(1,Pseq([2,5],inf).asStream)],inf),
+	\dur, Pseq([Prand([1,2,3]),1]/8,40),
+	\dur, Ppatlace([Prand([1,2,3]),1,Pseq([2,4],inf), Pgeom(1,0.9,3)]/8,40),
+	\dur, Ppatlace([1, Pn(Pgeom(1,0.9,10),inf)]/8,40),
+	\dur, 0.5,
+	\legato, 0.9,
+	\amp, 0.1
+)).trace.play;
+);
+
+~dur = 50.collect { arg n; x = sin(n/10).abs + 0.1; x/10 }
+
+(100..1)
+
+a = (bla:1, rah:2)
+a.removeAt(\bla)
+a
+
+rand

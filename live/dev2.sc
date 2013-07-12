@@ -52,6 +52,8 @@ Window.closeAll;
 	\saxo,
 	\organ,
 	\noisescape,
+	\crackle2,
+	\randsaw,
 ].collect({ arg i; i -> i });
 ~seq.load_patlib( ~synthlib );
 
@@ -337,7 +339,9 @@ SynthDef(\klankbell, {arg freq=400, amp=0.4, gate=1, pan=0.0; // we add a new ar
 
 	
 	//env = EnvGen.ar(Env.adsr(0.01,0.3,0.05,0.7), gate, doneAction:2); // doneAction gets rid of the synth
-	input = PinkNoise.ar(1);
+	input = Decay.ar(Impulse.ar(1), 0.1) * PinkNoise.ar(1);
+	input = SinOsc.ar(freq)/2;
+	input = Decay.ar(Impulse.ar(1), 0.1) * input;
 	env = EnvGen.ar(Env.perc(0.01,0.7), gate, doneAction:2); // doneAction gets rid of the synth
 
 	signal = DynKlank.ar(`[
@@ -347,6 +351,7 @@ SynthDef(\klankbell, {arg freq=400, amp=0.4, gate=1, pan=0.0; // we add a new ar
 	], input) * env;
 
 	signal = Pan2.ar(signal, pan, amp);
+	signal = signal / 8;
 
 	Out.ar(0, signal);
 
@@ -360,7 +365,7 @@ SynthDef(\klankbell, {arg freq=400, amp=0.4, gate=1, pan=0.0; // we add a new ar
 		var layout;
 		n=5;
 		w = Window.new.front;
-		layout = VLayout.new;
+		layout = HLayout.new;
 		w.layout = layout;
 		keys.do { arg key;
 			m = MultiSliderView(w,Rect(10,10,n*13+2,100)); //default thumbWidth is 13
@@ -404,11 +409,13 @@ Synth(\saklangbell, [\freq, 200])
 (
 Pdef(\plop, Pbind(
 	\instrument, \klankbell,
-	\freq, Pseq([300, 201, 243, 215],inf),
+	//\freq, Pseq([300, 201, 243, 215],inf),
+	\note, Pseq([0, 1, 2, 3,5],inf),
 	\freqs, Pfunc{ [~spec.map(~data.freqs)] },
 	\amps, Pfunc{ [~spec.map(~data.amps)] },
 	\rings, Pfunc{ [~spec.map(~data.rings)] },
-	\dur, Pwhite(0.12,1,inf),
+	//\dur, Pwhite(0.02,1/2,inf),
+	\dur, Pseq([0.25,0.125,0.25,0.125],inf),
 	\amp, 0.1
 )).play;
 );
@@ -484,3 +491,341 @@ f.value;
 w.front;
 
 )
+
+
+
+
+:a!
+
+(
+SynthDef(\crackle,
+{arg mul=1, bus;
+var source, dur, filter, centrefreq, pan;
+dur = EnvGen.kr(Env.perc(Rand(1,6), Rand(1,6), 1), 1.0, doneAction:2);
+source = Crackle.ar(Rand(1.1,1.9), 1.7*dur);
+centrefreq = Rand(100,1000);
+filter = Resonz.ar(source, centrefreq, Rand(0.001,0.5));
+pan = Pan2.ar(filter, SinOsc.kr(Rand(36,108), Rand(-0.99,0.99)));
+Out.ar(bus, pan*mul.lag(12))
+}).load(s);
+
+SynthDef(\crackle2, {arg out=0, amp=0.1, ffreq=200, gate=1, crackfreq=1.1, crackmul=1.7, rq=0.05, panfreq=36,
+		doneAction=2;
+	var source, dur, filter, centrefreq, pan;
+	var sig, env;
+	env = EnvGen.kr(\adsr.kr(Env.adsr(0.1,0.1,0.8,0.1)), gate, doneAction:doneAction);
+	sig = Crackle.ar(crackfreq, crackmul);
+	sig = Resonz.ar(sig, ffreq, rq);
+	sig = sig * env;
+	sig = Pan2.ar(sig, SinOsc.kr(panfreq));
+	Out.ar(out, sig*amp);
+}).store;
+)
+
+(
+Pdef(\plop, Pbind(
+	\instrument, \crackle2,
+	\degree, Pseq([0],inf),
+	\dur, 3,
+	\amp, 0.8
+)).play;
+);
+
+(
+~task=Task({
+inf.do({
+Synth(\crackle, [\bus, 0]);
+rrand(16,12).wait;
+});
+});
+~task.start;
+)
+
+
+
+(
+	~notes = Pbind(
+		\noteline, Pseq([
+
+			(
+				midinote: 64,
+				sustain: 0.25,
+				velocity: 0.8,
+				dur: 0.5
+			),
+			(
+				midinote: 65,
+				sustain: 0.25,
+				velocity: 0.8,
+				dur: 0.25
+			),
+			(
+				midinote: 68,
+				sustain: 0.25,
+				velocity: 0.8,
+				dur: 0.5
+			),
+			(
+				midinote: 69,
+				sustain: 0.25,
+				velocity: 0.8,
+				dur: 0.25
+			),
+		],inf),
+		\midinote, Pfunc{ arg ev; ev[\noteline].midinote },
+		\dur, Pfunc{ arg ev; ev[\noteline].dur },
+		\sustain, Pfunc{ arg ev; ev[\noteline].sustain },
+	);
+
+	~instr1 = Pbind(
+		\instrument, \osc1, 
+		\ffreq, Pseq([800,200]),
+		\rq, 0.7,
+	);
+	~instr2 = Pbind(
+		\instrument, \osc2, 
+		\ffreq, Pseq([800,200,400,300]+1,inf),
+		//\rq, 0.8,
+	);
+	~instrb = Pbind(
+		\instrument, \osc2, 
+		\ffreq, 204,
+		\rq, 0.2,
+	);
+
+	~player = ~notes <> Pstep(Pseq([~instr1, ~instr2],inf), 2);
+	~player = Pstep(Pseq([~instr1, ~instr2],inf), 2) <> ~notes;
+	~player = ~notes <> ~instr1;
+	~player = Pseq([
+		Psync(~instr1, 4, 4), 
+		Psync(~instr2, 4, 4), 
+	],inf) <> ~instrb <> ~notes;
+	~player = ~notes <> Pseq([
+		Psync(~instr1, 4, 4), 
+		Psync(~instr2, 4, 4), 
+	],inf);
+	~player.trace.play;
+)
+
+
+(
+	~vla = Prout({ arg inval;
+		loop {
+			elapsed.postln;
+			inval = inval.yield
+		}
+	});
+	~pla = ~vla <> ~notes;
+
+	~pla.trace.play
+)
+Pdur
+
+(
+SynthDef(\osc2, { arg out, gate=1, freq=300, amp=0.1, ffreq=200, rq=0.1, attack=0.1, release=0.1, doneAction=2, pan=0;
+	var sig = LFSaw.ar(freq * [1,1.01]);
+	var env = EnvGen.kr(Env.adsr(attack,0.1,1,release), gate, doneAction:doneAction);
+	sig = RLPF.ar(sig, ffreq, rq);
+	//sig = sig + SinOsc.ar(ffreq);
+	//ffreq.poll;
+	//rq.poll;
+	sig = sig * env;
+	sig = Pan2.ar(sig, pan, 1);
+	sig = sig * amp;
+	//sig.poll;
+	Out.ar(out, sig);
+}).store;
+)
+
+
+Pspawn
+
+
+
+Ppar
+
+
+Ptimeline(
+	[
+		(
+			pattern: \notes1,
+			dur: 5,
+			sustain: 3,
+		),
+		(
+			pattern: \notes2,
+			dur: 5,
+			sustain: 3,
+		),
+	]
+)
+
+(
+var	patternChoices = (
+	up: { Pbind(\degree, Pseries(rrand(-4, 5), 1, rrand(4, 10)), \dur, 0.125) },
+	down: { Pbind(\degree, Pseries(rrand(4, 11), -1, rrand(4, 10)), \dur, 0.125) }
+);
+
+p = Pspawn(Pbind(
+	\pattern, Prand([\up, \down], inf),
+	\delta, 0.0,
+	\method, \seq,
+), (dict: patternChoices)).play;
+)
+
+
+
+
+
+SynthDef(\plop, { arg out=0, amp=0.1, gate=1, pan=0, freq=200;
+	var sig;
+	sig = S;
+	sig = sig * EnvGen.ar(Env.adsr(0.01,0.1,0.8,0.1),gate,doneAction:2);
+	sig = Pan2.ar(sig, pan, amp);
+	Out.ar(out, sig);
+}).add;
+
+(
+~tab = { arg n; n.tanh * (n+1).cos / (n.rand+9) + 1 / (n+2).tanh * 30 - 27 } ! 15;
+~tab.postln;
+Ndef(\plop, { arg freq=200, pan=0, amp=0.1;
+	var sig;
+	//freq = Demand.kr(Dust.kr(10), 0, Dseq([1,2,4]*100,inf));
+	//freq = freq.lag(freq/1000);
+	sig = LFSaw.ar(freq * ~tab.abs);
+	sig = sig.sum;
+	sig = RLPF.ar(sig, 100 * SinOsc.ar(~tab.abs/7).range(0.01,7.2));
+	sig = sig.sum;
+	sig = sig / 10;
+	sig = Pan2.ar(sig, pan, amp);
+}).play;
+);
+
+(
+SynthDef(\randsaw, { arg out=0, amp=0.1, gate=1, pan=0, freq=200, ffreqmul=1, rq=0.5, ffreqcar=200, ffreqrange=0.5;
+	var sig;
+	var tab;
+	tab = \tab.kr(1 ! 15);
+	sig = LFSaw.ar(freq * tab.abs);
+	sig = sig.sum;
+	//sig = RLPF.ar(sig, Rand(10,freq*2) + 510 * SinOsc.ar(tab.abs * ffreqmul).range(0.01,Rand(2,7)), rq);
+	sig = RLPF.ar(sig, SinOsc.ar(tab.abs * ffreqmul) * ffreqcar * ffreqrange + ffreqcar, rq);
+	sig = sig.sum;
+	sig = sig / 100;
+	sig = sig.tanh;
+	sig = sig * EnvGen.ar(Env.adsr(0.01,0.1,0.8,0.1+ExpRand(0.001,0.2)),gate,doneAction:2);
+	sig = Pan2.ar(sig, pan, amp);
+	Out.ar(out, sig);
+}, metadata:(specs:(
+	tab: ControlSpec(0.001,4,\lin, 0, 1)
+))).store;
+)
+
+(
+Pdef(\plop, Pbind(
+	\instrument, \randsaw,
+	\degree, Pstep(Pseq([
+		Pseq([0,2,4],4),
+		Pseq([0,12,6],4),
+		Pseq([0,12,6]+7,1),
+	],inf), 1),
+	\octave, 3,
+	\tab, Pfunc {
+		var tab;
+		[ 
+			tab = [ 
+				tab = { arg n; (n + 2.asFloat.rand + 1) / (n+1) } ! 15,
+				tab = { arg n; (n + 1.asFloat.rand + 1).tanh / (n.rand+1) } ! 15,
+			].choose;
+			tab.postln;
+		]
+	},
+	\dur, PdurStutter( Prand([1,2,4],inf), Pseq([1,2,3]/2,inf)),
+	\amp, 0.4
+)).play;
+);
+
+SynthDescLib.global.synthDescs[\bla].controlDict[\tab].defaultValue
+~n = Mdef.node_by_index(0)
+~n.get_arg(\tab).spec
+~get_spec.(\tab, \randsaw)
+~get_special_spec.(\tab, \randsaw)
+
+
+
+Mdef.main.save_project("bordel");
+Mdef.main.load_project("bordel");
+
+BufferPool.buffers
+
+
+
+
+(
+SynthDef(\plop, { arg out=0, amp=0.1, gate=1, pan=0, freq=200, ffreq=200, rq=0.5;
+	var sig;
+	sig = LFSaw.ar(freq * \freqs.kr([1,1,1,1,1]));
+	sig = RLPF.ar(sig, ffreq, rq);
+	sig = sig.sum;
+	sig = sig * EnvGen.ar(Env.adsr(0.01,0.1,0.8,0.1),gate,doneAction:2);
+	sig = Pan2.ar(sig, pan, amp);
+	Out.ar(out, sig);
+}).add;
+)
+
+
+(
+Pdef(\plop, Pbind(
+	\instrument, \plop,
+	\blend, Pseq((1..10).normalizeSum,inf),
+	\freqs, Pfunc { arg ev;
+		[
+			[1.1, 0.99, 1.01, 2, 4].blend(
+				[0.1, 0.19, 0.71, 1.2, 0.51],
+				ev[\blend]
+			)
+		]
+	},
+	//\freq, Pseq([100,200,700],inf)+Pwhite(100,110) / 2,
+	\degree, Pstep(Pseq([0,2,4],inf),1),
+	\octave, 2,
+	\ffreq, Pseq([100,200,300],inf)+Pwhite(100,500),
+	\legato, Pseq([1.5,0.5],inf),
+	\dur, Pseq([0.1, Pn(0.2,3)],inf),
+	\dur, Pseq([0.1, Pn(0.2,3)],inf),
+	\amp, 0.1
+)).play;
+);
+
+
+(
+{
+	var sig;
+	sig = SoundIn.ar([0,1]);
+	sig = sig * 10;
+	//sig = CombL.ar(sig, 0.1,0.1,2);
+}.play
+)
+
+(
+	{ SinOsc.ar(200) }.play
+)
+
+(
+SynthDef(\plop, { arg out=0, amp=0.1, gate=1, pan=0, freq=200;
+	var sig;
+	sig = SinOsc.ar(freq);
+	sig = sig * EnvGen.ar(Env.adsr(0.01,0.1,0.8,0.1),gate,doneAction:2);
+	sig = Pan2.ar(sig, pan, amp);
+	Out.ar(out, sig);
+}).add;
+)
+
+
+
+
+
+
+
+
+
