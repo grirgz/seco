@@ -1,0 +1,275 @@
+Seco is a graphical sequencer/synthetizer written in Supercollider.
+
+Main features:
+
+- pattern matrix
+- timeline
+- modulation
+- effects
+- note editor
+- sampler
+- audio and midi recording
+- complex synth guis
+- tweak and compose patterns and synthdefs with real code
+
+Technically, this is all SC patterns and synthdefs
+
+See screenshots here: https://seco.trovebox.com/photos/list
+
+Track example: https://soundcloud.com/insomniark/viens-voir
+
+
+# Installation
+
+## Dependancies
+* UGens plugins
+* Quarks
+ * WSLib
+ * ..
+* custom extensions https://github.com/grirgz/extensions
+
+# Usage
+
+
+```
+// load and init the Seco code, return a reference to the main object
+// the main object is also stored in Mdef.main
+
+~seq = Mdef.init; 
+
+// add synthdefs to the Seco synthdef library
+// this could be evaluated at any time later to update the list
+
+~synthdef_lib = [
+	\kick1,
+	\osc1,
+];
+~seq.load_patlib( ~synthdef_lib );
+
+// add synthdefs used as modulators to the Seco synthdef modulator library
+
+~modlib = [
+	\lfo1,
+	\xline1,
+];
+~seq.load_modlib( ~modlib );
+
+// add synthdefs used as effects to the Seco synthdef modulator library
+
+~effectlib = [
+	\comb1,
+	\reverb,
+	\flanger,
+];
+~seq.load_effectlib( ~effectlib );
+
+// add samples to the sample library (see the chapter below)
+
+Mdef.main.samplekit_manager.parse_samplekit_dir;
+
+// show the main gui (called the side gui)
+
+Mdef.side_gui;
+```
+
+The basic element of Seco is called a node (not to be confused with a node on the SC server). a node is basically a wrapper around a pattern, so it can always be used as a pattern. When playing a node, Seco put the node's pattern in an EventPatternProxy and call .play on it.
+
+Each key of the pbind is wrapped in an object too. This allow to change the
+
+# Graphic tutorial
+
+Main gui:
+
+![main gui](http://awesomeness.openphoto.me/custom/201304/main-window-7fb7e4_870x870.jpg)
+
+At the bottom there is there is two lines of 4 slots to store the nodes.
+
+Push F1 to add a new node, a chooser showing the ~synthdef_lib list pop up:
+
+![node chooser](http://awesomeness.openphoto.me/custom/201304/choose-synthdef-249ca1_870x870.jpg)
+
+Seco assume you have a midi controller of 4 * 8 buttons and by default use the computer keyboard as an emulation (azerty!)
+
+For example, to choose the first synthdef (called a library node) on the second line, push the key "a". To validate the selection, push "a" again.
+
+Now you see node instanciated from the library node in the selected slot at the bottom of the main gui (called a live node in contrast to the library node).
+
+It's automatically named after the library node name with a number added at the end. For example "kick1_l1001". You can rename it by pressing Alt-r then Enter.
+
+(Currently you need to play the node for the name to update)
+
+## Main shortcuts:
+
+* play the node: F5
+* stop the node: F6
+* mute a node: F7
+* panic (stop all synths and patterns by calling thisProcess.stop): F8
+
+You can select the others node slots using the numeric keypad. Then you can add others live node into the slots
+
+* play all the 8 node slots as a Ppar: ctrl-F5
+* stop all the 8 node slots as a Ppar: ctrl-F8
+* solo the selected node (mute all others nodes in the 8 slots): ctrl-F7
+* press again ctrl-F7 to unsolo it
+
+* change the tempo: ctrl-alt-e
+* change the quant: ctrl-alt-q
+
+## The node parameters
+
+At the top of the side gui, there is a list of synth parameters (corresponding to the keys used in a Pbind)
+you can select a parameter by using the 4*8 button matrix.
+There is a slider to adjust the value. Seco automatically allocate a bus for each synth parameter so you can tweak it in real-time. It automatically free the bus when the slider is no more visible.
+
+### Specials parameters
+
+The first two lines are for special parameters, some are only used by Pbind. They mainly control the notes score rather than the synths parameters.
+
+* **stepline:** a very special parameter showing the current mode of the node. the default mode is \stepline, which is just a sequence of 8 notes (more information below)
+* **amp:** a simple synth parameter, controlling the amplification/level/volume/gain. You can also find it on the bottom part of Side GUI.
+* **dur:** like the \dur key in Pbind, control the time in beats between each pattern note. However it has a special mode: it has preset values. Select it with 3 and press alt-1 to set its value to "4", alt-2 for "2", alt-3 for "1", ..., etc.
+* **velocity:** a simple synth parameter, often used.
+* **repeat:** the pattern is wrapped in a Pn(pattern, repeat), so this control the number of repeat. Set to "0" means infinite repeat. Note: by default, when you play a node, it is looped indefinitely, but if you put it in a Pseq for example, it is played only N times specified in "repeat".
+
+### Edit parameter
+
+Select it and press NumpadEnter to enter directly a value.
+If it's an enveloppe, it open the env editor.
+If it's a bufnum, it open the sample chooser.
+
+### Others parameters and parameters modes
+
+Parameters often found in synths (always put at the begining of the list in the Side GUI):
+* sustain
+* pan
+* attack
+* release
+
+The default parameter mode is Scalar, you can see it by the label "sca" under the parameter name. It's a simple value.
+
+To select another mode, press alt-shift-s
+
+Some available modes (note: others modes are broken currently):
+* **synchrone:** multiply the value by the tempo, so you can specify a time in beats instead of seconds. For example if a comb delay is set to 0.25 in synchrone mode, it will be automatically set to a quarter of a beat when you change the tempo. (Note: as in Pbind, sustain is already in beats when used by Pbind to set the synth gate argument, but in seconds when used directly by the synth)
+* **synchrone_rate:** multiply the value by the tempo. Same thing as synchrone but used for parameters in hertz. For example an LFO with frequency 2 will always have two period per beat.
+* **preset:** has preset values. use alt-X to select a preset slot, so you can set different value and switch between them (X is a number from 1 to 8)
+* **scoreseq:** use the value specified in the noteline (see below)
+* **pkey:** set the pkey mode, the parameter is a Pkey(param_name), so it use value passed by the input pattern (see below)
+
+### Node modes
+
+Each node have a mode, the default mode is \stepline. To choose a mode, press alt-shift-q.
+
+* **stepline:**
+	the pattern have a key \stepline equal to "Pseq([1,1,1,1, 1,1,1,1])". A 1 correspond to a note, and a 0 correspond to a \rest. You can change the Pseq sequence using the track editor, which represent the 1 by green rectangles. Press alt-p, and click on a note (green rectangle) to toggle it's state between 0 and 1. Press Escape to close the window.
+
+	Track editor (with two tracks in the screenshot):
+
+	![track editor](http://awesomeness.openphoto.me/custom/201304/score-editor-6d413b_870x870.jpg)
+
+* **noteline:**
+	the pattern have a key \noteline, for example equal to 
+	
+	```
+	Pseq([
+		(midinote: 65, sustain:0.2, dur:3),
+		(midinote: 64, sustain:0.4, dur:1),
+		(midinote: 60, sustain:0.1, dur:2),
+	])
+	```
+
+	the pattern parameters "midinote", "sustain" and "dur" are set by this pattern, ignoring the value specified in Side GUI.
+
+	To edit the note score, use the note editor: press alt-q (see below)
+
+	![note editor](http://awesomeness.openphoto.me/custom/201304/note-editor-65bb98_870x870.jpg)
+
+* **sampleline:**
+	Set the node in sampler mode.
+
+	If the synth have a "bufnum" parameter. Seco add a special parameter: "samplekit"
+	To edit the pattern, press alt-p. Each line of the grid correspond to a sample (loaded in a buffer)
+	More information below.
+
+
+* **scoreline:**
+	A sampler mode with only one sample. alt-p to edit it.
+
+# Tracks
+
+## Common shortcuts
+
+* zoom in: right 
+* zoom out: left 
+* increase grid precision: ctrl-left
+* decrease grid precision: ctrl-right
+
+* add node: ctrl-leftClick
+* remove node: ctrl-rightClick
+* set end of pattern: leftClick
+* resize note: shift-leftClick and drag
+* drag to select multiples notes
+* delete selected notes: key "del"
+* copy selected notes: ctrl-c
+* paste copied notes: click where you want to paste, ctrl-v (use same midinote value)
+* paste copied notes transposed: click where you want to paste, ctrl-alt-v (transpose the note where you clicked)
+
+* select previous recording: key "home"
+* select next recording: key "end"
+
+(Note: there is some bugs, if you can't delete a note, move it first then delete it again)
+
+The note editor use different shortcut: 
+* h = left
+* l = right
+* j = down
+* k = up
+
+## Score sheets
+
+You can use differents scores and switch between them using alt-X (X is in 1..8)
+
+## Group tracks
+
+alt-g
+
+# Recording
+
+* set recording duration: ctrl-alt-b
+* start and stop recording: ctrl-r
+
+## Audio recording
+
+create a node wich start with "audiotrack" (must have a bufnum argument).
+
+Record with ctrl-r
+
+# Effects
+
+alt-f
+
+# Modulators
+
+alt-m
+
+# Timeline
+
+alt-l
+
+# Node matrix
+
+alt-m
+
+
+# Presets
+
+* load: ctrl-F1
+* save: ctrl-F2
+* rename: alt-r
+
+# special synthdefs (class instruments)
+
+Called "class instruments", begin with "ci xxxx" in libnode chooser.
+
+* show gui: alt-e
+
