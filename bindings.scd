@@ -257,6 +257,11 @@
 		//["edit_selected_param", \kb, 0, \enter],
 
 	],
+	nodes_viewer: 
+		~common_bindings.windowing ++
+		[
+			["play_node", \kb, 0, \kbpad8x4_flat],
+		],
 	side: 
 		~common_bindings.side_shared ++
 		~common_bindings.panels ++ [

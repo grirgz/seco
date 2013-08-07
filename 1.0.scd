@@ -1,0 +1,1 @@
+~nodes[~name] = Pdef(~name)

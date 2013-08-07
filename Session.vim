@@ -3,44 +3,22 @@ if &cp | set nocp | endif
 let s:so_save = &so | let s:siso_save = &siso | set so=0 siso=0
 let v:this_session=expand("<sfile>:p")
 silent only
-cd ~/code/sc/seco
+cd ~/.local/share/SuperCollider/Extensions/seco/seco
 if expand('%') == '' && !&modified && line('$') <= 1 && getline(1) == ''
   let s:wipebuf = bufnr('%')
 endif
 set shortmess=aoO
-badd +12 ~/code/sc/seco/live/dev1.sc
-badd +676 timeline.sc
-badd +80 bindings.sc
-badd +1361 matrix.sc
-badd +279 node_manager.sc
-badd +854 main.sc
-badd +264 classinstr.sc
-badd +1981 param.sc
-badd +765 player.sc
-badd +112 gui.sc
-badd +235 live/crap64.sc
-badd +123 ~/.vim/UltiSnips-2.1/UltiSnips/supercollider.snippets
-badd +1511 midi.sc
-badd +73 ~/.local/share/SuperCollider/Extensions/custom/BufferPool.sc
-badd +134 live/dev_secoscript.sc
-badd +2518 tracks.sc
-badd +274 script.sc
-badd +2289 side.sc
-badd +37 live/crap65.sc
-badd +742 modulation.sc
-badd +1501 ci_pool.sc
-badd +1 classinstr2.sc
-badd +1 ci_inline.sc
-badd +453 wavetable.sc
-badd +115 live/crap44.sc
-badd +319 player_display.sc
-badd +125 samplelib.sc
-badd +13 ~/.local/share/SuperCollider/Extensions/custom/ArgThunk.sc
-badd +0 live/dev2.sc
-badd +0 live/live33.sc
-badd +90 synthpool.sc
+badd +1 ~/code/sc/seco/live/dev2.scd
+badd +1 ~/code/sc/seco/live/dev3.scd
+badd +1 main.scd
+badd +67 exp/piano.scd
+badd +1 ~/code/sc/seco/live/dev2.sc
+badd +0 exp/launchpad.scd
+badd +1 ~/code/sc/seco/live/crap72.scd
+badd +0 exp/tile.scd
+badd +0 ~/.vim/sctile.vim
 silent! argdel *
-edit live/dev2.sc
+edit ~/code/sc/seco/live/dev2.scd
 set splitbelow splitright
 set nosplitbelow
 set nosplitright
@@ -55,13 +33,13 @@ setlocal fdl=0
 setlocal fml=1
 setlocal fdn=20
 setlocal nofen
-let s:l = 5 - ((4 * winheight(0) + 19) / 39)
+let s:l = 4 - ((3 * winheight(0) + 4) / 9)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-5
+4
 normal! 0
-tabedit main.sc
+tabedit exp
 set splitbelow splitright
 set nosplitbelow
 set nosplitright
@@ -76,13 +54,14 @@ setlocal fdl=0
 setlocal fml=1
 setlocal fdn=20
 setlocal nofen
-let s:l = 854 - ((19 * winheight(0) + 19) / 39)
+let s:l = 8 - ((4 * winheight(0) + 4) / 9)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-854
-normal! 04l
-tabedit player.sc
+8
+normal! 0
+lcd ~/.local/share/SuperCollider/Extensions/seco/seco
+tabedit ~/.local/share/SuperCollider/Extensions/seco/seco/exp/launchpad.scd
 set splitbelow splitright
 set nosplitbelow
 set nosplitright
@@ -97,13 +76,121 @@ setlocal fdl=0
 setlocal fml=1
 setlocal fdn=20
 setlocal nofen
-let s:l = 765 - ((19 * winheight(0) + 19) / 39)
+let s:l = 226 - ((15 * winheight(0) + 19) / 39)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-765
-normal! 04l
-tabnext 1
+226
+normal! 0
+lcd ~/.local/share/SuperCollider/Extensions/seco/seco
+tabedit ~/.local/share/SuperCollider/Extensions/seco/seco/exp/tile.scd
+set splitbelow splitright
+set nosplitbelow
+set nosplitright
+wincmd t
+set winheight=1 winwidth=1
+argglobal
+setlocal fdm=indent
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal nofen
+let s:l = 99 - ((22 * winheight(0) + 19) / 39)
+if s:l < 1 | let s:l = 1 | endif
+exe s:l
+normal! zt
+99
+normal! 0115l
+lcd ~/.local/share/SuperCollider/Extensions/seco/seco
+tabedit ~/.vim/sctile.vim
+set splitbelow splitright
+set nosplitbelow
+set nosplitright
+wincmd t
+set winheight=1 winwidth=1
+argglobal
+setlocal fdm=indent
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal nofen
+let s:l = 3 - ((2 * winheight(0) + 19) / 39)
+if s:l < 1 | let s:l = 1 | endif
+exe s:l
+normal! zt
+3
+normal! 0
+lcd ~/.local/share/SuperCollider/Extensions/seco/seco
+tabedit ~/code/sc/seco/live/dev3.scd
+set splitbelow splitright
+set nosplitbelow
+set nosplitright
+wincmd t
+set winheight=1 winwidth=1
+argglobal
+setlocal fdm=indent
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal nofen
+let s:l = 1 - ((0 * winheight(0) + 4) / 9)
+if s:l < 1 | let s:l = 1 | endif
+exe s:l
+normal! zt
+1
+normal! 0
+tabedit ~/.local/share/SuperCollider/Extensions/seco/seco/main.scd
+set splitbelow splitright
+set nosplitbelow
+set nosplitright
+wincmd t
+set winheight=1 winwidth=1
+argglobal
+setlocal fdm=indent
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal nofen
+let s:l = 1211 - ((5 * winheight(0) + 4) / 9)
+if s:l < 1 | let s:l = 1 | endif
+exe s:l
+normal! zt
+1211
+normal! 03l
+tabedit ~/.local/share/SuperCollider/Extensions/seco/seco/exp/piano.scd
+set splitbelow splitright
+set nosplitbelow
+set nosplitright
+wincmd t
+set winheight=1 winwidth=1
+argglobal
+setlocal fdm=indent
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal nofen
+let s:l = 67 - ((4 * winheight(0) + 4) / 9)
+if s:l < 1 | let s:l = 1 | endif
+exe s:l
+normal! zt
+67
+normal! 08l
+tabnext 3
 if exists('s:wipebuf')
   silent exe 'bwipe ' . s:wipebuf
 endif
