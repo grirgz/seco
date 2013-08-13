@@ -44,8 +44,10 @@
 			"azertyui" ++
 			"qsdfghjk" ++
 			"wxcvbnVP",
-		names: IdentityDictionary.new,
-		nodes: IdentityDictionary.new,
+		names: IdentityDictionary.new, // index to name
+		nodes: IdentityDictionary.new, // index to playing objects
+		buffer_presence: Array2D.new(8,8),
+		subbuffer_presence: Array2D.new(8,8),
 	),
 
 	new: { arg self;
@@ -53,6 +55,7 @@
 	
 		self.nodes_viewer = ~class_veco_nodes_viewer.new(self);
 
+		self.update_buffer_presence;
 		Mdef.init;
 	
 		self;
@@ -66,10 +69,67 @@
 		self.nodes = IdentityDictionary.new;
 	},
 
-	index_to_buffer_path: { arg self, idx;
-		var res = "%/%.scd".format(self.project_path, self.buffers.files[idx]).standardizePath;
+	index_to_buffer_path: { arg self, idx, subidx;
+		var res;
+		if(subidx.notNil) {
+			res = "%/%.%.scd".format(self.project_path, self.buffers.files[idx], subidx).standardizePath;
+		} {
+			res = "%/%.scd".format(self.project_path, self.buffers.files[idx]).standardizePath;
+		};
 		[idx, res].debug("index_to_buffer_path:");
 		res;
+	},
+
+	get_buffer_presence: { arg self;
+		self.buffers.buffer_presence;
+	},
+	
+	get_subbuffer_presence: { arg self, idx;
+		self.update_subbuffer_presence(idx);
+		self.buffers.subbuffer_presence;
+	},
+
+	update_buffer_presence: { arg self;
+		32.do { arg idx;
+			var name = self.index_to_name(idx);
+			var x = idx % 8;
+			var y = (idx / 8).asInteger;
+			name.debug("update_buffer_presence");
+			name = name ?? self.buffers.files[idx].asSymbol;
+			name.debug("update_buffer_presence 2");
+			if(name.notNil) {
+				if(Pdef(name).source.notNil) {
+					self.buffers.buffer_presence[x,y] = 1
+				} {
+					self.buffers.buffer_presence[x,y] = 0
+				}
+			} {
+				self.buffers.buffer_presence[x,y] = 0
+			}
+		}
+	},
+
+	update_subbuffer_presence: { arg self, line_index;
+		64.do { arg idx;
+			var path;
+			//var name = self.index_to_name(idx);
+			var x = idx % 8;
+			var y = (idx / 8).asInteger;
+			path = self.index_to_buffer_path(line_index * 8 + y, x+1);
+			if(File.exists(path)) {
+				if(File.fileSize(path) > 3) {
+					self.buffers.subbuffer_presence[x,y] = 1
+				} {
+					self.buffers.subbuffer_presence[x,y] = 0
+				}
+			} {
+				self.buffers.subbuffer_presence[x,y] = 0
+			}
+		}
+	},
+
+	index_to_name: { arg self, idx;
+		self.buffers.names[idx]
 	},
 
 	open_buffer: { arg self, idx, name;
@@ -95,9 +155,26 @@
 		self.buffers.names[idx] = name;
 	},
 
+	exec_subbuffer: { arg self, idx, subidx;
+		var file;
+		var name = self.index_to_name(idx);
+		~name = name;
+		file = self.index_to_buffer_path(idx, subidx);
+		file.debug("exec_subbuffer: loading");
+		file.load;
+		file.debug("exec_subbuffer: end loading");
+	},
+
 	vim_open_buffer: { arg self, idx;
 		var file = self.buffers.files[idx];
 		"vim --servername scvim --remote-send '<Esc>:call SCveco_open_buffer(\"%\", %)<Enter>'".format(file, idx).unixCmd;
+	},
+
+	vim_open_subbuffer: { arg self, idx, subidx;
+		var path = self.index_to_buffer_path(idx, subidx);
+		[idx, subidx].debug("vim_open_subbuffer: idx, subidx");
+		// FIXME: escape spaces
+		"vim --servername scvim --remote-send '<Esc>:drop %<Enter>'".format(path).debug("SUBBBBUUNUIX").unixCmd;
 	},
 
 	copy_buffer: { arg self, src_idx, dst_idx;
@@ -146,6 +223,7 @@
 
 ~class_veco_nodes_viewer = (
 	counter: IdentityDictionary.new,
+	lastnode: 0,
 	new: { arg self, buffer_manager;
 		self = self.deepCopy;
 	
@@ -179,7 +257,11 @@
 				self.window.close;
 			}],
 			[\play_node, 32, { arg i;
-				self.buffer_manager.toggle_play_node_by_index(i)
+				self.buffer_manager.toggle_play_node_by_index(i);
+				self.lastnode = i;
+			}],
+			[\exec_subbuffer, 8, { arg i;
+				self.buffer_manager.exec_subbuffer(self.lastnode, i);
 			}],
 		]);
 		self.window.view.keyDownAction = self.binding_responder.get_kb_responder(\nodes_viewer);

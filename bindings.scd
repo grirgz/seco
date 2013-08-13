@@ -261,6 +261,7 @@
 		~common_bindings.windowing ++
 		[
 			["play_node", \kb, 0, \kbpad8x4_flat],
+			["exec_subbuffer", \kb, 0, \kbnumpad],
 		],
 	side: 
 		~common_bindings.side_shared ++
