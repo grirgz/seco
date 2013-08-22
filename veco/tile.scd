@@ -1,31 +1,3 @@
-//"vim --servername scvim --remote-tab c.sc".unixCmd
-
-
-(
-	~gen_vim_bindings = {
-		var res = "";
-		var keys =
-			"&é\"'(-è_" ++
-			//"12345678" ++
-			"azertyui" ++
-			"qsdfghjk" ++
-			"wxcvbn,;";
-		var files = 
-			"12345678" ++
-			"azertyui" ++
-			"qsdfghjk" ++
-			"wxcvbnVP";
-		keys.do { arg key, x;
-			res = res ++ "map <F9>% <Esc>:drop %.scd\n".format(key, files[x].asString)
-		};
-		res.debug("res:");
-
-	};
-	~gen_vim_bindings.()
-)
-
-(
-
 ~class_veco_buffer_manager = (
 	project_path: "~/.local/share/SuperCollider/Extensions/seco/seco/vlive/v1",
 	//root_path: "~/.local/share/SuperCollider/Extensions/seco/seco/vlive/",
@@ -44,17 +16,28 @@
 			"azertyui" ++
 			"qsdfghjk" ++
 			"wxcvbnVP",
+		buffer_count: 32,
 		names: IdentityDictionary.new, // index to name
 		nodes: IdentityDictionary.new, // index to playing objects
 		buffer_presence: Array2D.new(8,8),
 		subbuffer_presence: Array2D.new(8,8),
 	),
 
+	default_buffer_code: { arg self, name;
+		var res = "~name = \\" ++ name ++ ";\n\n";
+		//res = res + "(\nPdef(~name, Pbind(\n\t\\degree, 0,\n));\n);\n");
+		res;
+	},
+
 	new: { arg self;
 		self = self.deepCopy;
 	
 		self.nodes_viewer = ~class_veco_nodes_viewer.new(self);
 
+		self.buffers.files.do { arg name, idx;
+			name = name.asString;
+			self.buffers.names[idx] = name.asSymbol;
+		};
 		self.update_buffer_presence;
 		Mdef.init;
 	
@@ -67,7 +50,46 @@
 		self.project_path.debug("class_veco_buffer_manager.open_project: path");
 		self.names = IdentityDictionary.new;
 		self.nodes = IdentityDictionary.new;
+		self.init_project;
 	},
+
+	init_project: { arg self;
+		var res;
+		res = "%/init.scd".format(self.project_path).standardizePath;
+		res.debug("Loading PROJECT init file");
+		self.exec_until_special_end(res);
+		self.buffers.buffer_count.do { arg idx;
+			self.init_buffer(idx)
+		};
+	},
+
+	exec_until_special_end: { arg self, file;
+		var res = file;
+		if(File.exists(res)) {
+			var file = File.open(res, "r");
+			var code = file.readAllString;
+			var end = code.find("// END");
+			file.close;
+			if(end.notNil) {
+				code = code.keep(end);
+			};
+			res.debug("Loading buffer init file");
+			try {
+				code.interpret;
+			} { arg e;
+				e.debug("ExC");
+				e.throw;
+				res.debug("Error when loading buffer init file");
+			};
+		}
+	},
+
+	init_buffer: { arg self, idx;
+		var res;
+		res = "%/%.scd".format(self.project_path, self.buffers.files[idx]).standardizePath;
+		self.exec_until_special_end(res)
+	},
+
 
 	index_to_buffer_path: { arg self, idx, subidx;
 		var res;
@@ -77,6 +99,14 @@
 			res = "%/%.scd".format(self.project_path, self.buffers.files[idx]).standardizePath;
 		};
 		[idx, res].debug("index_to_buffer_path:");
+		res;
+	},
+
+	name_to_index: { arg self, name;
+		var res = self.buffers.names.findKeyForValue(name);
+		if(res.isNil) {
+			res = self.buffers.files
+		};
 		res;
 	},
 
@@ -145,7 +175,7 @@
 		} {
 			file = File.new(path, "w");
 			path.debug("open_buffer: first time");
-			file.write("~name = \\" ++ self.buffers.files[idx] ++ ";\n\n(\nPdef(~name, Pbind(\n\t\\degree, 0,\n));\n)\n");
+			file.write(self.default_buffer_code(self.buffers.files[idx]));
 			file.close;
 		};
 	},
@@ -157,11 +187,25 @@
 
 	exec_subbuffer: { arg self, idx, subidx;
 		var file;
-		var name = self.index_to_name(idx);
+		var name = self.index_to_name(idx) ?? self.buffers.files[idx];
+
+		// subidx start to one
+		//subidx = subidx - 1;
+		//if(subidx == 1) {
+		//	self.init_buffer(idx)
+		//} {
+		//	~name = name;
+		//	file = self.index_to_buffer_path(idx, subidx);
+		//	file.debug("exec_subbuffer: loading");
+		//	file.load;
+		//	file.debug("exec_subbuffer: end loading");
+		//};
+
 		~name = name;
 		file = self.index_to_buffer_path(idx, subidx);
 		file.debug("exec_subbuffer: loading");
-		file.load;
+		self.exec_until_special_end(file);
+		//file.load;
 		file.debug("exec_subbuffer: end loading");
 	},
 
@@ -271,25 +315,3 @@
 
 );
 
-~veco  = ~class_veco_buffer_manager.new;
-)
-
-~veco.buffers
-~veco.project_path
-
-
-(
-~a = (
-	//bla: 4,
-	bla: { arg self; self[\bla] },
-	bla_: { arg self, val;
-		"setbla".debug;
-		self[\bla] = val;
-	},
-	rah: { arg self;
-		"kdkfjd".postln;
-	},
-)
-)
-~a.bla
-~a.rah

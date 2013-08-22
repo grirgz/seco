@@ -1,86 +1,14 @@
 
-MIDIdef
-
-MIDIOut.noteOn(1, 60, 64)
-
-m = MIDIOut(0);
-
-m.noteOn(0, 110, 60);
-m.control(0, 110, 60);
-m.noteOn(0, 61, 60);
-m.noteOff(1, 61, 60);
-m.allNotesOff(16);
-
-
-(
-Task({
-	127.do { arg i;
-		m.noteOn(0, 1, i);
-		i.postln;
-		0.5.wait;
-	}
-}).play
-)
-
-
-(
-~mididict = IdentityDictionary.new;
-MIDIdef.noteOn(\launchpad, {arg vel, midinote;
-	var pat, pat2;
-	[vel, midinote].postln;
-
-	~mididict[midinote].stop;
-	pat = Pbind(
-		\note, Pseq([
-			//Pseq([0,\r,0,0].scramble,2),
-			//Pseq([0,\r,\r,\r].scramble),
-			Pseq([0] ++ ((0 ! 8) ++ (\r ! 8)).drop(1).scramble),
-		],inf),
-		\ctranspose, midinote-60,
-		\dur, 1/8,
-	);
-	m.noteOn(0, midinote, [15,60,62,47].choose);
-	pat = pat.trace.play(quant:[1/8]);
-	~mididict[midinote] = pat;
-
-}); // match any noteOn
-MIDIdef.noteOff(\launchpadoff, {arg vel, midinote;
-	var note = ~mididict[midinote];
-	[vel, midinote].postln;
-	TempoClock.play({ 
-		note.stop;
-		m.noteOn(0, midinote, 0);
-	}, quant:0.5)
-
-}); // match any noteOn
-)
-MIDIdef.freeAls
-
-(
-~mididict = IdentityDictionary.new;
-MIDIdef.noteOn(\launchpad, {arg vel, midinote;
-	var pat, pat2;
-	[vel, midinote].postln;
-
-	"vim --servername SCVIM --remote-send <Esc>:call SCveco_open_buffer("%", %)<Enter>".format(midinote, midinote).unixCmd;
-
-}); // match any noteOn
-MIDIdef.noteOff(\launchpadoff, {arg vel, midinote;
-
-}); // match any noteOn
-)
-"vim --servername SCVIM --remote-send '<Esc>:call SCveco_open_buffer(\"7\", 6)<Enter>'".unixCmd
-
-
-(
 
 ~launchpad = (
-	new: { arg self;
+	new: { arg self, controller;
 		self = self.deepCopy;
 	
+		debug("NEW class_launchpad");
 		self.midiout = MIDIOut(0);
 
 		self.init_midi_layout;
+		self.controller = { controller };
 		
 		CmdPeriod.add({  self.sceneset.cleanup_function });
 	
@@ -130,7 +58,9 @@ MIDIdef.noteOff(\launchpadoff, {arg vel, midinote;
 	},
 
 	gridpos_to_midi: { arg self, pos;
-		self.gridlayout[pos.x][pos.y].debug("midipos");
+		var res = self.gridlayout[pos.x][pos.y];
+		//res.debug("midipos");
+		res;
 	},
 
 	midi_to_gridpos: { arg self, midi;
@@ -172,6 +102,20 @@ MIDIdef.noteOff(\launchpadoff, {arg vel, midinote;
 	color_mode_on: \yellow,
 	color_mode_off: \off,
 
+	active_row: { arg self;
+		self.sceneset.active_row
+	},
+
+	set_active_row: { arg self, idx;
+		idx.debug("launchpad_scene_subbuffer: active_row");
+		self.sceneset.active_row = idx;
+	},
+
+	gridpos_to_tile_index: { arg self, pos;
+		pos = pos.x + (pos.y * 8);
+		pos;
+	},
+
 	install_midi_responder: { arg self;
 		MIDIdef.noteOn(\launchpadOn, { arg vel, midinote;
 			midinote.debug("midinote: noteOn responder");
@@ -198,14 +142,14 @@ MIDIdef.noteOff(\launchpadoff, {arg vel, midinote;
 		self.render_mode_state;
 		self.state.rowsDo { arg column, x;
 			column.keep(9).do { arg color, y;
-				[color,x,y].debug("update_display: COLOR");
+				//[color,x,y].debug("update_display: COLOR");
 				if(color.isNil) {
 					color = 0;
 				};
-				[color,x,y].debug("update_display: COLOR2");
+				//[color,x,y].debug("update_display: COLOR2");
 				color = self.color_to_velocity(color);
 				midi = self.gridpos_to_midi(Point(x,y));
-				[midi,color].debug("update_display: midi, color");
+				//[midi,color].debug("update_display: midi, color");
 				if(midi.notNil) {
 					self.midiout.noteOn(0, midi, color);
 				}
@@ -221,7 +165,8 @@ MIDIdef.noteOff(\launchpadoff, {arg vel, midinote;
 		self.sceneset.debug("render_mode_state");
 		self.sceneset.state_mode_leds[4] = if(self.sceneset.state_edit == 1) { self.color_mode_on } { self.color_mode_off };
 		self.sceneset.state_mode_leds[5] = if(self.sceneset.active_scene === self.sceneset.seq) { self.color_mode_on } { self.color_mode_off };
-		self.sceneset.state_mode_leds[6] = if(self.sceneset.active_scene === self.sceneset.tile) { self.color_mode_on } { self.color_mode_off };
+		self.sceneset.state_mode_leds[6] = if(self.sceneset.active_scene === self.sceneset.subbuffer) { self.color_mode_on } { self.color_mode_off };
+		self.sceneset.state_mode_leds[7] = if(self.sceneset.active_scene === self.sceneset.tile) { self.color_mode_on } { self.color_mode_off };
 		self.sceneset.state_mode_leds.debug("end render_mode_state");
 	},
 
@@ -282,7 +227,7 @@ MIDIdef.noteOff(\launchpadoff, {arg vel, midinote;
 		~veco.update_buffer_presence;
 		self.state_play.rowsDo { arg column, x;
 			column.do { arg val, y;
-				[x, y, val].debug("state_leds");
+				//[x, y, val].debug("state_leds");
 				self.state[x,y] = self.state_to_color(Point(x,y))
 			}
 		};
@@ -297,7 +242,7 @@ MIDIdef.noteOff(\launchpadoff, {arg vel, midinote;
 		var x = pos.x;
 		var y = pos.y;
 		var val = self.state_play[x,y];
-		[val,self.state_buffers[x,y], pos].debug("state_to_color: play, buf, pos");
+		//[val,self.state_buffers[x,y], pos].debug("state_to_color: play, buf, pos");
 		if(val == 1) { 
 			if(self.state_buffers[x,y] == 1) {
 				self.color_buffer_play
@@ -323,6 +268,7 @@ MIDIdef.noteOff(\launchpadoff, {arg vel, midinote;
 	response_cc_on: { arg self, midinote;
 		var res;
 		midinote.debug("MIDINOTE CoNTROL");
+		self.current_cc_on = midinote;
 		res =switch(midinote,
 			self.buttons[4], {
 				if(self.state_edit == 1) {
@@ -348,16 +294,25 @@ MIDIdef.noteOff(\launchpadoff, {arg vel, midinote;
 	response_cc_off: { arg self, midinote;
 		var res;
 		midinote.debug("MIDINOTE CoNTROL off");
+		self.current_cc_on = nil;
 		res = switch(midinote,
 			self.buttons[5], {
 				"scene SEQ!!".debug;
 				self.set_cc_led(self.buttons[5], \yellow);
 				self.set_cc_led(self.buttons[6], \off);
+				self.set_cc_led(self.buttons[7], \off);
 				self.sceneset.seq;
 			},
 			self.buttons[6], {
 				self.set_cc_led(self.buttons[5], \off);
 				self.set_cc_led(self.buttons[6], \yellow);
+				self.set_cc_led(self.buttons[7], \off);
+				self.sceneset.subbuffer;
+			},
+			self.buttons[7], {
+				self.set_cc_led(self.buttons[5], \off);
+				self.set_cc_led(self.buttons[6], \off);
+				self.set_cc_led(self.buttons[7], \yellow);
 				self;
 			},
 			{
@@ -367,17 +322,46 @@ MIDIdef.noteOff(\launchpadoff, {arg vel, midinote;
 		if(res.notNil) { res.activate };
 	},
 
+	response_launcher_on: { arg self, midinote;
+		var pos = self.midi_to_gridpos(midinote);
+		var ledpos;
+		var res;
+		var tilex, tiley, tile;
+		tilex = pos.y;
+		tiley = self.active_row;
+		tile = self.gridpos_to_tile_index(Point(tilex, tiley));
+		[midinote, pos, tilex, tiley, tile, self.current_cc_on, self.state_edit].debug("[midinote, pos, tilex, tiley, tile, self.current_cc_on, self.state_edit]");
+		if(self.current_cc_on == self.buttons[6]) {
+			self.sceneset.subbuffer.set_active_row(pos.y);
+			self.sceneset.subbuffer.activate;
+		} {
+			if(self.state_edit == 1) {
+				~veco.vim_open_buffer(tile);
+				tile.debug("response_on: tile");
+			} {
+				ledpos = Point(pos.y, self.active_row);
+				res = ~veco.toggle_play_node_by_index(tile);
+				[pos,ledpos,res].debug("res:::!!!! pos,ledpos,res");
+				if(res == true) {
+					self.state_play[ledpos.x,ledpos.y] = 1;
+					self.set_led(midinote, self.state_to_color(ledpos));
+				} {
+					self.state_play[ledpos.x,ledpos.y] = 0;
+					self.set_led(midinote, self.state_to_color(ledpos));
+				};
+			}
+		}
+	},
+
 	response_on: { arg self, midinote;
 		var tile = self.midinote_to_tile_index(midinote);
 		var pos = self.midi_to_gridpos(midinote);
 		var res;
 		midinote.debug("tile: response_on: midinote");
 		if(self.is_launcher_button(midinote)) {
-
 			midinote.debug("tile: response_on: launcher!!!");
 			self.sceneset.subbuffer.set_active_row(pos.y);
 			self.sceneset.subbuffer.activate;
-
 		} {
 
 			if(self.state_edit == 1) {
@@ -442,16 +426,6 @@ MIDIdef.noteOff(\launchpadoff, {arg vel, midinote;
 	},
 
 
-	set_active_row: { arg self, idx;
-		idx.debug("launchpad_scene_subbuffer: active_row");
-		self.active_row = idx;
-	},
-
-	gridpos_to_tile_index: { arg self, pos;
-		pos = pos.x + (pos.y * 8);
-		pos;
-	},
-
 	response_on: { arg self, midinote;
 		var pos = self.midi_to_gridpos(midinote);
 		var ledpos;
@@ -463,21 +437,22 @@ MIDIdef.noteOff(\launchpadoff, {arg vel, midinote;
 		self.state_edit.debug("launchpad_scene_subbuffer: response_on: state_edit. BODREL");
 		if(self.is_launcher_button(midinote)) {
 
-			if(self.state_edit == 1) {
-				~veco.vim_open_buffer(tile);
-				tile.debug("response_on: tile");
-			} {
-				ledpos = Point(pos.y, self.active_row);
-				res = ~veco.toggle_play_node_by_index(tile);
-				[pos,ledpos,res].debug("res:::!!!! pos,ledpos,res");
-				if(res == true) {
-					self.state_play[ledpos.x,ledpos.y] = 1;
-					self.set_led(midinote, self.state_to_color(ledpos));
-				} {
-					self.state_play[ledpos.x,ledpos.y] = 0;
-					self.set_led(midinote, self.state_to_color(ledpos));
-				};
-			}
+			self.sceneset.tile.response_launcher_on(midinote);
+			//if(self.state_edit == 1) {
+			//	~veco.vim_open_buffer(tile);
+			//	tile.debug("response_on: tile");
+			//} {
+			//	ledpos = Point(pos.y, self.active_row);
+			//	res = ~veco.toggle_play_node_by_index(tile);
+			//	[pos,ledpos,res].debug("res:::!!!! pos,ledpos,res");
+			//	if(res == true) {
+			//		self.state_play[ledpos.x,ledpos.y] = 1;
+			//		self.set_led(midinote, self.state_to_color(ledpos));
+			//	} {
+			//		self.state_play[ledpos.x,ledpos.y] = 0;
+			//		self.set_led(midinote, self.state_to_color(ledpos));
+			//	};
+			//}
 		} {
 			if(self.state_edit == 1) {
 				~veco.vim_open_subbuffer(tile, pos.x+1);
@@ -486,6 +461,103 @@ MIDIdef.noteOff(\launchpadoff, {arg vel, midinote;
 				~veco.exec_subbuffer(tile, pos.x+1);
 				pos.debug("response_on: exec subbuffer: pos");
 			}
+		}
+	},
+
+);
+
+~launchpad_scene_clip = (
+	parent: ~launchpad_scene,
+
+	//state_to_color: ~launchpad_scene_tile[\state_to_color],
+
+	render_state: { arg self;
+		////~veco.geupdate_buffer_presence;
+		//~veco.update_buffer_presence;
+		//self.state_subbuffers.rowsDo { arg column, x;
+		//	column.do { arg val, y;
+		//		[x, y, val].debug("launchpad_scene_subbuffer: render_state: subbuffer_state");
+		//		self.state[x,y] = if(val == 1) { self.color_on } { self.color_off };
+		//	}
+		//};
+		//self.state_buffers.rowAt(self.active_row).do { arg val, x;
+		//	self.state[8, x] = self.state_to_color(Point(x, self.active_row));
+		//}
+		"launchpad_scene_clip.render_state".debug;
+		8.do { arg x;
+			8.do { arg y;
+				self.render_pos(Point(x,y));
+			}
+		};
+	},
+
+	gridpos_to_buf: { arg self, pos;
+		var node = self.controller.get_node_by_index(pos.x);
+		var res;
+		if(node.notNil) {
+			res = node.get_clip_by_index(pos.y);
+		};
+		res;
+	},
+
+	render_pos: { arg self, pos;
+		var buf = self.gridpos_to_buf(pos);
+		var color_off = \off,
+			color_present = \dimred,
+			color_active = \dimgreen,
+			color_playing = \green;
+		var color;
+		if(buf.isNil) {
+			color = color_off;
+			[pos].debug("launchpad_scene_clip: render_pos: buf is nil");
+		} {
+
+
+			[buf.uname, buf.path, buf.is_present, buf.is_playing, buf.is_active].debug("launchpad_scene_clip: render_pos");
+
+			color = if(buf.is_present == true) {
+				if(buf.is_active == true) {
+					if(buf.is_playing == true) {
+						color_playing;
+					} {
+						color_active;
+					}
+				} {
+					color_present;
+				}
+			} {
+				color_off;
+			};
+
+			self.set_led(pos, color);
+		}
+
+	},
+
+	response_cc_on: { arg self;
+		self.render_state;
+	},
+
+	response_cc_off: { arg self, midi;
+		//self.sceneset.tile.response_cc_off(midi);
+	},
+
+	response_on: { arg self, midinote;
+		var pos = self.midi_to_gridpos(midinote);
+		var buf;
+		midinote.debug("launchpad_scene_clip.response_on");
+
+		if(self.is_launcher_button(midinote)) {
+			midinote.debug("launchpad_scene_clip.response_on: is a launcher");
+
+		} {
+			midinote.debug("launchpad_scene_clip.response_on: go!");
+			buf = self.gridpos_to_buf(pos);
+			buf.debug("buf");
+			if(buf.notNil) {
+				buf.toggle_play;
+			};
+			self.render_pos(pos);
 		}
 	},
 
@@ -500,6 +572,8 @@ MIDIdef.noteOff(\launchpadoff, {arg vel, midinote;
 	range_state: Array.fill(8, 0),
 	ranges: [6,7],
 
+	state_buffers: { arg self; ~veco.get_buffer_presence },
+
 	seq_state: { arg self; self.sceneset.state_seq }, 
 	reset_seq_state: { arg self; self.sceneset.state_seq = Array2D.new(8,8) },
 
@@ -513,11 +587,15 @@ MIDIdef.noteOff(\launchpadoff, {arg vel, midinote;
 	},
 
 	render_state: { arg self;
+		var active_row = self.active_row;
 		self.seq_state.rowsDo { arg column, x;
 			column.do { arg val, y;
 				[x, y, val].debug("launchpad_scene_seq: render_state: seq_state");
 				self.state[x,y] = if(val == 1) { self.color_on } { \off };
 			}
+		};
+		self.state_buffers.rowAt(active_row).do { arg val, x;
+			self.state[8, x] = self.sceneset.tile.state_to_color(Point(x, active_row));
 		};
 	},
 
@@ -526,7 +604,11 @@ MIDIdef.noteOff(\launchpadoff, {arg vel, midinote;
 		var color;
 		"resp: on".debug;
 		pos = self.midi_to_gridpos(midinote);
-		self.toggle_cell(midinote, pos);
+		if(self.is_launcher_button(midinote)) {
+			self.sceneset.tile.response_launcher_on(midinote);
+		} {
+			self.toggle_cell(midinote, pos);
+		};
 	},
 
 	toggle_cell: { arg self, midi, pos;
@@ -557,130 +639,16 @@ MIDIdef.noteOff(\launchpadoff, {arg vel, midinote;
 		}),repeat);
 	},
 
+	pryn: { arg self, name, repeat=inf;
+		var idx = ~veco.name_to_index(name);
+		[name, idx].debug("pryn");
+		idx = idx % 8;
+		Pn(Plazy({
+			self.pseqrow(idx)
+		}),repeat);
+	},
+
 	response_off: { arg self;
 		
 	},
 );
-
-~sceneset = (
-	tile: ~launchpad_scene_tile.new,
-	subbuffer: ~launchpad_scene_subbuffer.new,
-	seq: ~launchpad_scene_seq.new,
-).putAll(~scenestate);
-~sceneset.seq.activate;
-//~sceneset.tile.set_cc_led(2, \yellow);
-//~sceneset.tile.set_led(1@1, \yellow);
-
-)
-
-(
-
-~scenestate = (
-	state_edit: 0,
-	state_seq: Array2D.new(8,8),
-	state_leds: Array2D.new(9,8),
-	state_mode_leds: Array.fill(8, \off),
-	state_play: Array2D.new(8,8),
-	state_buffers: Array2D.new(8,8),
-	state_subbuffers: Array2D.new(8,8),
-	cleanup_function: { 
-		~sceneset.tile.reset_play_state 
-	}
-);
-
-)
-
-~sceneset.state_mode_leds
-
-(
-Pdef(\plop, Pbind(
-	\instrument, \default,
-	\degree, Pseq([0],inf) * Pn(Plazy({ ~la.pseqrow(0) }), inf),
-	\dur, 1/4,
-	\amp, 0.1
-)).play;
-Pdef(\plop2, Pbind(
-	\instrument, \default,
-	\degree, Pseq([2],inf) * Pn(Plazy({ ~la.pseqrow(1) }), inf),
-	\octave, 4,
-	\dur, 1/4,
-	\amp, 0.1
-)).play;
-Pdef(\plop3, Pbind(
-	\instrument, \default,
-	\degree, Pseq([4],inf) * Pn(Plazy({ ~la.pseqrow(2) }), inf),
-	\octave, 3,
-	\dur, 1/4,
-	\amp, 0.1
-)).play;
-);	
-
-Pbindef(\plop3, \ctranspose, 2)
-
-(
-~con.automate({
-
-	SinOsc.kr(1).range(100,3000)
-})
-)
-
-(
-~trans = Pbind(
-	\mtranspose, Pfunc({ ~la.get_range_state(7) }),
-);
-~con = GenericGlobalControl.new;
-~con.set(300);
-
-
-Pdef(\plop, Pbind(
-	\instrument, \default,
-	\degree, Pseq([0],inf) * Pn(Plazy({ ~la.pseqrow(0) }), inf),
-	\dur, 1/4,
-	\amp, 0.1
-) <> ~trans).play;
-Pdef(\plop2, Pbind(
-	\instrument, \osc1,
-	\degree, Pseq([2],inf) * Pn(Plazy({ ~la.pseqrow(1) }), inf),
-	//\ffreq, ~con,
-	//\ffreq, Pfunc({ ~la.get_range_state(6).debug("rs") }) * 300 + ~con, 
-	\ffreq, Pfunc({ ~la.get_range_state(6).debug("rs") }) * 300 + 100, 
-	\octave, 4,
-	\dur, 1/4,
-	\amp, 0.1
-) <> ~trans).play;
-Pdef(\plop3, Pbind(
-	\instrument, \default,
-	\degree, Pseq([4],inf) * Pn(Plazy({ ~la.pseqrow(2) }), inf),
-	\octave, 3,
-	\dur, 1/4,
-	\amp, 0.1
-) <> ~trans).play;
-
-Pdef()
-);	
-
-P9tempo
-
-
-// "a" is an array-of-arrays
-a = { { 100.0.rand  }.dup(100)  }.dup(100);
-// "b" is an equivalent Array2D, made using the "fromArray" class method
-b = Array2D.fromArray(100,100, a.flat);
-
-// Accessing
-a[15][22]
-b[15, 22]
-
-
-
-// Speed comparison 1: random access
-bench { 1000.do(a[100.rand][100.rand]) }
-bench { 1000.do(b[100.rand, 100.rand]) }
-
-// Speed comparison 2: iteration
-bench { 1000.do(a.do { |row| row.do { |item| item * 2 } }) }
-bench { 1000.do(b.do { |item| item * 2 }) }
-
-a = Array2D.new(2,4)
-a[1,3] = 1
-Array2D.new(1,3)
