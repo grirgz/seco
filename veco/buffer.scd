@@ -58,6 +58,10 @@
 		self.nodes[self.index_to_uname(idx)]
 	},
 
+	get_node_by_uname: { arg self, uname;
+		self.nodes[uname];
+	},
+
 	open_buffer: { arg self, idx, name;
 		self.nodes[self.index_to_uname(idx)].open_buffer;
 	},
@@ -85,15 +89,26 @@
 	init: { arg self;
 		debug("INIT class_veco_sceneset");
 		self.clip = { ~launchpad_scene_clip.new(self) };
+		self.edit = { ~launchpad_scene_edit.new(self) };
+		self.seq = { ~launchpad_scene_seq.new(self) };
+		self.mode = \clip;
 		
 	},
+
+	active_buffer_points: {
+		var y=0;
+		8.collect { arg x;
+			Point(x,y);
+		}
+	},
+
 
 	get_buffer_at_point: { arg self, point;
 		var idx, node;
 		[point].debug("get_buffer_at_point");
 		idx = point.x + (point.y*8);
 		node = self.get_node_by_index(idx);
-		[point, idx, node].debug("get_buffer_at_point");
+		[point, idx].debug("get_buffer_at_point");
 		node;
 	},
 );
@@ -178,13 +193,14 @@
 	new: { arg self, main, uname;
 		self = ~class_code_buffer[\new].(self, main, uname);
 	
-		self.clips = 8.collect {  arg x;
-			//var cuname = "%.c%".format(uname, x).asSymbol;
-			var cuname = "%.%".format(uname, x).asSymbol;
-			var clip;
-			clip = ~class_node_clip.new(main, cuname, self);
-			clip;
-		};
+		//self.clips = 8.collect {  arg x;
+		//	//var cuname = "%.c%".format(uname, x).asSymbol;
+		//	var cuname = "%.%".format(uname, x).asSymbol;
+		//	var clip;
+		//	clip = ~class_node_clip.new(main, cuname, self);
+		//	clip;
+		//};
+		self.clips = SparseArray.new(64, nil);
 	
 		self;
 	},
@@ -247,8 +263,16 @@
 		self.toggle_play;
 	},
 
-	get_clip_by_index: { arg self, idx;
-		self.clips[idx]
+	get_clip_by_index: { arg self, idx, create=true;
+		//if(self.clips[idx].isNil and: create) {
+		if(self.clips[idx].isNil) {
+			var uname  = self.uname;
+			var cuname = "%.%".format(uname, idx+1).asSymbol;
+			var clip;
+			clip = ~class_node_clip.new(self.main, cuname, self);
+			self.clips[idx] = clip;
+		};
+		self.clips[idx];
 	},
 
 );
@@ -283,14 +307,25 @@
 		self;
 	},
 
+	stepseq: [1,1,0,0, 0,0,0,0],
+
 	execute: { arg self;
 		var path;
 		~name = self.parent_buffer.get_name;
 		self.execute_till_special_end;
 	},
 
-	toggle_play: { arg self;
+	play_node: { arg self;
 		self.execute;
 		self.parent_buffer.play_node;
+	},
+
+	open_in_vim: { arg self;
+		var uname = self.uname;
+		var idx = 1;
+		"vim --servername scvim --remote-send '<Esc>:drop %<Enter>'".format(self.path).unixCmd;
+	},
+
+	toggle_play: { arg self;
 	},
 );

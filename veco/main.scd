@@ -1,6 +1,8 @@
 ~veco_dir_path = Platform.userExtensionDir +/+ "seco/seco/veco";
 
+"=======================================================================".inform;
 "loading Veco...".inform;
+"=======================================================================".inform;
 [
 	//"tile",
 	"buffer",
@@ -25,7 +27,7 @@
 	state_buffers: Array2D.new(8,8),
 	state_subbuffers: Array2D.new(8,8),
 	cleanup_function: { 
-		~sceneset.tile.reset_play_state 
+		//~sceneset.tile.reset_play_state 
 	}
 );
 
