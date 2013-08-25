@@ -209,3 +209,22 @@ Array2D.new(1,3)
 Veco.force_init
 ~veco.buffers.names.findKeyForValue('e')
 ~veco.name_to_index('e')
+
+(
+
+		a = Task({
+			var self = ~veco.mixer_mod;
+			var pos = 8;
+			var color1 = \green;
+			var color2 = \red;
+			var time = 0.5;
+			20.do {
+				self.set_led(pos, color1);
+				time.wait;
+				self.set_led(pos, color2);
+				time.wait;
+			}
+		});
+		a.play
+)
+a.stop

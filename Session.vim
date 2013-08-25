@@ -8,9 +8,9 @@ if expand('%') == '' && !&modified && line('$') <= 1 && getline(1) == ''
   let s:wipebuf = bufnr('%')
 endif
 set shortmess=aoO
-badd +1 ~/code/sc/seco/live/dev2.scd
+badd +4 ~/code/sc/seco/live/dev2.scd
 badd +1 ~/code/sc/seco/live/dev3.scd
-badd +1 ~/.local/share/SuperCollider/Extensions/seco/seco/main.scd
+badd +1211 ~/.local/share/SuperCollider/Extensions/seco/seco/main.scd
 badd +67 ~/.local/share/SuperCollider/Extensions/seco/seco/exp/piano.scd
 badd +1 ~/code/sc/seco/live/dev2.sc
 badd +1 ~/.local/share/SuperCollider/Extensions/seco/seco/exp/launchpad.scd
@@ -19,7 +19,7 @@ badd +1 ~/.local/share/SuperCollider/Extensions/seco/seco/exp/tile.scd
 badd +3 ~/.vim/sctile.vim
 badd +64 ~/.vim/sc.vim
 badd +68 ~/code/sc/seco/vlive/v4/a.scd
-badd +1 ~/code/sc/seco/vlive/v4/init.scd
+badd +28 ~/code/sc/seco/vlive/v4/init.scd
 badd +1 ~/.local/share/SuperCollider/Extensions/seco/seco/..
 badd +475 ~/.local/share/SuperCollider/Extensions/seco/seco/synthpool.scd
 badd +30 ~/code/sc/seco/vlive/v4/z.scd
@@ -47,12 +47,13 @@ badd +1 ~/code/sc/seco/vlive/v1/q.scd
 badd +29 ~/code/sc/seco/vlive/v1/t.scd
 badd +46 ~/code/sc/seco/vlive/v4/y.scd
 badd +5 ~/code/sc/seco/vlive/v4/y.1.scd
-badd +1 ~/code/sc/seco/vlive/v4/y.2.scd
+badd +8 ~/code/sc/seco/vlive/v4/y.2.scd
 badd +1 ~/.local/share/SuperCollider/Extensions/seco/seco/veco/launchpad.scd
-badd +0 ~/.scvim/doc/UGens/Delays/DelayL.scd
-badd +0 ~/.local/share/SuperCollider/Extensions/seco/seco/veco/buffer.scd
+badd +1 ~/.scvim/doc/UGens/Delays/DelayL.scd
+badd +1 ~/.local/share/SuperCollider/Extensions/seco/seco/veco/buffer.scd
+badd +1 ~/.local/share/SuperCollider/Extensions/seco/seco/veco/main.scd
 args ~/code/sc/seco/vlive/v4/y.2.scd
-edit ~/code/sc/seco/live/dev2.scd
+edit ~/.local/share/SuperCollider/Extensions/seco/seco/veco/buffer.scd
 set splitbelow splitright
 set nosplitbelow
 set nosplitright
@@ -67,105 +68,12 @@ setlocal fdl=0
 setlocal fml=1
 setlocal fdn=20
 setlocal nofen
-let s:l = 4 - ((1 * winheight(0) + 5) / 10)
+let s:l = 404 - ((23 * winheight(0) + 19) / 39)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-4
-normal! 0
-tabedit ~/.scvim/doc/UGens/Delays/DelayL.scd
-set splitbelow splitright
-wincmd _ | wincmd |
-split
-1wincmd k
-wincmd w
-set nosplitbelow
-set nosplitright
-wincmd t
-set winheight=1 winwidth=1
-exe '1resize ' . ((&lines * 2 + 21) / 42)
-exe 'vert 1resize ' . ((&columns * 80 + 79) / 158)
-exe '2resize ' . ((&lines * 5 + 21) / 42)
-exe 'vert 2resize ' . ((&columns * 80 + 79) / 158)
-argglobal
-setlocal fdm=indent
-setlocal fde=0
-setlocal fmr={{{,}}}
-setlocal fdi=#
-setlocal fdl=0
-setlocal fml=1
-setlocal fdn=20
-setlocal nofen
-let s:l = 1 - ((0 * winheight(0) + 1) / 2)
-if s:l < 1 | let s:l = 1 | endif
-exe s:l
-normal! zt
-1
-normal! 0
-wincmd w
-argglobal
-edit ~/code/sc/seco/vlive/v4/y.2.scd
-setlocal fdm=indent
-setlocal fde=0
-setlocal fmr={{{,}}}
-setlocal fdi=#
-setlocal fdl=0
-setlocal fml=1
-setlocal fdn=20
-setlocal nofen
-let s:l = 8 - ((0 * winheight(0) + 2) / 5)
-if s:l < 1 | let s:l = 1 | endif
-exe s:l
-normal! zt
-8
-normal! 024l
-wincmd w
-exe '1resize ' . ((&lines * 2 + 21) / 42)
-exe 'vert 1resize ' . ((&columns * 80 + 79) / 158)
-exe '2resize ' . ((&lines * 5 + 21) / 42)
-exe 'vert 2resize ' . ((&columns * 80 + 79) / 158)
-tabedit ~/code/sc/seco/vlive/v4/init.scd
-set splitbelow splitright
-set nosplitbelow
-set nosplitright
-wincmd t
-set winheight=1 winwidth=1
-argglobal
-setlocal fdm=indent
-setlocal fde=0
-setlocal fmr={{{,}}}
-setlocal fdi=#
-setlocal fdl=0
-setlocal fml=1
-setlocal fdn=20
-setlocal nofen
-let s:l = 28 - ((6 * winheight(0) + 4) / 9)
-if s:l < 1 | let s:l = 1 | endif
-exe s:l
-normal! zt
-28
-normal! 019l
-tabedit ~/.local/share/SuperCollider/Extensions/seco/seco/veco/buffer.scd
-set splitbelow splitright
-set nosplitbelow
-set nosplitright
-wincmd t
-set winheight=1 winwidth=1
-argglobal
-setlocal fdm=indent
-setlocal fde=0
-setlocal fmr={{{,}}}
-setlocal fdi=#
-setlocal fdl=0
-setlocal fml=1
-setlocal fdn=20
-setlocal nofen
-let s:l = 21 - ((20 * winheight(0) + 20) / 40)
-if s:l < 1 | let s:l = 1 | endif
-exe s:l
-normal! zt
-21
-normal! 0
+404
+normal! 010l
 lcd ~/.local/share/SuperCollider/Extensions/seco/seco
 tabedit ~/.local/share/SuperCollider/Extensions/seco/seco/veco/launchpad.scd
 set splitbelow splitright
@@ -181,13 +89,26 @@ setlocal fdi=#
 setlocal fdl=0
 setlocal fml=1
 setlocal fdn=20
-setlocal nofen
-let s:l = 22 - ((21 * winheight(0) + 20) / 40)
+setlocal fen
+1084
+normal zo
+1097
+normal zo
+1100
+normal zo
+1102
+normal zo
+1097
+normal zo
+1084
+normal zo
+let s:l = 1102 - ((108 * winheight(0) + 19) / 39)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-22
-normal! 0
+1102
+normal! 05l
+lcd ~/.local/share/SuperCollider/Extensions/seco/seco
 tabedit ~/.vim/sc.vim
 set splitbelow splitright
 set nosplitbelow
@@ -203,14 +124,14 @@ setlocal fdl=0
 setlocal fml=1
 setlocal fdn=20
 setlocal nofen
-let s:l = 64 - ((4 * winheight(0) + 4) / 9)
+let s:l = 64 - ((8 * winheight(0) + 8) / 17)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
 64
 normal! 011l
 lcd ~/.local/share/SuperCollider/Extensions/seco/seco
-tabedit ~/.local/share/SuperCollider/Extensions/seco/seco/main.scd
+tabedit ~/.local/share/SuperCollider/Extensions/seco/seco/veco/main.scd
 set splitbelow splitright
 set nosplitbelow
 set nosplitright
@@ -225,12 +146,12 @@ setlocal fdl=0
 setlocal fml=1
 setlocal fdn=20
 setlocal nofen
-let s:l = 1211 - ((4 * winheight(0) + 4) / 9)
+let s:l = 1 - ((0 * winheight(0) + 8) / 17)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-1211
-normal! 03l
+1
+normal! 0
 lcd ~/.local/share/SuperCollider/Extensions/seco/seco
 tabedit ~/.local/share/SuperCollider/Extensions/seco/seco/veco/tile.scd
 set splitbelow splitright
@@ -254,7 +175,7 @@ normal! zt
 207
 normal! 035l
 lcd ~/.local/share/SuperCollider/Extensions/seco/seco
-tabnext 4
+tabnext 2
 if exists('s:wipebuf')
   silent exe 'bwipe ' . s:wipebuf
 endif

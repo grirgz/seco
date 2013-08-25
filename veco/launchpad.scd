@@ -379,6 +379,8 @@
 	},
 
 	buttons: [0,1,2,3,4,5,6,7] + 104,
+	mode_buttons: [0,1,2,3,4,5,6,7] + 104,
+	launcher_buttons: [0,1,2,3,4,5,6,7] * 16 + 8,
 
 	is_launcher_button: { arg self, midinote;
 		midinote % 16 == 8
@@ -399,11 +401,13 @@
 		
 		self.gridlayout = 9.collect { arg x;
 			8.collect { arg y;
-				[x,y].debug("x,y");
-				x+(y*16).debug("res");
+				//[x,y].debug("x,y");
+				//x+(y*16).debug("res");
+				x+(y*16)
 			}
 		};
-		self.gridlayout.debug("gridlayout");
+		//self.gridlayout.debug("gridlayout");
+		self.gridlayout;
 	},
 
 	color_to_velocity: { arg self, color=63;
@@ -469,9 +473,44 @@
 		self.sceneset.active_row = idx;
 	},
 
-	gridpos_to_tile_index: { arg self, pos;
-		pos = pos.x + (pos.y * 8);
-		pos;
+	get_node_by_index: { arg self, idx;
+		self.controller.get_node_by_index(idx)
+	},
+
+	absolute_point_to_buf: { arg self, pos;
+		var node;
+		var res;
+		node = self.controller.get_node_by_index(pos.x);
+		if(node.notNil) {
+			res = node.get_clip_by_index(pos.y, false);
+		};
+		res;
+	},
+
+	abspos_to_gridpos: { arg self, abspos, inrect=true;
+		var pos = abspos - self.controller.clip_offset;
+		var rect = Rect(0,0,8,8);
+		[self.controller.clip_offset, abspos, pos, rect, rect.contains(pos)].debug("abspos_to_gridpos: offset, abs, pos, rect, contains");
+		if(rect.contains(pos) or: {inrect != true}) {
+			pos
+		} {
+			nil
+		}
+	},
+
+
+	midi_to_offset_gridpos: { arg self, midi;
+		self.midi_to_gridpos(midi) + self.controller.clip_offset;
+	},
+
+	offset_pos: { arg self, pos;
+		pos + self.controller.clip_offset
+	},
+
+	launcher_pos_to_node: { arg self, pos;
+		var nodeidx;
+		nodeidx = pos.y + self.controller.clip_offset.x;
+		self.controller.get_node_by_index(nodeidx);
 	},
 
 	install_midi_responder: { arg self;
@@ -479,9 +518,9 @@
 			midinote.debug("midinote: noteOn responder");
 			self.response_on(midinote);
 		}).permanent_(true);
-		MIDIdef.noteOff(\launchpadOn, { arg vel, midinote;
-			midinote.debug("midinote: noteOn responder");
-			self.response_on(midinote);
+		MIDIdef.noteOff(\launchpadOff, { arg vel, midinote;
+			midinote.debug("midinote: noteOFF responder");
+			self.response_off(midinote);
 		}).permanent_(true);
 		MIDIdef.cc(\launchpadCC, { arg vel, midinote;
 			if(vel == 127) {
@@ -527,6 +566,12 @@
 		//self.sceneset.state_mode_leds[7] = if(self.sceneset.active_scene === self.sceneset.tile) { self.color_mode_on } { self.color_mode_off };
 		//self.sceneset.state_mode_leds.debug("end render_mode_state");
 		var on = switch(self.controller.mode,
+			\copy, {
+				0
+			},
+			\paste, {
+				1
+			},
 			\clip, {
 				4 
 			},
@@ -535,6 +580,9 @@
 			},
 			\edit, {
 				6
+			},
+			\mixer, {
+				7
 			},
 			{
 
@@ -545,8 +593,47 @@
 		}
 	},
 
+	handle_grid_move: { arg self, midinote;
+		var os = self.controller.clip_offset;
+		switch(midinote,
+			self.buttons[0], { // up
+				if(os.y > 0) {
+					self.controller.clip_offset = os + Point(0,-1)
+				};
+				self.render_state;
+				nil;
+			},
+			self.buttons[1], { // down
+				if(os.y < (7*8)) {
+					self.controller.clip_offset = os + Point(0,1)
+				};
+				self.render_state;
+				nil;
+			},
+			self.buttons[2], { // left
+				if(os.x > 0) {
+					self.controller.clip_offset = os + Point(-1,0)
+				};
+				self.render_state;
+				nil;
+			},
+			self.buttons[3], { // right
+				if(os.x < (7*8)) {
+					self.controller.clip_offset = os + Point(1,0)
+				};
+				self.render_state;
+				nil;
+			}, {
+				nil
+			}
+		);
+	},
+
 	activate: { arg self, update=true;
 		"ACTIVATION".debug;
+		if(self.sceneset.active_scene.notNil) {
+			self.sceneset.active_scene.deactivate;
+		};
 		self.install_midi_responder;
 		self.sceneset.active_scene = self;
 		if(update) {
@@ -575,8 +662,10 @@
 	},
 
 	gridpos_to_buf: { arg self, pos;
-		var node = self.controller.get_node_by_index(pos.x);
+		var node;
 		var res;
+		pos = self.controller.clip_offset + pos;
+		node = self.controller.get_node_by_index(pos.x);
 		if(node.notNil) {
 			res = node.get_clip_by_index(pos.y, false);
 		};
@@ -584,8 +673,10 @@
 	},
 
 	gridpos_to_node_and_clip: { arg self, pos;
-		var node = self.controller.get_node_by_index(pos.x);
+		var node;
 		var clip;
+		pos = self.controller.clip_offset + pos;
+		node = self.controller.get_node_by_index(pos.x);
 		if(node.notNil) {
 			clip = node.get_clip_by_index(pos.y);
 		};
@@ -613,18 +704,30 @@
 		//	self.state[8, x] = self.state_to_color(Point(x, self.active_row));
 		//}
 		"launchpad_scene_clip.render_state".debug;
-		8.do { arg x;
+		9.do { arg x;
 			8.do { arg y;
 				self.render_pos(Point(x,y));
 			}
 		};
 	},
 
+	render_column: { arg self, x;
+		8.do { arg y; 
+			self.render_pos(Point(x,y));
+		}
+	},
+
+	render_line: { arg self, y;
+		8.do { arg x; 
+			self.render_pos(Point(x,y));
+		}
+	},
+
 	render_pos: { arg self, pos;
 		var buf = self.gridpos_to_buf(pos);
 		var color_off = \off,
-			color_present = \dimred,
-			color_active = \dimgreen,
+			color_present = \orange,
+			color_active = \green,
 			color_playing = \green;
 		var color;
 		if(buf.isNil) {
@@ -654,38 +757,56 @@
 
 	},
 
+
 	response_cc_on: { arg self, midinote;
 		var res;
-		midinote.debug("MIDINOTE CoNTROL");
+		var os = self.controller.clip_offset;
+		midinote.debug("MIDINOTE CoNTROL ON");
 		self.current_cc_on = midinote;
-		res =switch(midinote,
-			self.buttons[4], {
-				self.render_state;
-				nil;
-			},
-			{
-				nil;
-			}
-		);
+		//if([\clip, \edit, \mixer].includes(self.controller.mode)) {
+		if(self.controller.mode == \clip) {
+			self.handle_grid_move(midinote);
+		};
+
+		if(res.isNil) {
+			res = switch(midinote,
+				self.buttons[4], {
+					//self.render_state;
+					nil;
+				},
+				self.buttons[5], {
+					self.controller.mode = \seq;
+					self.sceneset.seq_chooser;
+				},
+				self.buttons[7], {
+					self.controller.mode = \mixer_mod;
+					self.sceneset.mixer_mod;
+				},
+				{
+					nil;
+				}
+			);
+		};
 		if(res.notNil) { res.activate };
+		self.render_mode_state;
 	},
 
 	response_cc_off: { arg self, midinote;
 		var res;
-		midinote.debug("MIDINOTE CoNTROL");
+		midinote.debug("MIDINOTE CoNTROL OFF");
 		self.current_cc_on = midinote;
-		res =switch(midinote,
+		res = switch(midinote,
 			self.buttons[4], {
 				self.controller.mode = \clip;
 				self.sceneset.clip;
 			},
-			self.buttons[5], {
-				self.controller.mode = \seq;
-				self.sceneset.seq;
-			},
 			self.buttons[6], {
 				self.controller.mode = \edit;
 				self.sceneset.edit;
+			},
+			self.buttons[7], { 
+				self.controller.mode = \mixer;
+				self.sceneset.mixer;
 			},
 			{
 
@@ -699,29 +820,74 @@
 		var pos = self.midi_to_gridpos(midinote);
 		var buf;
 		var node, clip;
+		var opos;
 		midinote.debug("launchpad_scene_clip.response_on");
 
 		if(self.is_launcher_button(midinote)) {
+			var y;
 			midinote.debug("launchpad_scene_clip.response_on: is a launcher");
+			opos = self.controller.clip_offset + pos;
+			y = opos.y;
 			64.do { arg x;
-				#node, clip = self.gridpos_to_node_and_clip(Point(x, pos.y));
+				node = self.controller.get_node_by_index(x);
+				if(node.notNil) {
+					clip = node.get_clip_by_index(y);
+				};
 				if(clip.notNil and: {clip.is_present}) {
-					clip.play_node;
+					clip.response_on;
 				}
-			}
+			};
+			self.render_state;
 
 		} {
 			midinote.debug("launchpad_scene_clip.response_on: go!");
 			#node, clip = self.gridpos_to_node_and_clip(pos);
 			if(clip.is_present) {
-				clip.play_node;
+				clip.response_on;
 			} {
 				node.stop_node;
 			};
-			self.render_pos(pos);
+			//self.render_column(pos.x);
+			self.render_state;
 		}
 	},
 
+);
+
+~launchpad_scene_seq_chooser = (
+	parent: ~launchpad_scene_clip,
+	not_default_mode: false,
+
+	response_cc_off: { arg self, midinote;
+		var res;
+		self.not_default_mode.debug("launchpad_scene_seq_chooser.response_cc_off");
+		if(self.not_default_mode != true) {
+			self.controller.set_seq_active_mode;
+		};
+		self.not_default_mode = false;
+
+		self.controller.mode = \seq;
+		res = self.sceneset.seq;
+		if(res.notNil) { res.activate };
+		// TODO: indicate mode of seq with arrow led
+		//self.render_mode_state;
+	},
+
+	response_on: { arg self, midinote;
+		var pos = self.midi_to_gridpos(midinote);
+		var buf;
+		var node, clip;
+		midinote.debug("launchpad_scene_seq_chooser.response_on");
+
+		pos = self.offset_pos(pos);
+
+		if(self.is_launcher_button(midinote)) {
+			self.controller.set_seq_row_mode(pos.y)
+		} {
+			self.controller.set_seq_column_mode(pos.x)
+		};
+		self.not_default_mode = true;
+	},
 );
 
 ~launchpad_scene_seq = (
@@ -730,16 +896,20 @@
 	color_off: \off,
 	color_disabled: \dimred,
 
-	active_buffers: { arg self, x;
+	seq_buffers: { arg self, x;
 		if(x.isNil) {
 			8.collect { arg x;
-				var point = self.controller.active_buffer_points[x];
-				self.gridpos_to_buf(point);
+				var point = self.controller.active_seq_points[x];
+				self.absolute_point_to_buf(point);
 			}
 		} {
-			var point = self.controller.active_buffer_points[x];
-			self.gridpos_to_buf(point);
+			var point = self.controller.active_seq_points[x];
+			self.absolute_point_to_buf(point);
 		}
+	},
+
+	deactivate: { arg self;
+		self.seq_buffers.do { arg buf; buf.save_data; }
 	},
 
 	render_state: { arg self;
@@ -750,12 +920,14 @@
 	},
 
 	render_line: { arg self, y;
-		if(self.active_buffers(y).stepseq.isNil) {
-			8.do { arg val, x;
-				self.set_led(Point(x,y), self.color_disabled)
+		if(self.seq_buffers(y).is_present.not) {
+			//8.do { arg val, x;
+			self.seq_buffers(y).stepseq.do { arg val, x;
+				//self.set_led(Point(x,y), self.color_disabled)
+				self.set_led(Point(x,y), if(val == 1) { self.color_disabled } { self.color_off })
 			}
 		} {
-			self.active_buffers(y).stepseq.do { arg val, x;
+			self.seq_buffers(y).stepseq.do { arg val, x;
 				self.set_led(Point(x,y), if(val == 1) { self.color_on } { self.color_off })
 			}
 		}
@@ -763,9 +935,13 @@
 
 	render_pos: { arg self, pos;
 		var val;
-		self.active_buffers(pos.y).debug("render_pos: active_buffers");
-		val = self.active_buffers(pos.y).stepseq[pos.x];
-		self.set_led(pos, if(val == 1) { self.color_on } { self.color_off })
+		var color;
+		var buf;
+		self.seq_buffers(pos.y).debug("render_pos: seq_buffers");
+		buf = self.seq_buffers(pos.y);
+		val = buf.stepseq[pos.x];
+		color = if(buf.is_present) { self.color_on } { self.color_disabled };
+		self.set_led(pos, if(val == 1) { color } { self.color_off })
 	},
 
 	response_cc_on: { arg self, midi;
@@ -777,11 +953,6 @@
 		self.sceneset.clip.response_cc_off(midi);
 	},
 
-	launcher_pos_to_node: { arg self, pos;
-		var nodeidx = pos.y;
-		self.controller.get_node_by_index(nodeidx);
-	},
-
 	response_on: { arg self, midinote;
 		var pos = self.midi_to_gridpos(midinote);
 		var buf;
@@ -789,16 +960,13 @@
 		midinote.debug("launchpad_scene_seq.response_on");
 
 		if(self.is_launcher_button(midinote)) {
-			//node = self.launcher_pos_to_node(pos);
-			//if(node.notNil) {
-			//	node.open_in_vim;
-			//};
-			//self.render_pos(pos);
+			clip = self.seq_buffers(pos.y);
+			clip.response_on;
 		} {
 			pos.debug("pos");
-			self.active_buffers(pos.y).debug("QUOUOUUO");
-			self.active_buffers(pos.y).stepseq[pos.x] = if(self.active_buffers(pos.y).stepseq[pos.x] == 1) { 0 } { 1 };
-			self.active_buffers(pos.y).stepseq[pos.x].debug("val");
+			self.seq_buffers(pos.y).debug("QUOUOUUO");
+			self.seq_buffers(pos.y).stepseq[pos.x] = if(self.seq_buffers(pos.y).stepseq[pos.x] == 1) { 0 } { 1 };
+			self.seq_buffers(pos.y).stepseq[pos.x].debug("val");
 			self.render_pos(pos);
 		}
 	},
@@ -809,20 +977,19 @@
 	parent: ~launchpad_scene,
 
 	render_state: { arg self;
+		self.sceneset.clip.render_state;
 	},
 
 	response_cc_on: { arg self, midi;
 		//self.render_state;
+		if(self.controller.mode == \edit) {
+			self.handle_grid_move(midi);
+		};
 		self.sceneset.clip.response_cc_on(midi);
 	},
 
 	response_cc_off: { arg self, midi;
 		self.sceneset.clip.response_cc_off(midi);
-	},
-
-	launcher_pos_to_node: { arg self, pos;
-		var nodeidx = pos.y;
-		self.controller.get_node_by_index(nodeidx);
 	},
 
 	response_on: { arg self, midinote;
@@ -848,3 +1015,342 @@
 	},
 
 );
+
+~launchpad_scene_mixer = (
+	parent: ~launchpad_scene,
+
+	// ** layout
+	// - start/stop
+	// - mute/unmute
+	// - exec node buffer
+	// - edit node buffer
+
+	render_state: { arg self;
+		8.do { arg x; self.render_column(x) }
+	},
+
+	render_column: { arg self, x;
+		var node;
+		var ox;
+		ox = self.controller.clip_offset.x + x;
+		node = self.controller.get_node_by_index(ox);
+		if(node.notNil) {
+
+			if(node.is_present) {
+				if(node.is_playing) {
+					self.set_led(Point(x, 0), \green);
+				} {
+					self.set_led(Point(x, 0), \red);
+				};
+				self.set_led(Point(x, 1), \off);
+				self.set_led(Point(x, 2), \orange);
+				self.set_led(Point(x, 3), \orange);
+				4.do { arg y;
+					self.set_led(Point(x, y+4), \off);
+				};
+			} {
+				self.set_led(Point(x, 0), \off);
+				8.do { arg y;
+					self.set_led(Point(x, y), \off);
+				};
+			};
+		} {
+			[x, ox].debug("launchpad_scene_mixer.render_column: node is nil, x, ox");
+			8.do { arg y;
+				self.set_led(Point(x, y), \off);
+			};
+		};
+
+
+	},
+
+	response_cc_on: { arg self, midi;
+		//self.render_state;
+		if(self.controller.mode == \mixer) {
+			self.handle_grid_move(midi);
+		};
+		self.sceneset.clip.response_cc_on(midi);
+	},
+
+	response_cc_off: { arg self, midi;
+		self.sceneset.clip.response_cc_off(midi);
+	},
+
+	response_on: { arg self, midinote;
+		var pos = self.midi_to_gridpos(midinote);
+		var opos;
+		var buf;
+		var node, clip;
+		midinote.debug("launchpad_scene_mixer.response_on");
+
+		if(self.is_launcher_button(midinote)) {
+
+		} {
+			midinote.debug("launchpad_scene_mixer.response_on: go!");
+			opos = self.offset_pos(pos);
+			node = self.get_node_by_index(opos.x);
+			switch(pos.y,
+				0, {
+					node.toggle_play;
+				},
+				2, {
+					node.execute;
+				},
+				3, {
+					node.open_in_vim;
+				}
+			);
+			self.render_column(pos.x);
+		}
+	},
+
+);
+
+~launchpad_scene_mixer_mod = (
+	parent: ~launchpad_scene,
+
+	// ** launcher layout
+	// - copy
+	// - paste
+	// - delete
+
+	render_state: { arg self;
+		//self.sceneset.clip.render_state;
+	},
+
+
+	response_cc_on: { arg self, midi;
+	},
+
+	response_cc_off: { arg self, midi;
+		self.sceneset.clip.response_cc_off(midi);
+	},
+
+	response_on: { arg self, midinote;
+		var pos = self.midi_to_gridpos(midinote);
+		var opos;
+		var buf;
+		var node, clip;
+		var res;
+		midinote.debug("launchpad_scene_mixer_mod.response_on");
+
+		if(self.is_launcher_button(midinote)) {
+			res = switch(pos.y,
+				0, { // copy
+					self.controller.mode = \copy;
+					self.sceneset.mode_copy;
+				},
+				1, { // paste
+					self.controller.mode = \paste;
+					self.sceneset.mode_paste;
+				},
+				{
+					nil
+				}
+			
+			);
+			if(res.notNil) { 
+				res.skip_first_time = true;
+				res.activate;
+			};
+		} {
+		}
+	},
+
+);
+
+~launchpad_scene_mode_copy = (
+	parent: ~launchpad_scene,
+	color_clipboard: \red,
+
+	// ** layout
+	// - start/stop
+	// - mute/unmute
+	// - exec node buffer
+	// - edit node buffer
+
+	render_state: { arg self;
+		self.sceneset.clip.render_state;
+		self.render_clipboard;
+	},
+
+	render_clipboard: { arg self;
+		var pos, clip;
+		switch(self.controller.clipboard_mode,
+			\row, {
+				clip = self.controller.clipboard_clip[0];
+				pos = self.abspos_to_gridpos(clip.get_abspos, false);
+				if(pos.y.inclusivelyBetween(0,7)) {
+					//self.blink_led(self.launcher_buttons[pos.y], \red, \green);
+					self.set_led(self.launcher_buttons[pos.y], self.color_clipboard);
+				}
+			},
+			\column, {
+
+			},
+			\clip, {
+				clip = self.controller.clipboard_clip[0];
+				pos = self.abspos_to_gridpos(clip.get_abspos, true);
+				if(pos.notNil) {
+					//self.blink_led(pos, \red, \green);
+					self.set_led(pos, self.color_clipboard);
+				}
+			},
+		);
+	},
+
+	unblink_led: { arg self;
+		if(self.blinker.notNil) {
+			//debug("MAIS STOP BORDEL=============================");
+			self.blinker.stop;
+			switch(self.controller.clipboard_mode,
+				\clip, {
+					self.sceneset.clip.render_pos(self.blinker_pos);
+				},
+				{
+					self.set_led(self.blinker_pos, \off);
+				}
+			);
+		} {
+			//debug("JUSTE PAS POSSIBLE -----------------------------");
+
+		};
+	},
+
+	blink_led: { arg self, pos, color1, color2, time=0.5;
+		self.unblink_led;
+		self.blinker_pos = pos;
+		self.blinker = Task({
+			10.do {
+				self.set_led(pos, color1);
+				time.wait;
+				self.set_led(pos, color2);
+				time.wait;
+			};
+		});
+		self.blinker.play;
+	},
+
+
+	response_cc_on: { arg self, midi;
+		//self.render_state;
+		//self.unblink_led;
+		self.handle_grid_move(midi);
+		self.sceneset.clip.response_cc_on(midi);
+	},
+
+	response_cc_off: { arg self, midi;
+		if(self.skip_first_time != false) {
+			self.skip_first_time = false;
+		} {
+			self.sceneset.clip.response_cc_off(midi);
+		}
+	},
+
+	response_on: { arg self, midinote;
+		var pos = self.midi_to_gridpos(midinote);
+		var opos;
+		var buf;
+		var node, clip;
+		midinote.debug("launchpad_scene_mode_copy.response_on");
+
+		if(self.is_launcher_button(midinote)) {
+			var y = pos.y + self.controller.clip_offset.y;
+			self.controller.clipboard_clip = 64.collect { arg x;
+				clip = self.absolute_point_to_buf(Point(x, y));
+			};
+			self.controller.clipboard_clip.debug("launchpad_scene_mode_copy.response_on: clipboard_clip");
+			self.controller.clipboard_mode = \row;
+			self.render_state;
+		} {
+			midinote.debug("launchpad_scene_mode_copy.response_on: go!");
+			clip = self.gridpos_to_buf(pos);
+			self.controller.clipboard_clip = [clip];
+			self.controller.clipboard_mode = \clip;
+			self.render_state;
+		}
+	},
+
+);
+
+~launchpad_scene_mode_paste = (
+	parent: ~launchpad_scene_mode_copy,
+
+	color_pasted: \yellow,
+	// ** layout
+	// - start/stop
+	// - mute/unmute
+	// - exec node buffer
+	// - edit node buffer
+
+	render_state: { arg self;
+		self.sceneset.clip.render_state;
+		self.render_clipboard;
+	},
+
+	render_clipboard: { arg self;
+		self.sceneset.mode_copy.render_clipboard;
+	},
+
+
+	response_cc_on: { arg self, midi;
+		//self.render_state;
+		//self.sceneset.mode_copy.unblink_led;
+		self.handle_grid_move(midi);
+		self.sceneset.clip.response_cc_on(midi);
+	},
+
+	response_cc_off: { arg self, midi;
+		if(self.skip_first_time != false) {
+			self.skip_first_time = false;
+		} {
+			self.sceneset.clip.response_cc_off(midi);
+		}
+	},
+
+	response_on: { arg self, midinote;
+		var pos = self.midi_to_gridpos(midinote);
+		var opos;
+		var buf;
+		var node, clip;
+		midinote.debug("launchpad_scene_mode_copy.response_on");
+
+		if(self.is_launcher_button(midinote)) {
+			var y = pos.y + self.controller.clip_offset.y;
+			var clip_source, clip_dest;
+			var dest_abspos, dest_gridpos;
+			if(self.controller.clipboard_mode == \row) {
+				64.do { arg x;
+					dest_abspos = Point(x, y);
+					dest_gridpos = self.abspos_to_gridpos(dest_abspos);
+					clip_source = self.controller.clipboard_clip[x];
+					clip_dest = self.absolute_point_to_buf(dest_abspos);
+					if(clip_source.is_present and: { clip_dest.is_present.not }) {
+						clip_dest.load_data_from_clip(clip_source);
+						if(dest_gridpos.notNil) {
+							self.set_led(dest_gridpos, self.color_pasted);
+						};
+					}
+				};
+			}
+		} {
+			var clip_source, clip_dest;
+			clip_source = self.controller.clipboard_clip[0];
+			clip_dest = self.gridpos_to_buf(pos);
+			if(clip_source.is_present and: { clip_dest.is_present.not }) {
+				clip_dest.load_data_from_clip(clip_source);
+				self.set_led(pos, self.color_pasted);
+			}
+		}
+	},
+
+);
+
+
+/////////// TODO
+// - navigation with session
+//	- move by 8 with session + arrow
+//	- move to page with session + pad
+// - navigation in seq
+// - use launcher in seq
+// - implement muting

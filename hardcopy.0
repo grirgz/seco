@@ -1,28 +1,11 @@
- + l/dev1.sc  timeline.sc  matrix.sc  node_manager.sc  bindings.sc                                                                             X
-Mdef.node("setbus_l1003").get_arg(\scoreline).get_scoreset.sheets.do { arg sh, i; sh.notNil and:{ sh.notes.debug(i+"============")  }}
-
-a = Dictionary.new
-a.size
-a[\a] = 1
-a[\b] = 1
-a[\b] = nil
-a
-
-
-
-
-
-Mdef.node("ci osc3filter2_l1021").modulation.get_modulation_mixers.keys.do(_.postln)
-Mdef.node("ci osc3filter2_l1021").modulation.modulation_mixers[\wtpos_spread] = nil
-
-
-
-(
-
-    w = Window.new;
-    w.front;
-w.layout = Button.new;
-)
+ /buffer.scd  2.scd  /sctile.vim  v/v/a.1.scd  s/v/v/z.scd  E/s/Veco.sc  + 4.3.scd  1.11.scd  ~/.v/sc.vim  /v/main.scd  /v/tile.scd            X
+//Ndef(\lfo1, { SinOsc.kr(4).range(100,1000) });
+Ndef(\lfo1, { XLine.kr(100,2004,10) });
+Pdef(~name +++ \pre, Pbind(
+    \freq, 300 + Pseq([100,200,300,250],inf) + Pwhite(0,50.0,inf),
+    \freq, 300 + Pseq([100,200,300,250],inf) + Pwhite(0,50.0,inf),
+    \fmrange, Ndef(\lfo1),
+));
 ~
 ~
 ~
@@ -38,4 +21,21 @@ w.layout = Button.new;
 ~
 ~
 ~
-"/tmp/sclang-pipe" [Périph.] 1L, 2C ajouté(s)                                                                                 591,11        Bas
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+                                                                                                                              2,10         Tout
