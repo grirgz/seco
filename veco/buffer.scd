@@ -50,6 +50,7 @@
 
 	open_project: { arg self, path;
 		s.boot;
+		~initialize_jack.();
 		Pdef.clear;
 		self.project_path = path.standardizePath;
 		self.project_path.debug("class_veco_buffer_manager.open_project: path");
@@ -106,7 +107,10 @@
 		self.mode_paste = { ~launchpad_scene_mode_paste.new(self) };
 		self.mode = \clip;
 		self.active_seq_points = 8.collect { arg x; Point(x,0) };
+		self.msize = Point(64,64);
 		self.clip_offset = Point(0,0);
+		self.fadeout_time = 4;
+		self.seq_offset = 0;
 		
 	},
 
@@ -122,11 +126,11 @@
 
 
 	set_seq_column_mode: { arg self, x;
-		self.active_seq_points = 8.collect { arg y; Point(x,y) };
+		self.active_seq_points = 8.collect { arg y; Point(x,y+self.clip_offset.y) };
 	},
 
 	set_seq_row_mode: { arg self, y;
-		self.active_seq_points = 8.collect { arg x; Point(x,y) };
+		self.active_seq_points = 8.collect { arg x; Point(x+self.clip_offset.x,y) };
 	},
 
 	set_seq_active_mode: { arg self;
@@ -291,7 +295,9 @@
 	},
 
 	is_playing: { arg self;
-		self.get_node_player.isPlaying;
+		//self.get_node_player.isPlaying;
+		self.get_node_player.hasEnded.not;
+		//self.get_node_player.wasStopped.not;
 	},
 
 	play_node: { arg self;
@@ -299,14 +305,56 @@
 		self.get_node_player.play;
 	},
 
-	stop_node: { arg self;
+	stop_node: { arg self, use_quant, quant_fun;
 		self.uname.debug("class_node_buffer.stop_node");
-		self.get_node_player.stop;
+		if(use_quant == true) {
+			TempoClock.default.play({
+				self.get_node_player.stop;
+				quant_fun.value;
+				nil;
+			}, self.get_node_player.quant);
+			//Task({
+			//	self.get_node_player.stop;
+			//	quant_fun.value;
+			//}).play(TempoClock.default, self.get_node_player.quant);
+		} {
+			//self.get_node_player.player.xstop(self.get_node_player.quant);
+			self.get_node_player.player.stop(self.get_node_player.quant);
+		}
+	},
+
+	fadeout: { arg self;
+		self.get_node_player.player.xstop(self.main.fadeout_time);
 	},
 
 	mute_node: { arg self;
-		self.get_node_player.mute;
+		self.get_node_player.player.mute;
 	},
+
+	unmute_node: { arg self;
+		self.get_node_player.player.unmute;
+	},
+
+	toggle_mute: { arg self;
+		var pl = self.get_node_player.player;
+		if(pl.notNil) {
+			if(pl.muteCount == 1) {
+				pl.unmute;
+			} {
+				pl.mute;
+			}
+		}
+	},
+
+	is_muted: { arg self;
+		var pl = self.get_node_player.player;
+		if(pl.notNil) {
+			pl.muteCount == 1
+		} {
+			false
+		}
+	},
+
 
 	toggle_play: { arg self;
 		self.uname.debug("class_node_buffer.toggle_play");
@@ -334,14 +382,24 @@
 		self.clips[idx];
 	},
 
-	isrest: { arg self, repeat=inf;
+	isrest: { arg self, size = 8, repeat=inf;
+		var seq;
+		var clip;
 		Prout { arg ev;
 			repeat.do {
 				var x = 0;
-				var next = self.get_clip_by_index(self.active_clip_index).stepseq[x];
+				var next;
+				//var next = self.get_clip_by_index(self.active_clip_index).stepseq[x];
+				clip = self.get_clip_by_index(self.active_clip_index);
+				seq = clip.stepseq;
+				if(seq.size < size) {
+					clip.stepseq = seq.extend(size, 0);
+					seq = clip.stepseq;
+				};
+				next = seq[x];
 				//self.active_clip_index.debug("isrest: active_clip_index");
 				//self.get_clip_by_index(self.active_clip_index).stepseq.debug("isrest: stepseq");
-				while {next.notNil} {
+				while { x < size} {
 					var nextbool = if(next == 1) { false } { true };
 					ev = nextbool.yield;
 					x = x + 1;
@@ -415,6 +473,7 @@
 	},
 
 	response_on: { arg self;
+		self.parent_buffer.old_active_clip_index = self.parent_buffer.active_clip_index;
 		self.parent_buffer.active_clip_index = self.parent_buffer.clips.indexOf(self);
 		self.parent_buffer.active_clip_index.debug("class_node_clip.response_on: active_clip_index");
 		self.play_node;
