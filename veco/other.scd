@@ -228,3 +228,18 @@ Veco.force_init
 		a.play
 )
 a.stop
+
+
+
+(
+	
+	var a;
+	var f1, f2;
+	~a = [1,0];
+	f1 = { ~a };
+	~a = [0,1];
+	f2 = { ~a };
+	f1.().postln;
+	f2.().postln;
+
+)

@@ -42,4 +42,6 @@
 ~sceneset.putAll(~scenestate);
 ~veco = ~sceneset;
 
+"debut activ".debug;
 ~sceneset.clip.activate;
+"fin activ".debug;

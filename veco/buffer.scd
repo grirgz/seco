@@ -1,10 +1,13 @@
 ~execute_till_special_end = { arg path;
 	var res = path;
 	if(File.exists(res)) {
-		var file = File.open(res, "r");
-		var code = file.readAllString;
-		var end = code.find("// END");
-		file.close;
+		var file;
+		var code;
+		var end;
+		File.use(res, "r", { arg file;
+			code = file.readAllString;
+		});
+		end = code.find("// END");
 		if(end.notNil) {
 			code = code.keep(end);
 		};
@@ -22,6 +25,7 @@
 ~class_veco = (
 	new: { arg self;
 		var unames;
+		var more_unames;
 		self = self.deepCopy;
 		debug("NEW class_veco");
 	
@@ -30,9 +34,12 @@
 			"azertyui" ++
 			"qsdfghjk" ++
 			"wxcvbnVP";
+		more_unames = 32.collect { arg x; (x + 32).asSymbol };
 		unames = unames.asList.collect(_.asSymbol);
+		unames = unames ++ more_unames;
 		self.node_unames = unames;
 		self.nodes = IdentityDictionary.new;
+		self.lib_path = "~/.local/share/SuperCollider/Extensions/seco/seco/vlive/lib/".standardizePath;
 
 		self.init;
 	
@@ -63,17 +70,23 @@
 	},
 
 	get_node_by_index: { arg self, idx;
-		[idx].debug("get_node_by_index");
+		//[idx].debug("get_node_by_index");
 		self.nodes[self.index_to_uname(idx)]
 	},
 
 	get_node_by_uname: { arg self, uname;
-		self.nodes[uname];
+		var res = self.nodes[uname];
+		res;
 	},
 
 	open_buffer: { arg self, idx, name;
 		self.nodes[self.index_to_uname(idx)].open_buffer;
 	},
+
+	// just open the file based on filename in vim
+	//open_subbuffer: { arg self, uname, idx;
+	//	self.get_node_by_uname(uname).get_clip_by_index(idx).open_buffer
+	//},
 
 	set_buffer_name: { arg self, idx, name;
 		self.nodes[self.index_to_uname(idx)].set_name(name);
@@ -96,7 +109,9 @@
 	parent: ~class_veco,
 
 	init: { arg self;
+		var aa, bb, ab;
 		debug("INIT class_veco_sceneset");
+
 		self.clip = { ~launchpad_scene_clip.new(self) };
 		self.edit = { ~launchpad_scene_edit.new(self) };
 		self.seq = { ~launchpad_scene_seq.new(self) };
@@ -105,13 +120,36 @@
 		self.mixer_mod = { ~launchpad_scene_mixer_mod.new(self) };
 		self.mode_copy = { ~launchpad_scene_mode_copy.new(self) };
 		self.mode_paste = { ~launchpad_scene_mode_paste.new(self) };
+
+		[\clip, \edit, \seq, \seq_chooser, \mixer, \mixer_mod, \mode_copy, \mode_paste].do { arg key;
+			var scene = self[key].value;
+			self[key] = { scene };
+		};
+
 		self.mode = \clip;
 		self.active_seq_points = 8.collect { arg x; Point(x,0) };
 		self.msize = Point(64,64);
 		self.clip_offset = Point(0,0);
+		//self.board_offset = Point(0,0);
+		self.board_size = Point(64/2,64);
 		self.fadeout_time = 4;
 		self.seq_offset = 0;
 		
+	},
+
+	board_offset: { arg self;
+		Point(
+			(self.clip_offset.x / self.board_size.x).asInteger * self.board_size.x,
+			(self.clip_offset.y / self.board_size.y).asInteger * self.board_size.y,
+		)
+	},
+
+	get_node_by_uname: { arg self, uname;
+		var res = self.nodes[uname];
+		if(res.isNil) {
+			res = self.get_nodeclip_by_uname(uname)
+		};
+		res;
 	},
 
 	data_path: { arg self;
@@ -221,7 +259,7 @@
 
 	is_present: { arg self;
 		var path = self.path;
-		[self.uname, path].debug("class_code_buffer.is_present");
+		//[self.uname, path].debug("class_code_buffer.is_present");
 		if(File.exists(path)) {
 			if(File.fileSize(path) > 20) {
 				true
@@ -290,19 +328,46 @@
 		}
 	},
 
+	load_data_from_node: { arg self, node;
+		if(self.is_present.not and: { File.exists(node.path) }) {
+			var code;
+			var code_header;
+			var new_code_header;
+			var code_body;
+			File.use(node.path, "r", { arg file;
+				code = file.readAllString;
+			});
+			code = code.split($\n);
+			code_header = code[0];
+			code_body = code.drop(1);
+			//code_header.interpret;
+			new_code_header = "~name = %;".format(self.uname.asCompileString);
+			code = ([new_code_header] ++ code_body).join($\n);
+			//self.stepseq = clip.stepseq.deepCopy;
+			File.use(self.path, "w", { arg file;
+				file.write(code);
+			});
+			self.execute;
+		}
+	},
+
 	get_node_player: { arg self;
 		Pdef(self.get_name);
 	},
 
 	is_playing: { arg self;
-		//self.get_node_player.isPlaying;
-		self.get_node_player.hasEnded.not;
+		self.get_node_player.hasEnded.not and: {  self.get_node_player.isPlaying };
 		//self.get_node_player.wasStopped.not;
 	},
 
 	play_node: { arg self;
 		self.uname.debug("class_node_buffer.play_node");
+		self.play_node_hook;
 		self.get_node_player.play;
+	},
+
+	play_node_hook: { arg self;
+		
 	},
 
 	stop_node: { arg self, use_quant, quant_fun;
@@ -310,6 +375,7 @@
 		if(use_quant == true) {
 			TempoClock.default.play({
 				self.get_node_player.stop;
+				self.stop_node_hook;
 				quant_fun.value;
 				nil;
 			}, self.get_node_player.quant);
@@ -320,11 +386,16 @@
 		} {
 			//self.get_node_player.player.xstop(self.get_node_player.quant);
 			self.get_node_player.player.stop(self.get_node_player.quant);
+			self.stop_node_hook;
 		}
 	},
 
-	fadeout: { arg self;
-		self.get_node_player.player.xstop(self.main.fadeout_time);
+	stop_node_hook: { arg self;
+		
+	},
+
+	fadeout: { arg self, time;
+		self.get_node_player.player.xstop(time ?? self.main.fadeout_time);
 	},
 
 	mute_node: { arg self;
@@ -392,6 +463,7 @@
 				//var next = self.get_clip_by_index(self.active_clip_index).stepseq[x];
 				clip = self.get_clip_by_index(self.active_clip_index);
 				seq = clip.stepseq;
+				//clip.stepseq_size = size; // parent pattern set wrong sizeat the same time
 				if(seq.size < size) {
 					clip.stepseq = seq.extend(size, 0);
 					seq = clip.stepseq;
@@ -422,7 +494,12 @@
 		self;
 	},
 
+	get_index: { arg self;
+		
+	},
+
 	stepseq: [1,1,0,0, 0,0,0,0],
+	stepseq_size: nil,
 
 	save_data: { arg self;
 		if(self.is_present) {
@@ -446,6 +523,7 @@
 			var code;
 			self.stepseq = clip.stepseq.deepCopy;
 			File.copy(clip.path, self.path);
+			self.save_data;
 		}
 	},
 
@@ -486,7 +564,7 @@
 	define_variables: { arg self;
 		var idx = 1; // TODO
 		~name = self.parent_buffer.get_name;
-		~namex = self.parent_buffer.get_name +++ idx;
+		~namex = self.uname;
 		~index = idx; //TODO
 	},
 
@@ -498,6 +576,37 @@
 
 
 	toggle_play: { arg self;
+	},
+
+	isrest: { arg self, size = 8, repeat=inf;
+		var seq;
+		var clip;
+		clip = self;
+		seq = clip.stepseq;
+		clip.stepseq_size = size; // parent pattern set wrong sizeat the same time
+		if(seq.size < size) {
+			clip.stepseq = seq.extend(size, 0);
+			seq = clip.stepseq;
+		};
+		Prout { arg ev;
+			repeat.do {
+				var x = 0;
+				var next;
+				//var next = self.get_clip_by_index(self.active_clip_index).stepseq[x];
+				clip = self;
+				//clip.debug("clip.isrest: clip");
+				seq = clip.stepseq;
+				next = seq[x];
+				//self.active_clip_index.debug("isrest: active_clip_index");
+				//self.get_clip_by_index(self.active_clip_index).stepseq.debug("isrest: stepseq");
+				while { x < size} {
+					var nextbool = if(next == 1) { false } { true };
+					ev = nextbool.yield;
+					x = x + 1;
+					next = clip.stepseq[x];
+				}
+			}
+		};
 	},
 );
 

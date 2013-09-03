@@ -9,7 +9,8 @@ MixerChannelDef(\mix1x4, 1, 4,
    }),
    (xpos: { |name| MixerControl(name, nil, 0, \bipolar) },
    ypos: { |name| MixerControl(name, nil, 0, \bipolar) },
-   level: { |name| MixerControl(name, nil, 0.75, \amp) }));
+   level: { |name| MixerControl(name, nil, 0.75, \amp) })
+);
 
 d = MixerGUIDef(Point(50, 330), 
    [MixerMuteWidget, MixerRecordWidget, MixerPresendWidget, Mixer2DPanWidget,
@@ -43,3 +44,80 @@ m.automate(\xpos, { LFNoise1.kr(0.2) });
 m.automate(\ypos, { LFNoise1.kr(0.3) });
 
 m.watch(\xpos); m.watch(\ypos)
+
+m.outbus;
+
+(
+Pdef(\plop, Pbind(
+	\instrument, \default,
+	\degree, Pseq([0,2,4,3,2,1],inf) + Pseq([1,2,3,4],inf) + Pwhite(0,1),
+	\octave, 4,
+	\dur, 1/4,
+	\legato, 0.01,
+	\out, m.inbus,
+	\amp, 0.1
+)).play;
+);
+
+
+
+
+(
+SynthDef(\echo, { arg out=0, in=0, amp=0.1, gate=1, pan=0, freq=200;
+	var sig;
+	sig = In.ar(in, 2);
+	sig = CombL.ar(sig, 0.2,0.2,1);
+	Out.ar(out, sig);
+}).add;
+);
+
+
+(
+Ndef(\echo, { arg outbus=0, in=0, amp=0.1;
+	var sig;
+	sig = In.ar(outbus, 2);
+	sig = CombL.ar(sig, 0.2,0.001,1);
+	ReplaceOut.ar(outbus, sig);
+}).play;
+)
+Ndef(\echo).set(\outbus, n.inbus.index)
+n.playfx(Ndef(\echo))
+
+n.outbus.index
+n.inbus
+m.inbus
+m.outbus
+
+
+
+
+s = Server.internal; s.boot;
+
+
+SynthDef.new("pinkfilt", {
+
+arg	outbus,	// outbus is the standard name used by MixerChannel
+
+freq, rq;
+
+Out.ar(outbus, RLPF.ar(PinkNoise.ar, freq, rq));
+
+}).send(s);
+
+
+m = MixerChannel.new("pinkfilt", s);  // defaults to mono-to-stereo
+
+
+a = m.play("pinkfilt", [\freq, 2000, \rq, 0.02]);
+
+~master = MixerChannel(\master, s, 2, 2, level: 0.2);
+
+m.free;	// all synths disappear
+
+
+
+m = Array.fill(5, { arg i; MixerChannel("test" ++ (i+1), s) });
+
+n = MixerChannel("essai", s);
+
+z = MixingBoard("test board", nil, m, n); 
