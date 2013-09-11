@@ -3,10 +3,27 @@
 "=======================================================================".inform;
 "loading Veco...".inform;
 "=======================================================================".inform;
+
+~make_class_responder = { arg self, parent, model, list, auto_refresh=true;
+	var controller;
+
+	controller = SimpleController(model);
+	list.do { arg method;
+		controller.put(method, { arg ... args; self[method].(self, *args) });
+	};
+
+	parent.onClose = parent.onClose.addFunc { controller.remove };
+
+	if(auto_refresh) { model.refresh() };
+
+	controller;
+};
+
 [
 	//"tile",
 	"buffer",
 	"launchpad",
+	"score",
 ].do { arg file;
 	("Loading " ++ file ++".scd...").inform;
 	(~veco_dir_path +/+ file++".scd").load;

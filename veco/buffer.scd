@@ -108,6 +108,16 @@
 ~class_veco_sceneset = (
 	parent: ~class_veco,
 
+
+	clip_offset: { arg self;
+		self.var_clip_offset;
+	},
+
+	clip_offset_: { arg self, val;
+		self.var_clip_offset = val;
+		self.changed(\clip_offset);
+	},
+
 	init: { arg self;
 		var aa, bb, ab;
 		debug("INIT class_veco_sceneset");
@@ -129,7 +139,7 @@
 		self.mode = \clip;
 		self.active_seq_points = 8.collect { arg x; Point(x,0) };
 		self.msize = Point(64,64);
-		self.clip_offset = Point(0,0);
+		self.var_clip_offset = Point(0,0);
 		//self.board_offset = Point(0,0);
 		self.board_size = Point(64/2,64);
 		self.fadeout_time = 4;
@@ -261,7 +271,7 @@
 		var path = self.path;
 		//[self.uname, path].debug("class_code_buffer.is_present");
 		if(File.exists(path)) {
-			if(File.fileSize(path) > 20) {
+			if(File.fileSize(path) > 15) {
 				true
 			} {
 				false
@@ -294,6 +304,8 @@
 		//	clip = ~class_node_clip.new(main, cuname, self);
 		//	clip;
 		//};
+		self.data = ();
+		self.data.amp_level = 1;
 		self.clips = SparseArray.new(64, nil);
 		self.active_clip_index = 0;
 	
@@ -347,8 +359,27 @@
 			File.use(self.path, "w", { arg file;
 				file.write(code);
 			});
+			self.data = node.data.deepCopy;
+			self.save_data;
 			self.execute;
 		}
+	},
+
+	save_data: { arg self;
+		if(self.is_present) {
+			File.use(self.data_path, "w") { arg file;
+				var code;
+				code = "Veco.save(%).amp_level = %;\n".format(self.uname.asCompileString, self.data.amp_level);
+				file.write(code);
+			};
+		}
+	},
+
+	load_data: { arg self;
+		if(self.is_present) {
+			self.data_path.load;
+		};
+	
 	},
 
 	get_node_player: { arg self;
@@ -481,7 +512,37 @@
 		};
 	},
 
+	amp_level: { arg self, in;
+		//[self.uname, self.data.amp_level].debug("amp_level");
+		self.data.amp_level;
+	},
+
+	get_norm_amp_level: { arg self;
+		~amp_level_spec.unmap(self.data.amp_level);
+	},
+
+	get_amp_level: { arg self;
+		self.data.amp_level;
+	},
+
+	set_amp_level: { arg self, val;
+		self.data.amp_level = val;
+	},
+
+	set_norm_amp_level: { arg self, val;
+		self.data.amp_level = ~amp_level_spec.map(val);
+	},
+
+	mixer: { arg self;
+		Pbind(
+			//\amp, Pfunc({ arg ev; self.amp_level * ev[\amp]})
+			\amp, Pfunc({ arg ev; self.amp_level })
+		)
+	},
+
 );
+
+~amp_level_spec = ControlSpec(0.001,4,\exp,0,1);
 
 ~class_node_clip = (
 	parent: ~class_code_buffer,
@@ -494,12 +555,18 @@
 		self;
 	},
 
+	data: { arg self;
+		// compat, TODO: move stepseq in data
+		self;
+	},
+
 	get_index: { arg self;
 		
 	},
 
 	stepseq: [1,1,0,0, 0,0,0,0],
 	stepseq_size: nil,
+	envir_keys: [\name, \namex, \index],
 
 	save_data: { arg self;
 		if(self.is_present) {
@@ -536,8 +603,9 @@
 
 	execute: { arg self;
 		var path;
-		self.define_variables;
-		self.execute_till_special_end;
+		self.envir_do {
+			self.execute_till_special_end;
+		}
 	},
 
 	play_node: { arg self;
@@ -563,9 +631,26 @@
 
 	define_variables: { arg self;
 		var idx = 1; // TODO
+		self.variables = ();
+		self.envir_keys.do { arg key;
+			self.variables[key] = currentEnvironment[key];
+		};
 		~name = self.parent_buffer.get_name;
 		~namex = self.uname;
 		~index = idx; //TODO
+	},
+
+	envir_do: { arg self, fun;
+		self.define_variables;
+		fun.();
+		self.undefine_variables;
+	},
+
+	undefine_variables: { arg self;
+		var idx = 1; // TODO
+		self.envir_keys.do { arg key;
+			currentEnvironment[key] = self.variables[key];
+		};
 	},
 
 	open_in_vim: { arg self;

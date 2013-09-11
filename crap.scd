@@ -385,3 +385,57 @@ play{a=LFTri;distort(LeakDC.ar(a.ar(LeakDC.ar((1..9).sum{|x|Pan2.ar(a.ar(1/x)>0.
 
 //--tweet0128
 play{a=LFTri;RLPF.ar(LeakDC.ar(a.ar(LeakDC.ar((1..9).sum{|x|Pan2.ar(a.ar(1/x,x/3)>0.3333,a.ar(666/x))})*999)).distort,3e3)}// #SuperCollider
+
+
+
+
+
+
+(
+	
+	r = Routine {
+		20.do { arg i;
+			[i, "plop"].postln;
+			1.wait;
+		}
+	};
+	p = r.play;
+)
+p.stop;
+
+
+
+TempoClock.default.tempo = 4
+(
+	var r;
+	r= Routine {
+		1.do({ arg a;
+			Pdef(\x).play	;
+			TempoClock.default.play({"/renoise/transport/start".postln;},1);
+			Pdef(\x,Pbind(  \instrument, \default,  \dur, 0.5,
+				\bassLevel, Pseq ([1,0,0,0] ,inf),  \freq,Pseq([50,20,10,5000,20,100,500,20,10,10,20,30,40],inf),\frq1,Pseq([40,150,180,200,40,150,180,200],inf),\frq0,Pseq([5000,8000,10000],inf),
+				\snareLevel, Pseq ([0,0,0,0],inf),\hatLevel, Pseq ([0,0,1,0,0,0,0,0],inf)
+			));
+			// Often you might see Wait being used to pause a routine
+			// This waits for one second between each number
+			64.wait;
+			[ "patern2"].postln;
+			Pdef(\x,Pbind(  \instrument, \default,  \dur, 0.5/4,
+				\bassLevel,Pseq([ Pseq ([1,0,1,1,0,0,1],1 ),Pseq ([0],9),Pseq ([1,0,0,1,0,1],1),Pseq ([0],10),
+				Pseq ([1,0,1,1,0,0,1],1 ),Pseq ([0],9),Pseq ([1,0,1],1),Pseq ([0],13)
+			],inf),  \freq,Pseq([50,20,10,5000,20,100,500,20,10,10,20,30,40],inf),\frq1,Pseq([40,150,180,200,40,150,180,200],inf),\frq0,Pseq([5000,8000,10000],inf),
+			\snareLevel, Pseq ([0,0,0,0],inf),\hatLevel, Pseq ([1,0,1,0,1,0,1,0],inf)));
+			31.5.wait;
+			[ "patern1"].postln;
+			Pdef(\x).stop;
+			8.5.wait;
+			Pdef(\x,Pbind(  \instrument, \default,  \dur, 0.5,
+				\bassLevel, Pseq ([1,0,0,0] ,inf),  \freq,Pseq([50,20,10,5000,20,100,500,20,10,10,20,30,40],inf),\frq1,Pseq([40,150,180,200,40,150,180,200],inf),\frq0,Pseq([5000,8000,10000],inf),
+				\snareLevel, Pseq ([0,0,0,0],inf),\hatLevel, Pseq ([0,0,1,0,0,0,0,0],inf)
+			));
+			Pdef(\x).play;
+		});
+
+	};
+	t = r.play;
+)
