@@ -243,3 +243,140 @@ a.stop
 	f2.().postln;
 
 )
+
+Sdef(~name, \sampler, \sampler, \voices);
+
+Sdef(~name, \sampler).at(~index);
+
+Samplekit(~name, [
+	"a11.wav",
+	["a11.wav", 0.1],
+	Pbind(
+		\instrument, ~name,
+		\freq, Pseq([100,200],inf)
+	),
+	Sdef(~name, \mypbindpreset).at(1),
+	Pdef(\bla)
+])
+
+(
+Sdef(~namex, \sampler).pat <> Pbind(
+	\speed, Pseq([1,2,0.5],inf)
+)
+);
+
+(
+Sdef(~namex, \sampler).pat <> Pbind(
+	\score, Sdef(~namex, \sampler).sampler_seq,
+	\bufnum, Pfunc({ arg ev; (\default, ev[\score][\bufnum]) })
+	\speed, Pseq([1,2,0.5],inf)
+)
+);
+
+
+Sdef(~name, \sampler).edit
+Sdef(~name, \sampler).record
+
+
+
+(
+	~bla = (
+		asPattern: { arg self;
+			Pseq([1,2,3]*100,inf)
+		},
+
+	);
+	Pbind(
+		\freq, ~bla,
+	).play
+)
+~bla.asPattern
+
+
+
+
+
+Sdef(~name, \mymultislider, \array, \freq.asSpec)
+
+Pdef(~name+++\pre, Pbind(
+	\freq, Pseq(Sdef(~namex, \mymultislider).array,inf)
+))
+
+
+EnvSpec
+
+Sdef(~name, \myenv, \env, )
+
+
+
+
+(
+{
+
+var in, fft, entropy;
+var amplitude; 
+
+in= SoundIn.ar; 
+
+amplitude = Amplitude.kr(in); 
+
+fft = FFT(LocalBuf(1024), in);
+
+entropy=SpectralEntropy.kr(fft,1024,10);//10 bands
+
+entropy = entropy * (amplitude.min(0.2)*5.0); //scale by amplitude to avoid low amplitude noise issues
+
+entropy.poll; 
+
+//Out.ar(0,Pan2.ar(0.1*Blip.ar((entropy[0])*200,entropy[1].sqrt))); 
+
+Out.ar(0,Splay.ar(0.1*Blip.ar((entropy)*200,entropy.sqrt)));
+}.play
+)
+
+
+
+
+(
+	~record_duration = 8;
+	
+)
+
+(
+	~arec = ~audio_recorder.new;
+	~arec.start_recording;
+)
+
+(
+	~play_audio_recording = { arg buf;
+		Pbind(
+			\instrument, \audiotrack,
+			\sustain, 8,
+			\dur, 8,
+			\bufnum, buf,
+		).play(quant:Pdef.defaultQuant);
+
+	};
+	~play_audio_recording.(~arec.buf);
+)
+
+s.sampleRate
+(instrument: \record_input).play
+Synth(\record_input, [\sustain, 4])
+Pdef.defaultQuant
+TempoClock.default.tempo
+
+
+
+Sdef(~name, \myaudio, \audio, 8)
+
+Sdef(~name, \myaudio).record
+Sdef(~namex, \myaudio).record(16)
+
+
+(
+Pdef(~name+++\pre, <> Pbind(
+	\bufnum, Sdef(~namex, \myaudio).bufnum,
+	\speed, Pseq([1,2,0.5],inf)
+)
+);

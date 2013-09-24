@@ -39,7 +39,8 @@
 		unames = unames ++ more_unames;
 		self.node_unames = unames;
 		self.nodes = IdentityDictionary.new;
-		self.lib_path = "~/.local/share/SuperCollider/Extensions/seco/seco/vlive/lib/".standardizePath;
+		//self.lib_path = "~/.local/share/SuperCollider/Extensions/seco/seco/vlive/lib/".standardizePath;
+		self.lib_path = "~/code/sc/seco/vlive/lib/".standardizePath;
 
 		self.init;
 	
@@ -55,10 +56,16 @@
 		self.node_unames.indexOf(uname)
 	},
 
+	project_destructor: { arg self;
+		Pdef.clear;
+		BufferPool.release_client(\veco_audio);
+	},
+
 	open_project: { arg self, path;
 		s.boot;
 		~initialize_jack.();
-		Pdef.clear;
+		self.project_destructor;
+
 		self.project_path = path.standardizePath;
 		self.project_path.debug("class_veco_buffer_manager.open_project: path");
 		self.nodes = IdentityDictionary.new;
@@ -118,6 +125,21 @@
 		self.changed(\clip_offset);
 	},
 
+	clipboard_clip: { arg self;
+		//self.var_clipboard_clip
+		"get clipboard!!!!".debug;
+		~veco_clipboard_clip;
+	},
+
+	clipboard_clip_: { arg self, val;
+		//self.var_clipboard_clip
+		"set clipboard!!!!".debug;
+		~veco_clipboard_score_storage = ~score_storage;
+		~veco_clipboard_clip = val;
+	},
+
+
+
 	init: { arg self;
 		var aa, bb, ab;
 		debug("INIT class_veco_sceneset");
@@ -130,8 +152,9 @@
 		self.mixer_mod = { ~launchpad_scene_mixer_mod.new(self) };
 		self.mode_copy = { ~launchpad_scene_mode_copy.new(self) };
 		self.mode_paste = { ~launchpad_scene_mode_paste.new(self) };
+		self.launchpad = { ~launchpad_scene.new(self) };
 
-		[\clip, \edit, \seq, \seq_chooser, \mixer, \mixer_mod, \mode_copy, \mode_paste].do { arg key;
+		[\clip, \edit, \seq, \seq_chooser, \mixer, \mixer_mod, \mode_copy, \mode_paste, \launchpad].do { arg key;
 			var scene = self[key].value;
 			self[key] = { scene };
 		};
@@ -163,13 +186,21 @@
 	},
 
 	data_path: { arg self;
-		self.project_path +/+ "data";
+		var root = self.project_path +/+ "data";
+		if(File.exists(root).not) {
+			File.mkdir(root);
+		};
+		root;
 	},
 
 	load_data: { arg self;
-		PathName(self.data_path).files.do { arg file;
-			file.fullPath.load;
-		}
+		// load at clip init instead
+
+		//PathName(self.data_path).files.do { arg file;
+		//	if(file.extension == "scd") {
+		//		file.fullPath.load;
+		//	}
+		//}
 	},
 
 
@@ -231,11 +262,8 @@
 	},
 
 	data_path: { arg self;
-		var root = self.main.project_path +/+ "data";
+		var root = self.main.data_path;
 		var path = root +/+ (self.uname++".scd").asString;
-		if(File.exists(root).not) {
-			File.mkdir(root);
-		};
 		path;
 	},
 
@@ -480,6 +508,7 @@
 			var clip;
 			clip = ~class_node_clip.new(self.main, cuname, self);
 			self.clips[idx] = clip;
+			clip.load_data;
 		};
 		self.clips[idx];
 	},
@@ -561,7 +590,7 @@
 	},
 
 	get_index: { arg self;
-		
+		self.parent_buffer.clips.indexOf(self);
 	},
 
 	stepseq: [1,1,0,0, 0,0,0,0],
@@ -579,10 +608,17 @@
 	},
 
 	load_data: { arg self;
+		// not called by anyone, open project just run data/*.scd files
 		if(self.is_present) {
 			self.data_path.load;
+			[self.node_uname, self.get_index].debug("class_node_clip.load_data: index");
+			Sdef.load_clip_data(self);
 		};
 	
+	},
+
+	node_uname: { arg self;
+		self.parent_buffer.uname
 	},
 
 	load_data_from_clip: { arg self, clip;
@@ -590,8 +626,15 @@
 			var code;
 			self.stepseq = clip.stepseq.deepCopy;
 			File.copy(clip.path, self.path);
+
+			// score
+
+			clip.save_data;
+			Sdef.load_data_from_clip(clip, self);
+
+
 			self.save_data;
-		}
+		};
 	},
 
 	get_abspos: { arg self;
@@ -630,14 +673,14 @@
 	},
 
 	define_variables: { arg self;
-		var idx = 1; // TODO
+		var idx = self.get_index;
 		self.variables = ();
 		self.envir_keys.do { arg key;
 			self.variables[key] = currentEnvironment[key];
 		};
 		~name = self.parent_buffer.get_name;
 		~namex = self.uname;
-		~index = idx; //TODO
+		~index = idx; 
 	},
 
 	envir_do: { arg self, fun;
@@ -647,7 +690,6 @@
 	},
 
 	undefine_variables: { arg self;
-		var idx = 1; // TODO
 		self.envir_keys.do { arg key;
 			currentEnvironment[key] = self.variables[key];
 		};
@@ -693,6 +735,63 @@
 			}
 		};
 	},
+);
+
+/////////////////////////////// codepads
+
+
+~class_codepads = (
+	new: { arg self;
+		self = self.deepCopy;
+	
+		self.gridsize = Point(8,8);
+		self.codepads = IdentityDictionary.new;
+		self.gridsize.x.do { arg x;
+			self.gridsize.y.do { arg y;
+				var key = self.pos_to_symbol(Point(x,y));
+				self.codepads[key] = ~class_virtual_buffer.new(self, key)
+			}
+		};
+	
+		self;
+	},
+
+	get_codepad: { arg self, pos;
+		var key;
+		key = self.pos_to_symbol(pos);
+		self.codepads[key];
+	},
+
+	pos_to_symbol: { arg self, pos;
+		"%@%".format(pos.x,pos.y).asSymbol;
+	},
+);
+
+~class_virtual_buffer = (
+	parent: ~class_code_buffer,
+
+	is_present: { arg self;
+		self[\payload].notNil
+	},
+
+	record_on_event: { arg self;
+		self.main.recorder.add_event_on((
+			event_key: self.uname,
+		));
+	},
+
+	record_off_event: { arg self;
+		self.main.recorder.add_event_off(self.uname);
+	},
+
+	execute: { arg self;
+		self.payload;
+	},
+
+	response_off: { arg self;
+		self.payload_off;
+	},
+
 );
 
 ///////////////////////////////

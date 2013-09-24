@@ -19,11 +19,13 @@
 	controller;
 };
 
+"~/seco/seco/synth.scd".standardizePath.load;
 [
 	//"tile",
 	"buffer",
 	"launchpad",
 	"score",
+	"sdef",
 ].do { arg file;
 	("Loading " ++ file ++".scd...").inform;
 	(~veco_dir_path +/+ file++".scd").load;

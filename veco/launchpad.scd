@@ -444,6 +444,10 @@
 		self.midiout.control(0, pos, color)
 	},
 
+	set_mode_led: { arg self, pos, color;
+		self.set_cc_led(pos, color)
+	},
+
 	set_led: { arg self, pos, color;
 		var midi;
 		//[pos,color].debug("set_led: pos, color");
@@ -1641,8 +1645,8 @@
 				clip_source = self.controller.clipboard_clip[0];
 				clip_dest = self.gridpos_to_buf(pos);
 				if(clip_source.is_present and: { clip_dest.is_present.not }) {
-					clip_dest.load_data_from_clip(clip_source);
 					clip_dest.parent_buffer.load_data_from_node(clip_source.parent_buffer);
+					clip_dest.load_data_from_clip(clip_source);
 					self.set_led(pos, self.color_pasted);
 				}
 			}
@@ -1653,6 +1657,65 @@
 
 );
 
+~launchpad_scene_codepads = (
+	parent: ~launchpad_scene,
+
+	// ** layout
+	// - start/stop
+	// - mute/unmute
+	// - exec node buffer
+	// - edit node buffer
+
+	render_state: { arg self;
+		self.controller.gridsize.x.do { arg x;
+			self.controller.gridsize.y.do { arg y;
+				var pos = Point(x,y);
+				if(self.controller.get_codepad(pos).is_present) {
+					self.set_led(pos, \red);
+				} {
+					self.set_led(pos, \off);
+				}
+			}
+		}
+	},
+
+	response_cc_on: { arg self, midi;
+		self.sceneset.clip.response_cc_on(midi);
+	},
+
+	response_cc_off: { arg self, midi;
+		self.sceneset.clip.response_cc_off(midi);
+	},
+
+	response_on: { arg self, midinote;
+		var pos = self.midi_to_gridpos(midinote);
+		var opos;
+		var buf;
+		var node, clip;
+		midinote.debug("launchpad_scene_mixer.response_on");
+
+		if(self.is_launcher_button(midinote)) {
+
+		} {
+			self.controller.get_codepad(pos).response_on;
+		}
+	},
+
+	response_off: { arg self, midinote;
+		var pos = self.midi_to_gridpos(midinote);
+		var opos;
+		var buf;
+		var node, clip;
+		midinote.debug("launchpad_scene_mixer.response_on");
+
+		if(self.is_launcher_button(midinote)) {
+
+		} {
+			self.controller.get_codepad(pos).response_off;
+		}
+	},
+
+);
 
 /////////// TODO
 // - navigation with session
