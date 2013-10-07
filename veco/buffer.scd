@@ -223,10 +223,15 @@
 	get_nodeclip_by_uname: { arg self, uname;
 		var node_uname,idx, node; 
 		#node_uname, idx = uname.asString.split($.);
-		idx = idx.asInteger-1;
-		node_uname = node_uname.asSymbol;
-		node = self.get_node_by_uname(node_uname);
-		node.get_clip_by_index(idx);
+		if(idx.isNil) {
+			"Error: uname is not in a nodeclip uname format".postln;
+			nil;
+		} {
+			idx = idx.asInteger-1;
+			node_uname = node_uname.asSymbol;
+			node = self.get_node_by_uname(node_uname);
+			node.get_clip_by_index(idx);
+		}
 	},
 
 
@@ -608,7 +613,8 @@
 	},
 
 	load_data: { arg self;
-		// not called by anyone, open project just run data/*.scd files
+		// no! now load in clip.new
+		//// not called by anyone, open project just run data/*.scd files
 		if(self.is_present) {
 			self.data_path.load;
 			[self.node_uname, self.get_index].debug("class_node_clip.load_data: index");

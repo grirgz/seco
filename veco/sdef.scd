@@ -80,17 +80,25 @@
 			var node_or_clip;
 			var score;
 			var index;
+			"merdeiii2A".debug;
 			node_or_clip = self.main.get_node_by_uname(node_uname);
-			if(node_or_clip.parent_buffer.notNil) {
-				"merde2A".debug;
-				index = node_or_clip.get_index;
-				score = self.all[node_or_clip.parent_buffer.uname][name].get(index);
+			"merdeiii2B".debug;
+			if(node_or_clip.isNil) {
+				node_uname.debug("not a uname node");
+				nil;
 			} {
-				node_or_clip.uname.debug("merde2B");
-				score = self.all[node_or_clip.uname][name];
+
+				if(node_or_clip.parent_buffer.notNil) {
+					"merde2A".debug;
+					index = node_or_clip.get_index;
+					score = self.all[node_or_clip.parent_buffer.uname][name].get(index);
+				} {
+					node_or_clip.uname.debug("merde2B");
+					score = self.all[node_or_clip.uname][name];
+				};
+				"merde2C".debug;
+				score;
 			};
-			"merde2C".debug;
-			score;
 		},
 
 		define: { arg self, node_uname, name, kind, spec;
@@ -102,33 +110,52 @@
 					//self.all[node_uname][name] = ~class_score_collection.new(node_uname, name, ~class_score_audio);
 					if(self.all[node_uname][name].isNil) {
 						[node_uname, name].debug("defining NEW score: Audio!!!");
-						self.all[node_uname][name] = ~class_score_audio_wrapper.new(node_uname, name, ~class_score_audio);
+						self.all[node_uname][name] = ~class_score_audio_wrapper.new(node_uname, name);
 					} {
 						[node_uname, name].debug("defining NEW score: Audio!!! (already exists so noop)");
+					}
+				},
+				\preset, {
+					if(self.all[node_uname].isNil) {
+						self.all[node_uname] = IdentityDictionary.new;
+					};
+					//self.all[node_uname][name] = ~class_score_collection.new(node_uname, name, ~class_score_audio);
+					if(self.all[node_uname][name].isNil) {
+						[node_uname, name].debug("defining NEW score: Preset!!!");
+						self.all[node_uname][name] = ~class_score_preset_wrapper.new(node_uname, name, spec);
+					} {
+						[node_uname, name].debug("defining NEW score: Preset!!! (already exists so noop)");
 					}
 				}
 			)
 		},
-
 	);
 
 	~score_storage = ~class_score_manager.new;
 
+	//// score collections
+
 	~class_score_collection = (
-		new: { arg self, node_uname, name, class;
+		new: { arg self, node_uname, name, spec;
 			self = self.deepCopy;
 
 			self.name = name;
 			self.node_uname = node_uname;
+			self.spec = spec;
 		
 			self.all = Order.new;
-			self.score_class = class;
+			self.load_data;
+			//self.score_class = class;
 		
 			self;
 		},
 
+		data_path: { arg self;
+			Veco.main.data_path +/+ "%.%".format(self.node_uname, self.name);
+		},
+
 		clone: { arg self, node_uname, name;
-			~class_score_collection.new(node_uname, name, self.score_class);
+			~class_score_collection.new(node_uname, name);
 		},
 
 		load_data_from_score: { arg self, idx, score;
@@ -174,12 +201,20 @@
 			};
 			res;
 		},
+
+		set_data: { arg self, idx, data;
+			self.get(idx).set_data(data);
+		},
 	);
 
 	~class_score_audio_wrapper = (
 		parent: ~class_score_collection,
 
 		score_class: ~class_score_audio,
+
+		clone: { arg self, node_uname, name;
+			~class_score_preset_wrapper.new(node_uname, name);
+		},
 
 		pbufnum: { arg self;
 			Pfunc { self.get_active_score.bufnum };
@@ -190,14 +225,71 @@
 		},
 
 		psustain: { arg self;
-			Pfunc { self.get_active_score.psustain };
+			Pfunc { self.get_active_score.sustain };
 		},
-
 	);
 
-	~veco_record_overlap_time = 0.20;
+	~class_score_preset_wrapper = (
+		parent: ~class_score_collection,
+
+		score_class: ~class_score_preset,
+
+		clone: { arg self, node_uname, name;
+			~class_score_preset_wrapper.new(node_uname, name);
+		},
+
+		load_data: { arg self;
+			self.data_path.load;
+		},
+
+		save_data: { arg self;
+			File.use(self.data_path, "w", { arg file;
+				var str = "";
+				self.all.do { arg val, idx;
+					if(val.notNil) {
+						str = str ++ "
+							Sdef(%, %).set_data(%, (
+								version: %,
+								specs: %,
+								vals: %,
+							);
+						".format(
+							self.node_uname,
+							self.name,
+							idx, 1, 
+							val.specs.asCompileString, val.save_data_to_struct.asCompileString
+						);
+					}
+				};
+				file.write(str);
+
+			});
+		},
+
+		pbind: { arg self;
+			//Pfunc { self.get_active_score.pbind };
+			self.get_active_score.pbind;
+		},
+
+		edit: { arg self;
+			self.get_active_score.edit;
+		},
+	);
+
+	//// scores
+
+	~class_score_base = (
+		label: { arg self;
+			"%.%.%".format(self.node_uname, self.index+1, self.name);
+		},
+
+		data_path: { arg self;
+			Veco.main.data_path +/+ "%.%.%.aiff".format(self.node_uname, self.index+1, self.name);
+		},
+	);
 
 	~class_score_audio = (
+		parent: ~class_score_base,
 		new: { arg self, parent, index;
 			self = self.deepCopy;
 		
@@ -225,14 +317,6 @@
 			self.load_data_from_score(score);
 		
 			self;
-		},
-
-		label: { arg self;
-			"%.%.%".format(self.node_uname, self.index+1, self.name);
-		},
-
-		data_path: { arg self;
-			Veco.main.data_path +/+ "%.%.%.aiff".format(self.node_uname, self.index+1, self.name);
 		},
 
 		is_freed: { arg self;
@@ -277,6 +361,11 @@
 			Pfunc { self.dur / self.recclock.tempo };
 		},
 
+		sustain: { arg self;
+			//Pfunc { self.dur / self.recclock.tempo + self.overlap_time };
+			self.dur / self.recclock.tempo
+		},
+
 		save_data: { arg self;
 			[self.data_path, self.buf].debug("write audio file");
 			//self.buf.write(self.data_path, "wav");
@@ -314,6 +403,140 @@
 			
 		},
 	);
+
+	~class_score_preset = (
+		parent: ~class_score_base,
+		new: { arg self, parent, idx;
+			var specs;
+			var extra_specs = [];
+			self = self.deepCopy;
+
+
+			self.name = parent.name;
+			self.node_uname = parent.node_uname;
+			parent.spec.debug("pSPECS");
+			specs = parent.spec;
+			self.index = idx;
+		
+			self.build_vals;
+			self.build_pbind;
+
+			self;
+		},
+
+		new_from_score: { arg self, parent, index, score;
+			var specs;
+			var extra_specs = [];
+			self = self.deepCopy;
+
+
+			self.name = parent.name;
+			self.node_uname = parent.node_uname;
+			parent.spec.debug("pSPECS");
+			specs = parent.spec;
+			self.index = index;
+		
+			self.build_vals;
+			self.build_pbind;
+
+			self.load_data_from_score(score);
+		
+			self;
+		},
+
+		load_data_from_score: { arg self, score;
+			
+		},
+
+		load_data_from_struct: { arg self, struct;
+			self.specs = struct.specs;
+			self.data = struct.data;
+		},
+
+		save_data_to_struct: { arg self;
+			var specs, data;
+			specs = self.specs.asCompileString;
+			data = self.vals.clump(2).collect { arg pair;
+				var key = pair[0];
+				var val = pair[1];
+				[key, val.get_val]
+			};
+			(
+				//version: 1,
+				specs: specs,
+				data: data,
+			)
+		},
+
+		set_data: { arg self, data;
+			self.data = data;
+		},
+
+		build_vals: { arg self;
+			var specs = self.specs;
+			specs.debug("SPECS");
+			if(specs.isSymbol) {
+				specs = self.synthdef_name_to_specs(specs)
+			};
+
+			//if(extra_specs.isSymbol) {
+			//	specs = self.synthdef_name_to_specs(specs)
+			//};
+			//specs = specs ++ extra_specs;
+			self.specs = specs;
+			self.vals = IdentityDictionary.new;
+			specs.clump(2).do { arg pair;
+				var key = pair[0];
+				var spec = pair[1];
+				if(spec.class == Association) {
+					//
+				} {
+					self.vals[key] = ~class_control_scalar.new(key, spec);
+				};
+			};
+			self.vals.keys.debug("VALS");
+			
+		},
+
+		label: { arg self;
+			"%.%.%".format(self.node_uname, self.index+1, self.name);
+		},
+
+		synthdef_name_to_specs: { arg self, defname;
+			var reject = [\doneAction, \out, \gate, '?'];
+			var res = ~synthdef_name_to_specs.(defname);
+			res = res.clump(2).reject { arg x; x[0].dump.postln; reject.includes(x[0]) }.flat;
+			res;
+		},
+
+
+		edit: { arg self;
+			~class_node_preset_view.new(self);
+		},
+
+		build_pbind: { arg self;
+			var binds = List.new;
+			self.specs.clump(2).do { arg pair;
+				var key = pair[0];
+				var val = self.vals[key];
+				[pair, key, val, self.vals.keys].debug("PAIR");
+				if(val.notNil) {
+					[pair].debug("PAIRiiii");
+					binds.add(key);
+					binds.add(val.vpattern);
+				} {
+
+				}
+			};
+			//binds = binds.flat;
+			self.pbind = Pbind(*binds);
+			self.pbind;
+		},
+	);
+
+	//////////////////////////////
+
+	~veco_record_overlap_time = 0.20;
 
 	~audio_recorder = (
 		new: { arg self, buf, dur;
@@ -425,6 +648,152 @@
 			}
 		},
 	);
-);
 
+	~class_control_scalar_view = (
+		new: { arg self, controller;
+			self = self.deepCopy;
+
+			self.controller = { controller };
+		
+			self;
+		},
+
+		make_layout: { arg self;
+			
+			var node_name, name, spec;
+			var win, val, slider, label, layout;
+			var prec = 0.001;
+			name = self.controller.label;
+			spec = self.controller.spec;
+			spec = spec ?? name.asSpec ?? \widefreq.asSpec;
+
+			label = StaticText.new;
+			label.string = name.asString;
+			name.debug("make_layout:name");
+			label.minWidth = 160;
+
+			val = StaticText.new;
+			val.minWidth = 100;
+			val.string = self.controller.get_val;
+
+			slider = Slider.new(nil, Rect(20, 60, 150, 20));
+			slider.value = spec.unmap(self.controller.get_val);
+
+			slider.action = { arg sli;
+				self.controller.set_val(spec.map(sli.value));
+				val.string = self.controller.get_val.round(prec);
+			};
+
+			layout = HLayout.new(
+				label, slider, val
+			);
+			self.layout = layout;
+			layout;
+		},
+	);
+
+	~class_node_preset_view = (
+		new: { arg self, controller;
+			self = self.deepCopy;
+		
+			self.controller = { controller };
+			self.make_window;
+		
+			self;
+		},
+
+		make_window: { arg self;
+			var win;
+			var layout;
+			//win = Window.new("preset", Rect(200,200,500,550));
+			win = Window.new("preset");
+			win.view.keyDownAction = ~closer_responder;
+			self.layout = layout = VLayout.new;
+			self.controller.vals.do { arg ctrl;
+				self.layout.add(~class_control_scalar_view.new(ctrl).make_layout);
+			};
+			win.layout = layout;
+			win.front;
+			
+		},
+
+	);
+
+	~class_control_scalar = (
+		new: { arg self, name, spec;
+			self = self.deepCopy;
+		
+			self.name = name;
+			self.spec = spec;
+			self.val = spec.default;
+		
+			self;
+		},
+
+		label: { arg self;
+			self.name;
+		},
+
+		get_val: { arg self;
+			self.val;	
+		},
+
+		set_val: { arg self, val;
+			self.val = val;
+		},
+
+		vpattern: { arg self;
+			Pfunc { self.get_val };
+		},
+	);
+
+	~get_spec = { arg argName, defname=nil, default_spec=\widefreq;
+		var spec = nil;
+		//if(argName.beginsWith("adsr") or: argName.beginsWith("env"))
+		try { 
+			spec = if( SynthDescLib.global.synthDescs[defname].metadata.specs[argName].notNil, {
+				var sp;
+				sp = SynthDescLib.global.synthDescs[defname].metadata.specs[argName];
+				if(sp.class == Association) {
+					// \env -> [\freq.asSpec, \dur.asSpec]
+					sp;
+				} {
+					sp.asSpec;
+				};
+			})
+		};
+		if(spec.isNil, {
+			if( argName.asSpec.notNil, {
+				spec = argName.asSpec;
+			}, {
+				spec = default_spec.asSpec;
+			});
+		});
+		[argName, spec].debug("get_spec");
+		spec;
+	};
+		
+	~synthdef_name_to_specs = { arg defname;
+		var specs;
+		specs = List.new;
+
+		SynthDescLib.global.synthDescs[defname].controls.do { arg x; 
+			var spec;
+			specs.add(x.name);
+			spec = ~get_spec.(x.name, defname).copy;
+			if(spec.class != Association and: { x.defaultValue.isSequenceableCollection }) {
+				specs.add(\array -> []);
+			} {
+				spec.default = x.defaultValue;
+				specs.add(spec);
+			};
+		};
+		specs;
+	};
+//~a = ~class_node_preset.new([\freq, \freq.asSpec, \dur, \dur.asSpec]);
+)
+
+//~a = ~class_node_preset.new(\default, [\dur, \dur.asSpec]);
+//~a.edit;
+//~a.pbind.trace.play;
 

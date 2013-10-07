@@ -35,6 +35,11 @@
 //~veco  = ~class_veco_buffer_manager.new;
 //~veco  = ~class_veco.new;
 
+~closer_responder = { arg view, char, modifiers, u, k; 
+		//["tempo", modifiers, u].debug("KEYBOARD INPUT");
+		if( u == 27 ) { view.close() };
+		//if( u == ~keycode.kbspecial.enter ) { validate_action.(); close_window.(); };
+};
 
 ~scenestate = (
 	state_edit: 0,
