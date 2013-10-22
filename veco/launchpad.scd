@@ -496,9 +496,9 @@
 	},
 
 	line_do: { arg self, fun;
-		self.controller.board_size.x.do { arg x;
+		self.controller.board_size.x.do { arg x, n;
 			x = x + self.controller.board_offset.x;
-			fun.(x);
+			fun.(x, n);
 		}
 	},
 
@@ -620,6 +620,7 @@
 				7
 			},
 			{
+				self.controller.mode.debug("render_mode_state: unknown mode");
 
 			}
 		);
@@ -760,6 +761,8 @@
 
 	//state_to_color: ~launchpad_scene_tile[\state_to_color],
 
+	mode_name: \clip,
+
 	render_state: { arg self;
 		////~veco.geupdate_buffer_presence;
 		//~veco.update_buffer_presence;
@@ -867,27 +870,36 @@
 		var res;
 		midinote.debug("MIDINOTE CoNTROL OFF");
 		self.current_cc_on = midinote;
-		res = switch(midinote,
-			self.buttons[4], {
-				if(self.has_moved == true) {
-					nil;
-				} {
-					self.controller.mode = \clip;
-					self.sceneset.clip;
-				}
-			},
-			self.buttons[6], {
-				self.controller.mode = \edit;
-				self.sceneset.edit;
-			},
-			self.buttons[7], { 
-				self.controller.mode = \mixer;
-				self.sceneset.mixer;
-			},
-			{
-				nil;
+		if(self.skip_first_time == true) {
+			self.skip_first_time = false;
+			res = self.sceneset.old_active_scene;
+			if(res.mode_name.notNil) {
+				// TODO: verify if active_launchpad.mode_name is always the current mode and set it in .activate
+				self.controller.mode = res.mode_name;
 			}
-		);
+		} {
+			res = switch(midinote,
+				self.buttons[4], {
+					if(self.has_moved == true) {
+						nil;
+					} {
+						self.controller.mode = \clip;
+						self.sceneset.clip;
+					}
+				},
+				self.buttons[6], {
+					self.controller.mode = \edit;
+					self.sceneset.edit;
+				},
+				self.buttons[7], { 
+					self.controller.mode = \mixer;
+					self.sceneset.mixer;
+				},
+				{
+					nil;
+				}
+			);
+		};
 		if(res.notNil) { res.activate };
 		self.render_mode_state;
 	},
@@ -1207,6 +1219,7 @@
 	// - edit node buffer
 
 	color_edit: \yellow,
+	mode_name: \mixer,
 
 	render_state: { arg self;
 		8.do { arg x; self.render_column(x) }
@@ -1380,6 +1393,8 @@
 				res.activate;
 			};
 		} {
+			self.sceneset.clip.skip_first_time = true;
+			self.sceneset.quickpad.response_on(midinote);
 		}
 	},
 
@@ -1490,16 +1505,25 @@
 		midinote.debug("launchpad_scene_mode_copy.response_on");
 
 		if(self.is_launcher_button(midinote)) {
+			// -- copy row
 			var y = pos.y + self.controller.clip_offset.y;
-			self.controller.clipboard_clip = self.line_do { arg x;
+			var clips = List.new;
+			"bla".debug("kjk");
+			self.line_do { arg x;
 				clip = self.absolute_point_to_buf(Point(x, y));
+				clips.add(clip);
 			};
-			self.controller.clipboard_clip.debug("launchpad_scene_mode_copy.response_on: clipboard_clip");
+			self.controller.clipboard_clip = clips;
+			"bla".debug("kjk2");
+			self.controller.clipboard_clip.debug("launchpad_scene_mode_copy.response_on: copy row: clipboard_clip");
 			self.controller.clipboard_mode = \row;
+			"bla".debug("kjk3");
 			self.render_state;
+			"bla".debug("kjk4");
 		} {
 			midinote.debug("launchpad_scene_mode_copy.response_on: go!");
 			if(self.controller.clipboard_mode == \column) {
+				// -- copy column
 				var x = pos.x + self.controller.clip_offset.x;
 				self.controller.clipboard_clip = self.controller.board_size.y.collect { arg y;
 					y = y + self.controller.board_offset.y;
@@ -1512,6 +1536,7 @@
 				};
 				self.render_state;
 			} {
+				// -- copy cell
 				self.controller.clipboard_mode = \clip;
 				clip = self.gridpos_to_buf(pos);
 				self.controller.clipboard_clip = [clip];
@@ -1572,14 +1597,16 @@
 			var clip_source, clip_dest;
 			var dest_abspos, dest_gridpos;
 			if(self.controller.clipboard_mode == \row) {
-				line_do { arg x;
+				// -- paste row
+				self.line_do { arg x, n;
 					dest_abspos = Point(x, y);
 					dest_gridpos = self.abspos_to_gridpos(dest_abspos);
-					clip_source = self.controller.clipboard_clip[x];
+					clip_source = self.controller.clipboard_clip[n];
 					if(clip_source.notNil) {
 
 						clip_dest = self.absolute_point_to_buf(dest_abspos);
 						if(clip_source.is_present and: { clip_dest.is_present.not }) {
+							clip_dest.parent_buffer.load_data_from_node(clip_source.parent_buffer);
 							clip_dest.load_data_from_clip(clip_source);
 							if(dest_gridpos.notNil) {
 								self.set_led(dest_gridpos, self.color_pasted);
@@ -1589,14 +1616,18 @@
 				};
 			} {
 				if(self.controller.clipboard_mode == \active) {
+					// -- paste active
 
-					self.controller.clipboard_clip.do { arg clip_source, x;
+					self.line_do { arg x, n;
+
+						clip_source = self.controller.clipboard_clip[n];
 						if(clip_source.notNil) {
 
 							dest_abspos = Point(x, y);
 							dest_gridpos = self.abspos_to_gridpos(dest_abspos);
 							clip_dest = self.absolute_point_to_buf(dest_abspos);
 							if(clip_source.is_present  and: {  clip_dest.is_present.not }) {
+								clip_dest.parent_buffer.load_data_from_node(clip_source.parent_buffer);
 								clip_dest.load_data_from_clip(clip_source);
 								if(dest_gridpos.notNil) {
 									self.set_led(dest_gridpos, self.color_pasted);

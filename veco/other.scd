@@ -380,3 +380,122 @@ Pdef(~name+++\pre, <> Pbind(
 	\speed, Pseq([1,2,0.5],inf)
 )
 );
+//~a = ~class_node_preset.new(\default, [\dur, \dur.asSpec]);
+//~a.edit;
+//~a.pbind.trace.play;
+
+
+(
+	~ctrl = ~env_controller.new(Env([80,1500.1,90.51,300,400],[0.1,0.2,0.1,0.1]), [0, \freq.asSpec]);
+)
+
+(
+SynthDef(\ftest, { arg out=0, amp=0.1, gate=1, pan=0, spread=0.8, freq=200, doneAction=2;
+	var sig, sig1, sig2, sig3;
+	freq = freq + EnvGen.kr(\fenv.kr(Env([80,500.1,90.51,300,400],[0.1,0.2,0.1,0.1])), gate);
+	sig = SinOsc.ar(freq);
+	sig = sig * EnvGen.ar(\adsr.kr(Env.adsr(0.01,0.1,0.8,0.1)),gate,doneAction:doneAction);
+	sig = Splay.ar(sig, spread, amp, pan);
+	Out.ar(out, sig);
+}).add;
+);
+
+(
+
+Pdef(\plop, Pbind(
+	\instrument, \ftest,
+	\fenv, Pfunc ({ ~ctrl.get_env  }),
+	\freq, 200,
+	\dur, 1,
+	\amp, 0.1
+)).play;
+)
+
+~ctrl.edit;
+
+a = Env([0,1,0],[0.1,0.1])
+a.times[0] = 0.2
+a.times
+a.curves
+a.pairs
+a.array
+
+\freq.asSpec.map([0.1,0.2,0.3])
+
+(
+{ SinOsc.ar(
+    EnvGen.kr(
+        Env([6000, 700, 100], [1, 1], ['exp', 'lin']).circle.postcs)
+    ) * 0.1
+    + Impulse.ar(1) }.play;
+)
+
+(
+{ SinOsc.ar(
+    EnvGen.kr(
+        Env([6000, 700, 100], [1, 1], ['exp', 'lin']).circle(1).postcs,
+        MouseX.kr > 0.5)
+    ) * 0.1
+    + Impulse.ar(1) }.play;
+)
+
+
+
+
+(
+// use shift-click to keep a node selected
+w = Window("envelope", Rect(150 , Window.screenBounds.height - 250, 250, 100)).front;
+w.view.decorator = FlowLayout(w.view.bounds);
+
+b = EnvelopeView(w, Rect(0, 0, 230, 80))
+    .drawLines_(true)
+    .selectionColor_(Color.red)
+    .drawRects_(true)
+    .resize_(5)
+    .step_(0.05)
+    .action_({arg b; [b.index, b.value].postln})
+    .thumbSize_(5)
+    .value_([[0.0, 0.1, 0.5, 1.0],[0.1,1.0,0.8,0.0]]);
+w.front;
+)
+
+// show grid
+b.gridOn_(true);
+
+// show Env
+b.setEnv(Env.asr(0.5,1, 0.2));
+
+// make the first point unmoveable
+(
+b.setEditable(0,false);
+)
+
+[0.1,0.5,0.9].differentiate
+
+
+
+
+(
+	w = Window.new("The Eightfold Path").front;
+
+
+	b = Slider(w, Rect(10,10,180,20));
+	b.mouseDownAction = {|view, x, y, modifiers, buttonNumber, clickCount|
+		if(modifiers.isShift, {	
+			m = ListView(w,Rect(10,10,180,200));
+
+
+			m.items = [
+				"right view","right thinking","right mindfulness","right speech",
+				"right action","right diligence","right concentration","right livelihood"
+			];
+
+
+			m.action = { arg menu;
+				[menu.value, menu.item].postln;	
+				m.remove;
+			};
+			m.mouseDown(x, y, modifiers, buttonNumber, clickCount);
+		});
+	};
+)

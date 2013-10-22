@@ -138,6 +138,14 @@
 		~veco_clipboard_clip = val;
 	},
 
+	clipboard_mode_: { arg self, val;
+		~veco_clipboard_mode = val;
+	},
+
+	clipboard_mode: { arg self;
+		~veco_clipboard_mode;
+	},
+
 
 
 	init: { arg self;
@@ -154,7 +162,12 @@
 		self.mode_paste = { ~launchpad_scene_mode_paste.new(self) };
 		self.launchpad = { ~launchpad_scene.new(self) };
 
-		[\clip, \edit, \seq, \seq_chooser, \mixer, \mixer_mod, \mode_copy, \mode_paste, \launchpad].do { arg key;
+		self.quickpad_controller = ~class_codepads.new;
+		self.quickpad_controller.veco = {self};
+
+		self.quickpad = { ~launchpad_scene_codepads.new(self.quickpad_controller) };
+
+		[\clip, \edit, \seq, \seq_chooser, \mixer, \mixer_mod, \mode_copy, \mode_paste, \launchpad, \quickpad].do { arg key;
 			var scene = self[key].value;
 			self[key] = { scene };
 		};
