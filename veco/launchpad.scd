@@ -1476,15 +1476,18 @@
 		if(self.sceneset.mode_old_active_scene === self.sceneset.mixer) {
 			self.controller.clipboard_mode = \column;
 		} {
+			// -- copy active
+			var clips = List.new;
 			self.controller.clipboard_mode = \active;
-			self.controller.clipboard_clip = self.controller.msize.x.collect { arg x;
+			self.line_do { arg x, n;
 				node = self.get_node_by_index(x);
 				if(node.notNil and: { node.is_playing == true }) {
-					clip = node.get_clip_by_index(node.active_clip_index);
+					clips.add(node.get_clip_by_index(node.active_clip_index));
 				} {
-					nil;
+					clips.add(nil);
 				}
 			};
+			self.controller.clipboard_clip = clips;
 		};
 		self.controller.clipboard_mode.debug("================!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!================= clipboard_mode");
 	},
@@ -1743,6 +1746,180 @@
 
 		} {
 			self.controller.get_codepad(pos).response_off;
+		}
+	},
+
+);
+
+~launchpad_scene_score_preset_display = (
+	parent: ~launchpad_scene,
+
+	// ** layout
+	// - start/stop
+	// - mute/unmute
+	// - exec node buffer
+	// - edit node buffer
+
+	color_present: \red,
+	color_current: \green,
+	mode_name: \score_preset,
+
+	render_state: { arg self;
+		8.do { arg y; 
+			self.render_row(y) 
+		}
+	},
+
+	activate_display: { arg self, score_collection, score_view;
+		self.score_collection = score_collection;
+		self.score_view = score_view;
+		self.activate;
+	},
+
+	get_current_score_preset: { arg self;
+		self.score_view.controller;
+	},
+
+	get_current_score_preset_pos: { arg self;
+		var score = self.score_view.controller;
+		Point(score.subindex, score.index);
+	},
+
+	render_row: { arg self, y;
+		var oy = self.controller.clip_offset.y + y;
+		8.do { arg x;
+			var scorecol = self.score_collection;
+			if(scorecol.is_score_present(oy, x) == true) {
+				[self.source_preset_pos, Point(x, oy)].debug("choose_score_preset: render_row");
+				if(self.get_current_score_preset_pos == Point(x, oy)) {
+					self.set_led(Point(x,y), self.color_current);
+				} {
+					self.set_led(Point(x,y), self.color_present);
+				}
+			} {
+				if(self.get_current_score_preset_pos == Point(x, oy)) {
+					self.set_led(Point(x,y), \dimgreen);
+				} {
+					self.set_led(Point(x,y), \off);
+				}
+			}
+		};
+	},
+
+	response_cc_on: { arg self, midi;
+		//self.render_state;
+		self.handle_grid_move(midi);
+		self.sceneset.clip.has_moved = self.has_moved;
+		self.sceneset.clip.response_cc_on(midi);
+	},
+
+	response_cc_off: { arg self, midi;
+		self.sceneset.clip.response_cc_off(midi);
+	},
+
+	response_on: { arg self, midinote;
+		var pos = self.midi_to_gridpos(midinote);
+		var opos;
+		var buf;
+		var node, clip;
+		midinote.debug("launchpad_scene_mixer.response_on");
+
+		if(self.is_launcher_button(midinote)) {
+
+		} {
+			if(self.modifiers[\session] == true) {
+				self.controller.clip_offset = pos * 8;
+				self.sceneset.clip.has_moved = true;
+				self.render_state;
+			} {
+				self.sceneset.clip.has_moved = false;
+				midinote.debug("launchpad_scene_mixer.response_on: go!");
+				opos = self.offset_pos(pos);
+				// TODO: make special preset offset for x
+				self.score_view.set_controller(self.score_collection.get(opos.y, pos.x));
+				self.render_state;
+			}
+
+		}
+	},
+
+	response_off: { arg self, midinote;
+	},
+
+);
+
+~launchpad_scene_choose_score_preset_display = (
+	parent: ~launchpad_scene_score_preset_display,
+
+	// ** layout
+	// - start/stop
+	// - mute/unmute
+	// - exec node buffer
+	// - edit node buffer
+
+	color_present: \green,
+	color_source: \red,
+	color_selected: \yellow,
+	mode_name: \score_preset,
+
+	render_state: { arg self;
+		8.do { arg y; 
+			self.render_row(y) 
+		}
+	},
+
+	activate_display: { arg self, score, score_view, set_function;
+		self.score_collection = score.parent_collection;
+		self.source_preset_pos = Point(score.subindex, score.index);
+		self.score_view = score_view;
+		self.activate;
+		self.set_selected_score_preset = set_function;
+	},
+
+	render_row: { arg self, y;
+		var oy = self.controller.clip_offset.y + y;
+		8.do { arg x;
+			var scorecol = self.score_collection;
+			if(scorecol.is_score_present(oy, x) == true) {
+				[self.source_preset_pos, Point(x, oy)].debug("choose_score_preset: render_row");
+				if(self.source_preset_pos == Point(x, oy)) {
+					self.set_led(Point(x,y), self.color_source);
+				} {
+					self.set_led(Point(x,y), self.color_present);
+				}
+			} {
+				self.set_led(Point(x,y), \off);
+			}
+		};
+	},
+
+	response_on: { arg self, midinote;
+		var pos = self.midi_to_gridpos(midinote);
+		var opos;
+		var buf;
+		var node, clip;
+		var selpos;
+		midinote.debug("launchpad_scene_mixer.response_on");
+
+		if(self.is_launcher_button(midinote)) {
+
+		} {
+			if(self.modifiers[\session] == true) {
+				self.controller.clip_offset = pos * 8;
+				self.sceneset.clip.has_moved = true;
+				self.render_state;
+			} {
+				self.sceneset.clip.has_moved = false;
+				midinote.debug("launchpad_scene_mixer.response_on: go!");
+				opos = self.offset_pos(pos);
+				// TODO: make special preset offset for x
+				//self.score_view.set_controller(self.score_collection.get(opos.y, pos.x));
+				self.render_state;
+				self.set_led(pos, self.color_selected);
+				self.set_selected_score_preset(Point(pos.x, opos.y));
+
+			}
+
 		}
 	},
 

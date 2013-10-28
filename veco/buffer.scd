@@ -150,25 +150,30 @@
 
 	init: { arg self;
 		var aa, bb, ab;
+		var scenes;
 		debug("INIT class_veco_sceneset");
 
-		self.clip = { ~launchpad_scene_clip.new(self) };
-		self.edit = { ~launchpad_scene_edit.new(self) };
-		self.seq = { ~launchpad_scene_seq.new(self) };
-		self.seq_chooser = { ~launchpad_scene_seq_chooser.new(self) };
-		self.mixer = { ~launchpad_scene_mixer.new(self) };
-		self.mixer_mod = { ~launchpad_scene_mixer_mod.new(self) };
-		self.mode_copy = { ~launchpad_scene_mode_copy.new(self) };
-		self.mode_paste = { ~launchpad_scene_mode_paste.new(self) };
-		self.launchpad = { ~launchpad_scene.new(self) };
+		scenes = ();
+		self.scenes = scenes;
+		scenes.clip = { ~launchpad_scene_clip.new(self) };
+		scenes.edit = { ~launchpad_scene_edit.new(self) };
+		scenes.seq = { ~launchpad_scene_seq.new(self) };
+		scenes.seq_chooser = { ~launchpad_scene_seq_chooser.new(self) };
+		scenes.mixer = { ~launchpad_scene_mixer.new(self) };
+		scenes.mixer_mod = { ~launchpad_scene_mixer_mod.new(self) };
+		scenes.mode_copy = { ~launchpad_scene_mode_copy.new(self) };
+		scenes.mode_paste = { ~launchpad_scene_mode_paste.new(self) };
+		scenes.launchpad = { ~launchpad_scene.new(self) };
+		scenes.quickpad = { ~launchpad_scene_codepads.new(self.quickpad_controller) };
+		scenes.score_preset = { ~launchpad_scene_score_preset_display.new(self) };
+		scenes.choose_score_preset = { ~launchpad_scene_choose_score_preset_display.new(self) };
 
 		self.quickpad_controller = ~class_codepads.new;
 		self.quickpad_controller.veco = {self};
 
-		self.quickpad = { ~launchpad_scene_codepads.new(self.quickpad_controller) };
-
-		[\clip, \edit, \seq, \seq_chooser, \mixer, \mixer_mod, \mode_copy, \mode_paste, \launchpad, \quickpad].do { arg key;
-			var scene = self[key].value;
+		self.scenes.keysValuesDo { arg key, val;
+			var scene = self.scenes[key].value;
+			scene.scene_name = key;
 			self[key] = { scene };
 		};
 

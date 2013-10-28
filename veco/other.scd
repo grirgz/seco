@@ -378,7 +378,7 @@ Sdef(~namex, \myaudio).record(16)
 Pdef(~name+++\pre, <> Pbind(
 	\bufnum, Sdef(~namex, \myaudio).bufnum,
 	\speed, Pseq([1,2,0.5],inf)
-)
+))
 );
 //~a = ~class_node_preset.new(\default, [\dur, \dur.asSpec]);
 //~a.edit;
@@ -499,3 +499,198 @@ b.setEditable(0,false);
 		});
 	};
 )
+
+
+
+(
+	
+
+	~class_control_adsr = (
+		kind: \env,
+		new: { arg self, parent, name, spec;
+			self = self.deepCopy;
+		
+			self.parent_controller = { parent };
+			spec = spec.value.deepCopy;
+			self.spec = spec ?? [nil, \freq.asSpec, ControlSpec(0.01,8,\exp,0,0.1), ControlSpec(-9,9,\lin,0,0), Env.adsr(0.1,0.1,0.8,0.1)];
+
+			self.name = name;
+
+			self.spec[1] = self.spec[1] ?? \unipolar.asSpec;
+			self.spec[2] = self.spec[2] ?? ControlSpec(0.01,8,\exp,0,0.1);
+			self.spec[3] = self.spec[3] ?? ControlSpec(-9,9,\lin,0,0);
+
+			self.get_env = self.spec[4] ?? Env.adsr(0.1,0.1,0.8,0.1);
+			self.level_spec = self.spec[1];
+			self.time_spec = self.spec[2];
+			self.curve_spec = self.spec[3];
+		
+			self;
+		},
+
+		get_val: { arg self;
+			self.get_env;
+		},
+
+		set_val: { arg self, val;
+			self.parent_controller.is_present = true;
+			self.get_env = val;
+		},
+
+		label: { arg self;
+			self.name;
+		},
+
+		edit: { arg self;
+			~env_editor.new(self).make_window;
+		},
+
+		vpattern: { arg self;
+			Pfunc { self.get_env }
+		},
+
+	);
+	~class_control_adsr_view = (
+		new: { arg self, controller;
+			self = self.deepCopy;
+		
+			self.controller = {controller};
+		
+			self;
+		},
+
+		set_controller: { arg self, controller;
+			self.controller = { controller };
+			self.update_view;
+		},
+
+		update_view: { arg self;
+			{
+				self.key_label.string = self.controller.label.asString;
+				self.update_env;
+				self.update_label;
+				self.env_view.selectIndex(1);
+				self.update_knobs;
+			}.defer;
+		},
+
+		update_label: { arg self;
+			self.env_label.string_(
+				"%".format(
+					~env_to_string.(self.controller.get_env),
+				)
+			);
+		},
+		
+		update_env: { arg self;
+			self.env_view.value_(self.controller.get_norm_xy);
+		},
+
+		update_knobs: { arg self;
+			var index = self.env_view.index;
+			var levels = self.controller.get_env.levels;
+			var times = self.controller.get_env.times;
+			var level_spec = self.controller.level_spec;
+			var time_spec = self.controller.time_spec;
+			if(levels[index].notNil) {
+				self.knob_level.value = level_spec.unmap(levels[index]);
+			};
+			if(times[index].notNil) {
+				self.knob_time.value = time_spec.unmap(times[index]);
+			};
+		},
+
+		make_layout: { arg self;
+			var params, layout, sliders, label;
+			var time_spec, level_spec;
+			time_spec = self.controller.time_spec;
+			level_spec = self.controller.level_spec;
+			curve_spec = self.controller.curve_spec;
+			params = [
+				attack: time_spec,
+				decay: time_spec,
+				sustain: level_spec,
+				release: level_spec,
+				curve: curve_spec,
+			];
+
+			layout = VLayout.new;
+
+			params.clump(2).do { arg pair;
+				var key, val;
+				var playout, plabel, slider;
+				#key, val = pair;
+				playout = HLayout.new;
+
+				plabel = StaticText.new;
+				plabel.string = key.asString[0].asString;
+
+				slider = Slider.new;
+				slider.orientation = \horizontal;
+				slider.action = { arg slider;
+					slider.value
+
+				}
+
+				playout.add(plabel);
+				playout.add(slider);
+				layout.add(playout);
+			};
+
+			label = StaticText.new;
+			label.string = "Env.adsr....";
+			layout.add(label);
+			layout;
+			
+		},
+
+		make_window: { arg self;
+			~windowize.(self.make_layout);
+		},
+	);
+)
+
+
+(
+	
+	~adsr = {
+		var params, layout, sliders, label;
+		var time_spec, level_spec;
+		time_spec = \unipolar.asSpec;
+		level_spec = \unipolar.asSpec;
+		params = [
+			attack: time_spec,
+			decay: time_spec,
+			sustain: level_spec,
+			release: level_spec,
+			curve: level_spec,
+		];
+
+		layout = VLayout.new;
+
+		params.clump(2).do { arg pair;
+			var key, val;
+			var playout, plabel, slider;
+			#key, val = pair;
+			playout = HLayout.new;
+			plabel = StaticText.new;
+			plabel.string = key.asString[0].asString;
+			slider = Slider.new;
+			slider.orientation = \horizontal;
+			playout.add(plabel);
+			playout.add(slider);
+			layout.add(playout);
+		};
+
+		label = StaticText.new;
+		label.string = "Env.adsr....";
+		layout.add(label);
+		layout;
+	};
+	~windowize.(~adsr.())
+)
+
+
+~a = Env.adsr(0.1,0.1,0.8,0.1)
+~a.times
+~a.levels

@@ -53,7 +53,7 @@
 							[dst_clip.node_uname,key].debug("Warning, no score collection in the dest clip");
 							scores[key] = val.clone(dst_clip.node_uname, key);
 						};
-						scores[key].all.dump;
+						//scores[key].all.dump;
 						scores[key].all.indices.debug("dest indices");
 						[self.all.keys, dst_clip.node_uname, scores.keys, key, scores[key].isNil]
 							.debug("class_score_manager: load_data_from_clip");
@@ -257,7 +257,7 @@
 
 	~class_score_preset = (
 		parent: ~class_score_base,
-		new: { arg self, parent, idx;
+		new: { arg self, parent, idx, subidx;
 			var specs;
 			var extra_specs = [];
 			self = self.deepCopy;
@@ -265,13 +265,16 @@
 
 			self.name = parent.name;
 			self.node_uname = parent.node_uname;
-			parent.spec.debug("pSPECS");
+			//parent.spec.debug("pSPECS");
 			self.specs = parent.spec;
 			self.index = idx;
+			self.subindex = subidx;
 			self.parent_collection = { parent };
+			self.vals = IdentityDictionary.new;
 		
 			self.build_vals;
 			self.build_pbind;
+			self.is_present = false;
 
 
 			//self.load_data; // doesnt exists, called on collection level
@@ -279,7 +282,7 @@
 			self;
 		},
 
-		new_from_score: { arg self, parent, index, score;
+		new_from_score: { arg self, parent, index, subindex, score;
 			var specs;
 			var extra_specs = [];
 			self = self.deepCopy;
@@ -287,12 +290,14 @@
 
 			self.name = parent.name;
 			self.node_uname = parent.node_uname;
-			parent.spec.debug("pSPECS from score");
+			//parent.spec.debug("pSPECS from score");
 			self.specs = parent.spec;
 			self.index = index;
+			self.subindex = subindex;
+			self.parent_collection = { parent };
+			self.vals = IdentityDictionary.new;
 		
-			self.build_vals;
-			self.build_pbind;
+			//self.build_vals;
 
 			self.load_data_from_score(score);
 		
@@ -300,13 +305,20 @@
 		},
 
 		load_data_from_score: { arg self, score;
-			
+			self.set_data(score.save_data_to_struct.deepCopy)
 		},
 
-		load_data_from_struct: { arg self, struct;
-			self.specs = struct.specs;
-			self.data = struct.data;
+		rebuild: { arg self, clear_old=false;
+			self.specs = self.parent_collection.spec;
+			self.specs.debug("rebuild: specs");
+			self.build_vals(clear_old);
+			self.build_pbind;
 		},
+
+		//load_data_from_struct: { arg self, struct;
+		//	self.specs = struct.specs;
+		//	self.data = struct.data;
+		//},
 
 		save_data_to_struct: { arg self;
 			var specs, data;
@@ -328,6 +340,7 @@
 		},
 
 		set_data: { arg self, data;
+			self.is_present = true;
 			self.data = data;
 			self.specs = data.specs;
 			self.build_vals;
@@ -336,14 +349,17 @@
 				var val = pair[1];
 				self.vals[key].set_val(val);
 			};
+			self.build_pbind;
 		},
 
-		build_vals: { arg self;
+		build_vals: { arg self, clear_old=false;
 			var specs = self.specs;
-			specs.debug("SPECS");
-			self.specs.debug("SPECS: sfou dmagueul");
+			var vals;
+			//specs.debug("SPECS");
+			//self.specs.debug("SPECS: sfou dmagueul");
 			if(specs.isSymbol) {
-				specs = self.synthdef_name_to_specs(specs)
+				specs = self.synthdef_name_to_specs(specs);
+				//specs.debug("SPECS: after synthdef_name_to_specs");
 			};
 
 			//if(extra_specs.isSymbol) {
@@ -351,18 +367,20 @@
 			//};
 			//specs = specs ++ extra_specs;
 			self.specs = specs;
-			self.vals = IdentityDictionary.new;
+			vals = IdentityDictionary.new;
 			specs.clump(2).do { arg pair;
 				var key = pair[0];
 				var spec = pair[1];
+				var oldval = if(self.vals[key].notNil) { self.vals[key].get_val } { nil };
+				//[key, oldval].debug("build_vals: key, oldval");
 				if(spec.class == Association) {
 					//
 					switch(spec.key,
 						\array, {
-							self.vals[key] = ~class_control_array.new(key, spec)
+							vals[key] = ~class_control_array.new(self, key, spec, oldval)
 						},
 						\env, {
-							self.vals[key] = ~class_control_env.new(key, spec)
+							vals[key] = ~class_control_env.new(self, key, spec, oldval)
 						},
 						\adsr, {
 
@@ -370,10 +388,15 @@
 					
 					);
 				} {
-					self.vals[key] = ~class_control_scalar.new(key, spec);
+					vals[key] = ~class_control_scalar.new(self, key, spec, oldval);
 				};
 			};
-			self.vals.keys.debug("VALS");
+			vals.keys.debug("VALS");
+			if(clear_old) {
+				self.vals = vals;
+			} {
+				self.vals.putAll(vals);
+			}
 			
 		},
 
@@ -382,15 +405,53 @@
 		},
 
 		synthdef_name_to_specs: { arg self, defname;
-			var reject = [\doneAction, \out, \gate, '?'];
+			var reject = [\doneAction, \out, \gate, '?', \bufnum];
 			var res = ~synthdef_name_to_specs.(defname);
-			res = res.clump(2).reject({ arg x; x[0].dump.postln; reject.includes(x[0]) }).flatten;
+			res = res.clump(2).reject({ arg x; 
+				//x[0].dump.postln; 
+				reject.includes(x[0])
+			}).flatten;
 			res;
 		},
 
 
 		edit: { arg self;
-			~class_node_preset_view.new(self);
+			self.score_view = ~class_node_preset_view.new(self);
+		},
+
+		activate_display: { arg self, view;
+			Veco.main.score_preset.activate_display(self.parent_collection, view);
+		},
+
+		duplicate_current_score: { arg self, view;
+			Veco.main.choose_score_preset.activate_display(self, view, { arg scene, pos;
+				var idx = pos.y;
+				var subidx = pos.x;
+				var win;
+				self.score_preset_destination_pos = pos;
+			});
+		},
+
+		write_current_score_to_destination: { arg self, view;
+			var pos, idx, subidx;
+			var dest_score;
+			pos = self.score_preset_destination_pos;
+			if(pos.notNil) {
+				idx = pos.y;
+				subidx = pos.x;
+				dest_score = self.parent_collection.get(idx, subidx);
+				dest_score.load_data_from_score(self);
+				self.score_preset_destination_pos = nil;
+				view.set_controller(dest_score);
+				self.activate_display(view);
+			} {
+				"write_current_score_to_destination: dest pos is nil".debug;
+			}
+		},
+
+		set_current_score_as_default: { arg self;
+			[self.index, self.subindex].debug("set_current_score_as_default");
+			self.parent_collection.set_active_subindex(self.index, self.subindex);
 		},
 
 		build_pbind: { arg self;
@@ -398,9 +459,9 @@
 			self.specs.clump(2).do { arg pair;
 				var key = pair[0];
 				var val = self.vals[key];
-				[pair, key, val, self.vals.keys].debug("PAIR");
+				//[pair, key, val, self.vals.keys].debug("PAIR");
 				if(val.notNil) {
-					[pair].debug("PAIRiiii");
+					//[pair].debug("PAIRiiii");
 					binds.add(key);
 					binds.add(val.vpattern);
 				} {
@@ -408,8 +469,28 @@
 				}
 			};
 			//binds = binds.flat;
+			self.build_apbind;
 			self.pbind = Pbind(*binds);
 			self.pbind;
+		},
+
+		build_apbind: { arg self;
+			var binds = List.new;
+			self.specs.clump(2).do { arg pair;
+				var key = pair[0];
+				var val = self.vals[key];
+				//[pair, key, val, self.vals.keys].debug("PAIR");
+				if(val.notNil) {
+					//[pair].debug("PAIRiiii");
+					binds.add(key);
+					binds.add(val.vpattern);
+				} {
+
+				}
+			};
+			//binds = binds.flat;
+			self.apbind = Pbind(*binds);
+			self.apbind;
 		},
 	);
 
@@ -470,7 +551,7 @@
 
 		get: { arg self, idx;
 			var res;
-			self.all.dump;
+			//self.all.dump;
 			[self.node_uname, self.name, self.all.indices, Veco.main.project_path, idx].debug("class_score_collection.get");
 
 			res = self.all.at(idx);
@@ -482,10 +563,143 @@
 			res;
 		},
 
+		is_score_present: { arg self, idx;
+			var res = self.all.at(idx);
+			if(res.isNil) {
+				false
+			} {
+				res.is_present;
+			}
+		},
+
 		set_data: { arg self, idx, data;
 			self.get(idx).set_data(data);
 		},
 	);
+
+	~class_score_2d_collection = (
+		parent: ~class_score_collection,
+
+		new: { arg self, node_uname, name, spec;
+			self = self.deepCopy;
+
+			self.name = name;
+			self.node_uname = node_uname;
+			self.spec = spec;
+		
+			self.all = Order.new;
+			self.active_subindex = Order.new; //TODO: active_subindex not saved
+
+			//self.load_data; // can't be called now because data file can't access to score because not finished created yet
+			//self.score_class = class;
+		
+			self;
+		},
+
+		load_data_from_score: { arg self, idx, score;
+			var res;
+			var order;
+			var src_idx = score.index;
+			var src_order = score.parent_collection.all.at(src_idx);
+			var newsub;
+			//FIXME: should I and where to verify if dest score already exists so no overwriting occurs ?
+
+			order = self.all.at(idx);
+			if(order.isNil) {
+				newsub = Order.new;
+				self.all.put(idx, newsub);
+				order = newsub;
+			};
+			src_order.do { arg src_score, subidx;
+				if(src_score.notNil) {
+					var dst_score = order.at(subidx);
+					if(dst_score.isNil) {
+						var new = self.score_class.new_from_score(self, idx, subidx, src_score);
+						[self.node_uname, idx, subidx].debug("class_score_2d_collection: load_data_from_score");
+						order.put(subidx, new);
+						dst_score = new;
+					} {
+						dst_score.load_data_from_score(src_score);
+					}
+				};
+			};
+
+			[self.active_subindex[idx], score.parent_collection.active_subindex[src_idx], idx, src_idx].debug("before loading active subidx");
+			self.set_active_subindex(idx, score.parent_collection.active_subindex[src_idx]);
+			[self.active_subindex[idx], score.parent_collection.active_subindex[src_idx]].debug("after loading active subidx");
+
+			res;
+			nil; // FIXME: why return something ?
+			
+		},
+
+		get_active_subindex: { arg self, idx;
+			self.active_subindex[idx] ?? 0
+		},
+
+		set_active_subindex: { arg self, idx, val;
+			[idx, val].debug("set_active_subindex");
+			self.active_subindex[idx] = val;
+			Pdef("%.%.%".format(self.node_uname, idx+1, self.name).asSymbol, self.get(idx, val).pbind);
+		},
+
+		set_active_subindexes: { arg self, order;
+			order.do { arg subidx, idx;
+				self.set_active_subindex(idx, subidx);
+			}
+		},
+
+		get: { arg self, idx, subidx;
+			var res;
+			var subres;
+			//self.all.dump;
+			[self.node_uname, self.name, self.all.indices, Veco.main.project_path, idx].debug("class_score_collection.get");
+
+			[idx, subidx].debug("scorecol.get: idx, subidx 1");
+			if(subidx.isNil) {
+				subidx = self.get_active_subindex(idx)
+			};
+			[idx, subidx].debug("scorecol.get: idx, subidx 2");
+
+			res = self.all.at(idx);
+			if(res.isNil) {
+				var newsub = Order.new;
+				self.all.put(idx, newsub);
+			};
+			subres = self.all.at(idx).at(subidx);
+			if(subres.isNil) {
+				var new = self.score_class.new(self, idx, subidx);
+				self.all.at(idx).put(subidx, new);
+				subres = new;
+			};
+			subres;
+		},
+
+		clear: { arg self, idx, subidx;
+			self.all.put(idx, Order.new);
+		},
+
+		is_score_present: { arg self, idx, subidx;
+			var res = self.all.at(idx);
+			subidx = subidx ?? { self.get_active_subindex(idx) };
+			if(res.isNil) {
+				false
+			} {
+				res = self.all.at(idx).at(subidx);
+				if(res.isNil) {
+					false
+				} {
+					res.is_present;
+				}
+			}
+		},
+
+		set_data: { arg self, idx, subidx, data;
+			self.get(idx, subidx).set_data(data);
+		},
+
+	);
+
 
 	~class_score_audio_wrapper = (
 		parent: ~class_score_collection,
@@ -510,7 +724,7 @@
 	);
 
 	~class_score_preset_wrapper = (
-		parent: ~class_score_collection,
+		parent: ~class_score_2d_collection,
 
 		score_class: ~class_score_preset,
 
@@ -520,6 +734,15 @@
 
 		load_data: { arg self;
 			self.data_path.load;
+		},
+
+		rebuild: { arg self, clear_old=false;
+			self.all.do { arg order;
+				order.do { arg score;
+					score.rebuild(clear_old);
+				}
+			};
+			self.save_data;
 		},
 
 		save_data: { arg self;
@@ -544,18 +767,32 @@
 			};
 			File.use(self.data_path, "w", { arg file;
 				var str = "";
-				self.all.do { arg val, idx;
-					if(val.notNil) {
-						str = str ++ (
-							"\nSdef(%, %).set_data(%, \n%\n);\n"
-						).format(
-							self.node_uname.asCompileString,
-							self.name.asCompileString,
-							idx, 
-							struct_to_string.(val.save_data_to_struct)
-						);
+				self.all.do { arg order, idx;
+
+					if(order.notNil) {
+						order.do { arg val, subidx;
+						
+							if(val.notNil and: { val.is_present == true }) {
+								str = str ++ (
+									"\nSdef(%, %).set_data(%, %, \n%\n);\n"
+								).format(
+									self.node_uname.asCompileString,
+									self.name.asCompileString,
+									idx, subidx,
+									struct_to_string.(val.save_data_to_struct)
+								);
+							}
+						}
+
 					}
 				};
+				str = "%\n\nSdef(%,%).set_active_subindexes(Order.newFromIndices(%, %));\n".format(
+					str,
+					self.node_uname.asCompileString,
+					self.name.asCompileString,
+					self.active_subindex.array.asCompileString,
+					self.active_subindex.indices.asCompileString,
+				);
 				file.write(str);
 
 			});
@@ -563,7 +800,12 @@
 
 		pbind: { arg self;
 			//Pfunc { self.get_active_score.pbind };
+			//Pdef('3.mypreset.2')
 			self.get_active_score.pbind;
+		},
+
+		pdef: { arg self;
+			Pdef("%.%".format(~namex, self.name).asSymbol);
 		},
 
 		edit: { arg self;
@@ -694,34 +936,56 @@
 			self = self.deepCopy;
 
 			self.controller = { controller };
+			self.precision = 0.001;
 		
 			self;
+		},
+
+		set_controller: { arg self, controller;
+			self.controller = { controller };
+			self.update_view;
+		},
+
+		update_view: { arg self;
+			var spec = self.controller.spec;
+			var prec = self.precision;
+			{
+				self.key_label.string = self.controller.label.asString;
+				self.val_label.string = self.controller.get_val.round(prec);
+				self.slider.value = spec.unmap(self.controller.get_val);
+			}.defer;
 		},
 
 		make_layout: { arg self;
 			
 			var node_name, name, spec;
 			var win, val, slider, label, layout;
-			var prec = 0.001;
+			var prec = self.precision;
 			name = self.controller.label;
 			spec = self.controller.spec;
-			spec = spec ?? name.asSpec ?? \widefreq.asSpec;
+			//spec = spec ?? name.asSpec ?? \widefreq.asSpec;
 
 			label = StaticText.new;
-			label.string = name.asString;
+			//label.string = name.asString;
 			name.debug("make_layout:name");
 			label.minWidth = 160;
 
 			val = StaticText.new;
 			val.minWidth = 100;
-			val.string = self.controller.get_val.round(prec);
+			//val.string = self.controller.get_val.round(prec);
 
 			slider = Slider.new(nil, Rect(20, 60, 150, 20));
-			slider.value = spec.unmap(self.controller.get_val);
+			//slider.value = spec.unmap(self.controller.get_val);
+
+			self.val_label = val;
+			self.key_label = label;
+			self.slider = slider;
+
+			self.update_view;
 
 			slider.action = { arg sli;
 				self.controller.set_val(spec.map(sli.value));
-				val.string = self.controller.get_val.round(prec);
+				self.val_label.string = self.controller.get_val.round(self.precision);
 			};
 
 			layout = HLayout.new(
@@ -737,8 +1001,24 @@
 			self = self.deepCopy;
 
 			self.controller = { controller };
+			self.precision = 0.001;
 		
 			self;
+		},
+
+		set_controller: { arg self, controller;
+			self.controller = { controller };
+			self.update_view;
+		},
+
+		update_view: { arg self;
+			var spec = self.controller.spec.value[1];
+			var prec = self.precision;
+			{
+				self.key_label.string = self.controller.label.asString;
+				self.val_label.string = self.controller.get_val.round(prec);
+				self.slider.value = spec.unmap(self.controller.get_val);
+			}.defer;
 		},
 
 		make_layout: { arg self;
@@ -748,24 +1028,30 @@
 			var prec = 0.001;
 			name = self.controller.label;
 			spec = self.controller.spec.value[1];
-			spec = spec ?? name.asSpec ?? \widefreq.asSpec;
+			//spec = spec ?? name.asSpec ?? \widefreq.asSpec;
 
 			label = StaticText.new;
-			label.string = name.asString;
+			//label.string = name.asString;
 			name.debug("make_layout:name");
 			label.minWidth = 160;
 
 			val = StaticText.new;
 			val.minWidth = 100;
-			val.string = self.controller.get_val;
+			//val.string = self.controller.get_val;
 
-			//slider = Slider.new(nil, Rect(20, 60, 150, 20));
 			slider = MultiSliderView.new(nil, Rect(20, 60, 150, 20));
-			slider.value = spec.unmap(self.controller.get_val);
+			//slider.value = spec.unmap(self.controller.get_val);
+
+			self.val_label = val;
+			self.key_label = label;
+			self.slider = slider;
+
+			self.update_view;
 
 			slider.action = { arg sli;
+				var spec = self.controller.spec.value[1];
 				self.controller.set_val(spec.map(sli.value));
-				val.string = self.controller.get_val.round(prec).asCompileString;
+				self.val_label.string = self.controller.get_val.round(self.precision).asCompileString;
 			};
 
 			layout = VLayout.new(
@@ -785,6 +1071,20 @@
 			self;
 		},
 
+		set_controller: { arg self, controller;
+			self.controller = { controller };
+			self.update_view;
+		},
+
+		update_view: { arg self;
+			{
+				self.key_label.string = self.controller.label.asString;
+				self.update_env;
+				self.update_label;
+				self.env_view.selectIndex(1);
+				self.update_knobs;
+			}.defer;
+		},
 
 		update_label: { arg self;
 			self.env_label.string_(
@@ -916,6 +1216,9 @@
 				.font_(Font("Arial",10))
 				.string_("--");
 
+			self.val_label = self.env_label;
+			self.key_label = label;
+
 			knob_layout = HLayout.new(
 				self.knob_level,
 				self.knob_time,
@@ -946,17 +1249,52 @@
 			self = self.deepCopy;
 		
 			self.controller = { controller };
+			self.control_views = IdentityDictionary.new;
 			self.make_window;
 		
 			self;
+		},
+
+		set_controller: { arg self, controller;
+			self.controller = { controller };
+			self.controller.vals.keysValuesDo { arg key, val;
+				self.control_views[key].set_controller(val);
+			};
+			self.update_view;
+		},
+
+		update_view: { arg self;
+			{
+				self.window.name = "Preset Editor -- node: %, index: %, subidx: %".format(
+					self.controller.node_uname, 
+					self.controller.index,
+					self.controller.subindex
+				);
+			}.defer;
 		},
 
 		make_window: { arg self;
 			var win;
 			var layout;
 			//win = Window.new("preset", Rect(200,200,500,550));
-			win = Window.new("Preset Editor -- node: %, index: %".format(self.controller.node_uname, self.controller.index));
-			win.view.keyDownAction = ~closer_responder;
+			win = Window.new;
+			win.view.keyDownAction = { arg view, char, modifiers, u, k; 
+				[char, modifiers, u, k].debug("KEYBOARD INPUT");
+				if( u == 27 ) { view.close() };
+				if( k == 67 ) { // F1
+					self.controller.activate_display(self);
+				};
+				if( k == 68 ) { // F2
+					self.controller.duplicate_current_score(self);
+				};
+				if( k == 69 ) { // F3
+					self.controller.write_current_score_to_destination(self);
+				};
+				if( k == 70 ) { // F3
+					self.controller.set_current_score_as_default(self);
+				};
+				//if( u == ~keycode.kbspecial.enter ) { validate_action.(); close_window.(); };
+			};
 
 			self.layout = layout = HLayout.new;
 			self.slider_layout = VLayout.new;
@@ -965,25 +1303,37 @@
 			layout.add(self.slider_layout);
 			layout.add(self.array_layout);
 
-			self.controller.vals.do { arg ctrl;
+			self.controller.specs.clump(2).do { arg pair;
+				var key, ctrl;
+				var view;
+				key = pair[0];
+				ctrl = self.controller.vals[key];
 				switch(ctrl.kind,
 					\array, {
-						self.array_layout.add(~class_control_array_view.new(ctrl).make_layout);
+						view = ~class_control_array_view.new(ctrl);
+						self.array_layout.add(view.make_layout);
 					},
 					\env, {
-						self.array_layout.add(~class_control_env_view.new(ctrl).make_layout);
+						view = ~class_control_env_view.new(ctrl);
+						self.array_layout.add(view.make_layout);
 					},
 					\scalar, {
-						self.slider_layout.add(~class_control_scalar_view.new(ctrl).make_layout);
+						view = ~class_control_scalar_view.new(ctrl);
+						self.slider_layout.add(view.make_layout);
 					},
 					{
 						ctrl.kind.debug("Error, % kind not recognised");
+						view = nil;
 					}
 				);
+				self.control_views[key] = view;
 			};
 
 			self.array_layout.add(nil);
 			self.slider_layout.add(nil);
+			self.window = win;
+
+			self.update_view;
 
 			win.onClose = {
 				self.controller.save_data;
@@ -999,12 +1349,13 @@
 
 	~class_control_scalar = (
 		kind: \scalar,
-		new: { arg self, name, spec;
+		new: { arg self, parent, name, spec, val;
 			self = self.deepCopy;
 		
+			self.parent_controller = { parent };
 			self.name = name;
 			self.spec = spec;
-			self.val = spec.default;
+			self.val = val ?? spec.default;
 		
 			self;
 		},
@@ -1022,22 +1373,29 @@
 		},
 
 		set_val: { arg self, val;
+			self.parent_controller.is_present = true;
 			self.val = val;
 		},
 
 		vpattern: { arg self;
-			Pfunc { self.get_val };
+			if(self.name == \amp) {
+				Pfunc { arg ev; self.get_val * ev[\amp] };
+			} {
+				Pfunc { self.get_val };
+			}
 		},
 	);
 
 	~class_control_array = (
 		kind: \array,
-		new: { arg self, name, spec;
+		new: { arg self, parent, name, spec, val;
 			self = self.deepCopy;
 		
+			self.parent_controller = { parent };
 			self.name = name;
+			spec = spec.deepCopy;
 			self.spec = spec;
-			self.val = spec.value[2] ?? { spec.value[1].default ! spec.value[0] };
+			self.val = val.deepCopy ?? spec.value[2] ?? { spec.value[1].default ! spec.value[0] };
 		
 			self;
 		},
@@ -1051,6 +1409,7 @@
 		},
 
 		set_val: { arg self, val;
+			self.parent_controller.is_present = true;
 			self.val = val;
 		},
 
@@ -1061,10 +1420,11 @@
 	
 	~class_control_env = (
 		kind: \env,
-		new: { arg self, name, spec;
+		new: { arg self, parent, name, spec, val;
 			self = self.deepCopy;
 		
-			spec = spec.value;
+			self.parent_controller = { parent };
+			spec = spec.value.deepCopy;
 			self.spec = spec ?? [3, \freq.asSpec, ControlSpec(0.01,8,\exp,0,0.1), ControlSpec(-9,9,\lin,0,0), Env([100,200,50],[0.1,0.1])];
 
 			self.name = name;
@@ -1073,9 +1433,9 @@
 			self.spec[2] = self.spec[2] ?? ControlSpec(0.01,8,\exp,0,0.1);
 			self.spec[3] = self.spec[3] ?? ControlSpec(-9,9,\lin,0,0);
 
-			self.get_env = self.spec[4] ?? { Env(
+			self.get_env = val.deepCopy ?? self.spec[4] ?? { Env(
 				self.spec[1].default ! self.spec[0], 
-				self.spec[2].default ! self.spec[0],
+				self.spec[2].default ! (self.spec[0]-1),
 				self.spec[3].default,
 			) };
 
@@ -1091,6 +1451,7 @@
 		},
 
 		set_val: { arg self, val;
+			self.parent_controller.is_present = true;
 			self.get_env = val;
 		},
 
@@ -1132,6 +1493,7 @@
 
 		set_norm_xy: { arg self, val, time_scale;
 			var times, levels;
+			self.parent_controller.is_present = true;
 			time_scale = time_scale ?? self.time_scale;
 			#times, levels = val;
 			times = times.copy;
@@ -1149,7 +1511,7 @@
 		},
 
 		vpattern: { arg self;
-			Pfunc { self.get_env }
+			Pfunc { [self.get_env] }
 		},
 
 	);
@@ -1179,7 +1541,7 @@
 				spec = default_spec.asSpec;
 			});
 		});
-		[argName, spec].debug("get_spec");
+		//[argName, spec].debug("get_spec");
 		spec;
 	};
 		
@@ -1192,7 +1554,7 @@
 			specs.add(x.name);
 			spec = ~get_spec.(x.name, defname).copy;
 			if(spec.class != Association and: { x.defaultValue.isSequenceableCollection }) {
-				specs.add(\array -> [x.defaultValue.size, \unipolar.asSpec, x.defaultValue]);
+				specs.add(\array -> [x.defaultValue.size, \unipolar.asSpec.copy, x.defaultValue.copy]);
 			} {
 				if(spec.class == Association) {
 					switch(spec.key,
@@ -1206,8 +1568,8 @@
 						}
 					)
 				} {
-					spec.default = x.defaultValue;
-					specs.add(spec);
+					spec.default = x.defaultValue.copy;
+					specs.add(spec.copy);
 				}
 			};
 		};
