@@ -357,7 +357,7 @@
 			var vals;
 			//specs.debug("SPECS");
 			//self.specs.debug("SPECS: sfou dmagueul");
-			if(specs.isSymbol) {
+			if(specs.isSymbolWS) {
 				specs = self.synthdef_name_to_specs(specs);
 				//specs.debug("SPECS: after synthdef_name_to_specs");
 			};
