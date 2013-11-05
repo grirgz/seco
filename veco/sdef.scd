@@ -628,6 +628,8 @@
 			self.set_active_subindex(idx, score.parent_collection.active_subindex[src_idx]);
 			[self.active_subindex[idx], score.parent_collection.active_subindex[src_idx]].debug("after loading active subidx");
 
+			self.save_data;
+
 			res;
 			nil; // FIXME: why return something ?
 			
@@ -675,8 +677,17 @@
 			subres;
 		},
 
+		getsub: { arg self, subidx;
+			self.get(self.active_clip_index, subidx);
+		},
+
+
 		clear: { arg self, idx, subidx;
-			self.all.put(idx, Order.new);
+			if(idx.isNil) {
+				idx.debug("idx is NIL !!!")
+			} {
+				self.all.put(idx, Order.new);
+			}
 		},
 
 		is_score_present: { arg self, idx, subidx;
@@ -1249,14 +1260,23 @@
 			self = self.deepCopy;
 		
 			self.controller = { controller };
+			self.set_bus_mode(true);
 			self.control_views = IdentityDictionary.new;
 			self.make_window;
 		
 			self;
 		},
 
+		set_bus_mode: { arg self, set=true;
+			self.controller.vals.keysValuesDo { arg key, val;
+				val.set_bus_mode(set);
+			};
+		},
+
 		set_controller: { arg self, controller;
+			self.set_bus_mode(false);
 			self.controller = { controller };
+			self.set_bus_mode(true);
 			self.controller.vals.keysValuesDo { arg key, val;
 				self.control_views[key].set_controller(val);
 			};
@@ -1336,6 +1356,7 @@
 			self.update_view;
 
 			win.onClose = {
+				self.set_bus_mode(false);
 				self.controller.save_data;
 
 			};
@@ -1349,6 +1370,7 @@
 
 	~class_control_scalar = (
 		kind: \scalar,
+		bus_mode: false,
 		new: { arg self, parent, name, spec, val;
 			self = self.deepCopy;
 		
@@ -1368,20 +1390,48 @@
 			self.name;
 		},
 
+		get_pat_val: { arg self;
+			if(self.bus_mode) {
+				self.bus.asMap;
+			} {
+				if(self.bus.notNil) {
+					self.bus.free;
+					self.bus = nil;
+				};
+				self.val;	
+			}
+		},
+
 		get_val: { arg self;
 			self.val;	
+		},
+
+		set_bus_mode: { arg self, val;
+			if(val != false) {
+				self.bus_mode = true;
+				if(self.bus.isNil) {
+					self.bus = Bus.control(s, 1);
+					self.bus.set(self.val);
+				}
+			} {
+				self.bus_mode = false;
+			}
 		},
 
 		set_val: { arg self, val;
 			self.parent_controller.is_present = true;
 			self.val = val;
+			[self.bus_mode, self.bus, self.val].debug("scalar.set_val:mode, bus, val");
+			if(self.bus_mode == true) {
+				self.bus.set(val);
+			};
 		},
 
 		vpattern: { arg self;
 			if(self.name == \amp) {
 				Pfunc { arg ev; self.get_val * ev[\amp] };
 			} {
-				Pfunc { self.get_val };
+				Pfunc { self.get_pat_val };
 			}
 		},
 	);
@@ -1554,7 +1604,14 @@
 			specs.add(x.name);
 			spec = ~get_spec.(x.name, defname).copy;
 			if(spec.class != Association and: { x.defaultValue.isSequenceableCollection }) {
-				specs.add(\array -> [x.defaultValue.size, \unipolar.asSpec.copy, x.defaultValue.copy]);
+				if(x.name == \adsr) {
+					//specs.add(\env -> [nil, nil, nil, nil, x.defaultValue.copy]);
+					// TODO: retrieve real default value
+					specs.add(\env -> [nil, nil, nil, nil, Env.adsr(0.01,0.1,0.8,0.1)]);
+
+				} {
+					specs.add(\array -> [x.defaultValue.size, \unipolar.asSpec.copy, x.defaultValue.copy]);
+				}
 			} {
 				if(spec.class == Association) {
 					switch(spec.key,

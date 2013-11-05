@@ -1,0 +1,5 @@
+- write real envarray to env function
+	- name_to_spec should get default env with envarray to env function
+- fix bug with curve knob initialised to -4 by default
+- update knobs in env view doesnt update curve knob
+- 

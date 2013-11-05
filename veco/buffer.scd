@@ -71,6 +71,7 @@
 		self.nodes = IdentityDictionary.new;
 		self.node_unames.do { arg uname;
 			self.nodes[uname] = ~class_node_buffer.new(self, uname);
+			self.nodes[uname].load_data;
 		};
 		self.init_project;
 		self.load_data;

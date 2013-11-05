@@ -1,41 +1,41 @@
- /buffer.scd  2.scd  /sctile.vim  v/v/a.1.scd  s/v/v/z.scd  E/s/Veco.sc  + 4.3.scd  1.11.scd  ~/.v/sc.vim  /v/main.scd  /v/tile.scd            X
-//Ndef(\lfo1, { SinOsc.kr(4).range(100,1000) });
-Ndef(\lfo1, { XLine.kr(100,2004,10) });
-Pdef(~name +++ \pre, Pbind(
-    \freq, 300 + Pseq([100,200,300,250],inf) + Pwhite(0,50.0,inf),
-    \freq, 300 + Pseq([100,200,300,250],inf) + Pwhite(0,50.0,inf),
-    \fmrange, Ndef(\lfo1),
-));
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-                                                                                                                              2,10         Tout
+ E/s/s/v/buffer.scd  /s/v/launchpad.scd  + /s/s/v/v/1.1.scd  ../l/d/morph.scd  ~/.v/sc.vim  S/E/s/s/v/main.scd  S/E/s/s/v/tile.scd             X
+
+
+    (
+
+        Pdef(\test,
+
+            Pbind(\instrument, \oscsampler) <> ~morphpat.(Sdef(~name, \mypreset).get(0).pbind , Sdef(~name, \mypreset).get(1).pbind , 1.0)
+
+        ).play
+    )
+
+    (
+
+        Pdef(\test,
+
+            Pbind(\instrument, \oscsampler)
+
+        ).play
+    )
+
+(
+SynthDef(\test, { arg out=0, amp=0.1, gate=1, pan=0, spread=0.8, freq=200, doneAction=2, ffreq=300, rq=0.3;
+    var sig, sig1, sig2, sig3;
+    sig = LFSaw.ar(freq);
+    sig = RLPF.ar(sig, ffreq, rq);
+    sig = sig * EnvGen.ar(\adsr.kr(Env.adsr(0.01,0.1,0.8,0.1)),gate,doneAction:doneAction);
+    sig = Splay.ar(sig, spread, amp, pan);
+    Out.ar(out, sig);
+}).add;
+);
+
+    (
+
+        Pdef(\test,
+
+            Pbind(\instrument, \test) <> ~morphpat.(Pbind(\ffreq, 300) , Pbind(\pos, 3000) , 0.1)
+
+        ).play
+    )
+"/tmp/sclang-pipe" [Périph.] 1L, 3C ajouté(s)                                                                                 125,81-90     Bas
