@@ -97,7 +97,11 @@
 				self.label.string = "----";
 			} {
 				self.slider.enabled = true;
-				self.fader_slider.enabled = true;
+				if(self.controller.has_mixer == true) {
+					self.fader_slider.enabled = true;
+				} {
+					self.fader_slider.enabled = false;
+				};
 				self.slider.value = self.controller.get_norm_amp_level.asFloat;
 				self.fader_slider.value = self.controller.get_norm_volume_level.asFloat;
 				self.val.string = self.controller.get_amp_level.round(prec);
@@ -110,11 +114,18 @@
 	update_send_knobs: { arg self;
 		self.knobs.do { arg kn, x;
 			var val;
-			val = self.controller.get_send_level(x);
-			if(val.isNil) {
-				kn.value = 0;
+			if(self.controller.has_mixer == true) {
+
+				kn.enabled = true;
+				val = self.controller.get_send_level(x);
+				if(val.isNil) {
+					kn.value = 0;
+				} {
+					kn.value = self.controller.get_send_level(x);
+				}
 			} {
-				kn.value = self.controller.get_send_level(x);
+				kn.enabled = false;
+				kn.value = 0;
 			}
 		};
 	},
@@ -125,6 +136,7 @@
 		4.do { arg x;
 			var kn = Knob.new;
 			self.knobs.add(kn);
+			kn.mode = \vert;
 			kn.action = { arg kn;
 				kn.value;
 				self.controller.set_send_level(x, kn.value);
@@ -143,7 +155,7 @@
 		self.layout_view.background = Color.fromHexString("9ac1b3");
 		self.slider = Slider.new(nil, Rect(0,0,width,300));
 		self.fader_slider = Slider.new(nil, Rect(0,0,width,300));
-		self.fader_slider.knobColor = Color.blue;
+		//self.fader_slider.knobColor = Color.blue;
 		self.label = StaticText.new(nil, Rect(0,0,width,30));
 		self.val = StaticText.new(nil, Rect(0,0,width,30));
 		self.val.minWidth = width;

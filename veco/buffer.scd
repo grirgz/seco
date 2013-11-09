@@ -363,6 +363,7 @@
 		self.val_play_node_hook_dict = IdentityDictionary.new;
 		self.val_stop_node_hook_dict = IdentityDictionary.new;
 		self.mixer_sends = List.new;
+		self.has_mixer = false;
 	
 		self;
 	},
@@ -614,6 +615,7 @@
 		BusDef(name+++\mixer, \audio, 2);
 		self.add_play_node_hook(\mixer, { Ndef(name+++\mixer).play });
 		self.add_stop_node_hook(\mixer, { Ndef(name+++\mixer).stop });
+		self.has_mixer = true;
 
 		make_out = { arg i, sig, send;
 			if(send_list[i].notNil) {
