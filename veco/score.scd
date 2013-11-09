@@ -93,25 +93,66 @@
 		{
 			if(self.controller.isNil) {
 				self.slider.enabled = false;
+				self.fader_slider.enabled = false;
 				self.label.string = "----";
 			} {
 				self.slider.enabled = true;
+				self.fader_slider.enabled = true;
 				self.slider.value = self.controller.get_norm_amp_level.asFloat;
+				self.fader_slider.value = self.controller.get_norm_volume_level.asFloat;
 				self.val.string = self.controller.get_amp_level.round(prec);
 				self.label.string = self.controller.get_name;
+				self.update_send_knobs;
 			};
 		}.defer;
+	},
+
+	update_send_knobs: { arg self;
+		self.knobs.do { arg kn, x;
+			var val;
+			val = self.controller.get_send_level(x);
+			if(val.isNil) {
+				kn.value = 0;
+			} {
+				kn.value = self.controller.get_send_level(x);
+			}
+		};
+	},
+
+	make_send_knobs: { arg self;
+		self.knobs = List.new;
+		
+		4.do { arg x;
+			var kn = Knob.new;
+			self.knobs.add(kn);
+			kn.action = { arg kn;
+				kn.value;
+				self.controller.set_send_level(x, kn.value);
+			}
+		};
+		self.send_layout = VLayout.new(*self.knobs);
+		self.send_layout;
 	},
 
 	make_layout: { arg self;
 		var width = 80;
 		var prec = 0.0001;
 		self.layout = VLayout.new;
+		self.layout_view = View.new;
+		self.layout_in = VLayout.new;
+		self.layout_view.background = Color.fromHexString("9ac1b3");
 		self.slider = Slider.new(nil, Rect(0,0,width,300));
+		self.fader_slider = Slider.new(nil, Rect(0,0,width,300));
+		self.fader_slider.knobColor = Color.blue;
 		self.label = StaticText.new(nil, Rect(0,0,width,30));
 		self.val = StaticText.new(nil, Rect(0,0,width,30));
 		self.val.minWidth = width;
 		self.val.maxWidth = width;
+
+		self.slider_layout = HLayout.new;
+
+		// amp (pattern)
+
 		self.slider.action = { arg sli;
 			self.controller.set_norm_amp_level(sli.value);
 			self.val.string = self.controller.get_amp_level.round(prec);
@@ -124,9 +165,29 @@
 				self.update_view;
 			}
 		};
-		self.layout.add(self.label);
-		self.layout.add(self.slider);
-		self.layout.add(self.val);
+		self.slider_layout.add(self.slider);
+
+		// volume (Ndef)
+
+		self.fader_slider.action = { arg sli;
+			self.controller.set_norm_volume_level(sli.value);
+		};
+		self.fader_slider.keyDownAction = { arg x, y, z;
+			[x,y,z].debug("xyzw");
+			y.dump;
+			if(y == $d) {
+				self.controller.set_volume_level(1.0);
+				self.update_view;
+			}
+		};
+		self.slider_layout.add(self.fader_slider);
+
+		self.layout.add(self.layout_view);
+		self.layout_view.layout = self.layout_in;
+		self.layout_in.add(self.label);
+		self.layout_in.add(self.slider_layout);
+		self.layout_in.add(self.val);
+		self.layout_in.add(self.make_send_knobs);
 		self.update_view;
 		self.layout;
 	},
@@ -157,7 +218,7 @@
 	},
 
 	make_window: { arg self;
-		self.window = Window.new("Mixer", Rect(300,300,500,300));
+		self.window = Window.new("Mixer", Rect(300,300,700,500));
 		self.layout = HLayout.new;
 
 		self.channels = 8.collect { arg i;

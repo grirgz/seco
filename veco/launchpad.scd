@@ -1120,19 +1120,31 @@
 		self.sceneset.clip.response_cc_off(midi);
 	},
 
+	//set_relpos_seq: { arg self, y, idx, val;
+	//	var seq = self.seq_buffers(y).stepseq;
+	//	idx = idx + self.controller.seq_offset;
+	//	if(seq[idx].notNil) {
+	//		seq[idx] = val;
+	//	};
+	//},
+
 	set_relpos_seq: { arg self, y, idx, val;
-		var seq = self.seq_buffers(y).stepseq;
+		var buf = self.seq_buffers(y);
+		var seq = buf.stepseq;
 		idx = idx + self.controller.seq_offset;
 		if(seq[idx].notNil) {
-			seq[idx] = val;
+			buf.set_step(idx, val);
 		};
 	},
 
 	toggle_relpos_seq: { arg self, y, idx;
+		var buf = self.seq_buffers(y);
 		var seq = self.seq_buffers(y).stepseq;
+		var val;
 		idx = idx + self.controller.seq_offset;
 		if(seq[idx].notNil) {
-			seq[idx] = if(seq[idx] == 1) { 0 } { 1 };
+			val = if(seq[idx] == 1) { 0 } { 1 };
+			buf.set_step(idx, val);
 		};
 	},
 	

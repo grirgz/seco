@@ -80,23 +80,23 @@
 			var node_or_clip;
 			var score;
 			var index;
-			"merdeiii2A".debug;
+			//"merdeiii2A".debug;
 			node_or_clip = self.main.get_node_by_uname(node_uname);
-			"merdeiii2B".debug;
+			//"merdeiii2B".debug;
 			if(node_or_clip.isNil) {
-				node_uname.debug("not a uname node");
+				//node_uname.debug("not a uname node");
 				nil;
 			} {
 
 				if(node_or_clip.parent_buffer.notNil) {
 					index = node_or_clip.get_index;
-					[node_uname, index].debug("is a nodeclip: name, idx");
+					//[node_uname, index].debug("is a nodeclip: name, idx");
 					score = self.all[node_or_clip.parent_buffer.uname][name].get(index);
 				} {
-					node_or_clip.uname.debug("is a node");
+					//node_or_clip.uname.debug("is a node");
 					score = self.all[node_or_clip.uname][name];
 				};
-				"merde2C".debug;
+				//"merde2C".debug;
 				score;
 			};
 		},
@@ -107,11 +107,11 @@
 					self.all[node_uname] = IdentityDictionary.new;
 				};
 				if(self.all[node_uname][name].isNil) {
-					[kind, node_uname, name].debug("defining NEW score");
+					//[kind, node_uname, name].debug("defining NEW score");
 					self.all[node_uname][name] = score_class.new(node_uname, name, spec);
 					self.all[node_uname][name].load_data;
 				} {
-					[kind, node_uname, name].debug("defining NEW score (already exists so noop)");
+					//[kind, node_uname, name].debug("defining NEW score (already exists so noop)");
 				}
 			};
 			switch(kind,
@@ -150,7 +150,7 @@
 			self.recclock = TempoClock.default;
 			//self.overlap_time = 0.20;
 			self.overlap_time = ~veco_record_overlap_time;
-			self.label.debug("class_score_audio: new");
+			//self.label.debug("class_score_audio: new");
 			self.load_data;
 		
 			self;
@@ -184,7 +184,7 @@
 			// TODO: check if buffer was freed then copy file
 			self.buf = score.buf;
 			BufferPool.retain(self.buf, \veco_audio, self.name);
-			[self.buf, score.buf].debug("class_score_audio: load_data_from_score: copied buf pointer");
+			//[self.buf, score.buf].debug("class_score_audio: load_data_from_score: copied buf pointer");
 			self.dur = score.dur;
 			self.save_data;
 		},
@@ -391,7 +391,7 @@
 					vals[key] = ~class_control_scalar.new(self, key, spec, oldval);
 				};
 			};
-			vals.keys.debug("VALS");
+			//vals.keys.debug("VALS");
 			if(clear_old) {
 				self.vals = vals;
 			} {
@@ -1421,7 +1421,7 @@
 		set_val: { arg self, val;
 			self.parent_controller.is_present = true;
 			self.val = val;
-			[self.bus_mode, self.bus, self.val].debug("scalar.set_val:mode, bus, val");
+			//[self.bus_mode, self.bus, self.val].debug("scalar.set_val:mode, bus, val");
 			if(self.bus_mode == true) {
 				self.bus.set(val);
 			};

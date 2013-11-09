@@ -360,6 +360,9 @@
 		self.data.amp_level = 1;
 		self.clips = SparseArray.new(64, nil);
 		self.active_clip_index = 0;
+		self.val_play_node_hook_dict = IdentityDictionary.new;
+		self.val_stop_node_hook_dict = IdentityDictionary.new;
+		self.mixer_sends = List.new;
 	
 		self;
 	},
@@ -446,7 +449,18 @@
 	play_node: { arg self;
 		self.uname.debug("class_node_buffer.play_node");
 		self.play_node_hook;
+		self.play_node_hook_dict;
 		self.get_node_player.play;
+	},
+
+	add_play_node_hook: { arg self, key, fun;
+		self.val_play_node_hook_dict[key] = fun;
+	},
+
+	play_node_hook_dict: { arg self;
+		self.val_play_node_hook_dict.keysValuesDo { arg key, val;
+			val.value;
+		}
 	},
 
 	play_node_hook: { arg self;
@@ -459,6 +473,7 @@
 			TempoClock.default.play({
 				self.get_node_player.stop;
 				self.stop_node_hook;
+				self.stop_node_hook_dict;
 				quant_fun.value;
 				nil;
 			}, self.get_node_player.quant);
@@ -472,6 +487,17 @@
 			self.stop_node_hook;
 		}
 	},
+
+	add_stop_node_hook: { arg self, key, fun;
+		self.val_stop_node_hook_dict[key] = fun;
+	},
+
+	stop_node_hook_dict: { arg self;
+		self.val_stop_node_hook_dict.keysValuesDo { arg key, val;
+			val.value;
+		}
+	},
+
 
 	stop_node_hook: { arg self;
 		
@@ -537,6 +563,13 @@
 		self.clips[idx];
 	},
 
+	/////////////// step sequencer part
+
+	stepseq: { arg self;
+		var clip = self.get_clip_by_index(self.active_clip_index);
+		clip.stepseq;
+	},
+
 	isrest: { arg self, size = 8, repeat=inf;
 		var seq;
 		var clip;
@@ -565,6 +598,45 @@
 		};
 	},
 
+
+
+	//////////// mixer part
+
+	mixer_node: { arg self;
+		var name = self.uname;
+		Ndef(name+++\mixer);
+	},
+
+	make_mixer: { arg self, send_list;
+		var name = self.uname;
+		var make_out;
+		send_list = send_list ?? [~fx1, ~fx2, ~fx3, ~fx4];
+		BusDef(name+++\mixer, \audio, 2);
+		self.add_play_node_hook(\mixer, { Ndef(name+++\mixer).play });
+		self.add_stop_node_hook(\mixer, { Ndef(name+++\mixer).stop });
+
+		make_out = { arg i, sig, send;
+			if(send_list[i].notNil) {
+				Out.ar(send_list[i], sig * send);
+			}
+		};
+
+		Ndef(name+++\mixer).isource = { arg send1=0, send2=0, send3=0, send4=0;
+			var in = InFeedback.ar(BusDef(name+++\mixer), 2);
+			var sig;
+			sig = in;
+
+			make_out.(0, sig, send1);
+			make_out.(1, sig, send2);
+			make_out.(2, sig, send3);
+			make_out.(3, sig, send4);
+			sig;
+		};
+
+	},
+
+	//// amp (pattern)
+
 	amp_level: { arg self, in;
 		//[self.uname, self.data.amp_level].debug("amp_level");
 		self.data.amp_level;
@@ -586,11 +658,57 @@
 		self.data.amp_level = ~amp_level_spec.map(val);
 	},
 
+	//// volume (Ndef)
+
+	volume_level: { arg self, in;
+		//[self.uname, self.data.amp_level].debug("amp_level");
+		//self.data.volume_level;
+		self.mixer_node.vol;
+	},
+
+	get_norm_volume_level: { arg self;
+		self.mixer_node.vol;
+		//~volume_level_spec.unmap(self.data.amp_level);
+	},
+
+	get_volume_level: { arg self;
+		//self.data.volume_level;
+		self.mixer_node.vol;
+	},
+
+	set_volume_level: { arg self, val;
+		//self.data.volume_level = val;
+		self.mixer_node.vol = val;
+	},
+
+	set_norm_volume_level: { arg self, val;
+		//self.data.amp_level = ~amp_level_spec.map(val);
+		self.mixer_node.vol = val;
+	},
+
+	//// send
+
+	set_send_level: { arg self, idx, val;
+		Ndef(self.uname+++\mixer).set(\send+++(idx+1), val);
+	},
+
+	get_send_level: { arg self, idx;
+		Ndef(self.uname+++\mixer).get(\send+++(idx+1));
+	},
+
 	mixer: { arg self;
-		Pbind(
-			//\amp, Pfunc({ arg ev; self.amp_level * ev[\amp]})
-			\amp, Pfunc({ arg ev; self.amp_level })
-		)
+		if(self.val_play_node_hook_dict[\mixer].notNil) {
+			Pbind(
+				//\amp, Pfunc({ arg ev; self.amp_level * ev[\amp]})
+				\out, BusDef(self.uname+++\mixer),
+				\amp, Pfunc({ arg ev; self.amp_level })
+			)
+		} {
+			Pbind(
+				//\amp, Pfunc({ arg ev; self.amp_level * ev[\amp]})
+				\amp, Pfunc({ arg ev; self.amp_level })
+			)
+		}
 	},
 
 );
@@ -620,6 +738,11 @@
 	stepseq: [1,1,0,0, 0,0,0,0],
 	stepseq_size: nil,
 	envir_keys: [\name, \namex, \index],
+
+	set_step: { arg self, idx, val;
+		self.stepseq[idx] = val;
+		self.set_step_hook(idx, val);
+	},
 
 	save_data: { arg self;
 		if(self.is_present) {
