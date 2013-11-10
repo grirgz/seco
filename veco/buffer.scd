@@ -613,7 +613,10 @@
 		var make_out;
 		send_list = send_list ?? [~fx1, ~fx2, ~fx3, ~fx4];
 		BusDef(name+++\mixer, \audio, 2);
-		self.add_play_node_hook(\mixer, { Ndef(name+++\mixer).play });
+		self.add_play_node_hook(\mixer, { 
+			Ndef(name+++\mixer).parentGroup = ~get_mixer_group.();
+			Ndef(name+++\mixer).play;
+		});
 		self.add_stop_node_hook(\mixer, { Ndef(name+++\mixer).stop });
 		self.has_mixer = true;
 
@@ -623,8 +626,9 @@
 			}
 		};
 
+
 		Ndef(name+++\mixer).isource = { arg send1=0, send2=0, send3=0, send4=0;
-			var in = InFeedback.ar(BusDef(name+++\mixer), 2);
+			var in = In.ar(BusDef(name+++\mixer), 2);
 			var sig;
 			sig = in;
 

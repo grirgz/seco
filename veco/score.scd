@@ -210,6 +210,7 @@
 	new: { arg self, controller;
 		self = self.deepCopy;
 	
+		self.fixed_view = false;
 		self.controller = controller;
 		self.make_window;
 	
@@ -217,12 +218,14 @@
 	},
 
 	update_view: { arg self;
-		var xos = self.controller.clip_offset.x;
-		8.do { arg x;
-			var node = self.controller.get_node_by_index(x+xos);
-			self.channels[x].set_controller(node);
-			self.channels[x].update_view;
-		};
+		if(self.fixed_view == false) {
+			var xos = self.controller.clip_offset.x;
+			8.do { arg x;
+				var node = self.controller.get_node_by_index(x+xos);
+				self.channels[x].set_controller(node);
+				self.channels[x].update_view;
+			};
+		}
 	},
 
 	clip_offset: { arg self;
@@ -251,9 +254,13 @@
 			}
 		});
 		self.window.view.keyDownAction = { arg x, y, z;
-			//[x,y,y.ascii,z].debug("xyz");
+			[x,y,y.ascii,z].debug("xyz");
 			if(y.ascii == 27) {
 				self.window.close;
+			};
+			if(y.ascii == 102) {
+				self.fixed_view = self.fixed_view.not;
+				self.fixed_view.debug("mixer: fixed view");
 			};
 		};
 		self.update_view;
