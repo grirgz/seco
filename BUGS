@@ -26,3 +26,4 @@ very long symbol crash sc // no more ???
 File.openDialog // install some pkg to fix it
 
 Order.asCompileString retourne une string qui correspond pas a l'order original
+Ndef: si on execute un .set avant de definir le Ndef, le Ndef se lance pas

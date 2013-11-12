@@ -77,6 +77,10 @@
 		self.load_data;
 	},
 
+	open_project_in_vim: { arg self, name;
+		"vim --servername scvim --remote-send '<Esc>:VecoOpenProject %<Enter>'".format(name).unixCmd;
+	},
+
 	get_node_by_index: { arg self, idx;
 		//[idx].debug("get_node_by_index");
 		self.nodes[self.index_to_uname(idx)]
@@ -810,13 +814,17 @@
 	},
 
 	play_node: { arg self;
-		var res = self.execute;
+		var res;
 		[self.uname,res].debug("class_node_clip.play_node: res");
-		if(res == \stop) {
-			self.parent_buffer.stop_node;
-		} {
-			self.parent_buffer.play_node;
-		}
+		// FIXME: should be disabled due to a bug with Ndef which don't play if \set is run before
+		//res = self.execute;
+		//if(res == \stop) {
+		//	self.parent_buffer.stop_node;
+		//} {
+		//	self.parent_buffer.play_node;
+		//}
+		self.parent_buffer.play_node;
+		res = self.execute;
 	},
 
 	response_on: { arg self;
