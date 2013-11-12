@@ -965,6 +965,33 @@
 		}
 	},
 
+	response_off: { arg self, midinote;
+		var pos = self.midi_to_gridpos(midinote);
+		var buf;
+		var node, clip;
+		var opos;
+		midinote.debug("launchpad_scene_clip.response_on");
+
+		if(self.is_launcher_button(midinote)) {
+
+		} {
+			//midinote.debug("launchpad_scene_clip.response_on: go!");
+			if(self.modifiers[\session] == true) {
+			} {
+				#node, clip = self.gridpos_to_node_and_clip(pos);
+				if(clip.is_present) {
+					clip.response_off;
+				} {
+					//node.stop_node(true, {
+					//	self.render_column(pos.x);
+					//});
+				};
+				//self.render_column(pos.x);
+			};
+			//self.render_state;
+		}
+	},
+
 );
 
 ~launchpad_scene_seq_chooser = (

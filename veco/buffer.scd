@@ -732,6 +732,10 @@
 		self;
 	},
 
+	response_off: { arg self;
+		self.response_off_hook;
+	},
+
 	data: { arg self;
 		// compat, TODO: move stepseq in data
 		self;
