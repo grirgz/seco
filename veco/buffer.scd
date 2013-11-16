@@ -119,6 +119,7 @@
 
 ~class_veco_sceneset = (
 	parent: ~class_veco,
+	trash_path: "/tmp/",
 
 
 	clip_offset: { arg self;
@@ -151,6 +152,14 @@
 		~veco_clipboard_mode;
 	},
 
+	clipboard_action_: { arg self, val;
+		~veco_clipboard_action = val;
+	},
+
+	clipboard_action: { arg self;
+		~veco_clipboard_action;
+	},
+
 
 
 	init: { arg self;
@@ -167,6 +176,7 @@
 		scenes.mixer = { ~launchpad_scene_mixer.new(self) };
 		scenes.mixer_mod = { ~launchpad_scene_mixer_mod.new(self) };
 		scenes.mode_copy = { ~launchpad_scene_mode_copy.new(self) };
+		scenes.mode_cut = { ~launchpad_scene_mode_cut.new(self) };
 		scenes.mode_paste = { ~launchpad_scene_mode_paste.new(self) };
 		scenes.launchpad = { ~launchpad_scene.new(self) };
 		scenes.quickpad = { ~launchpad_scene_codepads.new(self.quickpad_controller) };
@@ -183,6 +193,7 @@
 		};
 
 		self.mode = \clip;
+		self.mode_push_again = \stop;
 		self.active_seq_points = 8.collect { arg x; Point(x,0) };
 		self.msize = Point(64,64);
 		self.var_clip_offset = Point(0,0);
@@ -247,7 +258,7 @@
 		var node_uname,idx, node; 
 		#node_uname, idx = uname.asString.split($.);
 		if(idx.isNil) {
-			"Error: uname is not in a nodeclip uname format".postln;
+			uname.debug("Error: uname is not in a nodeclip uname format");
 			nil;
 		} {
 			idx = idx.asInteger-1;
@@ -270,6 +281,7 @@
 	copy_buffer: { arg self, from_path, to_path;
 		File.copy(from_path, to_path);
 	},
+
 );
 
 ~class_code_buffer = (
@@ -397,6 +409,24 @@
 			}
 		} {
 			false
+		}
+	},
+
+	delete_clip: { arg self, idx;
+		var clip = self.clips[idx];
+		if(clip.notNil) {
+			clip.uname.debug("nooooo!!! deleting a file!!!");
+			File.copy(clip.path, self.main.trash_path +/+ "%.%".format(PathName.new(clip.path).fileName, Date.localtime.stamp));
+			File.delete(clip.path);
+			self.clips[idx] = nil;
+			// TODO: delete score too
+			// score ?
+			// - sdef
+				// call delete clip on score manager
+				// - audio file
+				// - preset
+			// - stepseq
+			// -
 		}
 	},
 
@@ -783,6 +813,10 @@
 		self.parent_buffer.uname
 	},
 
+	delete_self: { arg self;
+		self.parent_buffer.delete_clip(self.get_index);
+	},
+
 	load_data_from_clip: { arg self, clip;
 		if(self.is_present.not) {
 			var code;
@@ -960,7 +994,7 @@
 
 );
 
-///////////////////////////////
+/////////////////////////////// not used
 
 ~class_node_subbuffer = (
 	parent: ~class_code_buffer,

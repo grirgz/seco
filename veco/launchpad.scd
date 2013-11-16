@@ -1,361 +1,4 @@
 
-~launchpad_scene_tile = (
-	parent: ~launchpad_scene,
-
-	//state: Array2D.new(8,8),
-	color_play: \green,
-	color_off: \off,
-	color_buffer: \dimred,
-	color_buffer_play: 0x3d,
-	range_state: Array.fill(8, 0),
-	ranges: [6,7],
-	state_edit: { arg self; self.sceneset.state_edit },
-
-	state_play: { arg self; self.sceneset.state_play },
-	//state_buffers: { arg self; self.scenestate.state_buffers },
-	state_buffers: { arg self; ~veco.get_buffer_presence },
-
-	reset_play_state: { arg self; 
-		self.sceneset.state_play = Array2D.new(8,8);
-		~veco.counter = IdentityDictionary.new;
-		self.update_display;
-	},
-	
-	render_state: { arg self;
-		var cleanup;
-		~veco.update_buffer_presence;
-		self.state_play.rowsDo { arg column, x;
-			column.do { arg val, y;
-				//[x, y, val].debug("state_leds");
-				self.state[x,y] = self.state_to_color(Point(x,y))
-			}
-		};
-		8.do { arg y;
-			self.state[8,y] = self.color_off;
-		};
-	},
-
-
-
-	state_to_color: { arg self, pos;
-		var x = pos.x;
-		var y = pos.y;
-		var val = self.state_play[x,y];
-		//[val,self.state_buffers[x,y], pos].debug("state_to_color: play, buf, pos");
-		if(val == 1) { 
-			if(self.state_buffers[x,y] == 1) {
-				self.color_buffer_play
-			} {
-				self.color_play
-
-			}
-		} { 
-			if(self.state_buffers[x,y] == 1) {
-				self.color_buffer
-			} {
-				self.color_off
-			}
-		};
-	},
-
-	midinote_to_tile_index: { arg self, midinote;
-		var pos = self.midi_to_gridpos(midinote);
-		pos = pos.x + (pos.y * 8);
-		pos;
-	},
-
-	response_cc_on: { arg self, midinote;
-		var res;
-		midinote.debug("MIDINOTE CoNTROL");
-		self.current_cc_on = midinote;
-		res =switch(midinote,
-			self.buttons[4], {
-				if(self.state_edit == 1) {
-					self.set_cc_led(self.buttons[4], \off);
-					self.sceneset.state_edit = 0;
-					//self;
-					nil;
-				} {
-
-					self.set_cc_led(self.buttons[4], \yellow);
-					self.sceneset.state_edit = 1;
-					//self;
-					nil;
-				}
-			},
-			{
-
-			}
-		);
-		if(res.notNil) { res.activate };
-	},
-
-	response_cc_off: { arg self, midinote;
-		var res;
-		midinote.debug("MIDINOTE CoNTROL off");
-		self.current_cc_on = nil;
-		res = switch(midinote,
-			self.buttons[5], {
-				"scene SEQ!!".debug;
-				self.set_cc_led(self.buttons[5], \yellow);
-				self.set_cc_led(self.buttons[6], \off);
-				self.set_cc_led(self.buttons[7], \off);
-				self.sceneset.seq;
-			},
-			self.buttons[6], {
-				self.set_cc_led(self.buttons[5], \off);
-				self.set_cc_led(self.buttons[6], \yellow);
-				self.set_cc_led(self.buttons[7], \off);
-				self.sceneset.subbuffer;
-			},
-			self.buttons[7], {
-				self.set_cc_led(self.buttons[5], \off);
-				self.set_cc_led(self.buttons[6], \off);
-				self.set_cc_led(self.buttons[7], \yellow);
-				self;
-			},
-			{
-
-			}
-		);
-		if(res.notNil) { res.activate };
-	},
-
-	response_launcher_on: { arg self, midinote;
-		var pos = self.midi_to_gridpos(midinote);
-		var ledpos;
-		var res;
-		var tilex, tiley, tile;
-		tilex = pos.y;
-		tiley = self.active_row;
-		tile = self.gridpos_to_tile_index(Point(tilex, tiley));
-		[midinote, pos, tilex, tiley, tile, self.current_cc_on, self.state_edit].debug("[midinote, pos, tilex, tiley, tile, self.current_cc_on, self.state_edit]");
-		if(self.current_cc_on == self.buttons[6]) {
-			self.sceneset.subbuffer.set_active_row(pos.y);
-			self.sceneset.subbuffer.activate;
-		} {
-			if(self.state_edit == 1) {
-				~veco.vim_open_buffer(tile);
-				tile.debug("response_on: tile");
-			} {
-				ledpos = Point(pos.y, self.active_row);
-				res = ~veco.toggle_play_node_by_index(tile);
-				[pos,ledpos,res].debug("res:::!!!! pos,ledpos,res");
-				if(res == true) {
-					self.state_play[ledpos.x,ledpos.y] = 1;
-					self.set_led(midinote, self.state_to_color(ledpos));
-				} {
-					self.state_play[ledpos.x,ledpos.y] = 0;
-					self.set_led(midinote, self.state_to_color(ledpos));
-				};
-			}
-		}
-	},
-
-	response_on: { arg self, midinote;
-		var tile = self.midinote_to_tile_index(midinote);
-		var pos = self.midi_to_gridpos(midinote);
-		var res;
-		midinote.debug("tile: response_on: midinote");
-		if(self.is_launcher_button(midinote)) {
-			midinote.debug("tile: response_on: launcher!!!");
-			self.sceneset.subbuffer.set_active_row(pos.y);
-			self.sceneset.subbuffer.activate;
-		} {
-
-			if(self.state_edit == 1) {
-				~veco.vim_open_buffer(tile);
-				tile.debug("response_on: tile");
-			} {
-				res = ~veco.toggle_play_node_by_index(tile);
-				res.debug("res:::!!!!");
-				if(res == true) {
-					self.state_play[pos.x,pos.y] = 1;
-					self.set_led(midinote, self.state_to_color(pos));
-				} {
-					self.state_play[pos.x,pos.y] = 0;
-					self.set_led(midinote, self.state_to_color(pos));
-				};
-			}
-		};
-	},
-
-	pseqrow: { arg self, y;
-		Pseq(8.collect { arg x;
-			if(self.state[x, y] == self.color_on) {
-				1
-			} {
-				\rest
-			}
-		})
-	},
-
-	response_off: { arg self;
-		
-	},
-);
-
-~launchpad_scene_subbuffer = (
-	parent: ~launchpad_scene,
-	color_on: \red,
-	color_off: \off,
-	color_play: \green,
-	color_buffer: \dimred,
-	color_buffer_play: 0x3d,
-
-	state_subbuffers: { arg self; ~veco.get_subbuffer_presence(self.active_row) },
-	state_buffers: { arg self; ~veco.get_buffer_presence },
-	state_play: { arg self; self.sceneset.state_play },
-	state_edit: { arg self; self.sceneset.state_edit },
-
-	state_to_color: ~launchpad_scene_tile[\state_to_color],
-
-	render_state: { arg self;
-		//~veco.geupdate_buffer_presence;
-		~veco.update_buffer_presence;
-		self.state_subbuffers.rowsDo { arg column, x;
-			column.do { arg val, y;
-				[x, y, val].debug("launchpad_scene_subbuffer: render_state: subbuffer_state");
-				self.state[x,y] = if(val == 1) { self.color_on } { self.color_off };
-			}
-		};
-		self.state_buffers.rowAt(self.active_row).do { arg val, x;
-			self.state[8, x] = self.state_to_color(Point(x, self.active_row));
-		}
-	},
-
-
-	response_on: { arg self, midinote;
-		var pos = self.midi_to_gridpos(midinote);
-		var ledpos;
-		var res;
-		var tilex, tiley, tile;
-		tilex = pos.y;
-		tiley = self.active_row;
-		tile = self.gridpos_to_tile_index(Point(tilex, tiley));
-		self.state_edit.debug("launchpad_scene_subbuffer: response_on: state_edit. BODREL");
-		if(self.is_launcher_button(midinote)) {
-
-			self.sceneset.tile.response_launcher_on(midinote);
-			//if(self.state_edit == 1) {
-			//	~veco.vim_open_buffer(tile);
-			//	tile.debug("response_on: tile");
-			//} {
-			//	ledpos = Point(pos.y, self.active_row);
-			//	res = ~veco.toggle_play_node_by_index(tile);
-			//	[pos,ledpos,res].debug("res:::!!!! pos,ledpos,res");
-			//	if(res == true) {
-			//		self.state_play[ledpos.x,ledpos.y] = 1;
-			//		self.set_led(midinote, self.state_to_color(ledpos));
-			//	} {
-			//		self.state_play[ledpos.x,ledpos.y] = 0;
-			//		self.set_led(midinote, self.state_to_color(ledpos));
-			//	};
-			//}
-		} {
-			if(self.state_edit == 1) {
-				~veco.vim_open_subbuffer(tile, pos.x+1);
-				[tile,pos].debug("response_on: open subbuffer: tile, pos");
-			} {
-				~veco.exec_subbuffer(tile, pos.x+1);
-				pos.debug("response_on: exec subbuffer: pos");
-			}
-		}
-	},
-
-);
-
-~launchpad_scene_seq_old = (
-	parent: ~launchpad_scene,
-
-	//state: Array2D.new(8,8),
-	color_on: \red,
-	color_off: \off,
-	range_state: Array.fill(8, 0),
-	ranges: [6,7],
-
-	state_buffers: { arg self; ~veco.get_buffer_presence },
-
-	seq_state: { arg self; self.sceneset.state_seq }, 
-	reset_seq_state: { arg self; self.sceneset.state_seq = Array2D.new(8,8) },
-
-	get_range_state: { arg self, index;
-		self.range_state[index];
-	},
-
-
-	set_range_state: { arg self, index, val;
-		self.range_state[index] = val;
-	},
-
-	render_state: { arg self;
-		var active_row = self.active_row;
-		self.seq_state.rowsDo { arg column, x;
-			column.do { arg val, y;
-				[x, y, val].debug("launchpad_scene_seq: render_state: seq_state");
-				self.state[x,y] = if(val == 1) { self.color_on } { \off };
-			}
-		};
-		self.state_buffers.rowAt(active_row).do { arg val, x;
-			self.state[8, x] = self.sceneset.tile.state_to_color(Point(x, active_row));
-		};
-	},
-
-	response_on: { arg self, midinote;
-		var pos;
-		var color;
-		"resp: on".debug;
-		pos = self.midi_to_gridpos(midinote);
-		if(self.is_launcher_button(midinote)) {
-			self.sceneset.tile.response_launcher_on(midinote);
-		} {
-			self.toggle_cell(midinote, pos);
-		};
-	},
-
-	toggle_cell: { arg self, midi, pos;
-		var color;
-		color = self.color_on;
-		if(self.seq_state[pos.x,pos.y] == 1) {
-			self.seq_state[pos.x,pos.y] = 0;
-			self.set_led(midi, \off);
-		} {
-			self.seq_state[pos.x,pos.y] = 1;
-			self.set_led(midi, color);
-		}
-	},
-
-	pseqrow: { arg self, y, repeat=1;
-		Pseq(8.collect { arg x;
-			if(self.seq_state[x, y] == 1) {
-				false
-			} {
-				true
-			}
-		},repeat)
-	},
-
-	prythm: { arg self, y, repeat=inf;
-		Pn(Plazy({
-			self.pseqrow(y)
-		}),repeat);
-	},
-
-	pryn: { arg self, name, repeat=inf;
-		var idx = ~veco.name_to_index(name);
-		[name, idx].debug("pryn");
-		idx = idx % 8;
-		Pn(Plazy({
-			self.pseqrow(idx)
-		}),repeat);
-	},
-
-	response_off: { arg self;
-		
-	},
-);
-
-//////////////////
 
 ~launchpad = (
 	new: { arg self, controller;
@@ -606,6 +249,9 @@
 			},
 			\paste, {
 				1
+			},
+			\cut, {
+				2
 			},
 			\clip, {
 				4 
@@ -953,7 +599,17 @@
 			} {
 				#node, clip = self.gridpos_to_node_and_clip(pos);
 				if(clip.is_present) {
-					clip.response_on;
+					if(clip.is_active and: {
+						node.is_playing and: {
+							self.controller.mode_push_again == \stop 
+						}
+					}) {
+						node.stop_node(true, {
+							self.render_pos(pos);
+						});
+					} {
+						clip.response_on;
+					};
 				} {
 					node.stop_node(true, {
 						self.render_column(pos.x);
@@ -1422,6 +1078,10 @@
 					self.controller.mode = \paste;
 					self.sceneset.mode_paste;
 				},
+				2, { // cut
+					self.controller.mode = \cut;
+					self.sceneset.mode_cut;
+				},
 				{
 					nil
 				}
@@ -1442,6 +1102,7 @@
 ~launchpad_scene_mode_copy = (
 	parent: ~launchpad_scene,
 	color_clipboard: \red2,
+	clipboard_action: \copy,
 
 	// ** layout
 	// - start/stop
@@ -1512,6 +1173,7 @@
 
 	activate_hook: { arg self;
 		var node, clip;
+		self.controller.clipboard_action = self.clipboard_action;
 		if(self.sceneset.mode_old_active_scene === self.sceneset.mixer) {
 			self.controller.clipboard_mode = \column;
 		} {
@@ -1589,6 +1251,13 @@
 
 );
 
+~launchpad_scene_mode_cut = (
+	parent: ~launchpad_scene_mode_copy,
+	color_clipboard: \red2,
+	clipboard_action: \cut,
+
+);
+
 ~launchpad_scene_mode_paste = (
 	parent: ~launchpad_scene_mode_copy,
 
@@ -1639,7 +1308,9 @@
 			var clip_source, clip_dest;
 			var dest_abspos, dest_gridpos;
 			if(self.controller.clipboard_mode == \row) {
+
 				// -- paste row
+
 				self.line_do { arg x, n;
 					dest_abspos = Point(x, y);
 					dest_gridpos = self.abspos_to_gridpos(dest_abspos);
@@ -1658,6 +1329,7 @@
 				};
 			} {
 				if(self.controller.clipboard_mode == \active) {
+
 					// -- paste active
 
 					self.line_do { arg x, n;
@@ -1687,6 +1359,9 @@
 			var dest_x, source_x;
 			var first;
 			if(self.controller.clipboard_mode == \column) {
+
+				// -- paste column
+
 				first = self.controller.clipboard_clip.detect({ arg item; item.notNil });
 				if(first.notNil) {
 					clip_source_abspos = first.get_abspos;
@@ -1715,12 +1390,17 @@
 
 			} {
 
+				// -- paste cell
+
 				clip_source = self.controller.clipboard_clip[0];
 				clip_dest = self.gridpos_to_buf(pos);
 				if(clip_source.is_present and: { clip_dest.is_present.not }) {
 					clip_dest.parent_buffer.load_data_from_node(clip_source.parent_buffer);
 					clip_dest.load_data_from_clip(clip_source);
 					self.set_led(pos, self.color_pasted);
+					if(self.controller.clipboard_action == \cut) {
+						clip_source.delete_self;
+					};
 				}
 			}
 		};
@@ -2003,3 +1683,364 @@
 	//	});
 	//	self.blinker.play;
 	//},
+
+
+////////////// not used anymore
+
+~launchpad_scene_tile = (
+	parent: ~launchpad_scene,
+
+	//state: Array2D.new(8,8),
+	color_play: \green,
+	color_off: \off,
+	color_buffer: \dimred,
+	color_buffer_play: 0x3d,
+	range_state: Array.fill(8, 0),
+	ranges: [6,7],
+	state_edit: { arg self; self.sceneset.state_edit },
+
+	state_play: { arg self; self.sceneset.state_play },
+	//state_buffers: { arg self; self.scenestate.state_buffers },
+	state_buffers: { arg self; ~veco.get_buffer_presence },
+
+	reset_play_state: { arg self; 
+		self.sceneset.state_play = Array2D.new(8,8);
+		~veco.counter = IdentityDictionary.new;
+		self.update_display;
+	},
+	
+	render_state: { arg self;
+		var cleanup;
+		~veco.update_buffer_presence;
+		self.state_play.rowsDo { arg column, x;
+			column.do { arg val, y;
+				//[x, y, val].debug("state_leds");
+				self.state[x,y] = self.state_to_color(Point(x,y))
+			}
+		};
+		8.do { arg y;
+			self.state[8,y] = self.color_off;
+		};
+	},
+
+
+
+	state_to_color: { arg self, pos;
+		var x = pos.x;
+		var y = pos.y;
+		var val = self.state_play[x,y];
+		//[val,self.state_buffers[x,y], pos].debug("state_to_color: play, buf, pos");
+		if(val == 1) { 
+			if(self.state_buffers[x,y] == 1) {
+				self.color_buffer_play
+			} {
+				self.color_play
+
+			}
+		} { 
+			if(self.state_buffers[x,y] == 1) {
+				self.color_buffer
+			} {
+				self.color_off
+			}
+		};
+	},
+
+	midinote_to_tile_index: { arg self, midinote;
+		var pos = self.midi_to_gridpos(midinote);
+		pos = pos.x + (pos.y * 8);
+		pos;
+	},
+
+	response_cc_on: { arg self, midinote;
+		var res;
+		midinote.debug("MIDINOTE CoNTROL");
+		self.current_cc_on = midinote;
+		res =switch(midinote,
+			self.buttons[4], {
+				if(self.state_edit == 1) {
+					self.set_cc_led(self.buttons[4], \off);
+					self.sceneset.state_edit = 0;
+					//self;
+					nil;
+				} {
+
+					self.set_cc_led(self.buttons[4], \yellow);
+					self.sceneset.state_edit = 1;
+					//self;
+					nil;
+				}
+			},
+			{
+
+			}
+		);
+		if(res.notNil) { res.activate };
+	},
+
+	response_cc_off: { arg self, midinote;
+		var res;
+		midinote.debug("MIDINOTE CoNTROL off");
+		self.current_cc_on = nil;
+		res = switch(midinote,
+			self.buttons[5], {
+				"scene SEQ!!".debug;
+				self.set_cc_led(self.buttons[5], \yellow);
+				self.set_cc_led(self.buttons[6], \off);
+				self.set_cc_led(self.buttons[7], \off);
+				self.sceneset.seq;
+			},
+			self.buttons[6], {
+				self.set_cc_led(self.buttons[5], \off);
+				self.set_cc_led(self.buttons[6], \yellow);
+				self.set_cc_led(self.buttons[7], \off);
+				self.sceneset.subbuffer;
+			},
+			self.buttons[7], {
+				self.set_cc_led(self.buttons[5], \off);
+				self.set_cc_led(self.buttons[6], \off);
+				self.set_cc_led(self.buttons[7], \yellow);
+				self;
+			},
+			{
+
+			}
+		);
+		if(res.notNil) { res.activate };
+	},
+
+	response_launcher_on: { arg self, midinote;
+		var pos = self.midi_to_gridpos(midinote);
+		var ledpos;
+		var res;
+		var tilex, tiley, tile;
+		tilex = pos.y;
+		tiley = self.active_row;
+		tile = self.gridpos_to_tile_index(Point(tilex, tiley));
+		[midinote, pos, tilex, tiley, tile, self.current_cc_on, self.state_edit].debug("[midinote, pos, tilex, tiley, tile, self.current_cc_on, self.state_edit]");
+		if(self.current_cc_on == self.buttons[6]) {
+			self.sceneset.subbuffer.set_active_row(pos.y);
+			self.sceneset.subbuffer.activate;
+		} {
+			if(self.state_edit == 1) {
+				~veco.vim_open_buffer(tile);
+				tile.debug("response_on: tile");
+			} {
+				ledpos = Point(pos.y, self.active_row);
+				res = ~veco.toggle_play_node_by_index(tile);
+				[pos,ledpos,res].debug("res:::!!!! pos,ledpos,res");
+				if(res == true) {
+					self.state_play[ledpos.x,ledpos.y] = 1;
+					self.set_led(midinote, self.state_to_color(ledpos));
+				} {
+					self.state_play[ledpos.x,ledpos.y] = 0;
+					self.set_led(midinote, self.state_to_color(ledpos));
+				};
+			}
+		}
+	},
+
+	response_on: { arg self, midinote;
+		var tile = self.midinote_to_tile_index(midinote);
+		var pos = self.midi_to_gridpos(midinote);
+		var res;
+		midinote.debug("tile: response_on: midinote");
+		if(self.is_launcher_button(midinote)) {
+			midinote.debug("tile: response_on: launcher!!!");
+			self.sceneset.subbuffer.set_active_row(pos.y);
+			self.sceneset.subbuffer.activate;
+		} {
+
+			if(self.state_edit == 1) {
+				~veco.vim_open_buffer(tile);
+				tile.debug("response_on: tile");
+			} {
+				res = ~veco.toggle_play_node_by_index(tile);
+				res.debug("res:::!!!!");
+				if(res == true) {
+					self.state_play[pos.x,pos.y] = 1;
+					self.set_led(midinote, self.state_to_color(pos));
+				} {
+					self.state_play[pos.x,pos.y] = 0;
+					self.set_led(midinote, self.state_to_color(pos));
+				};
+			}
+		};
+	},
+
+	pseqrow: { arg self, y;
+		Pseq(8.collect { arg x;
+			if(self.state[x, y] == self.color_on) {
+				1
+			} {
+				\rest
+			}
+		})
+	},
+
+	response_off: { arg self;
+		
+	},
+);
+
+~launchpad_scene_subbuffer = (
+	parent: ~launchpad_scene,
+	color_on: \red,
+	color_off: \off,
+	color_play: \green,
+	color_buffer: \dimred,
+	color_buffer_play: 0x3d,
+
+	state_subbuffers: { arg self; ~veco.get_subbuffer_presence(self.active_row) },
+	state_buffers: { arg self; ~veco.get_buffer_presence },
+	state_play: { arg self; self.sceneset.state_play },
+	state_edit: { arg self; self.sceneset.state_edit },
+
+	state_to_color: ~launchpad_scene_tile[\state_to_color],
+
+	render_state: { arg self;
+		//~veco.geupdate_buffer_presence;
+		~veco.update_buffer_presence;
+		self.state_subbuffers.rowsDo { arg column, x;
+			column.do { arg val, y;
+				[x, y, val].debug("launchpad_scene_subbuffer: render_state: subbuffer_state");
+				self.state[x,y] = if(val == 1) { self.color_on } { self.color_off };
+			}
+		};
+		self.state_buffers.rowAt(self.active_row).do { arg val, x;
+			self.state[8, x] = self.state_to_color(Point(x, self.active_row));
+		}
+	},
+
+
+	response_on: { arg self, midinote;
+		var pos = self.midi_to_gridpos(midinote);
+		var ledpos;
+		var res;
+		var tilex, tiley, tile;
+		tilex = pos.y;
+		tiley = self.active_row;
+		tile = self.gridpos_to_tile_index(Point(tilex, tiley));
+		self.state_edit.debug("launchpad_scene_subbuffer: response_on: state_edit. BODREL");
+		if(self.is_launcher_button(midinote)) {
+
+			self.sceneset.tile.response_launcher_on(midinote);
+			//if(self.state_edit == 1) {
+			//	~veco.vim_open_buffer(tile);
+			//	tile.debug("response_on: tile");
+			//} {
+			//	ledpos = Point(pos.y, self.active_row);
+			//	res = ~veco.toggle_play_node_by_index(tile);
+			//	[pos,ledpos,res].debug("res:::!!!! pos,ledpos,res");
+			//	if(res == true) {
+			//		self.state_play[ledpos.x,ledpos.y] = 1;
+			//		self.set_led(midinote, self.state_to_color(ledpos));
+			//	} {
+			//		self.state_play[ledpos.x,ledpos.y] = 0;
+			//		self.set_led(midinote, self.state_to_color(ledpos));
+			//	};
+			//}
+		} {
+			if(self.state_edit == 1) {
+				~veco.vim_open_subbuffer(tile, pos.x+1);
+				[tile,pos].debug("response_on: open subbuffer: tile, pos");
+			} {
+				~veco.exec_subbuffer(tile, pos.x+1);
+				pos.debug("response_on: exec subbuffer: pos");
+			}
+		}
+	},
+
+);
+
+~launchpad_scene_seq_old = (
+	parent: ~launchpad_scene,
+
+	//state: Array2D.new(8,8),
+	color_on: \red,
+	color_off: \off,
+	range_state: Array.fill(8, 0),
+	ranges: [6,7],
+
+	state_buffers: { arg self; ~veco.get_buffer_presence },
+
+	seq_state: { arg self; self.sceneset.state_seq }, 
+	reset_seq_state: { arg self; self.sceneset.state_seq = Array2D.new(8,8) },
+
+	get_range_state: { arg self, index;
+		self.range_state[index];
+	},
+
+
+	set_range_state: { arg self, index, val;
+		self.range_state[index] = val;
+	},
+
+	render_state: { arg self;
+		var active_row = self.active_row;
+		self.seq_state.rowsDo { arg column, x;
+			column.do { arg val, y;
+				[x, y, val].debug("launchpad_scene_seq: render_state: seq_state");
+				self.state[x,y] = if(val == 1) { self.color_on } { \off };
+			}
+		};
+		self.state_buffers.rowAt(active_row).do { arg val, x;
+			self.state[8, x] = self.sceneset.tile.state_to_color(Point(x, active_row));
+		};
+	},
+
+	response_on: { arg self, midinote;
+		var pos;
+		var color;
+		"resp: on".debug;
+		pos = self.midi_to_gridpos(midinote);
+		if(self.is_launcher_button(midinote)) {
+			self.sceneset.tile.response_launcher_on(midinote);
+		} {
+			self.toggle_cell(midinote, pos);
+		};
+	},
+
+	toggle_cell: { arg self, midi, pos;
+		var color;
+		color = self.color_on;
+		if(self.seq_state[pos.x,pos.y] == 1) {
+			self.seq_state[pos.x,pos.y] = 0;
+			self.set_led(midi, \off);
+		} {
+			self.seq_state[pos.x,pos.y] = 1;
+			self.set_led(midi, color);
+		}
+	},
+
+	pseqrow: { arg self, y, repeat=1;
+		Pseq(8.collect { arg x;
+			if(self.seq_state[x, y] == 1) {
+				false
+			} {
+				true
+			}
+		},repeat)
+	},
+
+	prythm: { arg self, y, repeat=inf;
+		Pn(Plazy({
+			self.pseqrow(y)
+		}),repeat);
+	},
+
+	pryn: { arg self, name, repeat=inf;
+		var idx = ~veco.name_to_index(name);
+		[name, idx].debug("pryn");
+		idx = idx % 8;
+		Pn(Plazy({
+			self.pseqrow(idx)
+		}),repeat);
+	},
+
+	response_off: { arg self;
+		
+	},
+);
+
+//////////////////
