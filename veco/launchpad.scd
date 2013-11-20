@@ -187,14 +187,15 @@
 	},
 
 	install_midi_responder: { arg self;
+		var launchpad_channel = 0;
 		MIDIdef.noteOn(\launchpadOn, { arg vel, midinote;
 			midinote.debug("midinote: noteOn responder");
 			self.response_on(midinote);
-		}).permanent_(true);
+		}, nil, launchpad_channel).permanent_(true);
 		MIDIdef.noteOff(\launchpadOff, { arg vel, midinote;
 			midinote.debug("midinote: noteOFF responder");
 			self.response_off(midinote);
-		}).permanent_(true);
+		}, nil, launchpad_channel).permanent_(true);
 		MIDIdef.cc(\launchpadCC, { arg vel, midinote;
 			if(vel == 127) {
 				midinote.debug("midinote: ccOn responder");
@@ -205,7 +206,7 @@
 				self.handle_modifiers_off(midinote);
 				self.response_cc_off(midinote);
 			}
-		}).permanent_(true);
+		}, nil, launchpad_channel).permanent_(true);
 	},
 
 	update_display: { arg self;
