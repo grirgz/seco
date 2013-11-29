@@ -24,12 +24,58 @@ SynthDef(\rlsaw, { arg out=0, amp=0.1, gate=1, pan=0, spread=0.8, freq=200, done
 			self;
 		},
 
+		get_quant: { arg self;
+			Pdef.defaultQuant;
+		},
+
+		record_dur: { arg self;
+			8
+		},
+
 		start_recording: { arg self;
+			var quant;
+			var visual_timer;
+			var visual_timer_player;
+			var timer_start_beat;
+			var next_time_on_grid;
+			var overlap_time = ~veco_record_overlap_time;
+			var dur;
+
+			quant = self.get_quant;
+			dur = 8;
+
 			debug("start_recording");
 			self.start_time = self.recclock.beats;
 			self.event_score = ~make_notescore.();
-			self.start_immediate_recording;
 			self.is_recording = true;
+
+			visual_timer = self.visual_timer;
+			self.recclock.schedAbs(self.recclock.nextTimeOnGrid(quant) + dur, { 
+				self.stop_recording;
+				nil;
+			});
+			next_time_on_grid = self.recclock.nextTimeOnGrid(quant);
+			timer_start_beat = next_time_on_grid - min((next_time_on_grid - self.recclock.beats), 4);
+			[next_time_on_grid, self.recclock.beats, timer_start_beat].debug("timer_start_beat");
+			self.recclock.schedAbs( timer_start_beat, {
+					visual_timer.play;
+					nil;
+				}
+			);
+
+			// FIXME: move rendering code outside
+			self.recclock.schedAbs(self.recclock.nextTimeOnGrid(quant), { 
+				visual_timer.stop;
+				4.do { arg x;
+					Veco.main.launchpad.set_mode_led(x, \red);
+				};
+				nil;
+			});
+
+			self.recclock.schedAbs(self.recclock.nextTimeOnGrid(quant), {
+				self.start_immediate_recording;
+				nil;
+			})
 		},
 
 		stop_recording: { arg self;
@@ -38,6 +84,10 @@ SynthDef(\rlsaw, { arg out=0, amp=0.1, gate=1, pan=0, spread=0.8, freq=200, done
 			self.stop_immediate_recording;
 			self.event_score.set_end(self.stop_time - self.start_time);
 			self.is_recording = false;
+
+			4.do { arg x;
+				Veco.main.launchpad.set_mode_led(x, \off);
+			};
 		},
 
 		add_event_on: { arg self, event;
@@ -55,6 +105,22 @@ SynthDef(\rlsaw, { arg out=0, amp=0.1, gate=1, pan=0, spread=0.8, freq=200, done
 				self.event_score.book.debug("BOOK");
 				self.event_score.add_noteoff(key, time)
 			}
+		},
+
+		visual_timer: { arg self;
+			var quant = self.get_quant;
+			Task({ 
+				var x=self.recclock.beatInBar.asInteger;
+				debug("RAHHHHHHHH");
+				10.do {
+					[self.recclock.beats, self.recclock.beatInBar, self.recclock.nextTimeOnGrid(quant)].debug("RAHHHHHHHH2");
+
+					Veco.main.launchpad.set_mode_led((x-1).wrap(0,4), \off);
+					Veco.main.launchpad.set_mode_led(x, \green);
+					1.wait;
+					x = x+1 % 4;
+				};
+			})
 		},
 	);
 
@@ -108,6 +174,13 @@ SynthDef(\rlsaw, { arg out=0, amp=0.1, gate=1, pan=0, spread=0.8, freq=200, done
 				args.debug("mynoteoff");
 				notes[num].play;
 			},nil,1); 
+
+			
+		},
+
+		stop_immediate_recording: { arg self;
+			MIDIdef.noteOn(\pianoOn).free;
+			MIDIdef.noteOff(\pianoOff).free;
 			
 		},
 	);
