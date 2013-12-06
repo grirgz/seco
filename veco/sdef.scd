@@ -125,7 +125,6 @@
 		},
 	);
 
-	~score_storage = ~class_score_manager.new;
 
 	//// scores
 
@@ -1434,6 +1433,10 @@
 				Pfunc { self.get_pat_val };
 			}
 		},
+
+		valpattern: { arg self;
+			Pfunc { arg ev; self.get_val };
+		},
 	);
 
 	~class_control_array = (
@@ -1560,8 +1563,8 @@
 			~env_editor.new(self).make_window;
 		},
 
-		vpattern: { arg self;
-			Pfunc { [self.get_env] }
+		vpattern: { arg self, repeat=inf;
+			Pfuncn ({ [self.get_env] }, repeat);
 		},
 
 	);
@@ -1647,5 +1650,38 @@
 			env.curves
 		);
 	};
+
+	/////////////////////////
+
+	~class_preset = (
+		parent: ~class_score_preset,
+		new: { arg self, specs;
+			var extra_specs = [];
+			var parent;
+			self = self.deepCopy;
+
+			parent = (
+				spec: specs
+			);
+
+			self.name = parent.name;
+			self.node_uname = parent.node_uname;
+			//parent.spec.debug("pSPECS");
+			self.specs = parent.spec;
+			self.index = 0;
+			self.subindex = 0;
+			self.parent_collection = { parent };
+			self.vals = IdentityDictionary.new;
+		
+			self.build_vals;
+			self.build_pbind;
+			self.is_present = false;
+
+
+			//self.load_data; // doesnt exists, called on collection level
+
+			self;
+		},
+	)
 )
 

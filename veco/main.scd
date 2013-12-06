@@ -62,10 +62,37 @@
 //	active_row: 1,
 //).putAll(~scenestate);
 
-~sceneset = ~class_veco_sceneset.new;
-~sceneset.putAll(~scenestate);
-~veco = ~sceneset;
+~class_project_manager = (
+	new: { arg self;
+		self = self.deepCopy;
+	
+		
+	
+		self;
+	},
 
-"debut activ".debug;
-~sceneset.clip.activate;
-"fin activ".debug;
+	reset_board: {
+		if(~sceneset.notNil) {
+			~sceneset.project_destructor;
+		};
+		~sceneset = ~class_veco_sceneset.new;
+		~sceneset.putAll(~scenestate);
+		~veco = ~sceneset;
+		Veco.main = ~veco;
+		~score_storage = ~class_score_manager.new;
+	},
+
+	open_project: { arg self, path;
+		self.reset_board;
+		~veco.open_project(path); 
+
+		"debut activ".debug;
+		~sceneset.clip.activate;
+		"fin activ".debug;
+		
+	},
+	
+);
+
+~veco_project_manager = ~class_project_manager.new;
+//~veco_project_manager.reset_board;

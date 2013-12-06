@@ -1,4 +1,4 @@
-
+~veco.load_project("/home/ggz/code/sc/seco/vlive/v15")
 //"vim --servername scvim --remote-tab c.sc".unixCmd
 
 

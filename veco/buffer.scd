@@ -57,6 +57,9 @@
 	},
 
 	project_destructor: { arg self;
+		if(self.project_path.notNil) {
+			self.save_data;
+		};
 		Pdef.clear;
 		BufferPool.release_client(\veco_audio);
 	},
@@ -64,17 +67,20 @@
 	open_project: { arg self, path;
 		s.boot;
 		~initialize_jack.();
-		self.project_destructor;
+		//self.project_destructor;
 
 		self.project_path = path.standardizePath;
+		~veco_project_path = self.project_path;
 		self.project_path.debug("class_veco_buffer_manager.open_project: path");
 		self.nodes = IdentityDictionary.new;
 		self.node_unames.do { arg uname;
+			// create buffers objects and load saved data (mainly stepseq and amp)
 			self.nodes[uname] = ~class_node_buffer.new(self, uname);
 			self.nodes[uname].load_data;
 		};
-		self.init_project;
-		self.load_data;
+		"init project".debug("===");
+		self.init_project; // load init files and execute node buffers
+		//self.load_data;
 	},
 
 	open_project_in_vim: { arg self, name;
@@ -107,9 +113,12 @@
 
 	init_project: { arg self;
 		var res;
+		var data;
 		res = "%/init.scd".format(self.project_path).standardizePath;
+		data = "%/init.scd".format(self.data_path).standardizePath;
 		res.debug("Loading PROJECT init file");
 		~execute_till_special_end.(res);
+		~execute_till_special_end.(data);
 		self.nodes.keysValuesDo { arg uname, buf;
 			buf.execute;
 		};
@@ -129,6 +138,13 @@
 	clip_offset_: { arg self, val;
 		self.var_clip_offset = val;
 		self.changed(\clip_offset);
+	},
+
+	save_data: { arg self;
+		var file = self.data_path +/+ "init.scd";
+		File.use(file, "w", { arg fh;
+			fh.write("Veco.main.clip_offset = " ++ self.var_clip_offset.asCompileString++";\n");
+		});
 	},
 
 	clipboard_clip: { arg self;
