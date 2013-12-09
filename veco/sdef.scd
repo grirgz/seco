@@ -354,11 +354,11 @@
 		build_vals: { arg self, clear_old=false;
 			var specs = self.specs;
 			var vals;
-			//specs.debug("SPECS");
-			//self.specs.debug("SPECS: sfou dmagueul");
+			specs.debug("SPECS");
+			self.specs.debug("SPECS: sfou dmagueul");
 			if(specs.isSymbolWS) {
 				specs = self.synthdef_name_to_specs(specs);
-				//specs.debug("SPECS: after synthdef_name_to_specs");
+				specs.debug("SPECS: after synthdef_name_to_specs");
 			};
 
 			//if(extra_specs.isSymbol) {
@@ -468,12 +468,14 @@
 				}
 			};
 			//binds = binds.flat;
-			self.build_apbind;
+			self.build_apbind; // what ??
+			self.build_valpbind; // no busses
 			self.pbind = Pbind(*binds);
 			self.pbind;
 		},
 
 		build_apbind: { arg self;
+			// what is it for ???
 			var binds = List.new;
 			self.specs.clump(2).do { arg pair;
 				var key = pair[0];
@@ -490,6 +492,47 @@
 			//binds = binds.flat;
 			self.apbind = Pbind(*binds);
 			self.apbind;
+		},
+
+		build_valpbind: { arg self;
+			// what is it for ???
+			var binds = List.new;
+			self.specs.clump(2).do { arg pair;
+				var key = pair[0];
+				var val = self.vals[key];
+				//[pair, key, val, self.vals.keys].debug("PAIR");
+				if(val.notNil) {
+					//[pair].debug("PAIRiiii");
+					binds.add(key);
+					binds.add(val.valpattern);
+				} {
+
+				}
+			};
+			//binds = binds.flat;
+			self.valpbind = Pbind(*binds);
+			self.valpbind;
+		},
+
+		get_event: { arg self;
+			var binds = List.new;
+			var event;
+			self.specs.clump(2).do { arg pair;
+				var key = pair[0];
+				var val = self.vals[key];
+				//[pair, key, val, self.vals.keys].debug("PAIR");
+				if(val.notNil) {
+					//[pair].debug("PAIRiiii");
+					binds.add(key);
+					binds.add(val.get_event_val);
+				} {
+
+				}
+			};
+			//binds = binds.flat;
+			event = ();
+			event.putPairs(binds);
+			event;
 		},
 	);
 
@@ -654,13 +697,13 @@
 			var res;
 			var subres;
 			//self.all.dump;
-			[self.node_uname, self.name, self.all.indices, Veco.main.project_path, idx].debug("class_score_collection.get");
+			//[self.node_uname, self.name, self.all.indices, Veco.main.project_path, idx].debug("class_score_collection.get");
 
-			[idx, subidx].debug("scorecol.get: idx, subidx 1");
+			//[idx, subidx].debug("scorecol.get: idx, subidx 1");
 			if(subidx.isNil) {
 				subidx = self.get_active_subindex(idx)
 			};
-			[idx, subidx].debug("scorecol.get: idx, subidx 2");
+			//[idx, subidx].debug("scorecol.get: idx, subidx 2");
 
 			res = self.all.at(idx);
 			if(res.isNil) {
@@ -1367,7 +1410,19 @@
 
 	///// controls
 
+	~class_control_ancestor = (
+		valpattern: { arg self;
+			self.vpattern;
+		},
+
+		get_event_val: { arg self;
+			self.get_val;
+		},
+
+	);
+
 	~class_control_scalar = (
+		parent: ~class_control_ancestor,
 		kind: \scalar,
 		bus_mode: false,
 		new: { arg self, parent, name, spec, val;
@@ -1437,9 +1492,11 @@
 		valpattern: { arg self;
 			Pfunc { arg ev; self.get_val };
 		},
+
 	);
 
 	~class_control_array = (
+		parent: ~class_control_ancestor,
 		kind: \array,
 		new: { arg self, parent, name, spec, val;
 			self = self.deepCopy;
@@ -1465,6 +1522,11 @@
 			self.parent_controller.is_present = true;
 			self.val = val;
 		},
+		
+		get_event_val: { arg self;
+			[self.get_val];
+		},
+
 
 		vpattern: { arg self;
 			Pfunc { [ self.get_val ] };
@@ -1472,6 +1534,7 @@
 	);
 	
 	~class_control_env = (
+		parent: ~class_control_ancestor,
 		kind: \env,
 		new: { arg self, parent, name, spec, val;
 			self = self.deepCopy;
@@ -1566,6 +1629,11 @@
 		vpattern: { arg self, repeat=inf;
 			Pfuncn ({ [self.get_env] }, repeat);
 		},
+
+		get_event_val: { arg self;
+			[self.get_env];
+		},
+
 
 	);
 
