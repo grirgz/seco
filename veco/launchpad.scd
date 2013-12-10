@@ -254,6 +254,9 @@
 			\cut, {
 				2
 			},
+			\link, {
+				3
+			},
 			\clip, {
 				4 
 			},
@@ -1083,6 +1086,10 @@
 					self.controller.mode = \cut;
 					self.sceneset.mode_cut;
 				},
+				3, { // cut
+					self.controller.mode = \link;
+					self.sceneset.mode_link;
+				},
 				{
 					nil
 				}
@@ -1202,15 +1209,9 @@
 		}
 	},
 
-	response_on: { arg self, midinote;
-		var pos = self.midi_to_gridpos(midinote);
-		var opos;
-		var buf;
-		var node, clip;
-		midinote.debug("launchpad_scene_mode_copy.response_on");
-
-		if(self.is_launcher_button(midinote)) {
-			// -- copy row
+	row_selected: { arg self, midinote, pos;
+			var clip;
+		
 			var y = pos.y + self.controller.clip_offset.y;
 			var clips = List.new;
 			"bla".debug("kjk");
@@ -1225,21 +1226,39 @@
 			"bla".debug("kjk3");
 			self.render_state;
 			"bla".debug("kjk4");
+	},
+
+	column_selected: { arg self, midinote, pos;
+		var clip;
+		var x = pos.x + self.controller.clip_offset.x;
+		self.controller.clipboard_clip = self.controller.board_size.y.collect { arg y;
+			y = y + self.controller.board_offset.y;
+			clip = self.absolute_point_to_buf(Point(x, y));
+			if(clip.is_present) {
+				clip;
+			} {
+				nil;
+			}
+		};
+		self.render_state;
+		
+	},
+
+	response_on: { arg self, midinote;
+		var pos = self.midi_to_gridpos(midinote);
+		var opos;
+		var buf;
+		var node, clip;
+		midinote.debug("launchpad_scene_mode_copy.response_on");
+
+		if(self.is_launcher_button(midinote)) {
+			// -- copy row
+			self.row_selected(midinote, pos);
 		} {
 			midinote.debug("launchpad_scene_mode_copy.response_on: go!");
 			if(self.controller.clipboard_mode == \column) {
 				// -- copy column
-				var x = pos.x + self.controller.clip_offset.x;
-				self.controller.clipboard_clip = self.controller.board_size.y.collect { arg y;
-					y = y + self.controller.board_offset.y;
-					clip = self.absolute_point_to_buf(Point(x, y));
-					if(clip.is_present) {
-						clip;
-					} {
-						nil;
-					}
-				};
-				self.render_state;
+				self.column_selected(midinote, pos);
 			} {
 				// -- copy cell
 				self.controller.clipboard_mode = \clip;
@@ -1256,6 +1275,18 @@
 	parent: ~launchpad_scene_mode_copy,
 	color_clipboard: \red2,
 	clipboard_action: \cut,
+
+);
+
+~launchpad_scene_mode_link = (
+	parent: ~launchpad_scene_mode_copy,
+	color_clipboard: \red2,
+	clipboard_action: \link,
+
+	column_selected: { arg self, midinote, pos;
+		self.render_state;
+		
+	},
 
 );
 
@@ -1297,68 +1328,119 @@
 		}
 	},
 
-	response_on: { arg self, midinote;
-		var pos = self.midi_to_gridpos(midinote);
+	paste_link: { arg self, midinote, pos;
+		var clip_source, clip_dest;
+		var clip_source_abspos, clip_dest_abspos;
+		var write_header;
+		var header, cell;
+		var clips_to_spawner_code;
+		clip_source = self.controller.clipboard_clip[0];
+		clip_dest = self.gridpos_to_buf(pos);
+
+		// TODO put the code out of interface!
+
+		clips_to_spawner_code = { arg clips, index;
+			var cell;
+			cell = List[
+				"~spawnclips.(["
+			];
+			clips.do { arg clip;
+				if(clip.notNil and: { clip.is_present }) {
+					cell.add(
+						"\t%, %,".format(clip.parent_buffer.uname.asCompileString, index ?? {clip.get_index})
+					)
+				}
+			};
+			cell.add("]);");
+			cell = cell.join("\n");
+			cell;
+		};
+
+		write_header = { arg tracks;
+			if(clip_dest.parent_buffer.is_present.not) {
+				header = [
+					"~name = %;".format(clip_dest.parent_buffer.uname.asCompileString),
+					"",
+					"Veco(~name).lib.tracks = %;".format(tracks.asCompileString),
+					"",
+					"Pdef(~name, ",
+					"	~clipspawner.() <>",
+					"	Pdef(~name+++\\pre) <> Pbind(",
+					"		\\isRest, true,",
+					"		\\track, Veco(~name).lib.tracks,",
+					"		\\dur, 4,",
+					"	)",
+					");",
+				].join("\n");
+				File.use(clip_dest.parent_buffer.path, "w", { arg file;
+					file.write(header);
+				});
+				clip_dest.parent_buffer.execute;
+			};
+		};
+
+		if(self.controller.clipboard_mode == \column) {
+			var tracks = List.new;
+			if(clip_dest.is_present.not) {
+				self.controller.clipboard_clip.do { arg clip;
+					if(clip.notNil) {
+						tracks.add(clip.parent_buffer.uname);
+					}
+				};
+				//cell = List[
+				//	"Pdef(~name+++\\pre, Pbind(",
+				//	"	\\clip, Pseq([~index], inf),",
+				//	"	\\dur, 256,",
+				//	"));",
+				//];
+				//cell = cell.join("\n");
+				cell = "~spawn_cliprow.(~index);\n";
+
+
+				write_header.(tracks);
+
+				// TODO: write a cell for each row not empty
+				File.use(clip_dest.path, "w", { arg file;
+					file.write(cell);
+				});
+
+				self.set_led(pos, self.color_pasted);
+			}
+		} {
+			var header;
+
+			if(self.controller.clipboard_mode == \active) {
+				if( clip_dest.is_present.not ) {
+					cell = clips_to_spawner_code.(self.controller.clipboard_clip);
+					write_header.();
+
+					File.use(clip_dest.path, "w", { arg file;
+						file.write(cell);
+					});
+
+					self.set_led(pos, self.color_pasted);
+				}
+			};
+
+		};
+
+
+	},
+
+	cell_selected: { arg self, midinote, pos;
+		var clip_source, clip_dest;
+		var clip_source_abspos, clip_dest_abspos;
+		var clip_dest_gridpos;
+		var node_source, node_dest;
+		var dest_x, source_x;
+		var first;
 		var opos;
 		var buf;
 		var node, clip;
-		midinote.debug("launchpad_scene_mode_copy.response_on");
-
-		if(self.is_launcher_button(midinote)) {
-			var y = pos.y + self.controller.clip_offset.y;
-			var clip_source, clip_dest;
-			var dest_abspos, dest_gridpos;
-			if(self.controller.clipboard_mode == \row) {
-
-				// -- paste row
-
-				self.line_do { arg x, n;
-					dest_abspos = Point(x, y);
-					dest_gridpos = self.abspos_to_gridpos(dest_abspos);
-					clip_source = self.controller.clipboard_clip[n];
-					if(clip_source.notNil) {
-
-						clip_dest = self.absolute_point_to_buf(dest_abspos);
-						if(clip_source.is_present and: { clip_dest.is_present.not }) {
-							clip_dest.parent_buffer.load_data_from_node(clip_source.parent_buffer);
-							clip_dest.load_data_from_clip(clip_source);
-							if(dest_gridpos.notNil) {
-								self.set_led(dest_gridpos, self.color_pasted);
-							};
-						}
-					}
-				};
-			} {
-				if(self.controller.clipboard_mode == \active) {
-
-					// -- paste active
-
-					self.line_do { arg x, n;
-
-						clip_source = self.controller.clipboard_clip[n];
-						if(clip_source.notNil) {
-
-							dest_abspos = Point(x, y);
-							dest_gridpos = self.abspos_to_gridpos(dest_abspos);
-							clip_dest = self.absolute_point_to_buf(dest_abspos);
-							if(clip_source.is_present  and: {  clip_dest.is_present.not }) {
-								clip_dest.parent_buffer.load_data_from_node(clip_source.parent_buffer);
-								clip_dest.load_data_from_clip(clip_source);
-								if(dest_gridpos.notNil) {
-									self.set_led(dest_gridpos, self.color_pasted);
-								};
-							}
-						}
-					};
-				}
-			}
+		if(self.controller.clipboard_action == \link) {
+			self.paste_link(midinote, pos);
 		} {
-			var clip_source, clip_dest;
-			var clip_source_abspos, clip_dest_abspos;
-			var clip_dest_gridpos;
-			var node_source, node_dest;
-			var dest_x, source_x;
-			var first;
+
 			if(self.controller.clipboard_mode == \column) {
 
 				// -- paste column
@@ -1404,6 +1486,71 @@
 					};
 				}
 			}
+		};
+	},
+
+	response_on: { arg self, midinote;
+		var pos = self.midi_to_gridpos(midinote);
+		var opos;
+		var buf;
+		var node, clip;
+		midinote.debug("launchpad_scene_mode_copy.response_on");
+
+		if(self.is_launcher_button(midinote)) {
+			var y = pos.y + self.controller.clip_offset.y;
+			var clip_source, clip_dest;
+			var dest_abspos, dest_gridpos;
+			if(self.controller.clipboard_action == \link) {
+
+			} {
+
+				if(self.controller.clipboard_mode == \row) {
+
+					// -- paste row
+
+					self.line_do { arg x, n;
+						dest_abspos = Point(x, y);
+						dest_gridpos = self.abspos_to_gridpos(dest_abspos);
+						clip_source = self.controller.clipboard_clip[n];
+						if(clip_source.notNil) {
+
+							clip_dest = self.absolute_point_to_buf(dest_abspos);
+							if(clip_source.is_present and: { clip_dest.is_present.not }) {
+								clip_dest.parent_buffer.load_data_from_node(clip_source.parent_buffer);
+								clip_dest.load_data_from_clip(clip_source);
+								if(dest_gridpos.notNil) {
+									self.set_led(dest_gridpos, self.color_pasted);
+								};
+							}
+						}
+					};
+				} {
+					if(self.controller.clipboard_mode == \active) {
+
+						// -- paste active
+
+						self.line_do { arg x, n;
+
+							clip_source = self.controller.clipboard_clip[n];
+							if(clip_source.notNil) {
+
+								dest_abspos = Point(x, y);
+								dest_gridpos = self.abspos_to_gridpos(dest_abspos);
+								clip_dest = self.absolute_point_to_buf(dest_abspos);
+								if(clip_source.is_present  and: {  clip_dest.is_present.not }) {
+									clip_dest.parent_buffer.load_data_from_node(clip_source.parent_buffer);
+									clip_dest.load_data_from_clip(clip_source);
+									if(dest_gridpos.notNil) {
+										self.set_led(dest_gridpos, self.color_pasted);
+									};
+								}
+							}
+						};
+					}
+				}
+			}
+		} {
+			self.cell_selected(midinote, pos);
 		};
 		// quit paste mode on first paste
 		self.sceneset.clip.activate;

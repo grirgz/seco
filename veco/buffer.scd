@@ -193,6 +193,7 @@
 		scenes.mixer_mod = { ~launchpad_scene_mixer_mod.new(self) };
 		scenes.mode_copy = { ~launchpad_scene_mode_copy.new(self) };
 		scenes.mode_cut = { ~launchpad_scene_mode_cut.new(self) };
+		scenes.mode_link = { ~launchpad_scene_mode_link.new(self) };
 		scenes.mode_paste = { ~launchpad_scene_mode_paste.new(self) };
 		scenes.launchpad = { ~launchpad_scene.new(self) };
 		scenes.quickpad = { ~launchpad_scene_codepads.new(self.quickpad_controller) };
@@ -396,6 +397,7 @@
 		self.val_stop_node_hook_dict = IdentityDictionary.new;
 		self.mixer_sends = List.new;
 		self.has_mixer = false;
+		self.lib = (); // disposable store for the user
 	
 		self;
 	},
