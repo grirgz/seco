@@ -70,6 +70,7 @@
 		//self.project_destructor;
 
 		self.project_path = path.standardizePath;
+		self.project_name = PathName(self.project_path).fileName;
 		~veco_project_path = self.project_path;
 		self.project_path.debug("class_veco_buffer_manager.open_project: path");
 		self.nodes = IdentityDictionary.new;
@@ -219,6 +220,35 @@
 		self.fadeout_time = 4;
 		self.seq_offset = 0;
 		
+	},
+
+	delete_node: { arg self, uname;
+		var node = self.nodes[uname];
+		if(node.notNil) {
+			node.uname.debug("nooooo!!! deleting a node file!!!");
+			File.copy(node.path, self.trash_path +/+ "%.%.%".format(
+				self.project_name, PathName.new(node.path).fileName, Date.localtime.stamp
+			));
+			File.delete(node.path);
+
+			File.copy(node.data_path, self.trash_path +/+ "%.data.%.%".format(
+				self.project_name, PathName.new(node.path).fileName, Date.localtime.stamp
+			));
+			File.delete(node.data_path);
+
+			// deleting nodes is handled by caller
+
+			//self.clips[idx] = nil;
+			// TODO: delete score too
+			// score ?
+			// - sdef
+				// call delete clip on score manager
+				// - audio file
+				// - preset
+			// - stepseq
+			// -
+			self.nodes[uname] = ~class_node_buffer.new(self, uname);
+		}
 	},
 
 	board_offset: { arg self;
@@ -430,12 +460,24 @@
 		}
 	},
 
+	delete_self: { arg self;
+		self.main.delete_node(self.uname);
+	},
+
 	delete_clip: { arg self, idx;
 		var clip = self.clips[idx];
 		if(clip.notNil) {
 			clip.uname.debug("nooooo!!! deleting a file!!!");
-			File.copy(clip.path, self.main.trash_path +/+ "%.%".format(PathName.new(clip.path).fileName, Date.localtime.stamp));
+			File.copy(clip.path, self.main.trash_path +/+ "%.%.%".format(
+				self.main.project_name, PathName.new(clip.path).fileName, Date.localtime.stamp
+			));
 			File.delete(clip.path);
+
+			File.copy(clip.data_path, self.main.trash_path +/+ "%.data.%.%".format(
+				self.main.project_name, PathName.new(clip.path).fileName, Date.localtime.stamp
+			));
+			File.delete(clip.data_path);
+
 			self.clips[idx] = nil;
 			// TODO: delete score too
 			// score ?

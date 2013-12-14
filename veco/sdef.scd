@@ -367,11 +367,13 @@
 			//specs = specs ++ extra_specs;
 			self.specs = specs;
 			vals = IdentityDictionary.new;
+			self.specs_dict = IdentityDictionary.new;
 			specs.clump(2).do { arg pair;
 				var key = pair[0];
 				var spec = pair[1];
 				var oldval = if(self.vals[key].notNil) { self.vals[key].get_val } { nil };
 				//[key, oldval].debug("build_vals: key, oldval");
+				self.specs_dict[key] = spec;
 				if(spec.class == Association) {
 					//
 					switch(spec.key,
@@ -533,6 +535,14 @@
 			event = ();
 			event.putPairs(binds);
 			event;
+		},
+
+		set_val: { arg self, key, val;
+			self.vals[key].set_val(val)
+		},
+
+		get_val: { arg self, key;
+			self.vals[key].get_val
 		},
 	);
 
@@ -861,8 +871,21 @@
 			Pdef("%.%".format(~namex, self.name).asSymbol);
 		},
 
+		specs: { arg self;
+			self.get_active_score.specs;
+		},
+
 		edit: { arg self;
 			self.get_active_score.edit;
+		},
+
+		get_val: { arg self, key;
+			self.get_active_score.get_val(key);
+		},
+
+		set_val: { arg self, key, val;
+			"2".debug;
+			self.get_active_score.set_val(key, val);
 		},
 	);
 
@@ -985,11 +1008,12 @@
 	///// views
 
 	~class_control_scalar_view = (
-		new: { arg self, controller;
+		new: { arg self, controller, parent;
 			self = self.deepCopy;
 
 			self.controller = { controller };
-			self.precision = 0.001;
+			self.precision = 0.0001;
+			self.parent_view = {parent};
 		
 			self;
 		},
@@ -999,13 +1023,27 @@
 			self.update_view;
 		},
 
+		val: { arg self;
+			var prec = self.precision;
+			self.controller.get_val.debug("class_control_scalar_view: val handler");
+			{
+				var val = self.controller.get_val;
+				val.debug("class_control_scalar_view: val");
+				self.val_label.string = val.round(prec);
+				self.controller.get_norm_val.debug("class_control_scalar_view: norm val");
+				self.slider.value = self.controller.get_norm_val;
+			}.defer;
+		},
+
 		update_view: { arg self;
-			var spec = self.controller.spec;
 			var prec = self.precision;
 			{
+				var val = self.controller.get_val;
+				val.debug("class_control_scalar_view: update_view val");
 				self.key_label.string = self.controller.label.asString;
-				self.val_label.string = self.controller.get_val.round(prec);
-				self.slider.value = spec.unmap(self.controller.get_val);
+				self.val_label.string = val.round(prec);
+				self.controller.get_norm_val.debug("class_control_scalar_view: update_view norm val");
+				self.slider.value = self.controller.get_norm_val;
 			}.defer;
 		},
 
@@ -1037,6 +1075,7 @@
 			self.update_view;
 
 			slider.action = { arg sli;
+				[sli.value, spec.map(sli.value)].debug("class_control_scalar_view: slideraction: norm val, val");
 				self.controller.set_val(spec.map(sli.value));
 				self.val_label.string = self.controller.get_val.round(self.precision);
 			};
@@ -1045,6 +1084,9 @@
 				label, slider, val
 			);
 			self.layout = layout;
+
+			~make_class_responder.(self, self.parent_view.window, self.controller, [\val]);
+
 			layout;
 		},
 	);
@@ -1340,6 +1382,7 @@
 			var layout;
 			//win = Window.new("preset", Rect(200,200,500,550));
 			win = Window.new;
+			self.window = win;
 			win.view.keyDownAction = { arg view, char, modifiers, u, k; 
 				[char, modifiers, u, k].debug("KEYBOARD INPUT");
 				if( u == 27 ) { view.close() };
@@ -1372,15 +1415,15 @@
 				ctrl = self.controller.vals[key];
 				switch(ctrl.kind,
 					\array, {
-						view = ~class_control_array_view.new(ctrl);
+						view = ~class_control_array_view.new(ctrl, self);
 						self.array_layout.add(view.make_layout);
 					},
 					\env, {
-						view = ~class_control_env_view.new(ctrl);
+						view = ~class_control_env_view.new(ctrl, self);
 						self.array_layout.add(view.make_layout);
 					},
 					\scalar, {
-						view = ~class_control_scalar_view.new(ctrl);
+						view = ~class_control_scalar_view.new(ctrl, self);
 						self.slider_layout.add(view.make_layout);
 					},
 					{
@@ -1393,7 +1436,6 @@
 
 			self.array_layout.add(nil);
 			self.slider_layout.add(nil);
-			self.window = win;
 
 			self.update_view;
 
@@ -1460,6 +1502,10 @@
 			self.val;	
 		},
 
+		get_norm_val: { arg self;
+			self.spec.unmap(self.val);
+		},
+
 		set_bus_mode: { arg self, val;
 			if(val != false) {
 				self.bus_mode = true;
@@ -1479,6 +1525,7 @@
 			if(self.bus_mode == true) {
 				self.bus.set(val);
 			};
+			self.changed(\val);
 		},
 
 		vpattern: { arg self;

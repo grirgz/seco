@@ -269,6 +269,10 @@
 			\mixer, {
 				7
 			},
+			\mixer_mod, {
+				// Maybe must show another color to be more clear
+				7
+			},
 			{
 				self.controller.mode.debug("render_mode_state: unknown mode");
 
@@ -1452,22 +1456,33 @@
 					dest_x = pos.x + self.controller.clip_offset.x;
 					node_source = first.parent_buffer;
 					node_dest = self.get_node_by_index(dest_x);
-					node_dest.load_data_from_node(node_source);
 
-					self.controller.clipboard_clip.do { arg clip_source;
-						//clip_source = self.controller.clipboard_clip[0];
-						if(clip_source.notNil) {
-							clip_source_abspos = clip_source.get_abspos;
-							clip_dest_abspos = Point(dest_x, clip_source_abspos.y);
-							clip_dest_gridpos = self.abspos_to_gridpos(clip_dest_abspos);
-							clip_dest = self.absolute_point_to_buf(clip_dest_abspos);
-							if(clip_source.is_present and: { clip_dest.is_present.not }) {
-								clip_dest.load_data_from_clip(clip_source);
-								if(self.is_abspos_visible(clip_dest_abspos)) {
-									self.set_led(clip_dest_gridpos, self.color_pasted);
+					if(self.controller.clipboard_action == \cut and: { node_dest.is_present }) {
+						// NOOP
+					} {
+						node_dest.load_data_from_node(node_source);
+						self.controller.clipboard_clip.do { arg clip_source;
+							//clip_source = self.controller.clipboard_clip[0];
+							if(clip_source.notNil) {
+								clip_source_abspos = clip_source.get_abspos;
+								clip_dest_abspos = Point(dest_x, clip_source_abspos.y);
+								clip_dest_gridpos = self.abspos_to_gridpos(clip_dest_abspos);
+								clip_dest = self.absolute_point_to_buf(clip_dest_abspos);
+								if(clip_source.is_present and: { clip_dest.is_present.not }) {
+									clip_dest.load_data_from_clip(clip_source);
+									if(self.is_abspos_visible(clip_dest_abspos)) {
+										self.set_led(clip_dest_gridpos, self.color_pasted);
+									};
+									if(self.controller.clipboard_action == \cut) {
+										clip_source.delete_self;
+									};
 								}
 							}
-						}
+						};
+						if(self.controller.clipboard_action == \cut) {
+							node_source.delete_self;
+						};
+
 					}
 				};
 
@@ -1521,6 +1536,9 @@
 								if(dest_gridpos.notNil) {
 									self.set_led(dest_gridpos, self.color_pasted);
 								};
+								if(self.controller.clipboard_action == \cut) {
+									clip_source.delete_self;
+								};
 							}
 						}
 					};
@@ -1542,6 +1560,9 @@
 									clip_dest.load_data_from_clip(clip_source);
 									if(dest_gridpos.notNil) {
 										self.set_led(dest_gridpos, self.color_pasted);
+									};
+									if(self.controller.clipboard_action == \cut) {
+										clip_source.delete_self;
 									};
 								}
 							}
