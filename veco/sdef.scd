@@ -118,6 +118,9 @@
 				\audio, {
 					make_score.(~class_score_audio_wrapper);
 				},
+				\notes, {
+					make_score.(~class_score_notes_wrapper);
+				},
 				\preset, {
 					make_score.(~class_score_preset_wrapper);
 				}
@@ -155,6 +158,12 @@
 			self;
 		},
 
+		is_freed: { arg self;
+			BufferPool.is_freed(self.buf);
+		},
+
+		//////////// save/load
+
 		new_from_score: { arg self, parent, index, score;
 			self = self.deepCopy;
 		
@@ -167,10 +176,6 @@
 			self.load_data_from_score(score);
 		
 			self;
-		},
-
-		is_freed: { arg self;
-			BufferPool.is_freed(self.buf);
 		},
 
 		load_data_from_score: { arg self, score;
@@ -187,6 +192,26 @@
 			self.dur = score.dur;
 			self.save_data;
 		},
+
+		save_data: { arg self;
+			[self.data_path, self.buf].debug("write audio file");
+			//self.buf.write(self.data_path, "wav");
+			self.buf.write(self.data_path);
+		},
+
+		load_data: { arg self;
+			if(File.exists(self.data_path)) {
+				self.buf = BufferPool.read(\veco_audio, self.name, self.data_path, action: { arg buf;
+					self.dur = buf.numFrames / buf.sampleRate * self.recclock.tempo;
+					self.dur = self.dur.trunc;
+					[buf, self.data_path, self.dur].debug("buffer loaded");
+				});
+			} {
+				[self.data_path, self.node_uname, self.name].debug("no file to load");
+			}
+		},
+
+		//// wrappers methods
 
 		bufnum: { arg self;
 			if(self.buf.notNil) {
@@ -214,24 +239,6 @@
 		sustain: { arg self;
 			//Pfunc { self.dur / self.recclock.tempo + self.overlap_time };
 			self.dur / self.recclock.tempo
-		},
-
-		save_data: { arg self;
-			[self.data_path, self.buf].debug("write audio file");
-			//self.buf.write(self.data_path, "wav");
-			self.buf.write(self.data_path);
-		},
-
-		load_data: { arg self;
-			if(File.exists(self.data_path)) {
-				self.buf = BufferPool.read(\veco_audio, self.name, self.data_path, action: { arg buf;
-					self.dur = buf.numFrames / buf.sampleRate * self.recclock.tempo;
-					self.dur = self.dur.trunc;
-					[buf, self.data_path, self.dur].debug("buffer loaded");
-				});
-			} {
-				[self.data_path, self.node_uname, self.name].debug("no file to load");
-			}
 		},
 
 		record: { arg self, dur=8;
@@ -301,6 +308,100 @@
 			});
 		},
 
+	);
+
+	~class_score_notes = (
+		parent: ~class_score_base,
+
+		new: { arg self, parent, idx, subidx;
+			self = self.deepCopy;
+
+			self.name = parent.name;
+			self.node_uname = parent.node_uname;
+			self.specs = parent.spec;
+			self.index = idx;
+			//self.subindex = subidx;
+			self.parent_collection = { parent };
+			self.is_present = false;
+
+			self;
+		},
+
+		label: { arg self;
+			"%.%.%".format(self.node_uname, self.index+1, self.name);
+		},
+
+		//////////// save/load
+
+		new_from_score: { arg self, parent, index, score;
+			self = self.deepCopy;
+		
+			self.name = parent.name;
+			self.node_uname = parent.node_uname;
+			self.index = index;
+			//self.subindex = subidx;
+			self.parent_collection = { parent };
+			self.is_present = false;
+
+			self.load_data_from_score(score);
+		
+			self;
+		},
+
+		load_data_from_score: { arg self, score;
+			//self.set_data(score.save_data_to_struct.deepCopy)
+			self.set_event_score(score.event_score.deepCopy);
+		},
+
+		set_data: { arg self, data;
+			var ns = ~make_notescore.();
+			ns.set_notes(data);
+			self.is_present = true;
+			self.event_score = ns;
+		},
+
+		get_compile_string: { arg self;
+			var notes = self.event_score.get_rel_notes.collect { arg note;
+				"\t"++note.asCompileString++",\n";
+			};
+			"[\n%]".format(notes.join);
+		},
+
+		save_data: { arg self, data;
+			self.parent_collection.save_data;
+		},
+
+		//// wrappers methods
+
+		record: { arg self, record_dur, slice_dur, pat;
+
+			pat = pat ?? { Pdef(~name) };
+
+			self.recorder = {Veco.main.piano_recorder};
+			self.recorder.set_note_pattern(pat);
+			Veco.main.recorder_view.set_recorder(Veco.main.piano_recorder);
+			Veco.main.piano_recorder.start_recording(record_dur, slice_dur, { arg recorder;
+				self.activate_display;
+				self.set_event_score(recorder.slices[max(recorder.slices.size-2, 0)]);
+			});
+			
+		},
+
+		pbind: { arg self, repeat=inf;
+			Pbind(\freq, Pfunc({ arg ev; (ev[\event_key] ?? 1).midicps })) <>
+				Pn(Pseq(self.event_score.get_rel_notes), repeat);
+		},
+
+		set_event_score: { arg self, event_score;
+			event_score.debug("class_score_notes:set_event_score:event_score");
+			self.is_present = true;
+			self.event_score = event_score;
+			self.save_data;
+		},
+
+		activate_display: { arg self;
+			Veco.main.score_notes.activate_display(self, self.recorder);
+		},
 	);
 
 	//// score collections
@@ -520,6 +621,51 @@
 
 	);
 
+	~class_score_notes_wrapper = (
+		parent: ~class_score_collection,
+
+		score_class: ~class_score_notes,
+
+		save_data: { arg self;
+			File.use(self.data_path, "w", { arg file;
+				var str = "";
+				self.all.do { arg val, idx;
+					if(val.notNil and: { val.is_present == true }) {
+						str = str ++ (
+							"\nSdef(%, %).set_data(%, %);\n"
+						).format(
+							self.node_uname.asCompileString,
+							self.name.asCompileString,
+							idx,
+							val.get_compile_string
+						);
+					}
+				};
+				file.write(str);
+
+			});
+		},
+
+		set_data: { arg self, index, data;
+			self.get(index).set_data(data);
+		},
+
+		load_data: { arg self;
+			self.data_path.load;
+		},
+
+		clone: { arg self, node_uname, name;
+			~class_score_notes_wrapper.new(node_uname, name);
+		},
+
+		record: { arg self ... args;
+			self.get_active_score.record(*args);
+		},
+
+		pbind: { arg self ... args;
+			self.get_active_score.pbind(*args);
+		},
+	);
 
 	~class_score_audio_wrapper = (
 		parent: ~class_score_collection,

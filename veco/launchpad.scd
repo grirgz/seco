@@ -1813,6 +1813,120 @@
 
 );
 
+~launchpad_scene_score_notes_display = (
+	parent: ~launchpad_scene,
+
+	// ** layout
+	// - start/stop
+	// - mute/unmute
+	// - exec node buffer
+	// - edit node buffer
+
+	color_present: \red,
+	color_futur_present: \yellow,
+	color_current: \green,
+	mode_name: \score_notes,
+
+	render_state: { arg self;
+		self.render_slices;
+	},
+
+	activate_display: { arg self, score, recorder;
+		self.score = score;
+		self.recorder = score.recorder;
+		[self.score, self.recorder].debug("sc, re");
+		[self.score.recorder.keys].debug("score, recor, recor2");
+		self.activate;
+	},
+
+	get_futur_slice_count: { arg self;
+		var recorder = self.score.recorder;
+		var slice_dur = recorder.slice_dur;
+		(recorder.get_current_recording_time / slice_dur).asInteger + 1;
+	},
+
+	render_slices: { arg self;
+		var oy = self.controller.clip_offset.y + y;
+		var recorder = self.score.recorder;
+		var slices;
+		var y = 0;
+		if(recorder.is_recording) {
+
+		} {
+			slices = recorder.get_slices;
+			slices = slices.keep(-8);
+			8.do { arg x;
+				var slice = slices[x];
+				if(slice.notNil) {
+					if(self.selected_score_pos == x) {
+						self.set_led(Point(x,y), self.color_current);
+					} {
+						self.set_led(Point(x,y), self.color_present);
+					}
+				} {
+					self.set_led(Point(x,y), \off);
+				}
+			};
+		}
+	},
+
+	install_button_responders: { arg self;
+		
+	},
+
+	response_cc_on: { arg self, midi;
+		self.sceneset.clip.response_cc_on(midi);
+	},
+
+	response_cc_off: { arg self, midi;
+		self.sceneset.clip.response_cc_off(midi);
+	},
+
+	response_on_dispatcher: { arg self, midinote;
+		var pos = self.midi_to_gridpos(midinote);
+
+		if(self.is_launcher_button(midinote)) {
+			self.response_launcher_on(midinote, pos);
+		} {
+			self.response_button_on(midinote, pos);
+		}
+	},
+
+	set_selected_score: { arg self, x;
+		if(self.is_score_present(x)) {
+			self.selected_score_pos = x;
+			self.score.set_event_score(self.recorder.slices[x]);
+			self.render_slices;
+		}
+	},
+
+	is_score_present: { arg self, x;
+		var recorder = self.score.recorder;
+		var slices = recorder.get_slices;
+		slices[x].notNil;
+	},
+
+	response_on: { arg self, midinote;
+		var pos = self.midi_to_gridpos(midinote);
+		var opos;
+		var buf;
+		var node, clip;
+		midinote.debug("launchpad_scene_mixer.response_on");
+
+		if(self.is_launcher_button(midinote)) {
+
+		} {
+			if(pos.y == 0) {
+				self.set_selected_score(pos.x)
+			}
+		}
+	},
+
+	response_off: { arg self, midinote;
+	},
+
+);
+
 /////////// TODO
 // - navigation with session
 //	- move by 8 with session + arrow

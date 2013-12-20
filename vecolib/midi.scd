@@ -22,24 +22,25 @@
 				var curval;
 				if(self.target.notNil) {
 					val = val/127;
-					[val,b,c,d].postln;
+					[self.name, val,b,c,d].postln;
 					curval = self.target_norm_get;
-					[self.midi_val, val, curval].debug("midiOLD, midiCUR, PRESET");
-					[self.midi_val, curval, self.midi_val == curval, (self.midi_val - curval), (self.midi_val - curval).abs < 0.001  ].debug("COPLEMETNET A LA MASSE");
+					//[self.midi_val, val, curval].debug("midiOLD, midiCUR, PRESET");
+					//[self.midi_val, curval, self.midi_val == curval, (self.midi_val - curval), (self.midi_val - curval).abs < 0.001  ].debug("COPLEMETNET A LA MASSE");
 					if((curval-self.midi_val).abs < 0.001) {
-						debug("not blocked");
+						//debug("not blocked");
 						self.target_norm_set(val);
 					} {
 						if( (val-curval).abs < self.tolerance ) {
-							debug("unblock!");
+							//debug("unblock!");
 							self.target_norm_set(val);
 						} {
-							debug("blocked!");
+							//debug("blocked!");
 						}
 					};
 					self.midi_val = val;
 				} 
-			}, self.ccnum, self.channel)
+			}, self.ccnum, self.channel);
+			self.responder.permanent = MIDIBoard.permanent;
 
 		},
 
@@ -101,7 +102,8 @@
 				self.install_midi_note_button_responder;
 			} {
 				self.install_midi_cc_button_responder;
-			}
+			};
+			self.responder.permanent = MIDIBoard.permanent;
 		},
 
 		install_midi_cc_button_responder: { arg self;

@@ -20,8 +20,10 @@
 };
 
 "~/seco/seco/synth.scd".standardizePath.load;
+"~/.local/share/SuperCollider/Extensions/seco/seco/eventscore.scd".standardizePath.load;
 [
 	//"tile",
+	"recorder",
 	"buffer",
 	"launchpad",
 	"score",

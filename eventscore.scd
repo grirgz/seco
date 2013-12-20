@@ -617,10 +617,14 @@
 			self.notes = self.get_abs_notes(start, dur);
 		},
 
-		split_in_slices: { arg self, dur;
+		split_in_slices: { arg self, dur, keeplast=false;
 			var total_dur = self.abs_end - self.abs_start;			
 			var numslices = (total_dur / dur).asInteger;
 			var pos = self.abs_start;
+
+			if(keeplast and: { total_dur % dur > 0 }) {
+				numslices = numslices + 1;
+			};
 
 			[total_dur, dur, numslices].debug("split_in_slices: totaldur, dur, numslices");
 			numslices.collect { arg i;

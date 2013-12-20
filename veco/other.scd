@@ -1,3 +1,240 @@
+	////////////////////////////////////
+
+	~bla = (
+
+		record: { arg self, record_dur, slice_dur;
+				self.recorder = ~class_piano_recorder.new;
+				self.recorder_view = ~class_recorder_view.new(self.recorder);
+				self.recorder.start_recording(record_dur, slice_dur);
+				//self.activate_display;
+			
+		},
+	);
+	TempoClock.default.tempo = 1;
+	~bla.record(inf, 8);
+
+
+	Pdef(\bla, Pbind(
+		\instrument, \rlsaw,
+		\freq, Pseq([100,200,300],inf),
+		\ffreq, Pseq([400,410,405],inf),
+	));
+
+	~piano_stream = Pdef(\bla).source.asStream;
+	~recorder = ~piano_recorder.new;
+	~recorder.start_recording(inf);
+	~recorder.stop_recording;
+	~notes = ~recorder.event_score.get_rel_notes
+	~recorder.event_score.get_notes
+	~recorder.event_score.get_notes_pattern(false)
+
+	~slices = ~recorder.event_score.split_in_slices(8, true)
+
+(
+	~pat = Pbind(
+		\midinote, Pkey(\event_key),
+		\hein, Pfunc{ arg ev; ev.debug("quoi!!"); },
+	) <> Pseq(~notes);
+	~pat.play;
+)
+~pat
+~notes
+(
+	~patt = Pbind(
+
+		\hein, Pfunc{ arg ev; ev.debug("quoi!!"); },
+	) <> Pseq([
+		(
+			freq: 200,
+		),
+		(
+			freq: 300,
+		),
+	]);
+~patt.play
+)
+
+(
+	~notes = ~recorder.event_score.get_rel_notes;
+	~patt =  Pbind(
+
+		//\midinote, Pkey(\event_key),
+		\hein, Pfunc{ arg ev; ev.debug("quoi!!"); },
+		\freq, Pfunc{ arg ev; 
+			if(ev[\event_key].isNil) {
+				"rest!!!".debug;
+				50.midicps;
+			} {
+				ev[\event_key].debug("quoi!!").midicps;
+			}
+		},
+	) <> Pdef(\bla) <> Pseq(~notes);
+~patt.play
+)
+
+(
+	~notes = ~slices[3].get_rel_notes;
+	~patt =  Pbind(
+
+		//\midinote, Pkey(\event_key),
+		\hein, Pfunc{ arg ev; ev.debug("quoi!!"); },
+		\freq, Pfunc{ arg ev; 
+			if(ev[\event_key].isNil) {
+				"rest!!!".debug;
+				50.midicps;
+			} {
+				ev[\event_key].debug("quoi!!").midicps;
+			}
+		},
+	) <> Pdef(\bla) <> Pseq(~notes);
+~patt.play
+)
+
+//MIDIdef.noteOn(\noteOn, {arg ...args; args.debug("mynoteon")},nil,1); // match any noteOn
+
+
+~ev = ~piano_stream.next(Event.default)
+~ev[\type] = \on;
+~a = ~ev.play
+~a.stop
+~a[\type] = \off
+~a.play
+
+
+
+//////////////////////////////////
+
+Sdef(~name, \mynotes, \notes);
+
+Pdef(~name +++ \pre, Sdef(~name, \mynotes).pbind <> Pbind(
+	\freq, 100,
+));
+
+Sdef(~name, \mynotes).record
+Sdef(~name, \mynotes).record(8)
+Sdef(~name, \mynotes).record(8, 16)
+record(record_dur, slice_dur)
+if(slide_dur.isNil) {
+	slice_dur = record_dur;
+	or
+	dont slice
+}
+
+
+
+
+/////////////////////////:
+
+
+~c = TempoClock.new
+~c.beats
+[~c.beats, ~c.nextTimeOnGrid(8)].debug("beats, next");
+[~c.beats, ~c.nextTimeOnGrid(8)].debug("beats, next");
+
+(
+~prerectime = 7;
+~quant = 4;
+~get_record_time = {
+	~rectime = ~c.nextTimeOnGrid(~quant);
+	~t_til_rectime = ~rectime - ~c.beats;
+	[~c.beats, ~rectime, ~t_til_rectime].debug("beats, next, t_til_rectime");
+	block { arg break;
+		10.do {
+			if(~t_til_rectime < ~prerectime) {
+				~rectime = ~rectime + ~quant;
+				~t_til_rectime = ~rectime - ~c.beats;
+			} {
+				break.value
+			};
+		} 
+	};
+	[~c.beats, ~c.nextTimeOnGrid(~quant), ~rectime, ~t_til_rectime].debug("2: beats, next, rectime, t_til_rectime");
+};
+~get_record_time.()
+)
+
+(
+~prerectime = 14;
+~quant = 8;
+~get_record_time = {
+	~rectime = ~c.nextTimeOnGrid(~quant);
+	~t_til_rectime = ~rectime - ~c.beats;
+	[~c.beats, ~rectime, ~t_til_rectime].debug("beats, next, t_til_rectime");
+	if(~t_til_rectime < ~prerectime) {
+		"recalc!".debug;
+		~rectime = ~rectime + ((~prerectime/~quant).asInteger+1 * ~quant);
+		~t_til_rectime = ~rectime - ~c.beats;
+	};
+	[~c.beats, ~c.nextTimeOnGrid(~quant), ~rectime, ~t_til_rectime].debug("2: beats, next, rectime, t_til_rectime");
+	[prerecord_time, record_time]
+};
+~get_record_time.()
+)
+
+(
+~prerectime = 1;
+~quant = 8;
+~get_record_time = { arg clock, quant, prerecdur;
+	var rectime, time_til_rectime;
+	var prerecord_time;
+	rectime = clock.nextTimeOnGrid(quant);
+	time_til_rectime = rectime - clock.beats;
+	//[~c.beats, ~rectime, ~t_til_rectime].debug("beats, next, t_til_rectime");
+	if(time_til_rectime < prerecdur) {
+		//"recalc!".debug;
+		rectime = rectime + ((prerecdur/quant).asInteger+1 * quant);
+		time_til_rectime = rectime - clock.beats;
+	};
+	prerecord_time = rectime - prerecdur;
+	//[clock.beats, clock.nextTimeOnGrid(quant), rectime, time_til_rectime].debug("2: beats, next, rectime, t_til_rectime");
+	[prerecord_time, rectime]
+};
+~get_record_time.(~c, ~quant, ~prerectime)
+)
+
+
+(
+"~/.local/share/SuperCollider/Extensions/seco/seco/eventscore.scd".standardizePath.load;
+SynthDef(\rlsaw, { arg out=0, amp=0.1, gate=1, pan=0, spread=0.8, freq=200, doneAction=2, ffreq=500, rq=0.3;
+	var sig, sig1, sig2, sig3;
+	sig = LFSaw.ar(freq);
+	sig = RLPF.ar(sig, ffreq, rq);
+	sig = sig * EnvGen.ar(\adsr.kr(Env.adsr(0.01,0.1,0.8,1.4)),gate,doneAction:doneAction);
+	sig = Splay.ar(sig, spread, amp, pan);
+	Out.ar(out, sig);
+}).add;
+)
+
+(
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//////////////////////////////////////////////////////////////
+
 ~veco.load_project("/home/ggz/code/sc/seco/vlive/v15")
 //"vim --servername scvim --remote-tab c.sc".unixCmd
 

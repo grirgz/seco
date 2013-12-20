@@ -200,8 +200,11 @@
 		scenes.quickpad = { ~launchpad_scene_codepads.new(self.quickpad_controller) };
 		scenes.score_preset = { ~launchpad_scene_score_preset_display.new(self) };
 		scenes.choose_score_preset = { ~launchpad_scene_choose_score_preset_display.new(self) };
+		scenes.score_notes = { ~launchpad_scene_score_notes_display.new(self) };
 
 		self.quickpad_controller = ~class_codepads.new;
+		self.piano_recorder = ~class_piano_recorder.new;
+		self.recorder_view = ~class_recorder_view.new;
 		self.quickpad_controller.veco = {self};
 
 		self.scenes.keysValuesDo { arg key, val;

@@ -1,18 +1,21 @@
 
-(
-"~/.local/share/SuperCollider/Extensions/seco/seco/eventscore.scd".standardizePath.load;
-SynthDef(\rlsaw, { arg out=0, amp=0.1, gate=1, pan=0, spread=0.8, freq=200, doneAction=2, ffreq=500, rq=0.3;
-	var sig, sig1, sig2, sig3;
-	sig = LFSaw.ar(freq);
-	sig = RLPF.ar(sig, ffreq, rq);
-	sig = sig * EnvGen.ar(\adsr.kr(Env.adsr(0.01,0.1,0.8,1.4)),gate,doneAction:doneAction);
-	sig = Splay.ar(sig, spread, amp, pan);
-	Out.ar(out, sig);
-}).add;
-)
+	~get_next_record_time = { arg clock, quant, prerecdur;
+		var rectime, time_til_rectime;
+		var prerecord_time;
+		rectime = clock.nextTimeOnGrid(quant);
+		time_til_rectime = rectime - clock.beats;
+		//[~c.beats, ~rectime, ~t_til_rectime].debug("beats, next, t_til_rectime");
+		if(time_til_rectime < prerecdur) {
+			//"recalc!".debug;
+			rectime = rectime + ((prerecdur/quant).asInteger+1 * quant);
+			time_til_rectime = rectime - clock.beats;
+		};
+		prerecord_time = rectime - prerecdur;
+		//[clock.beats, clock.nextTimeOnGrid(quant), rectime, time_til_rectime].debug("2: beats, next, rectime, t_til_rectime");
+		[prerecord_time, rectime]
+	};
 
-(
-	~event_recorder = (
+	~class_event_recorder = (
 		new: { arg self;
 			self = self.deepCopy;
 		
@@ -20,6 +23,7 @@ SynthDef(\rlsaw, { arg out=0, amp=0.1, gate=1, pan=0, spread=0.8, freq=200, done
 			self.recclock = TempoClock.default;
 			self.recclock.debug("gnill");
 			self.is_recording = false;
+			self.is_prerecording = false;
 		
 			self;
 		},
@@ -28,11 +32,10 @@ SynthDef(\rlsaw, { arg out=0, amp=0.1, gate=1, pan=0, spread=0.8, freq=200, done
 			Pdef.defaultQuant;
 		},
 
-		record_dur: { arg self;
-			8
-		},
+		record_dur: 8,
+		slice_dur: 8,
 
-		start_recording: { arg self;
+		start_recording: { arg self, record_dur, slice_dur, stop_func;
 			var quant;
 			var visual_timer;
 			var visual_timer_player;
@@ -40,54 +43,88 @@ SynthDef(\rlsaw, { arg out=0, amp=0.1, gate=1, pan=0, spread=0.8, freq=200, done
 			var next_time_on_grid;
 			var overlap_time = ~veco_record_overlap_time;
 			var dur;
+			var time_til_recording_start;
+			var prerecord_dur;
+			var record_time;
+			var prerecord_time;
 
-			quant = self.get_quant;
-			dur = 8;
+			if((self.is_recording or: { self.is_prerecording }).not) {
 
-			debug("start_recording");
-			self.start_time = self.recclock.beats;
-			self.event_score = ~make_notescore.();
-			self.is_recording = true;
+				self.is_prerecording = true;
 
-			visual_timer = self.visual_timer;
-			self.recclock.schedAbs(self.recclock.nextTimeOnGrid(quant) + dur, { 
-				self.stop_recording;
-				nil;
-			});
-			next_time_on_grid = self.recclock.nextTimeOnGrid(quant);
-			timer_start_beat = next_time_on_grid - min((next_time_on_grid - self.recclock.beats), 4);
-			[next_time_on_grid, self.recclock.beats, timer_start_beat].debug("timer_start_beat");
-			self.recclock.schedAbs( timer_start_beat, {
-					visual_timer.play;
-					nil;
-				}
-			);
+				self.stop_func = stop_func;
 
-			// FIXME: move rendering code outside
-			self.recclock.schedAbs(self.recclock.nextTimeOnGrid(quant), { 
-				visual_timer.stop;
-				4.do { arg x;
-					Veco.main.launchpad.set_mode_led(x, \red);
+				prerecord_dur = 4;
+				if(prerecord_dur / self.recclock.tempo <= 2) {
+					prerecord_dur = prerecord_dur * 2;
 				};
-				nil;
-			});
+				prerecord_dur.debug("prerecord_dur");
 
-			self.recclock.schedAbs(self.recclock.nextTimeOnGrid(quant), {
-				self.start_immediate_recording;
-				nil;
-			})
+
+				quant = self.get_quant;
+				dur = record_dur ?? self.record_dur;
+				slice_dur = slice_dur ?? self.slice_dur;
+
+				debug("start_recording");
+				self.event_score = ~make_notescore.();
+
+
+				#prerecord_time, record_time = ~get_next_record_time.(self.recclock, quant, prerecord_dur);
+				self.start_time = record_time;
+
+				// prerecording
+				self.recclock.schedAbs( prerecord_time, {
+						self.changed(\prerecording_started);
+						nil;
+					}
+				);
+
+				// recording
+				self.recclock.schedAbs( record_time, {
+					self.changed(\recording_started);
+					self.is_recording = true;
+					self.is_prerecording = false;
+					self.start_immediate_recording;
+					nil;
+				});
+
+				// stop recording
+				if(dur != inf) {
+					self.recclock.schedAbs(record_time + dur, { 
+						self.stop_recording;
+						nil;
+					});
+				};
+			}
+		},
+
+		get_slices: { arg self;
+			self.slices = self.event_score.split_in_slices(self.slice_dur);
+			self.slices;
+		},
+
+		get_current_recording_time: { arg self;
+			// FIXME: is_recording is true but actual recording not started yet could cause bugs
+			[self.recclock.beats, self.stop_time, self.start_time].debug("get_current_recording_time: beats, stop, start");
+			if(self.is_recording) {
+				self.recclock.beats - self.start_time;
+			} {
+				self.stop_time - self.start_time;
+			}
 		},
 
 		stop_recording: { arg self;
-			debug("stop_recording");
 			self.stop_time = self.recclock.beats;
-			self.stop_immediate_recording;
-			self.event_score.set_end(self.stop_time - self.start_time);
 			self.is_recording = false;
-
-			4.do { arg x;
-				Veco.main.launchpad.set_mode_led(x, \off);
-			};
+			debug("stop_recording");
+			self.changed(\recording_stopped);
+			"kjk".debug;
+			"1kjk".debug;
+			[self.stop_time, self.start_time].debug("kjxxx");
+			self.event_score.set_end(self.stop_time - self.start_time);
+			"2kjk".debug;
+			self.stop_immediate_recording;
+			self[\stop_func].(self);
 		},
 
 		add_event_on: { arg self, event;
@@ -107,55 +144,128 @@ SynthDef(\rlsaw, { arg out=0, amp=0.1, gate=1, pan=0, spread=0.8, freq=200, done
 			}
 		},
 
-		visual_timer: { arg self;
-			var quant = self.get_quant;
-			Task({ 
-				var x=self.recclock.beatInBar.asInteger;
-				debug("RAHHHHHHHH");
-				10.do {
-					[self.recclock.beats, self.recclock.beatInBar, self.recclock.nextTimeOnGrid(quant)].debug("RAHHHHHHHH2");
+	);
 
-					Veco.main.launchpad.set_mode_led((x-1).wrap(0,4), \off);
-					Veco.main.launchpad.set_mode_led(x, \green);
+	~class_recorder_view = (
+		new: { arg self;
+			var parent;
+			self = self.deepCopy;
+
+		
+			self;
+		},
+
+		set_recorder: { arg self, recorder;
+		
+			self.destructor;
+
+			self.recorder = recorder;
+			~make_class_responder.(self, self, recorder, [\recording_started, \recording_stopped, \prerecording_started]);
+			CmdPeriod.doOnce({ self.destructor; });
+			
+		},
+
+		recclock: { arg self; self.recorder.recclock },
+
+		destructor: { arg self;
+			debug("class_recorder_view: destructor");
+			self[\onClone].value;
+		},
+
+		prerecording_started: { arg self;
+			debug("recview: prerecording_started");
+			4.do { arg x;
+				Veco.main.launchpad.set_mode_led(x, \off);
+			};
+			self.prerecording = true;
+			self.visual_timer.play;
+		},
+
+		recording_started: { arg self;
+			debug("recview: recording_started");
+			self.prerecording = false;
+		},
+
+		recording_stopped: { arg self;
+			debug("recview: recording_stopped");
+			self.visual_timer_task.stop;
+			4.do { arg x;
+				Veco.main.launchpad.set_mode_led(x, \orange);
+			};
+			self.destructor;
+		},
+
+		reset_slice_row: { arg self;
+			8.do { arg x;
+				x.debug("hih");
+				Veco.main.launchpad.set_led(Point(x,0), \off);
+			};
+		},
+
+		visual_timer: { arg self;
+			var quant = self.recorder.get_quant;
+			self.visual_timer_task = Task({ 
+				var x=self.recclock.beatInBar.asInteger;
+				var slicenum;
+				debug("RAHHHHHHHH");
+				//self.reset_slice_row;
+				inf.do {
+					//[self.recclock.beats, self.recclock.beatInBar, self.recclock.nextTimeOnGrid(quant)].debug("RAHHHHHHHH2");
+					Veco.main.launchpad.set_mode_led((x-1).wrap(0,3), \off);
+					if(self.prerecording) {
+						Veco.main.launchpad.set_mode_led(x, \green);
+					} {
+						Veco.main.launchpad.set_mode_led(x, \red);
+					};
+					//x.debug("onlight=x");
+					if(self.recorder.is_recording) {
+						slicenum = (self.recorder.get_current_recording_time / self.recorder.slice_dur);
+						//[slicenum, slicenum.asInteger, slicenum % 8, x].debug("should i reset ? : slicenum, slice%8, x");
+						//if(slicenum % 8 == 0 and: { x == 0 }) {
+						if(slicenum % 8 == 0) {
+							self.reset_slice_row;
+						};
+						Veco.main.launchpad.set_led(Point(slicenum%8,0), \red);
+					};
 					1.wait;
 					x = x+1 % 4;
-				};
-			})
+				}
+			});
+			self.visual_timer_task;
 		},
 	);
 
 
-	Pdef(\bla, Pbind(
-		\instrument, \rlsaw,
-		\freq, Pseq([100,200,300],inf),
-		\ffreq, Pseq([400,800,1300],inf),
-	));
-
-	~piano_stream = Pdef(\bla).source.asStream;
-
-	~piano_recorder = (
-		parent: ~event_recorder,
+	~class_piano_recorder = (
+		parent: ~class_event_recorder,
 		new: { arg self;
-			self = ~event_recorder[\new].(self);
+			self = ~class_event_recorder[\new].(self);
 		
 			
 		
 			self;
 		},
 
+		set_note_pattern: { arg self, pat;
+			self.note_pattern = pat;
+		},
+
 		start_immediate_recording: { arg self;
 			var player;
 			var notes = Array.newClear(128);
+			self.notes_book = notes;
+			self.note_stream = self.note_pattern.asStream;
 			MIDIdef.noteOn(\pianoOn, {arg ...args; 
 				var veloc, num, chan;
 				var ev;
 				#veloc, num = args;
 				[veloc, num].debug("lkj");
 				args.debug("mynoteon");
-				ev = ~piano_stream.next(Event.default);
+				ev = self.note_stream.next(Event.default);
 				//ev = Pbind(\freq, num.midicps) <> ev;
 				ev[\freq] = num.midicps;
 				ev[\type] = \on;
+				ev[\isRest] = false;
 				ev[\latency] = \a;
 				ev.debug("ev1");
 				notes[num] = ev;
@@ -169,10 +279,15 @@ SynthDef(\rlsaw, { arg out=0, amp=0.1, gate=1, pan=0, spread=0.8, freq=200, done
 				var veloc, num, chan;
 				var ev;
 				#veloc, num = args;
-				notes[num][\type] = \off;
-				self.add_event_off(num);
-				args.debug("mynoteoff");
-				notes[num].play;
+				if(notes[num].notNil) {
+					notes[num][\type] = \off;
+					self.add_event_off(num);
+					args.debug("mynoteoff");
+					notes[num].play;
+					notes[num] = nil;
+				} {
+					num.debug("skiped false note off");
+				};
 			},nil,1); 
 
 			
@@ -181,65 +296,15 @@ SynthDef(\rlsaw, { arg out=0, amp=0.1, gate=1, pan=0, spread=0.8, freq=200, done
 		stop_immediate_recording: { arg self;
 			MIDIdef.noteOn(\pianoOn).free;
 			MIDIdef.noteOff(\pianoOff).free;
+			self.notes_book.do { arg note;
+				if(note.notNil) {
+					note[\type] = \off;
+					note.debug("kill last note");
+					note.play;
+				}
+			};
+			self.get_slices;
 			
 		},
 	);
 
-	~recorder = ~piano_recorder.new;
-	~recorder.start_recording;
-
-)
-	~recorder.stop_recording;
-	~notes = ~recorder.event_score.get_rel_notes
-	~recorder.event_score.get_notes
-	~recorder.event_score.get_notes_pattern(false)
-
-(
-	~pat = Pbind(
-		\midinote, Pkey(\event_key),
-		\hein, Pfunc{ arg ev; ev.debug("quoi!!"); },
-	) <> Pseq(~notes);
-	~pat.play;
-)
-~pat
-~notes
-(
-	~patt = Pbind(
-
-		\hein, Pfunc{ arg ev; ev.debug("quoi!!"); },
-	) <> Pseq([
-		(
-			freq: 200,
-		),
-		(
-			freq: 300,
-		),
-	]);
-~patt.play
-)
-
-(
-	~patt = Pbind(
-
-		//\midinote, Pkey(\event_key),
-		\hein, Pfunc{ arg ev; ev.debug("quoi!!"); },
-		\freq, Pfunc{ arg ev; 
-			if(ev[\event_key].isNil) {
-				50.midicps;
-			} {
-				ev[\event_key].debug("quoi!!").midicps;
-			}
-		},
-	) <> Pseq(~notes);
-~patt.play
-)
-
-//MIDIdef.noteOn(\noteOn, {arg ...args; args.debug("mynoteon")},nil,1); // match any noteOn
-
-
-~ev = ~piano_stream.next(Event.default)
-~ev[\type] = \on;
-~a = ~ev.play
-~a.stop
-~a[\type] = \off
-~a.play
