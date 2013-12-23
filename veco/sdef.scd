@@ -387,6 +387,10 @@
 			
 		},
 
+		stop_record: { arg self;
+			self.recorder.stop_recording;
+		},
+
 		pbind: { arg self, repeat=inf;
 			Pbind(\freq, Pfunc({ arg ev; (ev[\event_key] ?? 1).midicps })) <>
 				Pn(Pseq(self.event_score.get_rel_notes), repeat);
@@ -660,6 +664,10 @@
 
 		record: { arg self ... args;
 			self.get_active_score.record(*args);
+		},
+
+		stop_record: { arg self ... args;
+			self.get_active_score.stop_record(*args);
 		},
 
 		pbind: { arg self ... args;

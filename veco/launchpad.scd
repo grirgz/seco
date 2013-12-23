@@ -188,14 +188,15 @@
 
 	install_midi_responder: { arg self;
 		var launchpad_channel = 0;
+		var launchpad_id = 1572864;
 		MIDIdef.noteOn(\launchpadOn, { arg vel, midinote;
 			midinote.debug("midinote: noteOn responder");
 			self.response_on(midinote);
-		}, nil, launchpad_channel).permanent_(true);
+		}, nil, launchpad_channel, launchpad_id).permanent_(true);
 		MIDIdef.noteOff(\launchpadOff, { arg vel, midinote;
 			midinote.debug("midinote: noteOFF responder");
 			self.response_off(midinote);
-		}, nil, launchpad_channel).permanent_(true);
+		}, nil, launchpad_channel, launchpad_id).permanent_(true);
 		MIDIdef.cc(\launchpadCC, { arg vel, midinote;
 			if(vel == 127) {
 				midinote.debug("midinote: ccOn responder");
@@ -206,7 +207,7 @@
 				self.handle_modifiers_off(midinote);
 				self.response_cc_off(midinote);
 			}
-		}, nil, launchpad_channel).permanent_(true);
+		}, nil, launchpad_channel, launchpad_id).permanent_(true);
 	},
 
 	update_display: { arg self;
@@ -1894,8 +1895,11 @@
 
 	set_selected_score: { arg self, x;
 		if(self.is_score_present(x)) {
+			var abspos;
 			self.selected_score_pos = x;
-			self.score.set_event_score(self.recorder.slices[x]);
+			abspos = max(self.recorder.slices.size - 8, 0) + x;
+
+			self.score.set_event_score(self.recorder.slices[abspos]);
 			self.render_slices;
 		}
 	},

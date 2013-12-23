@@ -34,6 +34,9 @@
 
 		record_dur: 8,
 		slice_dur: 8,
+		prerecord_dur: 4,
+		prerecord_dur_sec: 2,
+		record_latency: {s.latency},
 
 		start_recording: { arg self, record_dur, slice_dur, stop_func;
 			var quant;
@@ -54,8 +57,8 @@
 
 				self.stop_func = stop_func;
 
-				prerecord_dur = 4;
-				if(prerecord_dur / self.recclock.tempo <= 2) {
+				prerecord_dur = self.prerecord_dur ?? 4;
+				if(prerecord_dur / self.recclock.tempo <= self.prerecord_dur_sec) {
 					prerecord_dur = prerecord_dur * 2;
 				};
 				prerecord_dur.debug("prerecord_dur");
@@ -130,7 +133,7 @@
 		add_event_on: { arg self, event;
 			var time;
 			if(self.is_recording) {
-				time = self.recclock.beats - self.start_time;
+				time = self.recclock.beats - self.start_time - self.record_latency;
 				self.event_score.add_note(event, time, event.event_key)
 			}
 		},
@@ -138,7 +141,7 @@
 		add_event_off: { arg self, key;
 			var time;
 			if(self.is_recording) {
-				time = self.recclock.beats - self.start_time;
+				time = self.recclock.beats - self.start_time - self.record_latency;
 				self.event_score.book.debug("BOOK");
 				self.event_score.add_noteoff(key, time)
 			}
@@ -161,7 +164,12 @@
 
 			self.recorder = recorder;
 			~make_class_responder.(self, self, recorder, [\recording_started, \recording_stopped, \prerecording_started]);
-			CmdPeriod.doOnce({ self.destructor; });
+			CmdPeriod.doOnce({ 
+				self.destructor;
+				// TODO: put it in recorder, not in view
+				self.recorder.is_recording = false;
+				self.recorder.is_prerecording = false;
+			});
 			
 		},
 
@@ -260,7 +268,7 @@
 				var ev;
 				#veloc, num = args;
 				[veloc, num].debug("lkj");
-				args.debug("mynoteon");
+				args.debug("[[[===========mynoteon");
 				ev = self.note_stream.next(Event.default);
 				//ev = Pbind(\freq, num.midicps) <> ev;
 				ev[\freq] = num.midicps;
@@ -278,6 +286,8 @@
 			MIDIdef.noteOff(\pianoOff, {arg ...args; 
 				var veloc, num, chan;
 				var ev;
+				args.debug("]]]===========mynoteoff");
+				notes.debug("notes");
 				#veloc, num = args;
 				if(notes[num].notNil) {
 					notes[num][\type] = \off;
