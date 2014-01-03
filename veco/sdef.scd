@@ -387,13 +387,23 @@
 			
 		},
 
-		stop_record: { arg self;
+		stop_recording: { arg self;
 			self.recorder.stop_recording;
 		},
 
+		cancel_recording: { arg self;
+			self.recorder.cancel_recording;
+		},
+
 		pbind: { arg self, repeat=inf;
+			//self.event_score.get_rel_notes; // TODO: is it needed ?
 			Pbind(\freq, Pfunc({ arg ev; (ev[\event_key] ?? 1).midicps })) <>
-				Pn(Pseq(self.event_score.get_rel_notes), repeat);
+				Pn(
+					Plazy({
+						Pseq(self.event_score.get_cached_rel_notes)
+					}),
+					repeat,
+				);
 		},
 
 		set_event_score: { arg self, event_score;
@@ -666,8 +676,12 @@
 			self.get_active_score.record(*args);
 		},
 
-		stop_record: { arg self ... args;
-			self.get_active_score.stop_record(*args);
+		stop_recording: { arg self ... args;
+			self.get_active_score.stop_recording(*args);
+		},
+
+		cancel_recording: { arg self ... args;
+			self.get_active_score.cancel_recording(*args);
 		},
 
 		pbind: { arg self ... args;

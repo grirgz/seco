@@ -53,7 +53,10 @@
 
 			if((self.is_recording or: { self.is_prerecording }).not) {
 
+				debug("-- REC: start_recording");
+
 				self.is_prerecording = true;
+				self.is_canceled = false;
 
 				self.stop_func = stop_func;
 
@@ -68,7 +71,6 @@
 				dur = record_dur ?? self.record_dur;
 				slice_dur = slice_dur ?? self.slice_dur;
 
-				debug("start_recording");
 				self.event_score = ~make_notescore.();
 
 
@@ -84,10 +86,12 @@
 
 				// recording
 				self.recclock.schedAbs( record_time, {
-					self.changed(\recording_started);
-					self.is_recording = true;
-					self.is_prerecording = false;
-					self.start_immediate_recording;
+					if(self.is_canceled.not) {
+						self.changed(\recording_started);
+						self.is_recording = true;
+						self.is_prerecording = false;
+						self.start_immediate_recording;
+					};
 					nil;
 				});
 
@@ -98,11 +102,13 @@
 						nil;
 					});
 				};
+			} {
+				"-- REC: already recording, so not started".debug;
 			}
 		},
 
 		get_slices: { arg self;
-			self.slices = self.event_score.split_in_slices(self.slice_dur);
+			self.slices = self.event_score.split_in_slices(self.slice_dur, true);
 			self.slices;
 		},
 
@@ -116,18 +122,52 @@
 			}
 		},
 
-		stop_recording: { arg self;
+		stop_recording_helper: { arg self, canceled=false;
 			self.stop_time = self.recclock.beats;
 			self.is_recording = false;
-			debug("stop_recording");
+			self.is_prerecording = false;
+
+			[self.stop_time, self.start_time, canceled].debug("stop_recording_helper");
+
 			self.changed(\recording_stopped);
-			"kjk".debug;
-			"1kjk".debug;
-			[self.stop_time, self.start_time].debug("kjxxx");
+
 			self.event_score.set_end(self.stop_time - self.start_time);
-			"2kjk".debug;
-			self.stop_immediate_recording;
-			self[\stop_func].(self);
+			if(canceled) {
+				self.cancel_immediate_recording;
+			} {
+				self.stop_immediate_recording;
+				self[\stop_func].(self);
+			}
+		},
+
+		stop_recording: { arg self, canceled=false;
+			if(self.is_prerecording) {
+				"-- REC: stop prerecording".debug;
+				self.is_canceled = true;
+				self.stop_recording_helper(true);
+			} {
+				if(self.is_recording) {
+					"-- REC: stop recording".debug;
+					self.stop_recording_helper;
+				} {
+					"-- REC: not recording, so not stopped".debug;
+				}
+			}
+		},
+
+		cancel_recording: { arg self;
+			if(self.is_prerecording) {
+				"-- REC: cancel prerecording".debug;
+				self.is_canceled = true;
+				self.stop_recording_helper(true);
+			} {
+				if(self.is_recording) {
+					"-- REC: cancel recording".debug;
+					self.stop_recording_helper(true);
+				} {
+					"-- REC: not recording, so not canceled".debug;
+				}
+			}
 		},
 
 		add_event_on: { arg self, event;
@@ -177,7 +217,7 @@
 
 		destructor: { arg self;
 			debug("class_recorder_view: destructor");
-			self[\onClone].value;
+			self[\onClose].value;
 		},
 
 		prerecording_started: { arg self;
@@ -303,7 +343,7 @@
 			
 		},
 
-		stop_immediate_recording: { arg self;
+		stop_immediate_recording: { arg self, canceled=false;
 			MIDIdef.noteOn(\pianoOn).free;
 			MIDIdef.noteOff(\pianoOff).free;
 			self.notes_book.do { arg note;
@@ -313,8 +353,14 @@
 					note.play;
 				}
 			};
-			self.get_slices;
+			if(canceled.not) {
+				self.get_slices;
+			}
 			
+		},
+
+		cancel_immediate_recording: { arg self;
+			self.stop_immediate_recording(true);
 		},
 	);
 

@@ -1,4 +1,7 @@
 
+~launchpad_device_id = 1572864;
+
+//MIDIdef.noteOn(\test, { arg ... args; args.debug("plop"); });
 
 ~launchpad = (
 	new: { arg self, controller;
@@ -188,7 +191,7 @@
 
 	install_midi_responder: { arg self;
 		var launchpad_channel = 0;
-		var launchpad_id = 1572864;
+		var launchpad_id = ~launchpad_device_id;
 		MIDIdef.noteOn(\launchpadOn, { arg vel, midinote;
 			midinote.debug("midinote: noteOn responder");
 			self.response_on(midinote);
@@ -1835,12 +1838,14 @@
 	activate_display: { arg self, score, recorder;
 		self.score = score;
 		self.recorder = score.recorder;
+		self.selected_score_pos = max(self.recorder.slices.keep(-8).size-2, 0);
 		[self.score, self.recorder].debug("sc, re");
 		[self.score.recorder.keys].debug("score, recor, recor2");
 		self.activate;
 	},
 
 	get_futur_slice_count: { arg self;
+		// not used
 		var recorder = self.score.recorder;
 		var slice_dur = recorder.slice_dur;
 		(recorder.get_current_recording_time / slice_dur).asInteger + 1;

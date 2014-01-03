@@ -610,7 +610,17 @@
 			notes[0].end_silence = last.dur;
 			notes[0].end_offset = 0;
 
+			self.cached_rel_notes = notes;
+
 			notes;
+		},
+
+		get_cached_rel_notes: { arg self ... args;
+			if(self.cached_rel_notes.isNil) {
+				self.get_rel_notes(*args);
+			} {
+				self.cached_rel_notes;
+			}
 		},
 
 		cut_exceeding_notes: { arg self, start=0, dur=nil;

@@ -83,6 +83,7 @@
 					"446".debug;
 					self.putAll(lib[\class_midi_cc_controller_for_button]);
 					self.target_spec = spec ?? \unipolar.asSpec;
+					self.target_key = {key};
 					self.install_midi_responder;
 				}
 			);
@@ -111,12 +112,22 @@
 			self.responder = MIDIdef.cc(defname, { arg val,b,c,d;
 				var curval;
 				["cc_but", val,b,c,d].postln;
+				val.debug("bordelval-1");
 				if(self.target.notNil) {
 					val = val/127;
+					val.debug("bordelval0");
 					if(val == 1) {
+						val.debug("bordelval1");
 						self.target.value;
+					} {
+						val.debug("bordelval");
+						if(val == 0) {
+							val.debug("bordelval2");
+							self.target_key.value;
+						}
 					};
-				} 
+				}; 
+				val.debug("bordelval3");
 			}, self.ccnum, self.channel)
 		},
 
