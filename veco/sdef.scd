@@ -101,12 +101,12 @@
 			};
 		},
 
-		define: { arg self, node_uname, name, kind, spec;
+		define: { arg self, node_uname, name, kind, spec, force=false;
 			var make_score = { arg score_class;
 				if(self.all[node_uname].isNil) {
 					self.all[node_uname] = IdentityDictionary.new;
 				};
-				if(self.all[node_uname][name].isNil) {
+				if(self.all[node_uname][name].isNil or: { force == true }) {
 					//[kind, node_uname, name].debug("defining NEW score");
 					self.all[node_uname][name] = score_class.new(node_uname, name, spec);
 					self.all[node_uname][name].load_data;
@@ -400,7 +400,12 @@
 			Pbind(\freq, Pfunc({ arg ev; (ev[\event_key] ?? 1).midicps })) <>
 				Pn(
 					Plazy({
-						Pseq(self.event_score.get_cached_rel_notes)
+						if(self.event_score.isNil) {
+							debug("silence");
+							Event.silent(1);
+						} {
+							Pseq(self.event_score.get_cached_rel_notes)
+						}
 					}),
 					repeat,
 				);
@@ -606,7 +611,7 @@
 		},
 
 
-		clear: { arg self, idx, subidx;
+		delete: { arg self, idx, subidx;
 			if(idx.isNil) {
 				idx.debug("idx is NIL !!!")
 			} {
@@ -784,6 +789,29 @@
 				file.write(str);
 
 			});
+		},
+
+		morph: { arg self, key, idx_list, method=\pbind;
+			var preset_list;
+			preset_list = idx_list.collect { arg pos;
+				var idx;
+				var subidx;
+				if(x.class == Point) {
+					idx = pos.y;
+					subidx = pos.x;
+				} {
+					idx = self.get_active_index;
+					subidx = pos;
+				};
+				if(method == \pbind) {
+					self.get(idx, subidx).pbind;
+				} {
+					self.get(idx, subidx).valpbind;
+				}
+			};
+			//Sdef(self.node_uname, self.name, \preset, [key, \I])
+			
+			~lmorphpat.(preset_list, Pfunc({ arg ev; ev[key] }));
 		},
 
 		pbind: { arg self;

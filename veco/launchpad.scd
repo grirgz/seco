@@ -1,5 +1,6 @@
 
 ~launchpad_device_id = 1572864;
+//~launchpad_device_id = 1835008;
 
 //MIDIdef.noteOn(\test, { arg ... args; args.debug("plop"); });
 
@@ -611,17 +612,7 @@
 			} {
 				#node, clip = self.gridpos_to_node_and_clip(pos);
 				if(clip.is_present) {
-					if(clip.is_active and: {
-						node.is_playing and: {
-							self.controller.mode_push_again == \stop 
-						}
-					}) {
-						node.stop_node(true, {
-							self.render_pos(pos);
-						});
-					} {
-						clip.response_on;
-					};
+					clip.response_on;
 				} {
 					node.stop_node(true, {
 						self.render_column(pos.x);

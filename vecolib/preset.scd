@@ -116,6 +116,13 @@
 		parent: ~class_control_ancestor,
 		kind: \scalar,
 		bus_mode: false,
+
+		bus_mode_enabled: { arg self;
+			//self.parent_controller.bus_mode_enabled
+			true
+			
+		},
+
 		new: { arg self, parent, name, spec, val;
 			self = self.deepCopy;
 		
@@ -136,7 +143,7 @@
 		},
 
 		get_pat_val: { arg self;
-			if(self.bus_mode) {
+			if(self.bus_mode_enabled and: self.bus_mode) {
 				self.bus.asMap;
 			} {
 				if(self.bus.notNil) {
@@ -186,7 +193,11 @@
 		},
 
 		valpattern: { arg self;
-			Pfunc { arg ev; self.get_val };
+			if(self.name == \amp) {
+				Pfunc { arg ev; self.get_val * ev[\amp] };
+			} {
+				Pfunc { arg ev; self.get_val };
+			}
 		},
 
 	);
@@ -1012,7 +1023,7 @@
 		},
 
 		build_valpbind: { arg self;
-			// what is it for ???
+			// this pattern never yield a bus
 			var binds = List.new;
 			self.specs.clump(2).do { arg pair;
 				var key = pair[0];

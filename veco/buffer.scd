@@ -214,7 +214,8 @@
 		};
 
 		self.mode = \clip;
-		self.mode_push_again = \stop;
+		self.mode_push_again = \stop; // deprecated
+		self.clip_response_mode = \toggle;
 		self.active_seq_points = 8.collect { arg x; Point(x,0) };
 		self.msize = Point(64,64);
 		self.var_clip_offset = Point(0,0);
@@ -724,15 +725,17 @@
 		};
 
 
-		Ndef(name+++\mixer).isource = { arg send1=0, send2=0, send3=0, send4=0;
+		Ndef(name+++\mixer).isource = { arg preamp=1, amp=1, send1=0, send2=0, send3=0, send4=0;
 			var in = In.ar(BusDef(name+++\mixer), 2);
 			var sig;
 			sig = in;
+			sig = preamp * in;
 
 			make_out.(0, sig, send1);
 			make_out.(1, sig, send2);
 			make_out.(2, sig, send3);
 			make_out.(3, sig, send4);
+			sig = sig * amp;
 			sig;
 		};
 
@@ -924,11 +927,47 @@
 		res = self.execute;
 	},
 
-	response_on: { arg self;
+	response_mode: { arg self;
+		if(self.val_response_mode.isNil) {
+			self.main.clip_response_mode
+		} {
+			self.val_response_mode
+		}
+	},
+
+	response_mode_: { arg self, val;
+		self.val_response_mode = val;
+	},
+
+	response_on_play: { arg self;
 		self.parent_buffer.old_active_clip_index = self.parent_buffer.active_clip_index;
 		self.parent_buffer.active_clip_index = self.parent_buffer.clips.indexOf(self);
 		self.parent_buffer.active_clip_index.debug("class_node_clip.response_on: active_clip_index");
 		self.play_node;
+	},
+
+	response_on_stop: { arg self, stop_func;
+		self.parent_buffer.stop_node(true, stop_func);
+	},
+
+	response_on_toggle: { arg self, stop_func;
+		if(self.is_active and: { self.parent_buffer.is_playing } ) {
+			self.response_on_stop(stop_func);
+		} {
+			self.response_on_play;
+		};
+	},
+
+	response_on: { arg self, stop_func;
+		"RESPO?SE ONN".debug;
+		switch(self.response_mode,
+			\toggle, {
+				self.response_on_toggle(stop_func);
+			},
+			\play, {
+				self.response_on_play;
+			}
+		)
 	},
 
 	is_active: { arg self;
