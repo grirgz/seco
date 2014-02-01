@@ -1,8 +1,32 @@
 
-~launchpad_device_id = 1572864;
+//~launchpad_device_id = 1572864;
 //~launchpad_device_id = 1835008;
 
-//MIDIdef.noteOn(\test, { arg ... args; args.debug("plop"); });
+//~get_device_uid = { arg string1, string2;
+//	var dev = MIDIIn.findPort (string1, string2);
+//	if(dev.notNil) {
+//		dev.uid;
+//	} {
+//		nil
+//	}
+//};
+//
+//~launchpad_device_id = ~get_device_uid.("Launchpad S-Launchpad S MIDI 1", "Launchpad S-Launchpad S MIDI 1");
+//~icon_device_id = ~get_device_uid.("iCON iControls V2.00-iCON iControls V2.00 MIDI 1", "iCON iControls V2.00-iCON iControls V2.00 MIDI 1");
+//
+//if(~launchpad_device_id.notNil) {
+//	MIDIOut(0).connect( MIDIClient.destinations.detectIndex { arg x; x.device == "Launchpad S-Launchpad S MIDI 1" } );
+//	MIDIIn.connect(0, ~launchpad_device_id);
+//};
+//if(~icon_device_id.notNil) {
+//	MIDIOut(0).connect( MIDIClient.destinations.detectIndex { arg x; x.device == "iCON iControls V2.00-iCON iControls V2.00 MIDI 1" } );
+//	MIDIIn.connect(0, ~icon_device_id);
+//};
+
+
+//MIDIClient.destinations;
+//MIDIdef.noteOn(\test, { arg ... args; args.debug("plop note"); });
+//MIDIdef.cc(\testcc, { arg ... args; args.debug("plop cc"); });
 
 ~launchpad = (
 	new: { arg self, controller;
