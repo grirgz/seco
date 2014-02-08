@@ -109,7 +109,9 @@
 				if(self.all[node_uname][name].isNil or: { force == true }) {
 					//[kind, node_uname, name].debug("defining NEW score");
 					self.all[node_uname][name] = score_class.new(node_uname, name, spec);
-					self.all[node_uname][name].load_data;
+					if(force.not) {
+						self.all[node_uname][name].load_data;
+					}
 				} {
 					//[kind, node_uname, name].debug("defining NEW score (already exists so noop)");
 				}
