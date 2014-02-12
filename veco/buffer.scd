@@ -1,5 +1,6 @@
 ~execute_till_special_end = { arg path;
 	var res = path;
+	path.debug("Try loading buffer file");
 	if(File.exists(res)) {
 		var file;
 		var code;
@@ -19,6 +20,8 @@
 			e.throw;
 			res.debug("Error when loading buffer file");
 		};
+	} {
+		path.debug("execute_till_special_end: File don't exists");
 	}
 };
 
@@ -212,6 +215,9 @@
 			scene.scene_name = key;
 			self[key] = { scene };
 		};
+
+		self.pane_rect = Rect(100,100,100,100);
+		self.pane_offset = Point(0,32);
 
 		self.mode = \clip;
 		self.mode_push_again = \stop; // deprecated
@@ -706,7 +712,7 @@
 		Ndef(name+++\mixer);
 	},
 
-	make_mixer: { arg self, send_list;
+	make_simple_mixer: { arg self, send_list;
 		var name = self.uname;
 		var make_out;
 		send_list = send_list ?? [~fx1, ~fx2, ~fx3, ~fx4];
@@ -738,6 +744,56 @@
 			sig = sig * amp;
 			sig;
 		};
+
+	},
+
+	make_mixer: { arg self, send_list;
+		var name = self.uname;
+		var make_out;
+		send_list = send_list ?? [~fx1, ~fx2, ~fx3, ~fx4];
+		BusDef(name+++\mixer, \audio, 2);
+		self.add_play_node_hook(\mixer, { 
+			Ndef(name+++\mixer).parentGroup = ~get_mixer_group.();
+			Ndef(name+++\mixer).play;
+		});
+		self.add_stop_node_hook(\mixer, { Ndef(name+++\mixer).stop });
+		self.has_mixer = true;
+
+		make_out = { arg i, sig, send;
+			if(send_list[i].notNil) {
+				Out.ar(send_list[i], sig * send);
+			}
+		};
+
+
+		Ndef(name+++\mixer).put(0, { arg preamp=1;
+			var in = In.ar(BusDef(name+++\mixer), 2);
+			var sig;
+			sig = preamp * in;
+			sig;
+		});
+
+		Ndef(name+++\mixer).put(100, \filter -> { arg in, xfade=0.5, send1=0, send2=0, send3=0, send4=0;
+			var sig;
+			xfade = xfade.clip(0,1);
+			sig = in;
+			sig = sig * xfade;
+
+			make_out.(0, sig, send1);
+			make_out.(1, sig, send2);
+			make_out.(2, sig, send3);
+			make_out.(3, sig, send4);
+
+			in;
+		});
+
+		Ndef(name+++\mixer).put(200, \filter -> { arg in, xfade=0.5, amp=1;
+			var sig;
+
+			sig = in * amp * (xfade-1);
+			sig;
+
+		})
 
 	},
 
@@ -833,6 +889,7 @@
 	},
 
 	response_off: { arg self;
+		self.is_pressed = false;
 		self.response_off_hook;
 	},
 
@@ -966,6 +1023,10 @@
 			},
 			\play, {
 				self.response_on_play;
+			},
+			\exec, {
+				self.is_pressed = true;
+				self.execute;
 			}
 		)
 	},

@@ -152,19 +152,6 @@
 		self.sceneset.active_row = idx;
 	},
 
-	get_node_by_index: { arg self, idx;
-		self.controller.get_node_by_index(idx)
-	},
-
-	absolute_point_to_buf: { arg self, pos;
-		var node;
-		var res;
-		node = self.controller.get_node_by_index(pos.x);
-		if(node.notNil) {
-			res = node.get_clip_by_index(pos.y, false);
-		};
-		res;
-	},
 
 	line_do: { arg self, fun;
 		self.controller.board_size.x.do { arg x, n;
@@ -178,6 +165,74 @@
 			y = y + self.controller.board_offset.y;
 			fun.(y);
 		}
+	},
+
+
+	////////////////////////// coordinates and clips
+
+	///////////////
+
+	// - gridpos_to_clip
+	// - abspos_to_clip // not used
+	// - gridpos_to_abspos
+	// - abspos_to_gridpos
+
+	//gridpos_to_node_and_clip: { arg self, pos;
+	//	var node;
+	//	var clip;
+	//	pos = self.controller.clip_offset + pos;
+	//	node = self.controller.get_node_by_index(pos.x);
+	//	if(node.notNil) {
+	//		clip = node.get_clip_by_index(pos.y);
+	//	};
+	//	[node, clip];
+	//},
+
+	get_node_by_index: { arg self, idx;
+		self.controller.get_node_by_index(idx)
+	},
+
+	gridpos_to_abspos: { arg self, gpos;
+		var pos;
+		if(self.controller.pane_rect.notNil and: { self.controller.pane_rect.contains(gpos) }) {
+			pos = self.controller.pane_offset + gpos - self.controller.pane_rect.leftTop;
+		} {
+			pos = self.controller.clip_offset + gpos;
+		};
+		pos;
+	},
+
+	abspos_to_buf: { arg self, pos;
+		var node;
+		var res;
+		node = self.controller.get_node_by_index(pos.x);
+		if(node.notNil) {
+			res = node.get_clip_by_index(pos.y, false);
+		};
+		res;
+	},
+
+	absolute_point_to_buf: { arg self, pos;
+		self.abspos_to_buf(pos);
+	},
+
+	gridpos_to_buf: { arg self, pos;
+		var node;
+		var res;
+		self.abspos_to_buf(self.gridpos_to_abspos(pos));
+	},
+
+
+	gridpos_to_node_and_clip: { arg self, gpos;
+		var node;
+		var clip;
+		var pos;
+		pos = self.gridpos_to_abspos(gpos);
+		node = self.controller.get_node_by_index(pos.x);
+		if(node.notNil) {
+			clip = node.get_clip_by_index(pos.y);
+		};
+		[node, clip];
 	},
 
 	abspos_to_gridpos: { arg self, abspos, inrect=true;
@@ -199,7 +254,6 @@
 		};
 	},
 
-
 	midi_to_offset_gridpos: { arg self, midi;
 		self.midi_to_gridpos(midi) + self.controller.clip_offset;
 	},
@@ -213,6 +267,8 @@
 		nodeidx = pos.y + self.controller.clip_offset.x;
 		self.controller.get_node_by_index(nodeidx);
 	},
+
+	////////////////////////// midi
 
 	install_midi_responder: { arg self;
 		var launchpad_channel = 0;
@@ -414,31 +470,13 @@
 		self.sceneset.tile.response_cc_off(midi);
 	},
 
-	gridpos_to_buf: { arg self, pos;
-		var node;
-		var res;
-		pos = self.controller.clip_offset + pos;
-		node = self.controller.get_node_by_index(pos.x);
-		if(node.notNil) {
-			res = node.get_clip_by_index(pos.y, false);
-		};
-		res;
-	},
 
-	gridpos_to_node_and_clip: { arg self, pos;
-		var node;
-		var clip;
-		pos = self.controller.clip_offset + pos;
-		node = self.controller.get_node_by_index(pos.x);
-		if(node.notNil) {
-			clip = node.get_clip_by_index(pos.y);
-		};
-		[node, clip];
-	},
 );
 
 //////////////////
 
+
+// main
 ~launchpad_scene_clip = (
 	parent: ~launchpad_scene,
 
@@ -504,7 +542,15 @@
 						color_active;
 					}
 				} {
-					color_present;
+					if(buf.response_mode == \exec) {
+						if(buf.is_pressed == true) {
+							\amber
+						} {
+							\yellow
+						}
+					} {
+						color_present;
+					}
 				}
 			} {
 				color_off;
@@ -587,24 +633,16 @@
 		self.render_mode_state;
 	},
 
-	response_on: { arg self, midinote;
-		var pos = self.midi_to_gridpos(midinote);
-		var buf;
-		var node, clip;
-		var opos;
-		midinote.debug("launchpad_scene_clip.response_on");
-
-		if(self.is_launcher_button(midinote)) {
+	play_row: { arg self, opos, stop_empty=true;
 			var y;
 			var off_continue_playing, off_stop_playing;
 
 
-			midinote.debug("launchpad_scene_clip.response_on: is a launcher");
-			opos = self.controller.clip_offset + pos;
 			y = opos.y;
 
-			if(self.modifiers[\session] == false) {
+			if(stop_empty) {
 				off_stop_playing = { arg x;
+					var node = self.controller.get_node_by_index(x);
 					[self.controller.clip_offset, Point(x, opos.y), self.is_abspos_visible(Point(x, opos.y))].debug("bordelYO");
 					if(self.is_abspos_visible(Point(x, opos.y))) {
 						node.stop_node(true, {
@@ -617,9 +655,9 @@
 			};
 
 			self.line_do { arg x;
-				node = self.controller.get_node_by_index(x);
+				var node = self.controller.get_node_by_index(x);
 				if(node.notNil) {
-					clip = node.get_clip_by_index(y);
+					var clip = node.get_clip_by_index(y);
 					if(clip.notNil and: {clip.is_present}) {
 						clip.response_on;
 					} {
@@ -628,7 +666,29 @@
 				};
 			};
 			self.render_state;
+		
+	},
 
+	response_launcher_on: { arg self, midinote, pos;
+		var opos = self.controller.clip_offset + pos;
+		var stop_empty = self.modifiers[\session] == false;
+		[midinote,pos,opos,stop_empty].debug("launchpad_scene_clip.response_launcher_on");
+		if(self[\response_launcher_on_hook].notNil) {
+			self.response_launcher_on_hook(pos, opos, stop_empty)
+		} {
+			self.play_row(opos, stop_empty);
+		}
+	},
+
+	response_on: { arg self, midinote;
+		var pos = self.midi_to_gridpos(midinote);
+		var buf;
+		var node, clip;
+		var opos;
+		midinote.debug("launchpad_scene_clip.response_on");
+
+		if(self.is_launcher_button(midinote)) {
+			self.response_launcher_on(midinote, pos);
 		} {
 			midinote.debug("launchpad_scene_clip.response_on: go!");
 			if(self.modifiers[\session] == true) {
@@ -664,6 +724,7 @@
 				#node, clip = self.gridpos_to_node_and_clip(pos);
 				if(clip.is_present) {
 					clip.response_off;
+					self.render_pos(pos);
 				} {
 					//node.stop_node(true, {
 					//	self.render_column(pos.x);
@@ -676,6 +737,8 @@
 	},
 
 );
+
+
 
 ~launchpad_scene_seq_chooser = (
 	parent: ~launchpad_scene_clip,
@@ -1061,6 +1124,8 @@
 	},
 
 );
+
+////////////// copy, paste, cut, link
 
 ~launchpad_scene_mixer_mod = (
 	parent: ~launchpad_scene,
