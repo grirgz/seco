@@ -1,4 +1,5 @@
 
+
 {
 	var lib = currentEnvironment;
 
@@ -17,6 +18,10 @@
 			self.changed(\new_map);
 			
 			self;
+		},
+
+		get_spec: { arg self ... args;
+			lib[\get_spec].(*args)
 		},
 
 		target_string: {
@@ -83,7 +88,7 @@
 							if(self.target.get_active_score.specs_dict[key].notNil) {
 								self.target_spec = self.target.get_active_score.specs_dict[key];
 							} {
-								self.target_spec = \widefreq.asSpec;
+								self.target_spec = self.get_spec(self.target_key);
 							}
 						};
 						self.install_midi_responder;
@@ -101,7 +106,7 @@
 							self.install_midi_responder;
 						} {
 							self.putAll(lib[\class_midi_cc_controller_for_ndef]);
-							self.target_spec = spec ?? \widefreq.asSpec;
+							self.target_spec = spec ?? self.get_spec(self.target_key);
 							self.install_midi_responder;
 						};
 						self.changed(\map);

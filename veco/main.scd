@@ -28,6 +28,7 @@
 	"launchpad",
 	"score",
 	"sdef",
+	"launchpad_editor",
 ].do { arg file;
 	("Loading " ++ file ++".scd...").inform;
 	(~veco_dir_path +/+ file++".scd").load;

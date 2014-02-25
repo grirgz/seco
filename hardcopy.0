@@ -1,41 +1,19 @@
- E/s/s/v/buffer.scd  /s/v/launchpad.scd  + /s/s/v/v/1.1.scd  ../l/d/morph.scd  ~/.v/sc.vim  S/E/s/s/v/main.scd  S/E/s/s/v/tile.scd             X
-
-
-    (
-
-        Pdef(\test,
-
-            Pbind(\instrument, \oscsampler) <> ~morphpat.(Sdef(~name, \mypreset).get(0).pbind , Sdef(~name, \mypreset).get(1).pbind , 1.0)
-
-        ).play
-    )
-
-    (
-
-        Pdef(\test,
-
-            Pbind(\instrument, \oscsampler)
-
-        ).play
-    )
-
-(
-SynthDef(\test, { arg out=0, amp=0.1, gate=1, pan=0, spread=0.8, freq=200, doneAction=2, ffreq=300, rq=0.3;
-    var sig, sig1, sig2, sig3;
-    sig = LFSaw.ar(freq);
-    sig = RLPF.ar(sig, ffreq, rq);
-    sig = sig * EnvGen.ar(\adsr.kr(Env.adsr(0.01,0.1,0.8,0.1)),gate,doneAction:doneAction);
-    sig = Splay.ar(sig, spread, amp, pan);
-    Out.ar(out, sig);
-}).add;
+ E/s/s/v/buffer.scd  /s/v/launchpad.scd  + /s/s/v/r/1.1.scd  init.scd  ~/.v/sc.vim  S/E/s/s/v/main.scd  S/E/s/s/v/tile.scd                     X
+    ~k1 = ~midi.(\k1).valpattern;
+    ~k2 = ~midi.(\k2, nil, ControlSpec(0.5,4)).valpattern;
+    ~k3 = ~midi.(\k3, nil, ControlSpec(0.1,2)).valpattern;
+    ~k4 = ~midi.(\k4, nil, ControlSpec(0.01,0.8)).valpattern;
+    ~k5 = ~midi.(\k5, nil, ControlSpec(0.1,2)).valpattern;
+    ~k6 = ~midi.(\k6, nil, ControlSpec(0.001,0.1)).valpattern;
+    ~k7 = ~midi.(\k7, nil, ControlSpec(0.1,2)).valpattern;
+    ~k8 = ~midi.(\k8, nil, ControlSpec(0.01,0.3)).valpattern;
+    ~k9 = ~midi.(\k8, nil, ControlSpec(0.01,0.3)).valpattern;
 );
+(
+8.do { arg nn;
+    var nnn = nn+1;
 
-    (
-
-        Pdef(\test,
-
-            Pbind(\instrument, \test) <> ~morphpat.(Pbind(\ffreq, 300) , Pbind(\pos, 3000) , 0.1)
-
-        ).play
-    )
-"/tmp/sclang-pipe" [Périph.] 1L, 3C ajouté(s)                                                                                 125,81-90     Bas
+    Pdef(~name +++ nn, Pmono(
+        ~name,
+            \arg1, 100,
+                                                                                                                              10,18-21       1%

@@ -106,6 +106,10 @@
 			self.vpattern;
 		},
 
+		buspattern: { arg self;
+			self.vpattern;
+		},
+
 		get_event_val: { arg self;
 			self.get_val;
 		},
@@ -143,6 +147,7 @@
 		},
 
 		get_pat_val: { arg self;
+			// return a scalar or a bus
 			if(self.bus_mode_enabled and: self.bus_mode) {
 				self.bus.asMap;
 			} {
@@ -155,6 +160,7 @@
 		},
 
 		get_val: { arg self;
+			// return a scalar
 			self.val;	
 		},
 
@@ -167,6 +173,8 @@
 				self.bus_mode = true;
 				if(self.bus.isNil) {
 					self.bus = Bus.control(s, 1);
+					self.bus.set(self.val);
+				} {
 					self.bus.set(self.val);
 				}
 			} {
@@ -185,6 +193,7 @@
 		},
 
 		vpattern: { arg self;
+			// return a scalar or a bus
 			if(self.name == \amp) {
 				Pfunc { arg ev; self.get_val * ev[\amp] };
 			} {
@@ -193,10 +202,21 @@
 		},
 
 		valpattern: { arg self;
+			// return a scalar
 			if(self.name == \amp) {
 				Pfunc { arg ev; self.get_val * ev[\amp] };
 			} {
 				Pfunc { arg ev; self.get_val };
+			}
+		},
+
+		buspattern: { arg self;
+			// set busmode and return a bus
+			if(self.name == \amp) {
+				Pfunc { arg ev; self.get_val * ev[\amp] };
+			} {
+				self.set_bus_mode;
+				Pfunc { self.get_pat_val };
 			}
 		},
 
@@ -689,9 +709,7 @@
 		},
 
 		set_bus_mode: { arg self, set=true;
-			self.controller.vals.keysValuesDo { arg key, val;
-				val.set_bus_mode(set);
-			};
+			self.controller.set_bus_mode(set);
 		},
 
 		set_controller: { arg self, controller;
@@ -981,6 +999,12 @@
 			self.parent_collection.set_active_subindex(self.index, self.subindex);
 		},
 
+		set_bus_mode: { arg self, set=true;
+			self.vals.keysValuesDo { arg key, val;
+				val.set_bus_mode(set);
+			};
+		},
+
 		build_pbind: { arg self;
 			var binds = List.new;
 			self.specs.clump(2).do { arg pair;
@@ -999,6 +1023,11 @@
 			self.build_apbind; // what ??
 			self.build_valpbind; // no busses
 			self.pbind = Pbind(*binds);
+			self.pbind;
+		},
+
+		buspbind: { arg self;
+			self.set_bus_mode(true);
 			self.pbind;
 		},
 

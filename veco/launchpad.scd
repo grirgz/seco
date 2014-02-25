@@ -38,7 +38,8 @@
 		self.midiout = MIDIOut(0);
 
 		self.init_midi_layout;
-		self.controller = { controller };
+		self.controller = { controller.value };
+		self.gridsize = Point(8,8);
 		
 		CmdPeriod.add({  self.sceneset.cleanup_function });
 	
@@ -2015,6 +2016,7 @@
 	},
 
 );
+
 
 /////////// TODO
 // - navigation with session

@@ -1,3 +1,17 @@
+
+
+
+
+
+
+- preset asRealCompileString
+- preset set_controller error rise 1.3
+
+
+
+///////////////////////////////////////////////////////////:
+
+
 Modulation
 =====================
 - implement correctly effect bypassing

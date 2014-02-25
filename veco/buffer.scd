@@ -859,10 +859,20 @@
 	},
 
 	mixer: { arg self;
-		if(self.val_play_node_hook_dict[\mixer].notNil) {
+		var bus;
+		var dict = self.val_play_node_hook_dict; 
+		bus = case
+			{ dict[\fx].notNil } {
+				BusDef(self.uname+++\fx)
+			}
+			{  dict[\mixer].notNil } {
+				BusDef(self.uname+++\mixer)
+			};
+
+		if(bus.notNil) {
 			Pbind(
 				//\amp, Pfunc({ arg ev; self.amp_level * ev[\amp]})
-				\out, BusDef(self.uname+++\mixer),
+				\out, bus,
 				\amp, Pfunc({ arg ev; self.amp_level })
 			)
 		} {
@@ -887,6 +897,25 @@
 	
 		self;
 	},
+	
+	is_present: { arg self;
+		var path = self.path;
+		//[self.uname, path].debug("class_code_buffer.is_present");
+		if(self[\execute_hook].notNil) {
+			true
+		} {
+			if(File.exists(path)) {
+				if(File.fileSize(path) > 15) {
+					true
+				} {
+					false
+				}
+			} {
+				false
+			}
+		}
+	},
+
 
 	response_off: { arg self;
 		self.is_pressed = false;
@@ -965,8 +994,14 @@
 
 	execute: { arg self;
 		var path;
-		self.envir_do {
-			self.execute_till_special_end;
+		if(self[\execute_hook].notNil) {
+			self.envir_do {
+				self.execute_hook;
+			}
+		} {
+			self.envir_do {
+				self.execute_till_special_end;
+			}
 		}
 	},
 

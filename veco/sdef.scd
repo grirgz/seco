@@ -802,9 +802,10 @@
 					idx = pos.y;
 					subidx = pos.x;
 				} {
-					idx = self.get_active_index;
+					idx = self.active_clip_index;
 					subidx = pos;
 				};
+				[idx,subidx].debug("preset: morph: what!!");
 				if(method == \pbind) {
 					self.get(idx, subidx).pbind;
 				} {
@@ -813,7 +814,7 @@
 			};
 			//Sdef(self.node_uname, self.name, \preset, [key, \I])
 			
-			~lmorphpat.(preset_list, Pfunc({ arg ev; ev[key] }));
+			~ilmorphpat.(preset_list, key);
 		},
 
 		pbind: { arg self;
