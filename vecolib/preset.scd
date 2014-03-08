@@ -736,71 +736,75 @@
 			var win;
 			var layout;
 			//win = Window.new("preset", Rect(200,200,500,550));
-			win = Window.new;
-			self.window = win;
-			win.view.keyDownAction = { arg view, char, modifiers, u, k; 
-				[char, modifiers, u, k].debug("KEYBOARD INPUT");
-				if( u == 27 ) { view.close() };
-				if( k == 67 ) { // F1
-					self.controller.activate_display(self);
+			Task({
+
+				win = Window.new;
+				self.window = win;
+				win.view.keyDownAction = { arg view, char, modifiers, u, k; 
+					[char, modifiers, u, k].debug("KEYBOARD INPUT");
+					if( u == 27 ) { view.close() };
+					if( k == 67 ) { // F1
+						self.controller.activate_display(self);
+					};
+					if( k == 68 ) { // F2
+						self.controller.duplicate_current_score(self);
+					};
+					if( k == 69 ) { // F3
+						self.controller.write_current_score_to_destination(self);
+					};
+					if( k == 70 ) { // F3
+						self.controller.set_current_score_as_default(self);
+					};
+					//if( u == ~keycode.kbspecial.enter ) { validate_action.(); close_window.(); };
 				};
-				if( k == 68 ) { // F2
-					self.controller.duplicate_current_score(self);
+
+				self.layout = layout = HLayout.new;
+				self.slider_layout = VLayout.new;
+				self.array_layout = VLayout.new;
+
+				layout.add(self.slider_layout);
+				layout.add(self.array_layout);
+
+				self.controller.specs.clump(2).do { arg pair;
+					var key, ctrl;
+					var view;
+					key = pair[0];
+					ctrl = self.controller.vals[key];
+					switch(ctrl.kind,
+						\array, {
+							view = lib[\class_control_array_view].new(ctrl, self);
+							self.array_layout.add(view.make_layout);
+						},
+						\env, {
+							view = lib[\class_control_env_view].new(ctrl, self);
+							self.array_layout.add(view.make_layout);
+						},
+						\scalar, {
+							view = lib[\class_control_scalar_view].new(ctrl, self);
+							self.slider_layout.add(view.make_layout);
+						},
+						{
+							ctrl.kind.debug("Error, % kind not recognised");
+							view = nil;
+						}
+					);
+					0.01.wait;
+					self.control_views[key] = view;
 				};
-				if( k == 69 ) { // F3
-					self.controller.write_current_score_to_destination(self);
+
+				self.array_layout.add(nil);
+				self.slider_layout.add(nil);
+
+				self.update_view;
+
+				win.onClose = {
+					self.set_bus_mode(false);
+					self.controller.save_data;
+
 				};
-				if( k == 70 ) { // F3
-					self.controller.set_current_score_as_default(self);
-				};
-				//if( u == ~keycode.kbspecial.enter ) { validate_action.(); close_window.(); };
-			};
-
-			self.layout = layout = HLayout.new;
-			self.slider_layout = VLayout.new;
-			self.array_layout = VLayout.new;
-
-			layout.add(self.slider_layout);
-			layout.add(self.array_layout);
-
-			self.controller.specs.clump(2).do { arg pair;
-				var key, ctrl;
-				var view;
-				key = pair[0];
-				ctrl = self.controller.vals[key];
-				switch(ctrl.kind,
-					\array, {
-						view = lib[\class_control_array_view].new(ctrl, self);
-						self.array_layout.add(view.make_layout);
-					},
-					\env, {
-						view = lib[\class_control_env_view].new(ctrl, self);
-						self.array_layout.add(view.make_layout);
-					},
-					\scalar, {
-						view = lib[\class_control_scalar_view].new(ctrl, self);
-						self.slider_layout.add(view.make_layout);
-					},
-					{
-						ctrl.kind.debug("Error, % kind not recognised");
-						view = nil;
-					}
-				);
-				self.control_views[key] = view;
-			};
-
-			self.array_layout.add(nil);
-			self.slider_layout.add(nil);
-
-			self.update_view;
-
-			win.onClose = {
-				self.set_bus_mode(false);
-				self.controller.save_data;
-
-			};
-			win.layout = layout;
-			win.front;
+				win.layout = layout;
+				win.front;
+			}).play(AppClock);
 			
 		},
 	);

@@ -675,7 +675,7 @@
 		var stop_empty = self.modifiers[\session] == false;
 		[midinote,pos,opos,stop_empty].debug("launchpad_scene_clip.response_launcher_on");
 		if(self[\response_launcher_on_hook].notNil) {
-			self.response_launcher_on_hook(pos, opos, stop_empty)
+			self.response_launcher_on_hook(pos, opos, stop_empty.not)
 		} {
 			self.play_row(opos, stop_empty);
 		}

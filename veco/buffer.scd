@@ -1051,7 +1051,7 @@
 	},
 
 	response_on: { arg self, stop_func;
-		"RESPO?SE ONN".debug;
+		[self.response_mode].debug("RESPO?SE ONN");
 		switch(self.response_mode,
 			\toggle, {
 				self.response_on_toggle(stop_func);

@@ -425,6 +425,90 @@
 		},
 	);
 
+	~class_score_steps = (
+		parent: ~class_score_base,
+
+		new: { arg self, parent, idx, subidx;
+			self = self.deepCopy;
+
+			self.name = parent.name;
+			self.node_uname = parent.node_uname;
+			self.specs = parent.spec;
+			self.index = idx;
+			//self.subindex = subidx;
+			self.parent_collection = { parent };
+			self.is_present = false;
+
+			self;
+		},
+
+		label: { arg self;
+			"%.%.%".format(self.node_uname, self.index+1, self.name);
+		},
+
+		//////////// save/load
+
+		new_from_score: { arg self, parent, index, score;
+			self = self.deepCopy;
+		
+			self.name = parent.name;
+			self.node_uname = parent.node_uname;
+			self.index = index;
+			//self.subindex = subidx;
+			self.parent_collection = { parent };
+			self.is_present = false;
+
+			self.load_data_from_score(score);
+		
+			self;
+		},
+
+		load_data_from_score: { arg self, score;
+			//self.set_data(score.save_data_to_struct.deepCopy)
+			//self.set_event_score(score.event_score.deepCopy);
+		},
+
+		set_data: { arg self, data;
+			//var ns = ~make_notescore.();
+			//ns.set_notes(data);
+			//self.is_present = true;
+			//self.event_score = ns;
+		},
+
+		get_compile_string: { arg self;
+			//var notes = self.event_score.get_rel_notes.collect { arg note;
+			//	"\t"++note.asCompileString++",\n";
+			//};
+			//"[\n%]".format(notes.join);
+		},
+
+		save_data: { arg self, data;
+			//self.parent_collection.save_data;
+		},
+
+		//// wrappers methods
+
+		pbind: { arg self, repeat=inf;
+			//self.event_score.get_rel_notes; // TODO: is it needed ?
+			Pbind(\freq, Pfunc({ arg ev; (ev[\event_key] ?? 1).midicps })) <>
+				Pn(
+					Plazy({
+						if(self.event_score.isNil) {
+							debug("silence");
+							Event.silent(1);
+						} {
+							Pseq(self.event_score.get_cached_rel_notes)
+						}
+					}),
+					repeat,
+				);
+		},
+
+		activate_display: { arg self;
+			Veco.main.score_notes.activate_display(self, self.recorder);
+		},
+	);
+
 	//// score collections
 
 	~class_score_collection = (
