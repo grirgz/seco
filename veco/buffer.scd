@@ -221,6 +221,7 @@
 
 		self.mode = \clip;
 		self.mode_push_again = \stop; // deprecated
+		self.mode_play_row = \stop_slices;
 		self.clip_response_mode = \toggle;
 		self.active_seq_points = 8.collect { arg x; Point(x,0) };
 		self.msize = Point(64,64);
@@ -229,6 +230,8 @@
 		self.board_size = Point(64/2,64);
 		self.fadeout_time = 4;
 		self.seq_offset = 0;
+
+		self.master_bus = 0;
 		
 	},
 
@@ -262,6 +265,7 @@
 	},
 
 	board_offset: { arg self;
+		// board_offset is the first index of current slice
 		Point(
 			(self.clip_offset.x / self.board_size.x).asInteger * self.board_size.x,
 			(self.clip_offset.y / self.board_size.y).asInteger * self.board_size.y,
@@ -442,6 +446,10 @@
 		self;
 	},
 
+	master_bus: { arg self;
+		self.main.master_bus;
+	},
+
 	get_name: { arg self;
 		self.name ?? self.uname.asSymbol
 	},
@@ -599,7 +607,7 @@
 
 	stop_node_hook_dict: { arg self;
 		self.val_stop_node_hook_dict.keysValuesDo { arg key, val;
-			val.value;
+			val.value(self.uname);
 		}
 	},
 
@@ -654,6 +662,8 @@
 	response_on: { arg self;
 		self.toggle_play;
 	},
+
+	/////////////// access
 
 	get_clip_by_index: { arg self, idx, create=true;
 		//if(self.clips[idx].isNil and: create) {
@@ -719,7 +729,8 @@
 		BusDef(name+++\mixer, \audio, 2);
 		self.add_play_node_hook(\mixer, { 
 			Ndef(name+++\mixer).parentGroup = ~get_mixer_group.();
-			Ndef(name+++\mixer).play;
+			//Ndef(name+++\mixer).play;
+			Ndef(name+++\mixer).play(self.master_bus);
 		});
 		self.add_stop_node_hook(\mixer, { Ndef(name+++\mixer).stop });
 		self.has_mixer = true;
@@ -754,7 +765,7 @@
 		BusDef(name+++\mixer, \audio, 2);
 		self.add_play_node_hook(\mixer, { 
 			Ndef(name+++\mixer).parentGroup = ~get_mixer_group.();
-			Ndef(name+++\mixer).play;
+			Ndef(name+++\mixer).play(self.master_bus);
 		});
 		self.add_stop_node_hook(\mixer, { Ndef(name+++\mixer).stop });
 		self.has_mixer = true;
@@ -1031,10 +1042,20 @@
 		self.val_response_mode = val;
 	},
 
+	response_unselect: { arg self;
+		[self.node_uname,self.get_index].debug("response_unselect!!!!");
+		self.response_unselect_hook;
+	},
+
 	response_on_play: { arg self;
 		self.parent_buffer.old_active_clip_index = self.parent_buffer.active_clip_index;
 		self.parent_buffer.active_clip_index = self.parent_buffer.clips.indexOf(self);
 		self.parent_buffer.active_clip_index.debug("class_node_clip.response_on: active_clip_index");
+		if(self.parent_buffer.old_active_clip_index != self.parent_buffer.active_clip_index) {
+			if(self.parent_buffer.old_active_clip_index.notNil) {
+				self.parent_buffer.get_clip_by_index(self.parent_buffer.old_active_clip_index).response_unselect;
+			}
+		};
 		self.play_node;
 	},
 

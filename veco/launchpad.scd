@@ -155,10 +155,39 @@
 
 
 	line_do: { arg self, fun;
+		// board_offset is the first index of current slice
 		self.controller.board_size.x.do { arg x, n;
 			x = x + self.controller.board_offset.x;
 			fun.(x, n);
 		}
+	},
+
+	slices_do: { arg self, fun;
+		var slice_is_active;
+		var board_offset = self.controller.board_offset.x;
+		var in_stop_exclusion_range = self.controller[\in_stop_exclusion_range];
+		var is_excluded_fun = { arg x;
+
+			(x >= board_offset and: { x < (board_offset + self.controller.board_size.x) }) or: {
+				if(in_stop_exclusion_range.notNil) {
+					in_stop_exclusion_range.(x)
+				} {
+					false;
+				}
+			}
+
+		};
+		var is_excluded;
+		self.controller.msize.x.do { arg x;
+			if( is_excluded_fun.(x) ) 
+			{
+				is_excluded = true;
+			} {
+				is_excluded = false;
+			};
+			fun.(x, is_excluded);
+		}
+		
 	},
 
 	column_do: { arg self, fun;
@@ -634,25 +663,26 @@
 		self.render_mode_state;
 	},
 
-	play_row: { arg self, opos, stop_empty=true;
+	play_row: { arg self, opos, stop_empty=true, stop_slices=false;
 			var y;
 			var off_continue_playing, off_stop_playing;
-
-
 			y = opos.y;
 
-			if(stop_empty) {
-				off_stop_playing = { arg x;
-					var node = self.controller.get_node_by_index(x);
-					[self.controller.clip_offset, Point(x, opos.y), self.is_abspos_visible(Point(x, opos.y))].debug("bordelYO");
-					if(self.is_abspos_visible(Point(x, opos.y))) {
-						node.stop_node(true, {
-							self.render_column(x - self.controller.clip_offset.x);
-						});
-					} {
-						node.stop_node(true);
-					}
-				};
+			off_stop_playing = { arg x;
+				var node = self.controller.get_node_by_index(x);
+				[self.controller.clip_offset, Point(x, opos.y), self.is_abspos_visible(Point(x, opos.y))].debug("bordelYO");
+				if(self.is_abspos_visible(Point(x, opos.y))) {
+					node.stop_node(true, {
+						self.render_column(x - self.controller.clip_offset.x);
+					});
+				} {
+					node.stop_node(true);
+				}
+			};
+
+
+			if(stop_empty.not) {
+				off_stop_playing = nil;
 			};
 
 			self.line_do { arg x;
@@ -666,6 +696,15 @@
 					}
 				};
 			};
+
+			if(stop_slices) {
+				self.slices_do { arg x, is_excluded;
+					if(is_excluded.not) {
+						off_stop_playing.(x);
+					}
+				};
+			};
+
 			self.render_state;
 		
 	},
@@ -677,7 +716,8 @@
 		if(self[\response_launcher_on_hook].notNil) {
 			self.response_launcher_on_hook(pos, opos, stop_empty.not)
 		} {
-			self.play_row(opos, stop_empty);
+			var stop_slices = (self.controller.mode_play_row == \stop_slices);
+			self.play_row(opos, stop_empty, stop_slices);
 		}
 	},
 
