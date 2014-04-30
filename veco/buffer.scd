@@ -596,8 +596,10 @@
 			//}).play(TempoClock.default, self.get_node_player.quant);
 		} {
 			//self.get_node_player.player.xstop(self.get_node_player.quant);
-			self.get_node_player.player.stop(self.get_node_player.quant);
+			//self.get_node_player.player.stop(self.get_node_player.quant);
+			self.get_node_player.stop;
 			self.stop_node_hook;
+			self.stop_node_hook_dict;
 		}
 	},
 

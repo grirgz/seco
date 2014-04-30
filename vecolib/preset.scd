@@ -1,6 +1,8 @@
 {
 	var lib = currentEnvironment;
 
+	// FIXME: use lib var instead of ~ everywhere (only inside classes)
+
 	///// helpers
 
 	~make_class_responder = { arg self, parent, model, list, auto_refresh=true;
@@ -83,6 +85,53 @@
 		specs;
 	};
 
+	~synthdef_name_to_specs2 = { arg defname;
+		var specs;
+		specs = List.new;
+
+		if(SynthDescLib.global.synthDescs[defname].notNil) {
+
+			SynthDescLib.global.synthDescs[defname].controls.do { arg x; 
+				var spec;
+				specs.add(x.name);
+				spec = lib[\get_spec].(x.name, defname).copy;
+				if([XEnvSpec, XArraySpec].includes(spec.class)) {
+					specs.add(spec);
+				} {
+					if(spec.class != Association and: { x.defaultValue.isSequenceableCollection }) {
+						if(x.name == \adsr) {
+							//specs.add(\env -> [nil, nil, nil, nil, x.defaultValue.copy]);
+							// TODO: retrieve real default value
+							//specs.add(\env -> [nil, nil, nil, nil, Env.adsr(0.01,0.1,0.8,0.1)]);
+							var default = Env.adsr(0.1,0.1,0.8,0.1);
+
+							specs.add(XEnvSpec(\unipolar ! 4, ControlSpec(0.0001,8,\exp,0,0.1), \bipolar, default));
+						} {
+							specs.add(XArraySpec(\unipolar.asSpec.copy ! x.defaultValue.size, x.defaultValue.copy));
+						}
+					} {
+						if(spec.class == Association) {
+							switch(spec.key,
+								\env, {
+									//spec.value[4] = x.defaultValue; // TODO: array to env
+									specs.add(spec.copy);
+								},
+								\array, {
+									spec.value[2] = x.defaultValue.copy;
+									specs.add(spec.copy);
+								}
+							)
+						} {
+							spec.default = x.defaultValue.copy;
+							specs.add(spec.copy);
+						}
+					};
+				}
+			};
+		};
+		specs;
+	};
+
 	~windowize = { arg layout;
 		var win;
 		win = Window.new;
@@ -117,6 +166,7 @@
 	);
 
 	~class_control_scalar = (
+		// FIXME: use lib var instead of ~ everywhere
 		parent: ~class_control_ancestor,
 		kind: \scalar,
 		bus_mode: false,
@@ -189,6 +239,7 @@
 			if(self.bus_mode == true) {
 				self.bus.set(val);
 			};
+			self.changed_hook(val);
 			self.changed(\val);
 		},
 
@@ -1096,6 +1147,30 @@
 			event;
 		},
 
+		print_pbind: { arg self;
+			var binds = List.new;
+			var ret;
+			self.specs.clump(2).do { arg pair;
+				var key = pair[0];
+				var val = self.vals[key];
+				//[pair, key, val, self.vals.keys].debug("PAIR");
+				if(val.notNil) {
+					//[pair].debug("PAIRiiii");
+					binds.add(key);
+					binds.add(val.get_event_val);
+				} {
+
+				}
+			};
+			//binds = binds.flat;
+			ret = Pbind(*binds).asCompileString;
+			ret = ret
+				.replace(" '", "\n\t'")
+				.replace("Pbind(", "Pbind(\n\t")
+				.drop(-1) ++ "\n)";
+			ret.postln;
+		},
+
 		set_val: { arg self, key, val;
 			self.vals[key].set_val(val)
 		},
@@ -1105,6 +1180,74 @@
 		},
 
 		get_active_score: { arg self; self },
+	);
+
+	~class_preset_morpher = (
+		parent: lib[\class_preset],
+		new: { arg self, specs;
+			var extra_specs = [];
+			var parent;
+			self = self.deepCopy;
+
+			parent = (
+				spec: specs
+			);
+
+			self.name = parent.name;
+			self.node_uname = parent.node_uname;
+			//parent.spec.debug("pSPECS");
+			self.specs = parent.spec;
+			self.index = 0;
+			self.subindex = 0;
+			self.parent_collection = { parent };
+			self.vals = IdentityDictionary.new;
+		
+			self.build_vals;
+			self.build_pbind;
+			self.is_present = false;
+
+
+			//self.load_data; // doesnt exists, called on collection level
+
+			self;
+		},
+
+		set_targets: { arg self, list;
+			self.targets = list;
+		},
+
+		set_morph: { arg self, morph;
+			self.morph_value = morph;
+			self.update_morphing;
+		},
+
+		update_morphing: { arg self;
+			var morph;
+			if(self.morph_value.isNil) {
+				self.morph_value = 0;
+			};
+			morph = self.morph_value * (self.targets.size-1);
+			self.vals.keysValuesDo { arg key, val;
+				var morphed;
+				var vals = self.targets.collect({ arg target;
+					if(target.isNil) {
+						"Error: set_morph: target is nil".debug;
+						0
+					} {
+						target.get_val(key)
+					}
+				});
+				morphed = vals.blendAt(morph);
+				if(key == \adsr) {
+					[self.morph_name, vals, morphed].debug("self.update_morphing: adsr")
+				};
+				val.set_val(morphed);
+			};
+			
+		},
+
+
+
 	);
 
 }.value;

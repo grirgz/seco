@@ -103,6 +103,7 @@
 
 		define: { arg self, node_uname, name, kind, spec, force=false;
 			var make_score = { arg score_class;
+				// FIXME: score_class is wrapper_class
 				if(self.all[node_uname].isNil) {
 					self.all[node_uname] = IdentityDictionary.new;
 				};
@@ -264,7 +265,7 @@
 	);
 
 	~class_score_preset = (
-		parent: VecoLib.lib[\class_preset],
+		parent: VecoLib.lib[\class_preset_morpher],
 
 		data_path: { arg self; ~class_score_base.data_path },
 
@@ -877,7 +878,7 @@
 			});
 		},
 
-		morph: { arg self, key, idx_list, method=\pbind;
+		imorph: { arg self, key, idx_list, method=\pbind;
 			var preset_list;
 			preset_list = idx_list.collect { arg pos;
 				var idx;
@@ -899,6 +900,104 @@
 			//Sdef(self.node_uname, self.name, \preset, [key, \I])
 			
 			~ilmorphpat.(preset_list, key);
+		},
+
+		indexes_to_scores: { arg self, idx_list, method=\valpbind;
+			var preset_list = idx_list.collect { arg pos;
+				var idx;
+				var subidx;
+				if(x.class == Point) {
+					idx = pos.y;
+					subidx = pos.x;
+				} {
+					idx = self.active_clip_index;
+					subidx = pos;
+				};
+				[idx,subidx].debug("preset: morph: what!!");
+				switch(method,
+					\pbind, {
+						self.get(idx, subidx).pbind;
+					},
+					\valpbind, {
+						self.get(idx, subidx).valpbind;
+					},
+					\none, {
+						self.get(idx, subidx);
+					},
+					{
+						"Error".debug();
+					}
+				);
+			};
+			preset_list;
+			
+		},
+
+		morph: { arg self, idx_list, method=\valpbind;
+			var preset_list;
+			var keypat;
+			preset_list = self.indexes_to_scores(idx_list, method);
+			Sdef(self.node_uname, self.name+++\morph, \preset, [\morph, \unipolar.asSpec]);
+			keypat = Sdef(self.node_uname, self.name+++\morph).get_active_score.vals[\morph].valpattern;
+			~lmorphpat.(preset_list, keypat);
+		},
+
+		busmorph_scores: { arg self, scorelist, key, bus_mode=true;
+			var morphkey;
+			var preset_list;
+			var sdefkey;
+			preset_list = scorelist;
+			sdefkey = self.name+++key;
+
+			if(self.busmorpher.isNil) {
+				self.busmorpher = IdentityDictionary.new;
+			};
+
+			if(self.busmorpher[key].isNil) {
+				self.busmorpher[key] = ~class_score_preset.new(self, 100,0);
+				self.busmorpher[key].morph_name = key;
+				self.busmorpher[key].set_bus_mode(bus_mode);
+			};
+
+			Sdef(self.node_uname, sdefkey, \preset, [\morph, \unipolar.asSpec]);
+			morphkey = Sdef(self.node_uname, sdefkey).get_active_score.vals[\morph];
+
+			self.busmorpher[key].set_targets(preset_list);
+			morphkey[\changed_hook] = { arg morphself, val;
+				self.busmorpher[key].set_morph(val);
+			};
+			self.busmorpher[key].pbind
+			
+		},
+
+		busmorph: { arg self, idx_list, key=\default, bus_mode=true;
+			var preset_list = self.indexes_to_scores(idx_list, \none);
+			self.busmorph_scores(preset_list, \_morph_ +++ key, bus_mode)
+		},
+
+		superbusmorph: { arg self, keylist, key, bus_mode=true;
+			var morphkey;
+			var preset_list;
+			key = \_supermorph_ +++ (key ?? \default);
+
+			if(self.busmorpher.isNil) {
+				self.busmorpher = IdentityDictionary.new;
+			};
+
+			preset_list = keylist.collect({ arg subkey;
+				var sdefkey;
+				var morphkey;
+				subkey = \_morph_+++subkey;
+				sdefkey = self.name+++subkey;
+				morphkey = Sdef(self.node_uname, sdefkey).get_active_score.vals[\morph];
+				morphkey[\changed_hook] = { arg morphself, val;
+					self.busmorpher[subkey].set_morph(val);
+					self.busmorpher[key].update_morphing;
+				};
+				self.busmorpher[subkey];
+			});
+
+			self.busmorph_scores(preset_list, key, bus_mode);
 		},
 
 		pbind: { arg self;
