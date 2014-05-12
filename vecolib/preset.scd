@@ -768,7 +768,12 @@
 			self.controller = { controller };
 			self.set_bus_mode(true);
 			self.controller.vals.keysValuesDo { arg key, val;
-				self.control_views[key].set_controller(val);
+				key.debug("class_node_preset_view: set_controller: key");
+				if(self.control_views[key].isNil) {
+					[self.controller.node_uname, self.controller.name].debug("Warning: class_node_preset_view: control view is Nil");
+				} {
+					self.control_views[key].set_controller(val);
+				}
 			};
 			self.update_view;
 		},
@@ -1234,6 +1239,7 @@
 						"Error: set_morph: target is nil".debug;
 						0
 					} {
+						//[target.keys, key].debug("update_morphing: target, key");
 						target.get_val(key)
 					}
 				});

@@ -486,7 +486,7 @@
 
 			self.my_parent = {parent};
 			self.target_key = key;
-			self.target = obj;
+			self.target = {obj};
 		
 			if(spec.notNil) {
 				self.target_spec = spec;
@@ -542,7 +542,7 @@
 
 			self.my_parent = {parent};
 			self.target_key = key;
-			self.target = obj;
+			self.target = {obj};
 		
 			self.target_spec = spec ?? self.get_spec(self.target_key);
 			
@@ -676,7 +676,7 @@
 
 			self.my_parent = {parent};
 			self.target_key = key;
-			self.target = obj;
+			self.target = {obj};
 		
 			self.target_spec = spec ?? self.get_spec(self.target_key);
 			
@@ -734,7 +734,7 @@
 
 			self.my_parent = {parent};
 			self.target_key = key;
-			self.target = obj;
+			self.target = {obj};
 		
 			self.target_spec = spec ?? self.get_spec(self.target_key);
 

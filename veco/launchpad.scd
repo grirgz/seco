@@ -1704,6 +1704,9 @@
 
 );
 
+
+//////////////////// 
+
 ~launchpad_scene_codepads = (
 	parent: ~launchpad_scene,
 
@@ -1784,6 +1787,7 @@
 	},
 
 	activate_display: { arg self, score_collection, score_view;
+		score_view.debug("launchpad_scene_choose_score_preset_display: activate_display: score_view");
 		self.score_collection = score_collection;
 		self.score_view = score_view;
 		self.activate;
@@ -1849,6 +1853,7 @@
 				midinote.debug("launchpad_scene_mixer.response_on: go!");
 				opos = self.offset_pos(pos);
 				// TODO: make special preset offset for x
+				self.score_view.debug("response_on: score_view");
 				self.score_view.set_controller(self.score_collection.get(opos.y, pos.x));
 				self.render_state;
 			}
@@ -1882,6 +1887,7 @@
 	},
 
 	activate_display: { arg self, score, score_view, set_function;
+		score_view.debug("launchpad_scene_choose_score_preset_display: activate_display: score_view");
 		self.score_collection = score.parent_collection;
 		self.source_preset_pos = Point(score.subindex, score.index);
 		self.score_view = score_view;
@@ -1891,6 +1897,7 @@
 
 	render_row: { arg self, y;
 		var oy = self.controller.clip_offset.y + y;
+		self.score_view.debug("render_row: score_view");
 		8.do { arg x;
 			var scorecol = self.score_collection;
 			if(scorecol.is_score_present(oy, x) == true) {
