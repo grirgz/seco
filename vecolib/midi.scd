@@ -209,6 +209,15 @@
 							nil
 						}
 					},
+					Volume, {
+						"wh4at".debug;
+						if(kind == \cc) {
+							lib[\class_midi_cc_controller_for_volume].new(self, obj, key, spec);
+						} {
+							"Error: MIDIBoard.map: midinum is not cc".postln;
+							nil
+						}
+					},
 					Function, {
 						"wh5at".debug;
 						lib[\class_midi_cc_controller_for_button].new(self, obj, key, spec);
@@ -721,6 +730,63 @@
 		target_norm_get: { arg self;
 			var val;
 			val = self.target.get_val(self.target_key);
+			val.debug("target_norm_get: val");
+			self.target_spec.unmap(val);
+		},
+	);
+
+	~class_midi_cc_controller_for_volume = (
+		parent: lib[\class_midi_responder_wrapper],
+		new: { arg self, parent, obj, key, spec;
+			self = self.deepCopy;
+
+			self.my_parent = {parent};
+			self.target_key = key;
+			self.target = {obj};
+		
+			self.target_spec = ControlSpec(-inf, 6.0, 'db', 0.0, -inf, " dB");
+			
+			self.handle_midi_message = lib[\class_midi_responder_wrapper][\handle_midi_cc_message];
+			self.init;
+		
+			self;
+		},
+
+		target_set: { arg self, val;
+			self.target.volume = val
+		},
+
+		target_string: { arg self;
+			if(self.target.isNil) {
+				"Volume nil";
+			} {
+				"Volume";
+			}
+		},
+
+		target_symbol: { arg self;
+			\volume
+		},
+
+		target_macrokey: { arg self;
+			var sym;
+			sym = self.target_symbol;
+			[sym.key, sym.value, self.target_key]; 
+		},
+
+		target_norm_set: { arg self, val;
+			//"1".debug;
+			self.target_set(self.target_spec.map(val));
+			//"11".debug;
+		},
+
+		target_get: { arg self;
+			self.target.volume
+		},
+
+		target_norm_get: { arg self;
+			var val;
+			val = self.target_get;
 			val.debug("target_norm_get: val");
 			self.target_spec.unmap(val);
 		},
