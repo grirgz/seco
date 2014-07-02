@@ -346,9 +346,13 @@
 				var val = self.controller.get_val;
 				val.debug("class_control_scalar_view: update_view val");
 				self.key_label.string = self.controller.label.asString;
-				self.val_label.string = val.round(prec);
 				self.controller.get_norm_val.debug("class_control_scalar_view: update_view norm val");
-				self.slider.value = self.controller.get_norm_val;
+				if(val.isNumber) {
+					self.val_label.string = val.round(self.precision);
+					self.slider.value = self.controller.get_norm_val;
+				} {
+					self.val_label.string = val.asString;
+				};
 			}.defer;
 		},
 
@@ -381,9 +385,15 @@
 			self.update_view;
 
 			slider.action = { arg sli;
-				[sli.value, sli.value].debug("class_control_scalar_view: slideraction: norm val, val");
-				self.controller.set_norm_val(sli.value);
-				self.val_label.string = self.controller.get_val.round(self.precision);
+				var val;
+				[sli.value, sli.value].debug("class_rack_control_scalar_view: slideraction: norm val, val");
+				val = self.controller.get_val;
+				if(val.isNumber) {
+					self.controller.set_norm_val(sli.value);
+					self.val_label.string = val.round(self.precision);
+				} {
+					self.val_label.string = val.asString;
+				}
 			};
 
 			layout = HLayout.new(
@@ -438,9 +448,14 @@
 			self.update_view;
 
 			slider.action = { arg sli;
-				[sli.value, sli.value].debug("class_control_scalar_view: slideraction: norm val, val");
-				self.controller.set_norm_val(sli.value);
-				self.val_label.string = self.controller.get_val.round(self.precision);
+				[sli.value, sli.value].debug("class_rack_control_scalar_knob_view: slideraction: norm val, val");
+				val = self.controller.get_val;
+				if(val.isNumber) {
+					self.controller.set_norm_val(sli.value);
+					self.val_label.string = val.round(self.precision);
+				} {
+					self.val_label.string = val.asString;
+				}
 			};
 
 			layout = VLayout.new(

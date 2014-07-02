@@ -449,9 +449,13 @@
 				var val = self.controller.get_val;
 				val.debug("class_control_scalar_view: update_view val");
 				self.key_label.string = self.controller.label.asString;
-				self.val_label.string = val.round(prec);
 				self.controller.get_norm_val.debug("class_control_scalar_view: update_view norm val");
-				self.slider.value = self.controller.get_norm_val;
+				if(val.isNumber) {
+					self.val_label.string = val.round(self.precision);
+					self.slider.value = self.controller.get_norm_val;
+				} {
+					self.val_label.string = val.asString;
+				};
 			}.defer;
 		},
 
@@ -483,9 +487,15 @@
 			self.update_view;
 
 			slider.action = { arg sli;
+				var val;
 				[sli.value, spec.map(sli.value)].debug("class_control_scalar_view: slideraction: norm val, val");
-				self.controller.set_val(spec.map(sli.value));
-				self.val_label.string = self.controller.get_val.round(self.precision);
+				val = self.controller.get_val;
+				if(val.isNumber) {
+					self.controller.set_val(spec.map(sli.value));
+					self.val_label.string = val.round(self.precision);
+				} {
+					self.val_label.string = val.asString;
+				}
 			};
 
 			layout = HLayout.new(
