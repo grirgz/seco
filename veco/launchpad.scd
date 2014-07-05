@@ -145,10 +145,12 @@
 	color_mode_off: \off,
 
 	active_row: { arg self;
+		// seems deprecated
 		self.sceneset.active_row
 	},
 
 	set_active_row: { arg self, idx;
+		// seems deprecated
 		idx.debug("launchpad_scene_subbuffer: active_row");
 		self.sceneset.active_row = idx;
 	},

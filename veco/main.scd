@@ -94,6 +94,17 @@
 		"fin activ".debug;
 		
 	},
+
+	open_side_project: { arg self, path;
+		self.reset_side_slot(path);
+		self.side_slot(path).open_project(path);
+		if(self.projects[path].notNil) {
+			
+		};
+		self.projects[path] = Environment.new;
+	
+	
+	},
 	
 );
 
