@@ -140,7 +140,7 @@
 		},
 
 		data_path: { arg self;
-			Veco.main.data_path +/+ "%.%.%.aiff".format(self.node_uname, self.index+1, self.name);
+			Veco.main.data_path +/+ "%.%.%.aiff".format(Veco.main.puname_to_uname(self.node_uname), self.index+1, self.name);
 		},
 	);
 
@@ -527,8 +527,12 @@
 			self;
 		},
 
+		node_buname: { arg self;
+			Veco.main.puname_to_uname(self.node_uname);
+		},
+
 		data_path: { arg self;
-			Veco.main.data_path +/+ "%.%.scd".format(self.node_uname, self.name);
+			Veco.main.data_path +/+ "%.%.scd".format(self.node_buname, self.name);
 		},
 
 		clone: { arg self, node_uname, name;
@@ -740,7 +744,7 @@
 						str = str ++ (
 							"\nSdef(%, %).set_data(%, %);\n"
 						).format(
-							self.node_uname.asCompileString,
+							self.node_buname.asCompileString,
 							self.name.asCompileString,
 							idx,
 							val.get_compile_string
@@ -856,7 +860,7 @@
 								str = str ++ (
 									"\nSdef(%, %).set_data(%, %, \n%\n);\n"
 								).format(
-									self.node_uname.asCompileString,
+									self.node_buname.asCompileString,
 									self.name.asCompileString,
 									idx, subidx,
 									struct_to_string.(val.save_data_to_struct)
@@ -868,7 +872,7 @@
 				};
 				str = "%\n\nSdef(%,%).set_active_subindexes(Order.newFromIndices(%, %));\n".format(
 					str,
-					self.node_uname.asCompileString,
+					self.node_buname.asCompileString,
 					self.name.asCompileString,
 					self.active_subindex.array.asCompileString,
 					self.active_subindex.indices.asCompileString,

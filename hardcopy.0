@@ -1,19 +1,41 @@
- E/s/s/v/buffer.scd  /s/v/launchpad.scd  + /s/s/v/r/1.1.scd  init.scd  ~/.v/sc.vim  S/E/s/s/v/main.scd  S/E/s/s/v/tile.scd                     X
-    ~k1 = ~midi.(\k1).valpattern;
-    ~k2 = ~midi.(\k2, nil, ControlSpec(0.5,4)).valpattern;
-    ~k3 = ~midi.(\k3, nil, ControlSpec(0.1,2)).valpattern;
-    ~k4 = ~midi.(\k4, nil, ControlSpec(0.01,0.8)).valpattern;
-    ~k5 = ~midi.(\k5, nil, ControlSpec(0.1,2)).valpattern;
-    ~k6 = ~midi.(\k6, nil, ControlSpec(0.001,0.1)).valpattern;
-    ~k7 = ~midi.(\k7, nil, ControlSpec(0.1,2)).valpattern;
-    ~k8 = ~midi.(\k8, nil, ControlSpec(0.01,0.3)).valpattern;
-    ~k9 = ~midi.(\k8, nil, ControlSpec(0.01,0.3)).valpattern;
-);
-(
-8.do { arg nn;
-    var nnn = nn+1;
-
-    Pdef(~name +++ nn, Pmono(
-        ~name,
-            \arg1, 100,
-                                                                                                                              10,18-21       1%
+ s/v/buffer.scd  s/v/r/init.scd  /launchpad.scd  /s/s/v/c/1.scd  + mproject.scd  ~/.v/sc.vim  s/s/v/main.scd  /S/E/s/Veco.sc  s/s/v/tile.scd   X
+Veco.open_side_project("testme")
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+~
+"/tmp/sclang-pipe" [Périph.] 1L, 33C ajouté(s)                                                                                1,30         Tout

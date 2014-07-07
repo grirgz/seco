@@ -1,4 +1,4 @@
-~execute_till_special_end = { arg path;
+~execute_till_special_end = { arg path, skip_first_assign=false;
 	var res = path;
 	path.debug("Try loading buffer file");
 	if(File.exists(res)) {
@@ -12,6 +12,15 @@
 		if(end.notNil) {
 			code = code.keep(end);
 		};
+
+		if(skip_first_assign) {
+			if(code.beginsWith("~name =")) {
+				//code.debug("BEFORE=======================================================================");
+				code = code.drop(code.find("\n")+1);
+				//code.debug("AFTER=======================================================================");
+			}
+		};
+
 		res.debug("Loading buffer file");
 		try {
 			code.interpret;
@@ -40,30 +49,54 @@
 		more_unames = 32.collect { arg x; (x + 32).asSymbol };
 		unames = unames.asList.collect(_.asSymbol);
 		unames = unames ++ more_unames;
+		//unames = unames.collect({ arg x;  })
 		self.node_unames = unames;
 		self.nodes = IdentityDictionary.new;
 		//self.lib_path = "~/.local/share/SuperCollider/Extensions/seco/seco/vlive/lib/".standardizePath;
 		self.lib_path = "~/code/sc/seco/vlive/lib/".standardizePath;
+		self.prefixed_uname_mode = true;
 
 		self.init;
 	
 		self;
 	},
 
+	uname_to_puname: { arg self, uname;
+		// puname is uname prefixed with project name
+		if(self.prefixed_uname_mode) {
+			(self.project_name ++ "-" ++ uname).asSymbol
+		} {
+			uname;
+		}
+		//self.prefixed_node_unames = unames.collect({ arg x; self.project_name })
+	},
+
+	puname_to_uname: { arg self, uname;
+		if(self.prefixed_uname_mode) {
+			uname = uname.asString;
+			if(uname.beginsWith(self.project_name)) {
+				uname = uname.replace(self.project_name++ "-", "")
+			};
+			uname.asSymbol;
+		} {
+			uname;
+		}
+	},
+
 	index_to_uname: { arg self, idx;
-		self.node_unames[idx];
+		self.uname_to_puname(self.node_unames[idx]);
 	},
 
 	uname_to_index: { arg self, uname;
 		// FIXME: node uname only
-		self.node_unames.indexOf(uname)
+		self.node_unames.indexOf(self.puname_to_uname(uname))
 	},
 
 	project_destructor: { arg self;
 		if(self.project_path.notNil) {
 			self.save_data;
 		};
-		Pdef.clear;
+		//Pdef.clear;
 		BufferPool.release_client(\veco_audio);
 	},
 
@@ -78,6 +111,8 @@
 		self.project_path.debug("class_veco_buffer_manager.open_project: path");
 		self.nodes = IdentityDictionary.new;
 		self.node_unames.do { arg uname;
+			uname = self.uname_to_puname(uname);
+			uname.debug("open_project: create node");
 			// create buffers objects and load saved data (mainly stepseq and amp)
 			self.nodes[uname] = ~class_node_buffer.new(self, uname);
 			self.nodes[uname].load_data;
@@ -97,7 +132,14 @@
 	},
 
 	get_node_by_uname: { arg self, uname;
-		var res = self.nodes[uname];
+		var res;
+		if(self.prefixed_uname_mode) {
+			if(self.nodes[uname].isNil) {
+				uname = self.uname_to_puname(uname);
+			};
+		};
+		res = self.nodes[uname];
+
 		res;
 	},
 
@@ -111,7 +153,8 @@
 	//},
 
 	set_buffer_name: { arg self, idx, name;
-		self.nodes[self.index_to_uname(idx)].set_name(name);
+		// ignore ~name init
+		//self.nodes[self.index_to_uname(idx)].set_name(name);
 	},
 
 
@@ -154,30 +197,30 @@
 	clipboard_clip: { arg self;
 		//self.var_clipboard_clip
 		"get clipboard!!!!".debug;
-		~veco_clipboard_clip;
+		topEnvironment[\veco_clipboard_clip];
 	},
 
 	clipboard_clip_: { arg self, val;
 		//self.var_clipboard_clip
 		"set clipboard!!!!".debug;
-		~veco_clipboard_score_storage = ~score_storage;
-		~veco_clipboard_clip = val;
+		topEnvironment[\veco_clipboard_score_storage] = ~score_storage;
+		topEnvironment[\veco_clipboard_clip] = val;
 	},
 
 	clipboard_mode_: { arg self, val;
-		~veco_clipboard_mode = val;
+		topEnvironment[\veco_clipboard_mode] = val;
 	},
 
 	clipboard_mode: { arg self;
-		~veco_clipboard_mode;
+		topEnvironment[\veco_clipboard_mode];
 	},
 
 	clipboard_action_: { arg self, val;
-		~veco_clipboard_action = val;
+		topEnvironment[\veco_clipboard_action] = val;
 	},
 
 	clipboard_action: { arg self;
-		~veco_clipboard_action;
+		topEnvironment[\veco_clipboard_action];
 	},
 
 
@@ -273,11 +316,41 @@
 	},
 
 	get_node_by_uname: { arg self, uname;
-		var res = self.nodes[uname];
+		var res;
+		//uname.debug("veco.get_node_by_uname: uname");
+		if(self.prefixed_uname_mode) {
+			if(self.nodes[uname].isNil) {
+				var puname;
+				puname = self.uname_to_puname(uname);
+				//puname.debug("veco.get_node_by_uname: puname");
+				res = self.nodes[puname];
+				//self.nodes.keys.debug("nodes");
+				//res.debug("res");
+				res;
+			} {
+				res = self.nodes[uname];
+			};
+		} {
+			res = self.nodes[uname];
+		};
 		if(res.isNil) {
 			res = self.get_nodeclip_by_uname(uname)
 		};
 		res;
+	},
+
+	get_nodeclip_by_uname: { arg self, uname;
+		var node_uname,idx, node; 
+		#node_uname, idx = uname.asString.split($.);
+		if(idx.isNil) {
+			uname.debug("Error: uname is not in a nodeclip uname format");
+			nil.fuck;
+		} {
+			idx = idx.asInteger-1;
+			node_uname = node_uname.asSymbol;
+			node = self.get_node_by_uname(node_uname);
+			node.get_clip_by_index(idx);
+		}
 	},
 
 	data_path: { arg self;
@@ -315,20 +388,6 @@
 		};
 	},
 
-	get_nodeclip_by_uname: { arg self, uname;
-		var node_uname,idx, node; 
-		#node_uname, idx = uname.asString.split($.);
-		if(idx.isNil) {
-			uname.debug("Error: uname is not in a nodeclip uname format");
-			nil;
-		} {
-			idx = idx.asInteger-1;
-			node_uname = node_uname.asSymbol;
-			node = self.get_node_by_uname(node_uname);
-			node.get_clip_by_index(idx);
-		}
-	},
-
 
 	//get_buffer_at_point: { arg self, point;
 	//	var idx, node;
@@ -358,13 +417,17 @@
 		self;
 	},
 
+	bare_uname: { arg self;
+		self.main.puname_to_uname(self.uname);
+	},
+
 	path: { arg self;
-		self.main.project_path +/+ (self.uname++".scd").asString;
+		self.main.project_path +/+ (self.bare_uname++".scd").asString;
 	},
 
 	data_path: { arg self;
 		var root = self.main.data_path;
-		var path = root +/+ (self.uname++".scd").asString;
+		var path = root +/+ (self.bare_uname++".scd").asString;
 		path;
 	},
 
@@ -373,12 +436,19 @@
 		~execute_till_special_end.(self.path);
 	},
 
+	execute_till_special_end_skip_first_line: { arg self;
+		var res = self.path;
+		~execute_till_special_end.(self.path,true);
+	},
+
 	default_buffer_code: { arg self;
 		var res = "~name = \\" ++ self.uname ++ ";\n\n";
 		res;
 	},
 
 	open_buffer: { arg self;
+		// called by vim when opening a buffer
+		// put default code if file is new and define local variables
 		var path = self.path;
 		var file;
 		if(File.exists(path)) {
@@ -389,6 +459,7 @@
 			file.write(self.default_buffer_code);
 			file.close;
 		};
+		self.define_variables;
 	},
 
 	execute: { arg self;
@@ -423,6 +494,8 @@
 ~class_node_buffer = (
 	parent: ~class_code_buffer,
 
+	envir_keys: [\name],
+
 	new: { arg self, main, uname;
 		self = ~class_code_buffer[\new].(self, main, uname);
 	
@@ -446,6 +519,19 @@
 		self;
 	},
 
+	execute: { arg self;
+		//self.path.load;
+		if(self.main.prefixed_uname_mode) {
+			self.envir_do {
+				self.execute_till_special_end_skip_first_line;
+			}
+		} {
+			self.envir_do {
+				self.execute_till_special_end;
+			}
+		}
+	},
+
 	master_bus: { arg self;
 		self.main.master_bus;
 	},
@@ -458,10 +544,31 @@
 		self.name = name;
 	},
 
+	define_variables: { arg self;
+		var idx = self.get_index;
+		self.variables = ();
+		self.envir_keys.do { arg key;
+			self.variables[key] = currentEnvironment[key];
+		};
+		~name = self.get_name;
+	},
+
+	envir_do: { arg self, fun;
+		self.define_variables;
+		fun.();
+		self.undefine_variables;
+	},
+
+	//open_in_vim_OLD: { arg self;
+	//	var uname = self.uname;
+	//	var idx = self.main.uname_to_index(uname);
+	//	"vim --servername scvim --remote-send '<Esc>:call SCveco_open_buffer(\"%\", %)<Enter>'".format(uname, idx).unixCmd;
+	//},
+
 	open_in_vim: { arg self;
 		var uname = self.uname;
-		var idx = self.main.uname_to_index(uname);
-		"vim --servername scvim --remote-send '<Esc>:call SCveco_open_buffer(\"%\", %)<Enter>'".format(uname, idx).unixCmd;
+		self.define_variables;
+		"vim --servername scvim --remote-send '<Esc>:drop %<Enter>'".format(self.path).unixCmd;
 	},
 
 	pdef_is_present: { arg self;
@@ -555,7 +662,16 @@
 	},
 
 	is_playing: { arg self;
+		var player = self.get_node_player;
 		self.get_node_player.hasEnded.not and: {  self.get_node_player.isPlaying };
+		
+		// Pdef and Ndef API are too incompatible to be polymorphed here, so always use Pdef for the moment
+
+		//if(player.class == Pdef) {
+		//	self.get_node_player.hasEnded.not and: {  self.get_node_player.isPlaying };
+		//} {
+		//	self.get_node_player.isPlaying
+		//}
 		//self.get_node_player.wasStopped.not;
 	},
 

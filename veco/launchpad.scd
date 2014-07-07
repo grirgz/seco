@@ -46,7 +46,7 @@
 		self;
 	},
 
-	sceneset: { ~sceneset },
+	sceneset: { ~veco },
 
 	state: { arg self;
 		self.sceneset.state_leds;

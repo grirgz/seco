@@ -1,4 +1,7 @@
+topEnvironment.push;
+
 ~veco_dir_path = Platform.userExtensionDir +/+ "seco/seco/veco";
+~veco_code_path = "~/code/sc/seco/vlive/".standardizePath;
 
 "=======================================================================".inform;
 "loading Veco...".inform;
@@ -65,6 +68,7 @@
 //	active_row: 1,
 //).putAll(~scenestate);
 
+
 ~class_project_manager = (
 	new: { arg self;
 		self = self.deepCopy;
@@ -75,13 +79,12 @@
 	},
 
 	reset_board: {
-		if(~sceneset.notNil) {
-			~sceneset.project_destructor;
+		if(~veco.notNil) {
+			~veco.project_destructor;
 		};
-		~sceneset = ~class_veco_sceneset.new;
-		~sceneset.putAll(~scenestate);
-		~veco = ~sceneset;
-		Veco.main = ~veco;
+		~veco = ~class_veco_sceneset.new;
+		~veco.putAll(~scenestate);
+		//Veco.main = ~veco;
 		~score_storage = ~class_score_manager.new;
 	},
 
@@ -90,7 +93,7 @@
 		~veco.open_project(path); 
 
 		"debut activ".debug;
-		~sceneset.clip.activate;
+		~veco.clip.activate;
 		"fin activ".debug;
 		
 	},
