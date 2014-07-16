@@ -71,6 +71,10 @@
 		//self.prefixed_node_unames = unames.collect({ arg x; self.project_name })
 	},
 
+	name: { arg self;
+		self.project_name.asSymbol;
+	},
+
 	puname_to_uname: { arg self, uname;
 		if(self.prefixed_uname_mode) {
 			uname = uname.asString;
@@ -107,6 +111,7 @@
 
 		self.project_path = path.standardizePath;
 		self.project_name = PathName(self.project_path).fileName;
+		//self.project_name = self.project_name.asSymbol;
 		~veco_project_path = self.project_path;
 		self.project_path.debug("class_veco_buffer_manager.open_project: path");
 		self.nodes = IdentityDictionary.new;
@@ -276,6 +281,20 @@
 
 		self.master_bus = 0;
 		
+	},
+
+	open_file_in_editor: { arg self, path;
+		if(Platform.ideName == "scvim") {
+			"vim --servername scvim --remote-send '<Esc>:drop %<Enter>'".format(path).unixCmd;
+		} {
+			if(File.exists(path).not) {
+				var file;
+				file = File.new(path, "w");
+				file.write("\n");
+				file.close;
+			}; 
+			path.openDocument;
+		}
 	},
 
 	delete_node: { arg self, uname;
@@ -568,7 +587,7 @@
 	open_in_vim: { arg self;
 		var uname = self.uname;
 		self.define_variables;
-		"vim --servername scvim --remote-send '<Esc>:drop %<Enter>'".format(self.path).unixCmd;
+		self.main.open_file_in_editor(self.path);
 	},
 
 	pdef_is_present: { arg self;
@@ -876,22 +895,43 @@
 
 	},
 
-	make_mixer: { arg self, send_list;
+	make_mixer: { arg self, send_list, mixer_mode;
 		var name = self.uname;
 		var make_out;
+		var make_mix;
+		var mode;
+
+		if(mixer_mode.notNil) {
+			self.mixer_mode = mixer_mode;
+		};
+		if(self.mixer_mode.isNil) {
+			self.mixer_mode = \default;
+		};
+		mode = self.mixer_mode;
+
 		send_list = send_list ?? [~fx1, ~fx2, ~fx3, ~fx4];
 		BusDef(name+++\mixer, \audio, 2);
 		self.add_play_node_hook(\mixer, { 
 			Ndef(name+++\mixer).parentGroup = ~get_mixer_group.();
 			Ndef(name+++\mixer).play(self.master_bus);
 		});
-		self.add_stop_node_hook(\mixer, { Ndef(name+++\mixer).stop });
+		self.add_stop_node_hook(\mixer, { Ndef(name+++\mixer).end(Ndef(name+++\mixer).fadeTime) });
 		self.has_mixer = true;
 
 		make_out = { arg i, sig, send;
+			var mamp = 1;
 			if(send_list[i].notNil) {
 				Out.ar(send_list[i], sig * send);
 			}
+		};
+		
+		make_mix = { arg i, amp, send;
+			i = i + 1;
+			if(mode == (\mix+++i) or: { mode == (\premix+++i) }) {
+				1-send
+			} {
+				amp;
+			};
 		};
 
 
@@ -899,14 +939,17 @@
 			var in = In.ar(BusDef(name+++\mixer), 2);
 			var sig;
 			sig = preamp * in;
+			//if(mode == \preamp or: { mode.asString.beginsWith("premix") }) {
+			//	sig = \mamp.kr(1);
+			//};
 			sig;
 		});
 
-		Ndef(name+++\mixer).put(100, \filter -> { arg in, xfade=0.5, send1=0, send2=0, send3=0, send4=0;
+		Ndef(name+++\mixer).put(100, \filter -> { arg in, send1=0, send2=0, send3=0, send4=0;
 			var sig;
-			xfade = xfade.clip(0,1);
+			//xfade = xfade.clip(0,1);
 			sig = in;
-			sig = sig * xfade;
+			sig = sig;
 
 			make_out.(0, sig, send1);
 			make_out.(1, sig, send2);
@@ -916,10 +959,18 @@
 			in;
 		});
 
-		Ndef(name+++\mixer).put(200, \filter -> { arg in, xfade=0.5, amp=1;
+		Ndef(name+++\mixer).put(200, \filter -> { arg in, amp=1, send1=0, send2=0, send3=0, send4=0;
 			var sig;
 
-			sig = in * amp * (xfade-1);
+			amp = make_mix.(0, amp, send1);
+			amp = make_mix.(1, amp, send2);
+			amp = make_mix.(2, amp, send3);
+			amp = make_mix.(3, amp, send4);
+
+			sig = in * amp;
+			//if(mode == \amp or: { mode.asString.beginsWith("mix") }) {
+			//	sig = \mamp.kr(1);
+			//};
 			sig;
 
 		})
@@ -1235,7 +1286,7 @@
 	open_in_vim: { arg self;
 		var uname = self.uname;
 		self.define_variables;
-		"vim --servername scvim --remote-send '<Esc>:drop %<Enter>'".format(self.path).unixCmd;
+		self.main.open_file_in_editor(self.path);
 	},
 
 

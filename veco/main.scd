@@ -1,7 +1,8 @@
 topEnvironment.push;
 
-~veco_dir_path = Platform.userExtensionDir +/+ "seco/seco/veco";
-~veco_code_path = "~/code/sc/seco/vlive/".standardizePath;
+// deprecated, use Veco.extension_path and Veco.user_path
+//~veco_dir_path = Platform.userExtensionDir +/+ "seco/seco/veco";
+//~veco_code_path = "~/code/sc/seco/vlive/".standardizePath;
 
 "=======================================================================".inform;
 "loading Veco...".inform;
@@ -22,6 +23,8 @@ topEnvironment.push;
 	controller;
 };
 
+VecoLib.load_lib;
+
 "~/seco/seco/synth.scd".standardizePath.load;
 "~/.local/share/SuperCollider/Extensions/seco/seco/eventscore.scd".standardizePath.load;
 [
@@ -32,9 +35,10 @@ topEnvironment.push;
 	"score",
 	"sdef",
 	"launchpad_editor",
+	"launchpad_gui",
 ].do { arg file;
 	("Loading " ++ file ++".scd...").inform;
-	(~veco_dir_path +/+ file++".scd").load;
+	(Veco.extension_path +/+ file++".scd").load;
 };
 "Done loading.".inform;
 
@@ -46,6 +50,9 @@ topEnvironment.push;
 		if( u == 27 ) { view.close() };
 		//if( u == ~keycode.kbspecial.enter ) { validate_action.(); close_window.(); };
 };
+
+BusDef(\null, \audio);
+BusDef(\zero, \audio);
 
 ~scenestate = (
 	state_edit: 0,
@@ -89,12 +96,12 @@ topEnvironment.push;
 	},
 
 	open_project: { arg self, path;
+		path.debug("=========================######### Start loading project");
 		self.reset_board;
 		~veco.open_project(path); 
 
-		"debut activ".debug;
 		~veco.clip.activate;
-		"fin activ".debug;
+		path.debug("=========================######### End loading project");
 		
 	},
 

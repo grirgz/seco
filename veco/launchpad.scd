@@ -75,6 +75,7 @@
 
 	init_midi_layout: { arg self;
 		
+		// only includes launch buttons (last column)
 		self.gridlayout = 9.collect { arg x;
 			8.collect { arg y;
 				//[x,y].debug("x,y");
@@ -96,7 +97,8 @@
 	},
 
 	gridpos_to_midi: { arg self, pos;
-		var res = self.gridlayout[pos.x][pos.y];
+		var res;
+		res = self.gridlayout[pos.x][pos.y];
 		//res.debug("midipos");
 		res;
 	},
@@ -109,6 +111,8 @@
 	},
 
 	set_cc_led: { arg self, pos, color;
+		// launch buttons (last column)
+		~launchpad_gui.set_cc_led(pos, color);
 		if(pos < 50) {
 			pos = pos + 104;
 		};
@@ -117,6 +121,7 @@
 	},
 
 	set_mode_led: { arg self, pos, color;
+		~launchpad_gui.set_mode_led(pos, color);
 		self.set_cc_led(pos, color)
 	},
 
@@ -129,6 +134,7 @@
 			midi = pos;
 			pos = self.midi_to_gridpos(pos);
 		};
+		~launchpad_gui.set_led(pos, color);
 		//[midi, pos,color].debug("set_led: midi, pos, color 2");
 		self.state[pos.x,pos.y] = color;
 		//[pos,color].debug("set_led: pos, color 3");
@@ -305,6 +311,7 @@
 	install_midi_responder: { arg self;
 		var launchpad_channel = 0;
 		var launchpad_id = ~launchpad_device_id;
+		~launchpad_gui_current_scene = self;
 		MIDIdef.noteOn(\launchpadOn, { arg vel, midinote;
 			midinote.debug("midinote: noteOn responder");
 			self.response_on(midinote);
