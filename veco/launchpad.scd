@@ -564,38 +564,43 @@
 			color_playing = \green;
 		var color;
 		var node, buf;
-		#node, buf = self.gridpos_to_node_and_clip(pos);
-		if(buf.isNil) {
-			color = color_off;
-			//[pos].debug("launchpad_scene_clip: render_pos: buf is nil");
+		if( pos.x == 8 ) {
+			// launcher pad, do nothing
 		} {
 
+			#node, buf = self.gridpos_to_node_and_clip(pos);
+			if(buf.isNil) {
+				color = color_off;
+				//[pos].debug("launchpad_scene_clip: render_pos: buf is nil");
+			} {
 
-			//[buf.uname, buf.path, buf.is_present, buf.is_playing, buf.is_active].debug("launchpad_scene_clip: render_pos");
 
-			color = if(buf.is_present == true) {
-				if(buf.is_active == true) {
-					if(node.is_playing == true) {
-						color_playing;
-					} {
-						color_active;
-					}
-				} {
-					if(buf.response_mode == \exec) {
-						if(buf.is_pressed == true) {
-							\amber
+				//[buf.uname, buf.path, buf.is_present, buf.is_playing, buf.is_active].debug("launchpad_scene_clip: render_pos");
+
+				color = if(buf.is_present == true) {
+					if(buf.is_active == true) {
+						if(node.is_playing == true) {
+							color_playing;
 						} {
-							\yellow
+							color_active;
 						}
 					} {
-						color_present;
+						if(buf.response_mode == \exec) {
+							if(buf.is_pressed == true) {
+								\amber
+							} {
+								\yellow
+							}
+						} {
+							color_present;
+						}
 					}
-				}
-			} {
-				color_off;
-			};
+				} {
+					color_off;
+				};
 
-			self.set_led(pos, color);
+				self.set_led(pos, color);
+			}
 		}
 
 	},

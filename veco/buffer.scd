@@ -267,6 +267,9 @@
 		self.pane_rect = Rect(100,100,100,100);
 		self.pane_offset = Point(0,32);
 
+		self.mode_immortal_mixers = true;
+		self.mixers_main_fadetime = 0.5;
+
 		self.mode = \clip;
 		self.mode_push_again = \stop; // deprecated
 		self.mode_play_row = \stop_slices;
@@ -915,7 +918,11 @@
 			Ndef(name+++\mixer).parentGroup = ~get_mixer_group.();
 			Ndef(name+++\mixer).play(self.master_bus);
 		});
-		self.add_stop_node_hook(\mixer, { Ndef(name+++\mixer).end(Ndef(name+++\mixer).fadeTime) });
+		self.add_stop_node_hook(\mixer, { 
+			if(self.main.mode_immortal_mixers == false) {
+				Ndef(name+++\mixer).end(Ndef(name+++\mixer).fadeTime+self.main.mixers_main_fadetime)
+			}
+		});
 		self.has_mixer = true;
 
 		make_out = { arg i, sig, send;

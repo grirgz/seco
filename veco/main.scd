@@ -36,6 +36,7 @@ VecoLib.load_lib;
 	"sdef",
 	"launchpad_editor",
 	"launchpad_gui",
+	"inline_editor",
 ].do { arg file;
 	("Loading " ++ file ++".scd...").inform;
 	(Veco.extension_path +/+ file++".scd").load;

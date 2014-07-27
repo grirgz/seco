@@ -27,3 +27,31 @@ File.openDialog // install some pkg to fix it
 
 Order.asCompileString retourne une string qui correspond pas a l'order original
 Ndef: si on execute un .set avant de definir le Ndef, le Ndef se lance pas
+
+
+Tdef: si on redefini un Tdef a l'interieur du meme Tdef, il faut qu'il y ai un 0.wait a la fin du Tdef sinon ca marche pas
+
+~plop.()
+Tdef(\plop).quant = 10
+Tdef(\plop).isPlaying
+
+Pdef.defaultQuant
+
+(
+	
+	~plop = { arg x=0;
+		x.debug("GN");
+		Tdef(\plop).play;
+		Tdef(\plop, {
+			x.debug("one");
+			TempoClock.default.beats.debug("beats");
+			1.0.wait;
+			x.debug("two");
+			TempoClock.default.beats.debug("beats");
+			~plop.(x+1);
+			TempoClock.default.beats.debug("beats");
+			0.wait;
+		})
+
+	};
+)
