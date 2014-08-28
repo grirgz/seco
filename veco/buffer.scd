@@ -338,22 +338,31 @@
 	},
 
 	get_node_by_uname: { arg self, uname;
+		// get node by uname or index, get clip by clip_uname or point
 		var res;
 		//uname.debug("veco.get_node_by_uname: uname");
-		if(self.prefixed_uname_mode) {
-			if(self.nodes[uname].isNil) {
-				var puname;
-				puname = self.uname_to_puname(uname);
-				//puname.debug("veco.get_node_by_uname: puname");
-				res = self.nodes[puname];
-				//self.nodes.keys.debug("nodes");
-				//res.debug("res");
-				res;
+		if(uname.isNumber) {
+			res = self.get_node_by_index(uname);
+		};
+		if(uname.class == Point) {
+			res = self.get_node_by_index(uname.x).get_clip_by_index(uname.y);
+		};
+		if(res.isNil) {
+			if(self.prefixed_uname_mode) {
+				if(self.nodes[uname].isNil) {
+					var puname;
+					puname = self.uname_to_puname(uname);
+					//puname.debug("veco.get_node_by_uname: puname");
+					res = self.nodes[puname];
+					//self.nodes.keys.debug("nodes");
+					//res.debug("res");
+					res;
+				} {
+					res = self.nodes[uname];
+				};
 			} {
 				res = self.nodes[uname];
 			};
-		} {
-			res = self.nodes[uname];
 		};
 		if(res.isNil) {
 			res = self.get_nodeclip_by_uname(uname)
