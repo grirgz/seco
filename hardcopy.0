@@ -1,41 +1,41 @@
- s/v/buffer.scd  s/v/r/init.scd  /launchpad.scd  /s/s/v/c/1.scd  + mproject.scd  ~/.v/sc.vim  s/s/v/main.scd  /S/E/s/Veco.sc  s/s/v/tile.scd   X
-Veco.open_side_project("testme")
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-"/tmp/sclang-pipe" [Périph.] 1L, 33C ajouté(s)                                                                                1,30         Tout
+ ~/.v/sc.vim  /E/s/s/v/launchpad.scd  s/S/E/s/s/v/buffer.scd  l/s/S/E/s/s/v/main.scd  f.5.scd  + ~/c/s/s/v/l/midi.scd                          X
+            } {
+                debug("TODO: set node amp");
+                MIDIBoard.unmap((\s++(x+1)).asSymbol);
+                //MIDIBoard.map((\s++(x+1)).asSymbol, Ndef((uname++'mixer').asSymbol), \amp, \unipolar.asSpec);
+            }
+        } {
+            MIDIBoard.unmap((\s++(x+1)).asSymbol);
+        }
+
+    },
+
+    map_faders_to_fx_vol: { arg self;
+        var ofx = 0;
+        ofx.debug("map_faders_to_fx_vol");
+        [~tfx1, ~tfx2, ~tfx3, ~tfx4].do { arg uname, x;
+            var node;
+            var ndef;
+            if(uname.notNil) {
+                uname.debug("uname");
+                node = self.main.get_node_by_uname(uname);
+                "plop".debug(1);
+                self.map_fader_to_vol(node, uname, x);
+                "plop".debug(1);
+            }
+        }
+    },
+
+    update_faders: { arg self;
+        var ofx = self.main.clip_offset.x;
+        ofx.debug("update_faders");
+        8.do { arg x;
+            var node = self.main.get_node_by_index(ofx+x);
+            var uname = node.uname;
+            var ndef;
+            self.map_fader_to_vol(node, uname, x)
+        }
+    },
+
+    set_all_faders_to_max: { arg self, key, val=1;
+                                                                                                                              187,19-31     30%
