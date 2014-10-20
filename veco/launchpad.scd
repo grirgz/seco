@@ -150,6 +150,8 @@
 	color_mode_on: \yellow,
 	color_mode_off: \off,
 
+	mode_name: \not_initialized,
+
 	active_row: { arg self;
 		// seems deprecated
 		self.sceneset.active_row
@@ -313,20 +315,20 @@
 		var launchpad_id = ~launchpad_device_id;
 		~launchpad_gui_current_scene = self;
 		MIDIdef.noteOn(\launchpadOn, { arg vel, midinote;
-			midinote.debug("midinote: noteOn responder");
+			[self.mode_name, midinote].debug("midinote: noteOn responder");
 			self.response_on(midinote);
 		}, nil, launchpad_channel, launchpad_id).permanent_(true);
 		MIDIdef.noteOff(\launchpadOff, { arg vel, midinote;
-			midinote.debug("midinote: noteOFF responder");
+			[self.mode_name,midinote].debug("midinote: noteOFF responder");
 			self.response_off(midinote);
 		}, nil, launchpad_channel, launchpad_id).permanent_(true);
 		MIDIdef.cc(\launchpadCC, { arg vel, midinote;
 			if(vel == 127) {
-				midinote.debug("midinote: ccOn responder");
+				[self.mode_name,midinote].debug("midinote: ccOn responder");
 				self.handle_modifiers_on(midinote);
 				self.response_cc_on(midinote);
 			} {
-				midinote.debug("midinote: ccOff responder");
+				[self.mode_name,midinote].debug("midinote: ccOff responder");
 				self.handle_modifiers_off(midinote);
 				self.response_cc_off(midinote);
 			}
@@ -469,7 +471,7 @@
 	},
 
 	activate: { arg self, update=true;
-		"ACTIVATION".debug;
+		[self.mode_name, "ACTIVATION"].debug;
 		if(self.sceneset.active_scene.notNil) {
 			self.sceneset.active_scene.deactivate;
 		};
@@ -609,7 +611,7 @@
 	response_cc_on: { arg self, midinote;
 		var res;
 		var os = self.controller.clip_offset;
-		midinote.debug("MIDINOTE CoNTROL ON");
+		[self.mode_name, midinote].debug("MIDINOTE CoNTROL ON");
 		self.current_cc_on = midinote;
 		//if([\clip, \edit, \mixer].includes(self.controller.mode)) {
 		if(self.controller.mode == \clip) {
@@ -641,14 +643,31 @@
 
 	response_cc_off: { arg self, midinote;
 		var res;
-		midinote.debug("MIDINOTE CoNTROL OFF");
+		[self.mode_name, midinote].debug("MIDINOTE CoNTROL OFF");
 		self.current_cc_on = midinote;
+		//[self.controller.mode, self.sceneset.old_active_scene.mode_name].debug("response_cc_off: controller current mode 1");
 		if(self.skip_first_time == true) {
+			"launchpad_scene_clip".debug("skip_first_time");
 			self.skip_first_time = false;
-			res = self.sceneset.old_active_scene;
-			if(res.mode_name.notNil) {
-				// TODO: verify if active_launchpad.mode_name is always the current mode and set it in .activate
-				self.controller.mode = res.mode_name;
+			// why old_active_scene could be not_initialized ? where in the code I init this to ~launchpad_scene ?
+			// maybe mode_name is not defined in all scenes
+			if(self.sceneset.old_active_scene.notNil) {
+				if(self.sceneset.old_active_scene.mode_name != \not_initialized) {
+					if(self.sceneset.old_active_scene.mode_name == \mixer_mod) {
+						// hack
+						// is executed after project switch, do nothing instead of activating the mixer_mod mode
+						"response_cc_off: get rid of mixer_mod mode".debug;
+						res = nil;
+						self.controller.mode = \clip;
+					} {
+
+						res = self.sceneset.old_active_scene;
+						if(res.mode_name.notNil) {
+							// TODO: verify if active_launchpad.mode_name is always the current mode and set it in .activate
+							self.controller.mode = res.mode_name;
+						}
+					}
+				}
 			}
 		} {
 			res = switch(midinote,
@@ -673,6 +692,7 @@
 				}
 			);
 		};
+		[self.controller.mode, res.isNil].debug("response_cc_off: controller current mode 2, res isNil ?");
 		if(res.notNil) { res.activate };
 		self.render_mode_state;
 	},
@@ -799,6 +819,8 @@
 	parent: ~launchpad_scene_clip,
 	not_default_mode: false,
 
+	mode_name: \seq_chooser,
+
 	response_cc_off: { arg self, midinote;
 		var res;
 		self.not_default_mode.debug("launchpad_scene_seq_chooser.response_cc_off");
@@ -807,7 +829,7 @@
 		};
 		self.not_default_mode = false;
 
-		self.controller.mode = \seq;
+		self.controller.mode = \seq; // why not seq_chooser ? bug ?
 		res = self.sceneset.seq;
 		if(res.notNil) { res.activate };
 		// TODO: indicate mode of seq with arrow led
@@ -837,6 +859,8 @@
 	color_off: \off,
 	color_disabled: \dimred,
 	color_end: \dimgreen,
+
+	mode_name: \seq,
 
 	seq_buffers: { arg self, x;
 		if(x.isNil) {
@@ -1008,6 +1032,8 @@
 
 ~launchpad_scene_edit = (
 	parent: ~launchpad_scene,
+
+	mode_name: \edit,
 
 	render_state: { arg self;
 		self.sceneset.clip.render_state;
@@ -1185,6 +1211,8 @@
 ~launchpad_scene_mixer_mod = (
 	parent: ~launchpad_scene,
 
+	mode_name: \mixer_mod,
+
 	// ** launcher layout
 	// - copy
 	// - paste
@@ -1254,6 +1282,8 @@
 	parent: ~launchpad_scene,
 	color_clipboard: \red2,
 	clipboard_action: \copy,
+
+	mode_name: \mode_copy,
 
 	// ** layout
 	// - start/stop
@@ -1345,6 +1375,7 @@
 	},
 
 	response_cc_off: { arg self, midi;
+
 		if(self.skip_first_time != false) {
 			self.skip_first_time = false;
 		} {
@@ -1418,6 +1449,7 @@
 	parent: ~launchpad_scene_mode_copy,
 	color_clipboard: \red2,
 	clipboard_action: \cut,
+	mode_name: \mode_cut,
 
 );
 
@@ -1425,6 +1457,7 @@
 	parent: ~launchpad_scene_mode_copy,
 	color_clipboard: \red2,
 	clipboard_action: \link,
+	mode_name: \mode_link,
 
 	column_selected: { arg self, midinote, pos;
 		self.render_state;
@@ -1436,6 +1469,7 @@
 ~launchpad_scene_mode_paste = (
 	parent: ~launchpad_scene_mode_copy,
 
+	mode_name: \mode_paste,
 	color_pasted: \yellow,
 	// ** layout
 	// - start/stop
@@ -1723,6 +1757,12 @@
 
 ~launchpad_scene_codepads = (
 	parent: ~launchpad_scene,
+
+	mode_name: \codepads,
+
+	// quickpad is a codepad
+	// the quickpad is never .activate but response_on is called directly, so no scene change
+	// when calling response_on, skip_first_time is applied to clip before so the off event don't activate mixer scene
 
 	// ** layout
 	// - start/stop

@@ -34,6 +34,13 @@
 	}
 };
 
+~strip_end_slash = { arg path;
+	if(path.last == $/) {
+		path = path.drop(-1)
+	};
+	path;
+};
+
 ~class_veco = (
 	new: { arg self;
 		var unames;
@@ -76,7 +83,9 @@
 	},
 
 	puname_to_uname: { arg self, uname;
-		if(self.prefixed_uname_mode) {
+		var res;
+		var inuname = uname;
+		res = if(self.prefixed_uname_mode) {
 			uname = uname.asString;
 			if(uname.beginsWith(self.project_name)) {
 				uname = uname.replace(self.project_name++ "-", "")
@@ -84,7 +93,9 @@
 			uname.asSymbol;
 		} {
 			uname;
-		}
+		};
+		//[inuname, res].debug("puname_to_uname");
+		res;
 	},
 
 	index_to_uname: { arg self, idx;
@@ -105,13 +116,20 @@
 	},
 
 	open_project: { arg self, path;
+		var user_path;
+		var project_name;
 		s.boot;
 		~initialize_jack.();
 		//self.project_destructor;
 
 		self.project_path = path.standardizePath;
-		self.project_name = PathName(self.project_path).fileName;
-		//self.project_name = self.project_name.asSymbol;
+		self.project_path = ~strip_end_slash.(self.project_path);
+
+		user_path = ~strip_end_slash.(Veco.user_path);
+		project_name = PathName(self.project_path).asRelativePath(user_path);
+		project_name = project_name.replace("/", "");
+		self.project_name = project_name;
+
 		~veco_project_path = self.project_path;
 		self.project_path.debug("class_veco_buffer_manager.open_project: path");
 		self.nodes = IdentityDictionary.new;
@@ -119,8 +137,11 @@
 			uname = self.uname_to_puname(uname);
 			uname.debug("open_project: create node");
 			// create buffers objects and load saved data (mainly stepseq and amp)
+			"hh1".debug;
 			self.nodes[uname] = ~class_node_buffer.new(self, uname);
+			"hh2".debug;
 			self.nodes[uname].load_data;
+			"hh3".debug;
 		};
 		"init project".debug("===");
 		self.init_project; // load init files and execute node buffers
@@ -675,15 +696,18 @@
 		if(self.is_present) {
 			File.use(self.data_path, "w") { arg file;
 				var code;
-				code = "Veco.save(%).amp_level = %;\n".format(self.uname.asCompileString, self.data.amp_level);
+				code = "Veco.save(%).amp_level = %;\n".format(self.bare_uname.asCompileString, self.data.amp_level);
 				file.write(code);
 			};
 		}
 	},
 
 	load_data: { arg self;
+		self.data_path.debug("load_data: data_path");
 		if(self.is_present) {
+			self.data_path.debug("load_data: now load");
 			self.data_path.load;
+			self.data_path.debug("load_data: end load");
 		};
 	
 	},
@@ -1009,11 +1033,12 @@
 	},
 
 	set_amp_level: { arg self, val;
+		self.set_amp_level_hook(val);
 		self.data.amp_level = val;
 	},
 
 	set_norm_amp_level: { arg self, val;
-		self.data.amp_level = ~amp_level_spec.map(val);
+		self.set_amp_level( ~amp_level_spec.map(val));
 	},
 
 	//// volume (Ndef)
@@ -1140,7 +1165,7 @@
 		if(self.is_present) {
 			File.use(self.data_path, "w") { arg file;
 				var code;
-				code = "Veco.save(%).stepseq = %;\n".format(self.uname.asCompileString, self.stepseq.asCompileString);
+				code = "Veco.save(%).stepseq = %;\n".format(self.bare_uname.asCompileString, self.stepseq.asCompileString);
 				file.write(code);
 			};
 		}

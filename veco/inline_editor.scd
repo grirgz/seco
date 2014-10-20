@@ -24,12 +24,51 @@
 		
 	},
 
+	make_spec_chooser_gui: { arg self;
+		
+		var layout;
+		var speclist;
+		var butlist;
+		layout = VLayout.new;
+		speclist = [
+			\unipolar,
+			\bipolar,
+			\freq,
+			\lofreq,
+			\freqshift,
+			\legato,
+			\amp,
+		];
+
+		speclist.do { arg spec, sidx;
+			var but;
+			but = Button.new;
+			but.states = [[spec.asString]];
+			butlist.add(but);
+			layout.add(but);
+			but.action = {
+				self.spec = spec.asSpec;
+				butlist.do { arg but, idx; 
+					if(idx != sidx) {
+						but.value = 0 
+					}
+				}
+			};
+		};
+		layout;
+
+	},
+
 	make_gui: { arg self;
 		var layout;
+		var mlayout;
 		self.window = Window.new;
 		self.slider = Slider.new;
 		self.label_val = StaticText.new;
+		mlayout = HLayout.new;
+
 		layout = VLayout.new;
+
 		self.slider.value = self.spec.unmap(self.current_val);
 		self.label_val.string = self.current_val.asString;
 		self.slider.action = { arg slider;
@@ -42,7 +81,18 @@
 		});
 		layout.add(self.slider);
 		layout.add(self.label_val);
-		self.window.layout = layout;
+
+		mlayout.add(layout);
+		mlayout.add(self.make_spec_chooser_gui);
+
+		self.window.view.keyDownAction = { arg view, char, modifiers, u, k; 
+			//[char, modifiers, u, k].debug("KEYBOARD INPUT");
+			if( u == 27 ) { // Esc
+				view.close() 
+			};
+		};
+
+		self.window.layout = mlayout;
 		self.window.front;
 	},
 
