@@ -953,8 +953,10 @@
 		});
 		self.add_stop_node_hook(\mixer, { 
 			if(self.main.mode_immortal_mixers == false) {
-				Ndef(name+++\mixer).end(Ndef(name+++\mixer).fadeTime+self.main.mixers_main_fadetime)
-			}
+				var fadetime;
+				fadetime = Ndef(name+++\mixer).getHalo(\fadeOut) ?? Ndef(name+++\mixer).fadeTime;
+				Ndef(name+++\mixer).end(fadetime + self.main.mixers_main_fadetime)
+			};
 		});
 		self.has_mixer = true;
 
