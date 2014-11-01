@@ -2,4 +2,29 @@
 	- name_to_spec should get default env with envarray to env function
 - fix bug with curve knob initialised to -4 by default
 - update knobs in env view doesnt update curve knob
-- 
+
+
+- write a sample position chooser
+	- add multi selection features
+	- add data save and inline editor feature
+- extend BufDef to specify selection as subbuffers
+
+- extend BufDef to alloc buffers
+- write WaveDef to alloc buffer with wavetable (by .wav path or function)
+
+- extend inline editor to edit 
+	- env 
+	- multiarray
+	- Pbind
+	- Ndef value
+	- SynthDef value
+	- Pseq (with launchpad ?)
+	- Pseq.coin (with launchpad ?)
+	- add a way to visual select an array in a code block to just edit that array
+
+- write a timeline editor
+- write a note editor
+
+////////////////////// rewrite
+
+- should have a clear like Ndef(x).clear to clear things added like in ~ndef_channel.()
