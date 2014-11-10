@@ -25,6 +25,10 @@
 - write a timeline editor
 - write a note editor
 
+- write a gui with tempo, beat meter, level meter, master volume fader
+
 ////////////////////// rewrite
 
 - should have a clear like Ndef(x).clear to clear things added like in ~ndef_channel.()
+
+
