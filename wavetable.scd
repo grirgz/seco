@@ -448,6 +448,7 @@
 ~class_load_wavetable_dialog = (
 	apply_done: false,
 	new: { arg self, apply_action, cancel_action, path, single=false;
+		// FIXME: path is not used
 		var wtpath, librarylist, folderlist, filelist, filepath, selectedlist = List.new, selectedfile;
 		var paths;
 		self = self.deepCopy;
