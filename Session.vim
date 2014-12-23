@@ -10,6 +10,8 @@ endif
 set shortmess=aoO
 badd +207 ~/.local/share/SuperCollider/Extensions/seco/seco/veco/tile.scd
 badd +1 ~/code/sc/seco/vlive/v4/y.2.scd
+badd +0 ~/code/sc/seco/vlive/crap/40.scd
+badd +0 ~/.local/share/SuperCollider/Extensions/seco/TimelineView.sc
 args ~/code/sc/seco/vlive/v4/y.2.scd
 edit ~/code/sc/seco/vlive
 set splitbelow splitright
@@ -26,14 +28,58 @@ setlocal fdl=0
 setlocal fml=1
 setlocal fdn=20
 setlocal nofen
-let s:l = 12 - ((11 * winheight(0) + 20) / 40)
+let s:l = 25 - ((4 * winheight(0) + 5) / 10)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-12
+25
 normal! 0
 lcd ~/.local/share/SuperCollider/Extensions/seco/seco
-tabnext 1
+tabedit ~/code/sc/seco/vlive/crap/40.scd
+set splitbelow splitright
+set nosplitbelow
+set nosplitright
+wincmd t
+set winheight=1 winwidth=1
+argglobal
+setlocal fdm=indent
+setlocal fde=GetPotionFold(v:lnum)
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal nofen
+let s:l = 1 - ((0 * winheight(0) + 4) / 9)
+if s:l < 1 | let s:l = 1 | endif
+exe s:l
+normal! zt
+1
+normal! 0
+lcd ~/.local/share/SuperCollider/Extensions/seco/seco
+tabedit ~/.local/share/SuperCollider/Extensions/seco/TimelineView.sc
+set splitbelow splitright
+set nosplitbelow
+set nosplitright
+wincmd t
+set winheight=1 winwidth=1
+argglobal
+setlocal fdm=indent
+setlocal fde=GetPotionFold(v:lnum)
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal nofen
+let s:l = 1 - ((0 * winheight(0) + 4) / 9)
+if s:l < 1 | let s:l = 1 | endif
+exe s:l
+normal! zt
+1
+normal! 0
+lcd ~/.local/share/SuperCollider/Extensions/seco/seco
+tabnext 3
 if exists('s:wipebuf')
   silent exe 'bwipe ' . s:wipebuf
 endif
