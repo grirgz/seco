@@ -3,3 +3,5 @@ path ?? of synthdesclib load
 
 
 how to do array of env ?
+
+DrawGrid.test( nil, \degree.asSpec.grid  ); // test should call asGrid on arguments
