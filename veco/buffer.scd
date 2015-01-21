@@ -1344,6 +1344,11 @@
 	},
 
 	open_in_vim: { arg self;
+		// compat
+		self.open_in_editor;
+	},
+
+	open_in_editor: { arg self;
 		var uname = self.uname;
 		self.define_variables;
 		self.main.open_file_in_editor(self.path);
