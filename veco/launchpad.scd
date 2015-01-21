@@ -229,7 +229,16 @@
 	//},
 
 	get_node_by_index: { arg self, idx;
-		self.controller.get_node_by_index(idx)
+		var res;
+		if(idx < self.controller.msize.y) {
+			res = self.controller.get_node_by_index(idx);
+			//[idx,res.uname].debug("get_node_by_index: home board");
+		} {
+			res = Veco.project_slots[1][\veco].get_node_by_index(idx - self.controller.msize.y);
+			[idx,res.uname].debug("get_node_by_index: alien board");
+			res;
+		};
+		res;
 	},
 
 	gridpos_to_abspos: { arg self, gpos;
@@ -242,15 +251,24 @@
 		pos;
 	},
 
-	abspos_to_buf: { arg self, pos;
+	abspos_to_node_and_clip: { arg self, pos;
 		var node;
 		var res;
-		node = self.controller.get_node_by_index(pos.x);
+		node = self.get_node_by_index(pos.x);
 		if(node.notNil) {
 			res = node.get_clip_by_index(pos.y, false);
 		};
-		res;
+		[node, res]
 	},
+
+	abspos_to_buf: { arg self, pos;
+		self.abspos_to_node_and_clip(pos)[0]
+	},
+
+	gridpos_to_node_and_clip: { arg self, gpos;
+		self.abspos_to_node_and_clip(self.gridpos_to_abspos(gpos));
+	},
+
 
 	absolute_point_to_buf: { arg self, pos;
 		self.abspos_to_buf(pos);
@@ -262,18 +280,6 @@
 		self.abspos_to_buf(self.gridpos_to_abspos(pos));
 	},
 
-
-	gridpos_to_node_and_clip: { arg self, gpos;
-		var node;
-		var clip;
-		var pos;
-		pos = self.gridpos_to_abspos(gpos);
-		node = self.controller.get_node_by_index(pos.x);
-		if(node.notNil) {
-			clip = node.get_clip_by_index(pos.y);
-		};
-		[node, clip];
-	},
 
 	abspos_to_gridpos: { arg self, abspos, inrect=true;
 		var pos = abspos - self.controller.clip_offset;

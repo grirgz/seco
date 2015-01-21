@@ -1,6 +1,15 @@
-topEnvironment.push;
+topEnvironment.push; // this must be always executed in the toplevel Environment (FIXME: break current project when reinitilized)
 
-// deprecated, use Veco.extension_path and Veco.user_path
+////////////////////////////
+// used by Veco class to load projects
+// each project sit in its own environment, class_project_manager always manage the current project in the current environment
+// if you load a project when there is already a project loaded in the environment, the old one is destructed (free resources)
+// a project is a class_veco_sceneset (~veco, Veco.main) and a class_score_manager (~score_storage)
+// open_project in fact use ~veco.open_project which load all node (1.scd, etc) file then init file (init.scd)
+// when the view (launchpad) request a clip, it ask the node which create it from the associated file (1.1.scd) on demand
+///////////////////////////
+
+// following variables deprecated, use Veco.extension_path and Veco.user_path
 //~veco_dir_path = Platform.userExtensionDir +/+ "seco/seco/veco";
 //~veco_code_path = "~/code/sc/seco/vlive/".standardizePath;
 

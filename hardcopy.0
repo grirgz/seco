@@ -1,58 +1,41 @@
- ~/c/s/s/vlive  ~/c/s/s/v/c/40.scd  5.scd  + 6.scd  ~/.l/s/S/E/s/TimelineView.sc                                                                                                                            X
-Ndef(\pelu).put(0, { arg amp=0.1;
-    var sig;
-    var sig1, sig2, sig3, sig4, sig5, sig6, sig7, sig8;
-    var freq = 170;
-    var size;
-    var time;
-    var env1, env2, env3;
-    var env0;
-    var osig;
-    var chords;
+ ~/c/s/s/vlive  40.scd  ~/c/s/s/v/crap  49.scd  ~/c/s/s/v/e/7.scd  /S/E/s/TimelineView.sc                                                      X
+    if(minX<~thisBeastie[xPos], {~thisBeastie[xPos]=~thisBeastie[xPos]-1});
+    if(minX>~thisBeastie[xPos], {~thisBeastie[xPos]=~thisBeastie[xPos]+1});
+    if(minY<~thisBeastie[yPos], {~thisBeastie[yPos]=~thisBeastie[yPos]-1});
+    if(minY>~thisBeastie[yPos], {~thisBeastie[yPos]=~thisBeastie[yPos]+1});
+};
 
-    chords = Duty.kr(4, 0, Dseq([
-        Dseq([
-            [0,4,7],
-            [0,3,6],
-        ],1),
-        [0,5,8,3+24],
-        [2,5,8],
+findPartner={
+    var minX, minY, distance;
+    var nearest;
+    var tree;
+    minX=maxX;  //x-coördinate of partner, closest to the beastie
+    minY=maxY;  //y-coördinate of partner, closest to the beastie
 
+    tree = KDTree(~beasties.collect({ arg x; [x[xPos],x[yPos]] }));
+    nearest = tree.nearest([~thisBeastie[xPos], ~thisBeastie[yPos]]);
+    minX = nearest[0][0];
+    minY = nearest[0][1];
+    //distance=max(maxX, maxY);
+    //for(0, ~beasties.size-1, {arg k;
+    //  if (k!= ~thisIndex,{
+    //      d=max((~beasties[k][xPos]-~thisBeastie[xPos]).abs, (~beasties[k][yPos]-~thisBeastie[yPos]).abs);
+    //      if(d<distance, {
+    //          minX=~beasties[k][xPos];
+    //          minY=~beasties[k][yPos];
+    //          distance=d;
+    //      });
+    //  });
+    //});
+    if(minX<~thisBeastie[xPos], {~thisBeastie[xPos]=~thisBeastie[xPos]-1});
+    if(minX>~thisBeastie[xPos], {~thisBeastie[xPos]=~thisBeastie[xPos]+1});
+    if(minY<~thisBeastie[yPos], {~thisBeastie[yPos]=~thisBeastie[yPos]-1});
+    if(minY>~thisBeastie[yPos], {~thisBeastie[yPos]=~thisBeastie[yPos]+1});
+};
 
-        Dseq([
-            [0,4,7],
-            [0,3,6],
-        ],2),
-        [1,4,8,14],
-        [0,9,6],
-        [0,5,8,3+24],
-        [2,5,8],
-    ],inf)).lag(0.4).midiratio ;
-    freq = freq * [1/2,1/4,1/8,1,2,3,4];
-    freq = freq *.t chords;
-    sig = SinOsc.ar(freq);
-    sig = sig.flat;
-    sig1 = Friction.ar(sig, friction: 0.41322e-7 * SinOsc.kr(0.01/(1..sig.size)).range(1,11111), mass: 1.05501 * SinOsc.kr(0.1/(1..sig.size)+0.01).range(1,41));
-    sig = SelectX.ar(SinOsc.kr(1/(1..sig.size)+0.01).range(0.5,1) , [sig, sig1]);
-    sig = Limiter.ar(sig, (-1).dbamp);
-    sig = sig * SinOsc.kr(1/(1..sig.size)+(pi/100)).range(0,1);
-
-    sig1 = sig * sig.clip2(0.1);
-    sig = SelectX.ar(SinOsc.kr(1/(1..sig.size)+0.01+(pi/4)).range(0.5,1) , [sig, sig1]);
-    //sig = Friction.ar(sig, friction: 0.41322e-7 * SinOsc.kr((1..sig.size).normalizeSum).range(1,1111), mass: 17.05501);
-    sig.debug("sig");
-    amp = amp * \gain.kr(1);
-    //sig = Splay.ar(sig, \spread.kr(0.8)+ LFNoise1.kr(1/12,mul:0.2), amp, \pan.kr(0)+ LFNoise1.kr(1/17,mul:0.1));
-    sig = Pan2.ar(sig, {LFNoise1.kr(1/2).range(-1.0,1.0)} ! sig.size, amp).flop;
-    sig;
-}).play
-
-Ndef(\pelu).quant = 4
-Ndef(\pelu).fadeTime = 4.4;
-
-(
-// This filters a simple sine wave, producing a chaotic result
-x = {
-var sig, out;
-sig = SinOsc.ar(660);
-"/tmp/sclang-pipe" [Périph.] 1L, 8C ajouté(s)                                                                                                                                              315,54-57     98%
+determinePartner={arg l;
+    ~partnerFound=false;
+    for(0, ~beasties.size-1, {arg j;
+        if(((l!=j)&&(~beasties[j][xPos]==~thisBeastie[xPos])&&
+            (~beasties[j][yPos]==~thisBeastie[yPos])), {
+                                                                                                                              344,2-5       68%

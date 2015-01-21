@@ -1,3 +1,10 @@
+///////////////////////////
+// open_project iter on nodes by node_unames to create and .load_data each node
+// when the view (launchpad:clip) try to get a clip, it is created if don't exist in node.get_clip_by_index
+//
+//
+///////////////////////////
+
 ~execute_till_special_end = { arg path, skip_first_assign=false;
 	var res = path;
 	path.debug("Try loading buffer file");
@@ -618,6 +625,11 @@
 	//},
 
 	open_in_vim: { arg self;
+		// compat
+		self.open_in_editor;
+	},
+
+	open_in_editor: { arg self;
 		var uname = self.uname;
 		self.define_variables;
 		self.main.open_file_in_editor(self.path);
@@ -840,6 +852,7 @@
 
 	get_clip_by_index: { arg self, idx, create=true;
 		//if(self.clips[idx].isNil and: create) {
+
 		if(self.clips[idx].isNil) {
 			var uname  = self.uname;
 			var cuname = "%.%".format(uname, idx+1).asSymbol;
@@ -848,6 +861,7 @@
 			self.clips[idx] = clip;
 			clip.load_data;
 		};
+		//[idx, create, self.clips[idx].path].debug("class_node_buffer.get_clip_by_index");
 		self.clips[idx];
 	},
 
@@ -1174,7 +1188,6 @@
 	},
 
 	load_data: { arg self;
-		// no! now load in clip.new
 		//// not called by anyone, open project just run data/*.scd files
 		if(self.is_present) {
 			self.data_path.load;
@@ -1240,6 +1253,10 @@
 		//}
 		self.parent_buffer.play_node;
 		res = self.execute;
+	},
+
+	stop_node: { arg self, use_quant, stop_func;
+		self.parent_buffer.stop_node(use_quant, stop_func);
 	},
 
 	response_mode: { arg self;
@@ -1366,6 +1383,75 @@
 			}
 		};
 	},
+);
+
+////////////////////// shortcut
+// pretend to be part of a project but instead read and write a file in another project
+
+~class_shortcut_node = (
+	parent: ~class_node_buffer,
+
+	new: { arg self, main, uname, target_project_path, target_uname;
+		self = ~class_node_buffer[\new].(self, main, uname);
+	
+		self.target_project_path = target_project_path;
+		self.target_uname = target_uname;
+	
+		self;
+	},
+
+	path: { arg self;
+		(self.target_project_path+/+( self.target_uname++".scd" )).asString;
+	},
+
+	data_path: { arg self;
+		var path = ( self.target_project_path +/+ "data" +/+ (self.target_uname++".scd") ).asString;
+		path;
+	},
+
+	load_data: { arg self;
+		// called manually
+		Veco.save_hook = {
+			self.data;
+		};
+		self.data_path.debug("node: load_data: data_path");
+		self.data_path.load;
+		Veco.save_hook = nil;
+	},
+
+);
+
+~class_shortcut_clip = (
+	parent: ~class_node_clip,
+
+	new: { arg self, main, uname, parent, target_project_path, target_uname;
+		self = ~class_node_clip[\new].(self, main, uname, parent);
+	
+		self.target_project_path = target_project_path;
+		self.target_uname = target_uname;
+	
+		self;
+	},
+
+	path: { arg self;
+		(self.target_project_path+/+( self.target_uname++".scd" )).asString;
+	},
+
+	data_path: { arg self;
+		var path = ( self.target_project_path +/+ "data" +/+ (self.target_uname++".scd") ).asString;
+		path;
+	},
+
+	load_data: { arg self;
+		// called manually
+		Veco.save_hook = {
+			self.data;
+		};
+		self.data_path.debug("load_data: data_path");
+		self.data_path.load;
+		Veco.save_hook = nil;
+	},
+	
 );
 
 /////////////////////////////// codepads
