@@ -262,7 +262,7 @@
 	},
 
 	abspos_to_buf: { arg self, pos;
-		self.abspos_to_node_and_clip(pos)[0]
+		self.abspos_to_node_and_clip(pos)[1]
 	},
 
 	gridpos_to_node_and_clip: { arg self, gpos;
@@ -282,8 +282,11 @@
 
 
 	abspos_to_gridpos: { arg self, abspos, inrect=true;
-		var pos = abspos - self.controller.clip_offset;
+		var pos;
 		var rect = Rect(0,0,8,8);
+
+		[abspos , self.controller.clip_offset].debug("abspos - self.controller.clip_offset");
+		pos = abspos - self.controller.clip_offset;
 		[self.controller.clip_offset, abspos, pos, rect, rect.contains(pos)].debug("abspos_to_gridpos: offset, abs, pos, rect, contains");
 		if(rect.contains(pos) or: {inrect != true}) {
 			pos
@@ -523,7 +526,7 @@
 //////////////////
 
 
-// main
+// main scene
 ~launchpad_scene_clip = (
 	parent: ~launchpad_scene,
 
@@ -543,7 +546,7 @@
 		//self.state_buffers.rowAt(self.active_row).do { arg val, x;
 		//	self.state[8, x] = self.state_to_color(Point(x, self.active_row));
 		//}
-		"launchpad_scene_clip.render_state".debug;
+		//"launchpad_scene_clip.render_state".debug;
 		9.do { arg x;
 			8.do { arg y;
 				self.render_pos(Point(x,y));
@@ -580,6 +583,7 @@
 			if(buf.isNil) {
 				color = color_off;
 				//[pos].debug("launchpad_scene_clip: render_pos: buf is nil");
+				[pos];
 			} {
 
 
@@ -786,7 +790,7 @@
 				//self.render_column(pos.x);
 			};
 			self.render_state;
-		}
+		};
 	},
 
 	response_off: { arg self, midinote;
@@ -818,6 +822,7 @@
 	},
 
 );
+// end main scene
 
 
 
@@ -1304,6 +1309,7 @@
 
 	render_clipboard: { arg self;
 		var pos, abspos, clip;
+		debug("launchpad_scene_mode_copy: begin render_clipboard");
 		switch(self.controller.clipboard_mode,
 			\row, {
 				clip = self.controller.clipboard_clip[0];
@@ -1338,16 +1344,30 @@
 				//};
 			},
 			\clip, {
+				"e1".debug;
 				clip = self.controller.clipboard_clip[0];
+				"e2".debug;
 				if(clip.notNil) {
+				"e3".debug;
+				clip.keys.debug("clip");
+				clip.uname.debug("clipuname");
+				clip.path.debug("clipdata");
+				clip.eventclass.debug("clipeventclass");
+				clip.clips.class.debug("clipclips");
+				clip[\get_abspos].debug("clipabspos[]");
+				clip.get_abspos.debug("clipabspos");
 					pos = self.abspos_to_gridpos(clip.get_abspos, true);
+				"e4".debug;
 					if(pos.notNil) {
 						//self.blink_led(pos, \red, \green);
+				"e5".debug;
 						self.set_led(pos, self.color_clipboard);
-					}
+					};
+				"e6".debug;
 				}
 			},
 		);
+		debug("launchpad_scene_mode_copy: end render_clipboard");
 	},
 
 
@@ -1441,10 +1461,15 @@
 				self.column_selected(midinote, pos);
 			} {
 				// -- copy cell
+				"t1".debug;
 				self.controller.clipboard_mode = \clip;
+				"t2".debug;
 				clip = self.gridpos_to_buf(pos);
+				"t3".debug;
 				self.controller.clipboard_clip = [clip];
+				"t4".debug;
 				self.render_state;
+				"t5".debug;
 			}
 		}
 	},

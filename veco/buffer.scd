@@ -552,6 +552,7 @@
 
 ~class_node_buffer = (
 	parent: ~class_code_buffer,
+	eventclass: "class_node_buffer",
 
 	envir_keys: [\name],
 
@@ -1126,6 +1127,7 @@
 
 ~class_node_clip = (
 	parent: ~class_code_buffer,
+	eventclass: "class_node_clip",
 
 	new: { arg self, main, uname, parent;
 		self = ~class_code_buffer[\new].(self, main, uname);
@@ -1223,8 +1225,11 @@
 
 	get_abspos: { arg self;
 		var x, y;
+		debug("node clip: begin get_abspos");
 		x = self.main.uname_to_index(self.parent_buffer.uname);
 		y = self.parent_buffer.clips.indexOf(self);
+
+		[x,y].debug("node clip: get_abspos");
 		Point(x,y)
 	},
 
