@@ -15,9 +15,9 @@
 		File.use(res, "r", { arg file;
 			code = file.readAllString;
 		});
-		end = code.find("// END");
+		end = code.find("\n// END");
 		if(end.notNil) {
-			code = code.keep(end);
+			code = code.keep(end+1);
 		};
 
 		if(skip_first_assign) {
@@ -458,7 +458,34 @@
 	//},
 
 	copy_buffer: { arg self, from_path, to_path;
+		// used in load_data_from_clip
 		File.copy(from_path, to_path);
+		[from_path,to_path].debug("copying buffer file");
+		self.disable_tags(to_path);
+	},
+
+	disable_tags_in_string: { arg self, code;
+		code.replace("\n// TAGS:", "\n// xTAGS:");
+	},
+
+	disable_tags: { arg self, path;
+		if(File.exists(path)) {
+			var code;
+			File.use(path, "r", { arg file;
+				//"bed".debug;
+				code = file.readAllString;
+				//"afd".debug;
+			});
+			code = self.disable_tags_in_string(code);
+			File.use(path, "w", { arg file;
+				//"bed".debug;
+				file.write(code);
+				//"afd".debug;
+			});
+		} {
+			( "ERROR: file not found: "++ path ).postln;
+		};
+		
 	},
 
 );
@@ -696,6 +723,7 @@
 			new_code_header = "~name = %;".format(self.uname.asCompileString);
 			code = ([new_code_header] ++ code_body).join($\n);
 			//self.stepseq = clip.stepseq.deepCopy;
+			code = self.main.disable_tags_in_string(code);
 			File.use(self.path, "w", { arg file;
 				file.write(code);
 			});
@@ -1211,11 +1239,11 @@
 		if(self.is_present.not) {
 			var code;
 			self.stepseq = clip.stepseq.deepCopy;
-			File.copy(clip.path, self.path);
+			self.main.copy_buffer(clip.path, self.path);
 
 			// score
 
-			clip.save_data;
+			clip.save_data; // FIXME: this save can lose data if the source clip has not loaded data correctly and then is copied
 			Sdef.load_data_from_clip(clip, self);
 
 
@@ -1410,6 +1438,10 @@
 		self;
 	},
 
+	save_data: { arg self;
+		"class_shortcut_node: no ! dont save data!".debug;
+	},
+
 	path: { arg self;
 		(self.target_project_path+/+( self.target_uname++".scd" )).asString;
 	},
@@ -1441,6 +1473,10 @@
 		self.target_uname = target_uname;
 	
 		self;
+	},
+
+	save_data: { arg self;
+		"class_shortcut_clip: no ! dont save data!".debug;
 	},
 
 	path: { arg self;
