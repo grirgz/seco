@@ -882,11 +882,27 @@
 	get_clip_by_index: { arg self, idx, create=true;
 		//if(self.clips[idx].isNil and: create) {
 
-		if(self.clips[idx].isNil) {
+		if(self.clips[idx].isNil or: { self.clips[idx].eventclass == \class_empty_clip }) {
 			var uname  = self.uname;
 			var cuname = "%.%".format(uname, idx+1).asSymbol;
 			var clip;
-			clip = ~class_node_clip.new(self.main, cuname, self);
+			if(idx < self.main.msize.y) {
+				clip = ~class_node_clip.new(self.main, cuname, self);
+			} {
+				var proj;
+				var ppath;
+				var target_uname ;
+				var target_cuname;
+				proj = self.main.pane_target_project;
+				if(proj.notNil and: { proj.class == Environment }) {
+					ppath = proj[\veco].project_path;
+					target_uname = PathName(ppath+/+"").asRelativePath((Veco.user_path+/+"").drop(-1)).drop(-1);
+					target_cuname = "%.%".format(self.bare_uname, idx+1 - self.main.pane_offset.y).asSymbol;
+					clip = ~class_shortcut_clip.new(self.main, cuname, self, ppath, target_cuname);
+				} {
+					clip = ~class_empty_clip.new(self.main, cuname,self);
+				}
+			};
 			self.clips[idx] = clip;
 			clip.load_data;
 		};
@@ -1186,7 +1202,7 @@
 
 	response_off: { arg self;
 		self.is_pressed = false;
-		self.response_off_hook;
+		self.response_off_hook(self.parent_buffer.uname, self.uname, self.get_index);
 	},
 
 	data: { arg self;
@@ -1212,6 +1228,11 @@
 			File.use(self.data_path, "w") { arg file;
 				var code;
 				code = "Veco.save(%).stepseq = %;\n".format(self.bare_uname.asCompileString, self.stepseq.asCompileString);
+				//if(self.response_mode != \toggle) {
+				if(self.val_response_mode.notNil) {
+					code = code ++ "Veco.save(%).response_mode = %;\n"
+						.format(self.bare_uname.asCompileString, self.response_mode.asCompileString);
+				};
 				file.write(code);
 			};
 		}
@@ -1239,6 +1260,7 @@
 		if(self.is_present.not) {
 			var code;
 			self.stepseq = clip.stepseq.deepCopy;
+			self.val_response_mode = clip.val_response_mode;
 			self.main.copy_buffer(clip.path, self.path);
 
 			// score
@@ -1301,7 +1323,10 @@
 	},
 
 	response_mode_: { arg self, val;
-		self.val_response_mode = val;
+		if(self.val_response_mode != val) {
+			self.val_response_mode = val;
+			self.save_data;
+		} 
 	},
 
 	response_unselect: { arg self;
@@ -1496,6 +1521,42 @@
 		self.data_path.debug("load_data: data_path");
 		self.data_path.load;
 		Veco.save_hook = nil;
+	},
+	
+);
+
+~class_empty_clip = (
+	parent: ~class_node_clip,
+	eventclass: \class_empty_clip,
+
+	// RISK: can't replace with real clip since it already exists
+	new: { arg self, main, uname, parent, target_project_path, target_uname;
+		self = ~class_node_clip[\new].(self, main, uname, parent);
+	
+	
+		self;
+	},
+
+	save_data: { arg self;
+		"class_empty_clip: no ! dont save data!".debug;
+	},
+	response_off: {},
+
+	load_data_from_clip: {},
+
+	is_present: {false},
+	is_active: {false},
+	execute: {false},
+
+	path: { arg self;
+		"emptyxx";
+	},
+
+	data_path: { arg self;
+		"dataemptyxx"
+	},
+
+	load_data: { arg self;
 	},
 	
 );

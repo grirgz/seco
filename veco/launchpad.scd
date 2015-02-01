@@ -234,8 +234,12 @@
 			res = self.controller.get_node_by_index(idx);
 			//[idx,res.uname].debug("get_node_by_index: home board");
 		} {
-			res = Veco.project_slots[1][\veco].get_node_by_index(idx - self.controller.msize.y);
-			[idx,res.uname].debug("get_node_by_index: alien board");
+			var target_project;
+			target_project = self.controller.pane_target_project;
+			if(target_project.notNil and:{ target_project.class == Environment }) {
+				res = target_project[\veco].get_node_by_index(idx - self.controller.msize.y);
+				[idx,res.uname, target_project[\veco].project_name].debug("get_node_by_index: alien board");
+			};
 			res;
 		};
 		res;
