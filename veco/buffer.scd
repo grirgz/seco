@@ -619,6 +619,21 @@
 		}
 	},
 
+	clip_response_mode: { arg self;
+		if(self.val_clip_response_mode.isNil) {
+			self.main.clip_response_mode
+		} {
+			self.val_clip_response_mode
+		}
+	},
+
+	clip_response_mode_: { arg self, val;
+		if(self.val_clip_response_mode != val) {
+			self.val_clip_response_mode = val;
+			//self.save_data; // not really needed since nodes are executed at project start
+		} 
+	},
+
 	master_bus: { arg self;
 		self.main.master_bus;
 	},
@@ -1177,6 +1192,7 @@
 		self = ~class_code_buffer[\new].(self, main, uname);
 	
 		self.parent_buffer = {parent};
+		self.lib = ();
 	
 		self;
 	},
@@ -1316,7 +1332,7 @@
 
 	response_mode: { arg self;
 		if(self.val_response_mode.isNil) {
-			self.main.clip_response_mode
+			self.parent_buffer.clip_response_mode
 		} {
 			self.val_response_mode
 		}
@@ -1334,7 +1350,7 @@
 		self.response_unselect_hook;
 	},
 
-	response_on_play: { arg self;
+	activate_clip: { arg self;
 		self.parent_buffer.old_active_clip_index = self.parent_buffer.active_clip_index;
 		self.parent_buffer.active_clip_index = self.parent_buffer.clips.indexOf(self);
 		self.parent_buffer.active_clip_index.debug("class_node_clip.response_on: active_clip_index");
@@ -1343,6 +1359,10 @@
 				self.parent_buffer.get_clip_by_index(self.parent_buffer.old_active_clip_index).response_unselect;
 			}
 		};
+	},
+
+	response_on_play: { arg self;
+		self.activate_clip;
 		self.play_node;
 	},
 
@@ -1358,6 +1378,8 @@
 		};
 	},
 
+	stop_hook: {},
+
 	response_on: { arg self, stop_func;
 		[self.response_mode].debug("RESPO?SE ONN");
 		switch(self.response_mode,
@@ -1370,6 +1392,26 @@
 			\exec, {
 				self.is_pressed = true;
 				self.execute;
+			},
+			\execchoose, {
+				self.is_pressed = true;
+				self.activate_clip;
+				self.execute;
+			},
+			\exectoggle, {
+				self.is_pressed = true;
+				self.execute;
+
+				// commented because doing it in the clip file to be able to exec without using launchpad
+				//if(self.exectoggle_state == 1) {
+				//	// is on, put off
+				//	self.exectoggle_state = 0;
+				//	self.stop_hook(self.parent_buffer.uname, self.uname, self.get_index);
+				//} {
+				//	// is off, put on
+				//	self.exectoggle_state = 1;
+				//	self.execute;
+				//}
 			}
 		)
 	},

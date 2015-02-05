@@ -594,23 +594,44 @@
 				//[buf.uname, buf.path, buf.is_present, buf.is_playing, buf.is_active].debug("launchpad_scene_clip: render_pos");
 
 				color = if(buf.is_present == true) {
-					if(buf.is_active == true) {
-						if(node.is_playing == true) {
-							color_playing;
-						} {
-							color_active;
-						}
-					} {
-						if(buf.response_mode == \exec) {
+					switch(buf.response_mode,
+						\exectoggle, {
+							if(buf.exectoggle_state == 1) {
+								// is on
+								color_playing;
+							} {
+								// is off
+								color_active;
+							}
+						},
+						\exec, {
 							if(buf.is_pressed == true) {
 								\amber
 							} {
 								\yellow
 							}
-						} {
-							color_present;
+						},
+						{
+							if(buf.is_active == true) {
+								if(buf.clip_response_mode == \execchoose) {
+									color_playing
+								} {
+									if(node.is_playing == true) {
+										color_playing;
+									} {
+										color_active;
+									}
+								};
+							} {
+								if(buf.clip_response_mode == \execchoose) {
+									\amber;
+								} {
+									color_present;
+								}
+							}
 						}
-					}
+					
+					)
 				} {
 					color_off;
 				};
