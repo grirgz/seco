@@ -105,17 +105,20 @@ BusDef(\zero, \audio);
 		~score_storage = ~class_score_manager.new;
 	},
 
-	open_project: { arg self, path;
+	open_project: { arg self, path, activate=true;
 		path.debug("=========================######### Start loading project");
 		self.reset_board;
 		~veco.open_project(path); 
 
-		~veco.clip.activate;
+		if(activate != false) {
+			~veco.clip.activate;
+		};
 		path.debug("=========================######### End loading project");
 		
 	},
 
 	open_side_project: { arg self, path;
+		// NOT USED!
 		self.reset_side_slot(path);
 		self.side_slot(path).open_project(path);
 		if(self.projects[path].notNil) {

@@ -613,7 +613,7 @@
 						},
 						{
 							if(buf.is_active == true) {
-								if(buf.clip_response_mode == \execchoose) {
+								if(buf.response_mode == \execchoose) {
 									color_playing
 								} {
 									if(node.is_playing == true) {
@@ -623,7 +623,7 @@
 									}
 								};
 							} {
-								if(buf.clip_response_mode == \execchoose) {
+								if(buf.response_mode == \execchoose) {
 									\amber;
 								} {
 									color_present;
@@ -1580,7 +1580,7 @@
 			clips.do { arg clip;
 				if(clip.notNil and: { clip.is_present }) {
 					cell.add(
-						"\t%, %,".format(clip.parent_buffer.uname.asCompileString, index ?? {clip.get_index})
+						"\t%, %,".format(clip.parent_buffer.bare_uname.asCompileString, index ?? {clip.get_index})
 					)
 				}
 			};
