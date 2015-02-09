@@ -1,6 +1,7 @@
 
 Veco.load_lib("main.scd");
 Veco.load_lib("synth.scd");
+Veco.load_lib("samples_slices.scd");
 
 Veco.main.board_size = Point(32,64);
 ~load_standard_quickpad.();
