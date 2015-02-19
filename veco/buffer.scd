@@ -161,7 +161,20 @@
 
 	get_node_by_index: { arg self, idx;
 		//[idx].debug("get_node_by_index");
-		self.nodes[self.index_to_uname(idx)]
+		var res;
+		if(idx < self.msize.y) {
+			res = self.nodes[self.index_to_uname(idx)]
+			//[idx,res.uname].debug("get_node_by_index: home board");
+		} {
+			var target_project;
+			target_project = self.pane_target_project;
+			if(target_project.notNil and:{ target_project.class == Environment }) {
+				res = target_project[\veco].get_node_by_index(idx - self.msize.y);
+				[idx,res.uname, target_project[\veco].project_name].debug("get_node_by_index: alien board");
+			};
+			res;
+		};
+		res;
 	},
 
 	get_node_by_uname: { arg self, uname;
@@ -294,6 +307,7 @@
 
 		self.pane_rect = Rect(100,100,100,100);
 		self.pane_offset = Point(0,32);
+		self.pane_target_project = nil;
 
 		self.mode_immortal_mixers = true;
 		self.mixers_main_fadetime = 0.5;
