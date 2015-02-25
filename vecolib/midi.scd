@@ -466,12 +466,12 @@
 				val.debug("bordelval0");
 				if(val == 1) {
 					val.debug("bordelval1");
-					self.target.value;
+					self.target.value; // target is a user function because of button mode
 				} {
 					val.debug("bordelval");
 					if(val == 0) {
 						val.debug("bordelval2");
-						self.target_key.value;
+						self.target_key.value; // target_key is a user function because of button mode
 					}
 				};
 			}; 
