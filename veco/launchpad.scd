@@ -273,6 +273,7 @@
 
 
 	abspos_to_gridpos: { arg self, abspos, inrect=true;
+		// FIXME: this doesnt handle pane_rect, cause display bugs like copy mode higlighting the wrong cell
 		var pos;
 		var rect = Rect(0,0,8,8);
 
@@ -287,6 +288,7 @@
 	},
 
 	is_abspos_visible: { arg self, abspos;
+		// FIXME: doesnt handle pane_rect
 		var gridpos;
 		var os = self.controller.clip_offset;
 		abspos.x.inclusivelyBetween(os.x, os.x+7) and: {

@@ -162,10 +162,11 @@
 	get_node_by_index: { arg self, idx;
 		//[idx].debug("get_node_by_index");
 		var res;
-		if(idx < self.msize.y) {
+		if(idx < self.msize.x) {
 			res = self.nodes[self.index_to_uname(idx)]
 			//[idx,res.uname].debug("get_node_by_index: home board");
 		} {
+			// other project mode
 			var target_project;
 			target_project = self.pane_target_project;
 			if(target_project.notNil and:{ target_project.class == Environment }) {
@@ -177,16 +178,52 @@
 		res;
 	},
 
-	get_node_by_uname: { arg self, uname;
-		var res;
-		if(self.prefixed_uname_mode) {
-			if(self.nodes[uname].isNil) {
-				uname = self.uname_to_puname(uname);
-			};
+	split_puname: { arg self, in;
+		var pnode, clip;
+		var project, node;
+		// format of a puname: project-node.clip
+		in.debug("split_puname");
+		in = in.asString;
+		#pnode, clip = in.split($.);
+		#project, node = in.split($-);
+		[pnode, clip, project, node].debug("[pnode, clip, project, node]");
+		if(node.isNil) {
+			node = project;
+			project = nil;
 		};
-		res = self.nodes[uname];
+		(
+			is_puname: project.notNil,
+			project: project.asString,
+			node: node.asSymbol,
+			project_node: pnode.asSymbol,
+			clip: clip,
+		).debug("split_puname: suname");
+	},
 
-		res;
+	get_node_by_uname: { arg self, uname;
+		// this parent class is used by no one and this function is redefined, stop using it
+
+		//var res;
+		//var project_name;
+		//var suname;
+
+		//suname = self.split_puname(uname);
+		//if(
+		//	suname.is_puname and: {
+		//		suname.project != self.project_name and: {
+		//			suname.project == self.pane_target_project[\veco].project_name
+		//		}
+		//	}
+		//) {
+		//	res = self.pane_target_project[\veco].get_node_by_uname(uname)
+		//} {
+		//	if(suname.is_puname.not) {
+		//		uname = self.uname_to_puname(uname);
+		//	};
+		//	res = self.nodes[uname];
+		//};
+
+		//res;
 	},
 
 	open_buffer: { arg self, idx, name;
@@ -382,7 +419,7 @@
 	get_node_by_uname: { arg self, uname;
 		// get node by uname or index, get clip by clip_uname or point
 		var res;
-		//uname.debug("veco.get_node_by_uname: uname");
+		uname.debug("veco.get_node_by_uname: uname");
 		if(uname.isNumber) {
 			res = self.get_node_by_index(uname);
 		};
@@ -391,23 +428,54 @@
 		};
 		if(res.isNil) {
 			if(self.prefixed_uname_mode) {
-				if(self.nodes[uname].isNil) {
-					var puname;
-					puname = self.uname_to_puname(uname);
-					//puname.debug("veco.get_node_by_uname: puname");
-					res = self.nodes[puname];
-					//self.nodes.keys.debug("nodes");
-					//res.debug("res");
-					res;
-				} {
-					res = self.nodes[uname];
+				var project_name;
+				var suname;
+
+				suname = self.split_puname(uname);
+				suname.debug("suname");
+				[suname.project.asCompileString, self.project_name.asCompileString].debug("supro, selpro");
+				self.pane_target_project.class.debug("pantarpro");
+				if(self.pane_target_project.notNil and: {self.pane_target_project[\veco].notNil}) {
+					self.pane_target_project[\veco].project_name.asCompileString.debug("pataproname");
 				};
+				if(
+					self.pane_target_project.notNil and: {
+						suname.is_puname and: {
+							suname.project != self.project_name and: {
+								suname.project == self.pane_target_project[\veco].project_name
+							}
+						}
+					}
+				) {
+					suname.debug("suname2");
+					res = self.pane_target_project[\veco].get_node_by_uname(uname);
+					res.class.debug("res0");
+				} {
+					if(suname.is_puname.not) {
+						suname = self.split_puname(self.uname_to_puname(uname));
+					};
+					uname.debug("uname3");
+					suname.debug("suname3");
+					self.nodes.keys.asArray.sort.debug("nodes");
+					res = self.nodes[suname.project_node];
+					res.class.debug("res1");
+					if(res.notNil and: {suname.clip.notNil}) {
+						res = res.get_clip_by_index(suname.clip.asInteger - 1);
+						res.class.debug("res2");
+					};
+				};
+
 			} {
 				res = self.nodes[uname];
+				res.class.debug("resX");
 			};
 		};
+		res.class.debug("mais hein????????");
 		if(res.isNil) {
-			res = self.get_nodeclip_by_uname(uname)
+			uname.debug("Error: uname not found");
+			//"uname not found".throw;
+			"wtf".debug;
+			res = nil;
 		};
 		res;
 	},
@@ -415,14 +483,13 @@
 	get_nodeclip_by_uname: { arg self, uname;
 		var node_uname,idx, node; 
 		#node_uname, idx = uname.asString.split($.);
+		node_uname.debug("get_node_by_uname: node_uname");
 		if(idx.isNil) {
-			uname.debug("Error: uname is not in a nodeclip uname format");
-			nil.fuck;
+			~uname.debug("Error: uname is not in a nodeclip uname format").postln;
+			"uname is not in a nodeclip uname format".throw;
+			nil;
 		} {
-			idx = idx.asInteger-1;
-			node_uname = node_uname.asSymbol;
-			node = self.get_node_by_uname(node_uname);
-			node.get_clip_by_index(idx);
+			self.get_node_by_uname(uname);
 		}
 	},
 
@@ -1246,7 +1313,7 @@
 
 	stepseq: [1,1,0,0, 0,0,0,0],
 	stepseq_size: nil,
-	envir_keys: [\name, \namex, \index],
+	envir_keys: [\name, \namex, \index, \target_name, \target_namex, \target_index],
 
 	set_step: { arg self, idx, val;
 		self.stepseq[idx] = val;
@@ -1443,6 +1510,9 @@
 		~name = self.parent_buffer.get_name;
 		~namex = self.uname;
 		~index = idx; 
+		~target_name = ~name;
+		~target_namex = ~target_namex;
+		~target_index = ~target_index; 
 	},
 
 	envir_do: { arg self, fun;
@@ -1554,6 +1624,21 @@
 		self.target_uname = target_uname;
 	
 		self;
+	},
+
+	define_variables: { arg self;
+		// TODO: change it
+		var idx = self.get_index;
+		self.variables = ();
+		self.envir_keys.do { arg key;
+			self.variables[key] = currentEnvironment[key];
+		};
+		~name = self.parent_buffer.get_name;
+		~namex = self.uname;
+		~index = idx; 
+		~target_name = ~name;
+		~target_namex = ~target_namex;
+		~target_index = ~target_index; 
 	},
 
 	save_data: { arg self;
