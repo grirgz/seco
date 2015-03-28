@@ -1100,6 +1100,96 @@
 		};
 		mode = self.mixer_mode;
 
+		send_list = send_list ? self.lib.send_list ? [~fx1, ~fx2, ~fx3, ~fx4];
+		send_list = send_list.extend(4,nil);
+		send_list = send_list.collect({ arg x; x ? BusDef(\null) });
+		BusDef(name+++\mixer, \audio, 2);
+		self.add_play_node_hook(\mixer, { 
+			Ndef(name+++\mixer).parentGroup = ~get_mixer_group.();
+			Ndef(name+++\mixer).play(self.master_bus);
+		});
+		self.add_stop_node_hook(\mixer, { 
+			if(self.main.mode_immortal_mixers == false) {
+				var fadetime;
+				fadetime = Ndef(name+++\mixer).getHalo(\fadeOut) ?? Ndef(name+++\mixer).fadeTime;
+				Ndef(name+++\mixer).end(fadetime + self.main.mixers_main_fadetime)
+			};
+		});
+		self.has_mixer = true;
+
+		make_out = { arg i, sig, send;
+			var mamp = 1;
+			if(send_list[i].notNil) {
+				Out.ar(send_list[i], sig * send);
+			}
+		};
+		
+		make_mix = { arg i, amp, send;
+			i = i + 1;
+			if(mode == (\mix+++i) or: { mode == (\premix+++i) }) {
+				1-send
+			} {
+				amp;
+			};
+		};
+
+
+		Ndef(name+++\mixer).put(0, { arg preamp=1;
+			var in = In.ar(BusDef(name+++\mixer), 2);
+			var sig;
+			sig = preamp * in;
+			//if(mode == \preamp or: { mode.asString.beginsWith("premix") }) {
+			//	sig = \mamp.kr(1);
+			//};
+			sig;
+		});
+
+		Ndef(name+++\mixer).put(100, \filter -> { arg in, send1=0, send2=0, send3=0, send4=0;
+			var sig;
+			//xfade = xfade.clip(0,1);
+			sig = in;
+			sig = sig;
+
+			Out.ar(\out1.kr(BusDef(\null)), sig * send1);
+			Out.ar(\out2.kr(BusDef(\null)), sig * send2);
+			Out.ar(\out3.kr(BusDef(\null)), sig * send3);
+			Out.ar(\out4.kr(BusDef(\null)), sig * send4);
+
+			in;
+		});
+
+		Ndef(name+++\mixer).put(200, \filter -> { arg in, amp=1, send1=0, send2=0, send3=0, send4=0;
+			var sig;
+
+			amp = make_mix.(0, amp, send1);
+			amp = make_mix.(1, amp, send2);
+			amp = make_mix.(2, amp, send3);
+			amp = make_mix.(3, amp, send4);
+
+			sig = in * amp;
+			//if(mode == \amp or: { mode.asString.beginsWith("mix") }) {
+			//	sig = \mamp.kr(1);
+			//};
+			sig;
+
+		})
+
+	},
+
+	make_fixed_mixer: { arg self, send_list, mixer_mode;
+		var name = self.uname;
+		var make_out;
+		var make_mix;
+		var mode;
+
+		if(mixer_mode.notNil) {
+			self.mixer_mode = mixer_mode;
+		};
+		if(self.mixer_mode.isNil) {
+			self.mixer_mode = \default;
+		};
+		mode = self.mixer_mode;
+
 		send_list = send_list ?? [~fx1, ~fx2, ~fx3, ~fx4];
 		BusDef(name+++\mixer, \audio, 2);
 		self.add_play_node_hook(\mixer, { 
