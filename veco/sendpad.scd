@@ -35,6 +35,7 @@
 			name = node.uname;
 			if(self.display_mode == \send) {
 				send = self.mymodel.get_send(name, gridpos.y);
+				[gridpos, name, send].debug("launchpad_scene_sendpad: render_pos");
 				if(send > 0) {
 					self.set_led(gridpos, \green);
 				} {
@@ -42,6 +43,7 @@
 				}
 			} {
 				var in = self.mymodel.get_in(name);
+				[gridpos, name, in].debug("launchpad_scene_sendpad: render_pos: in");
 				if(in == gridpos.y) {
 					self.set_led(gridpos, \red);
 				} {
@@ -111,6 +113,8 @@
 		self.ndefsuffix = \mixer;
 		self.fxsuffix = \fx;
 
+		self.special_bus = 7;
+
 		self.busdict = IdentityDictionary.new;
 		8.collect({ arg x;
 			self.busdict[BusDef(self.busprefix+++x, \audio).index] = x
@@ -138,15 +142,23 @@
 	set_send: { arg self, name, x, mix;
 		var pos = self.offset;
 		self.install_sender(name, x);
-		Ndef(name+++self.ndefsuffix).set(\wet+++(pos+x), mix);
+		if(x == self.special_bus) {
+			Ndef(name+++self.ndefsuffix).set(\amp, mix);
+		} {
+			Ndef(name+++self.ndefsuffix).set(\wet+++(pos+x), mix);
+		}
 	},
 
 	get_send: { arg self, name, x;
 		var pos = self.offset;
-		if( Ndef(name+++self.ndefsuffix).at(pos+x).isNil ) {
-			0
+		if(x == self.special_bus) {
+			Ndef(name+++self.ndefsuffix).get(\amp);
 		} {
-			Ndef(name+++self.ndefsuffix).get(\wet+++(pos+x));
+			if( Ndef(name+++self.ndefsuffix).at(pos+x).isNil ) {
+				0
+			} {
+				Ndef(name+++self.ndefsuffix).get(\wet+++(pos+x));
+			}
 		}
 	},
 
