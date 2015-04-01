@@ -31,7 +31,7 @@
 		gridpos.debug("launchpad_scene_sendpad.render_pos: gridpos");
 		self.gridpos_to_abspos(gridpos).debug("launchpad_scene_sendpad.render_pos: abspos");
 		node = self.controller.get_node_by_index( self.gridpos_to_abspos(gridpos).x );
-		if(node.is_present) {
+		if(self.mymodel.is_present(node)) {
 			name = node.uname;
 			if(self.display_mode == \send) {
 				send = self.mymodel.get_send(name, gridpos.y);
@@ -123,6 +123,12 @@
 		self;
 	},
 
+	is_present: { arg self, node;
+		node.is_present and: {
+			Ndef(node.uname+++self.ndefsuffix).source.notNil
+		}
+	},
+
 	install_sender: { arg self, name, x, force=false;
 		var wasnil = false;
 		if( Ndef(name+++self.ndefsuffix).at(self.offset+x).isNil ) {
@@ -152,7 +158,12 @@
 	get_send: { arg self, name, x;
 		var pos = self.offset;
 		if(x == self.special_bus) {
-			Ndef(name+++self.ndefsuffix).get(\amp);
+			var res = Ndef(name+++self.ndefsuffix).get(\amp);
+			if(res.isNil) {
+				0;
+			} {
+				res;
+			}
 		} {
 			if( Ndef(name+++self.ndefsuffix).at(pos+x).isNil ) {
 				0
