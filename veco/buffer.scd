@@ -144,11 +144,11 @@
 			uname = self.uname_to_puname(uname);
 			uname.debug("open_project: create node");
 			// create buffers objects and load saved data (mainly stepseq and amp)
-			"hh1".debug;
+			//"hh1".debug;
 			self.nodes[uname] = ~class_node_buffer.new(self, uname);
-			"hh2".debug;
+			//"hh2".debug;
 			self.nodes[uname].load_data;
-			"hh3".debug;
+			//"hh3".debug;
 		};
 		"init project".debug("===");
 		self.init_project; // load init files and execute node buffers
@@ -182,11 +182,11 @@
 		var pnode, clip;
 		var project, node;
 		// format of a puname: project-node.clip
-		in.debug("split_puname");
+		//in.debug("split_puname");
 		in = in.asString;
 		#pnode, clip = in.split($.);
 		#project, node = in.split($-);
-		[pnode, clip, project, node].debug("[pnode, clip, project, node]");
+		//[pnode, clip, project, node].debug("[pnode, clip, project, node]");
 		if(node.isNil) {
 			node = project;
 			project = nil;
@@ -197,7 +197,7 @@
 			node: node.asSymbol,
 			project_node: pnode.asSymbol,
 			clip: clip,
-		).debug("split_puname: suname");
+		); //.debug("split_puname: suname");
 	},
 
 	get_node_by_uname: { arg self, uname;
@@ -419,7 +419,7 @@
 	get_node_by_uname: { arg self, uname;
 		// get node by uname or index, get clip by clip_uname or point
 		var res;
-		uname.debug("veco.get_node_by_uname: uname");
+		//uname.debug("veco.get_node_by_uname: uname");
 		if(uname.isNumber) {
 			res = self.get_node_by_index(uname);
 		};
@@ -432,12 +432,15 @@
 				var suname;
 
 				suname = self.split_puname(uname);
-				suname.debug("suname");
-				[suname.project.asCompileString, self.project_name.asCompileString].debug("supro, selpro");
-				self.pane_target_project.class.debug("pantarpro");
-				if(self.pane_target_project.notNil and: {self.pane_target_project[\veco].notNil}) {
-					self.pane_target_project[\veco].project_name.asCompileString.debug("pataproname");
-				};
+				//suname.debug("suname");
+				//[suname.project.asCompileString, self.project_name.asCompileString].debug("supro, selpro");
+				//self.pane_target_project.class.debug("pantarpro");
+
+				// debug
+				//if(self.pane_target_project.notNil and: {self.pane_target_project[\veco].notNil}) {
+				//	self.pane_target_project[\veco].project_name.asCompileString.debug("pataproname");
+				//};
+
 				if(
 					self.pane_target_project.notNil and: {
 						suname.is_puname and: {
@@ -447,30 +450,30 @@
 						}
 					}
 				) {
-					suname.debug("suname2");
+					//suname.debug("suname2");
 					res = self.pane_target_project[\veco].get_node_by_uname(uname);
-					res.class.debug("res0");
+					//res.class.debug("res0");
 				} {
 					if(suname.is_puname.not) {
 						suname = self.split_puname(self.uname_to_puname(uname));
 					};
-					uname.debug("uname3");
-					suname.debug("suname3");
-					self.nodes.keys.asArray.sort.debug("nodes");
+					//uname.debug("uname3");
+					//suname.debug("suname3");
+					//self.nodes.keys.asArray.sort.debug("nodes");
 					res = self.nodes[suname.project_node];
-					res.class.debug("res1");
+					//res.class.debug("res1");
 					if(res.notNil and: {suname.clip.notNil}) {
 						res = res.get_clip_by_index(suname.clip.asInteger - 1);
-						res.class.debug("res2");
+						//res.class.debug("res2");
 					};
 				};
 
 			} {
 				res = self.nodes[uname];
-				res.class.debug("resX");
+				//res.class.debug("resX");
 			};
 		};
-		res.class.debug("mais hein????????");
+		//res.class.debug("mais hein????????");
 		if(res.isNil) {
 			uname.debug("Error: uname not found");
 			//"uname not found".throw;
@@ -483,9 +486,9 @@
 	get_nodeclip_by_uname: { arg self, uname;
 		var node_uname,idx, node; 
 		#node_uname, idx = uname.asString.split($.);
-		node_uname.debug("get_node_by_uname: node_uname");
+		//node_uname.debug("get_node_by_uname: node_uname");
 		if(idx.isNil) {
-			~uname.debug("Error: uname is not in a nodeclip uname format").postln;
+			[uname, ~uname].debug("Error: uname is not in a nodeclip uname format").postln;
 			"uname is not in a nodeclip uname format".throw;
 			nil;
 		} {

@@ -124,8 +124,19 @@
 		
 		self.note_array = List.newClear(128);
 		self.start_responding;
+
+		self.activate;
 	
 		self;
+	},
+
+	activate: { arg self;
+		var pianopad;
+		pianopad = ~launchpad_scene_pianopad.new(Veco.main);
+		pianopad.set_model(self);
+		pianopad.activate;
+		self.pianopad = pianopad;
+		
 	},
 
 	start_responding: { arg self;
@@ -137,18 +148,23 @@
 		var event;
 		//[self.event_stream, self.event_stream.next(Event.default)].debug("et alors ?");
 		event = self.event_stream.next(Event.default);
-		event[\latency] = nil;
-		event[\type] = \on;
+		event[\latency] = Ref(nil);
+		event[\latency] = 0.00001;
+		event[\type] = \note;
+		event[\sustain] = 50;
+		event[\isRest] = false;
+		event[\freq] = nil;
 		event[\note] = note;
 		event.debug("cur event note on");
-		self.note_array[note] = event.play;
+		self.note_array[note+10] = event.play;
+		//self.note_array[note] = Synth(\default);
 	},
 
 	note_off: { arg self, note, velocity=1;
 		"noteoff!!!".debug;
-		if(self.note_array[note].notNil) {
-			self.note_array[note].release;
-			self.note_array[note] = nil;
+		if(self.note_array[note+10].notNil) {
+			self.note_array[note+10].release;
+			self.note_array[note+10] = nil;
 		} {
 			note.debug("what ?")
 		}
@@ -162,16 +178,15 @@
 	Pbind(
 		\instrument, \default,
 		\octave, 2,
+		\latency, 0.7,
 	)
 	
 );
 //~rec.note_on(50);
-~pianopad = ~launchpad_scene_pianopad.new(Veco.main);
-~pianopad.set_model(~rec);
-~pianopad.activate;
 
 )
 
+s.latency = 0.20001
 
 ~rec.note_off(50);
 x = (type: \on, latency:\no ).play;

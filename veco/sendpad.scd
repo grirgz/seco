@@ -117,7 +117,8 @@
 
 		self.busdict = IdentityDictionary.new;
 		8.collect({ arg x;
-			self.busdict[BusDef(self.busprefix+++x, \audio).index] = x
+			self.busdict[BusDef(self.busprefix+++x, \audio).index] = x;
+			Spec.add(\wet+++(self.offset+x), ControlSpec(0,1,\lin));
 		});
 	
 		self;
@@ -199,10 +200,109 @@
 	bus_to_index: { arg self, bus;
 		self.busdict[bus]
 	},
+
+	get_send_param: { arg self, name, x;
+		var pos = self.offset;
+		if(x == self.special_bus) {
+			var res = Param(Ndef(name+++self.ndefsuffix), \amp);
+			res;
+		} {
+			Param(Ndef(name+++self.ndefsuffix), \wet+++(pos+x));
+		}
+		
+	},
+
+	get_send_column_param: { arg self, name;
+		8.collect{ arg x;
+			self.get_send_param(name, x)
+		}
+	},
+
+	get_send_screen_param: { arg self;
+		var params = List.new;
+		8.do { arg nidx;
+			var node =  Veco.main.get_node_by_index(Veco.main.clip_offset.x+nidx);
+			var uname = node.uname;
+			if(node.is_present) {
+				params.addAll(self.get_send_column_param(uname));
+			}
+		};
+		params;
+	},
 );
+
+~class_send_view = (
+	new: { arg self;
+		var hlayout;
+		self = self.deepCopy;
+	
+
+		hlayout = HLayout.new;
+		self.labels = List.new;
+		self.knobs = 8.collect { arg x;
+			var vlayout = VLayout.new;
+			var label = StaticText.new;
+			label.font = Font.new.size_(10);
+			self.labels.add(label);
+			vlayout.add(label);
+			hlayout.add(vlayout);
+			8.collect { arg y;
+				var knob = Knob.new;
+				vlayout.add(knob);
+				knob;
+			} 
+		};
+
+		self.window = Window.new;
+
+		self.window.layout = hlayout;
+		self.window.view.keyDownAction = { arg ...args;
+			//args.debug("args");
+			if(args[3].dump == 27) {
+				self.window.close;
+			} {
+				self.update_knobs;
+			};
+		};
+		self.update_knobs;
+		self.window.front;
+		self.window.alwaysOnTop = true;
+	
+		self;
+	},
+
+	update_knobs: { arg self;
+		"class_send_view:udpate_knobs XX".debug;
+		8.do { arg x;
+			var node = Veco.main.get_node_by_index(Veco.main.clip_offset.x + x);
+			var params = ~veco_sendpad.get_send_column_param(node.uname);
+			var in_idx = ~veco_sendpad.get_in(node.uname);
+			self.labels[x].string = node.uname;
+			if(node.is_present) {
+				8.do { arg y;
+					self.knobs[x][y].enabled = true;
+					if(in_idx == y) {
+						self.knobs[x][y].background = Color.new(0.11,0.1,0.4,0.4);
+					} {
+						self.knobs[x][y].background = Color.white;
+					};
+					self.knobs[x][y].mapParam(params[y])
+				}
+			} {
+				8.do { arg y;
+					self.knobs[x][y].unmapParam;
+					self.knobs[x][y].background = Color.white;
+					self.knobs[x][y].enabled = false;
+				}
+			};
+		};
+	},
+);
+
 ~veco_sendpad = ~class_sendpad.new;
 //~scene_sendpad = ~launchpad_scene_sendpad.new(Veco.main);
 //~scene_sendpad.set_model(~sendpad, \send);
 //~scene_sendpad.activate;
+//~veco_send_view = ~class_send_view.new;
 );
 

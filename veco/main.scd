@@ -51,6 +51,7 @@ VecoLib.load_lib;
 	"launchpad_gui",
 	"inline_editor",
 	"sendpad",
+	"preset_manager",
 ].do { arg file;
 	("Loading " ++ file ++".scd...").inform;
 	(Veco.extension_path +/+ file++".scd").load;
