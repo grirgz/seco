@@ -1,41 +1,38 @@
- ~/c/s/s/vlive  40.scd  ~/c/s/s/v/crap  49.scd  ~/c/s/s/v/e/7.scd  /S/E/s/TimelineView.sc                                                      X
-    if(minX<~thisBeastie[xPos], {~thisBeastie[xPos]=~thisBeastie[xPos]-1});
-    if(minX>~thisBeastie[xPos], {~thisBeastie[xPos]=~thisBeastie[xPos]+1});
-    if(minY<~thisBeastie[yPos], {~thisBeastie[yPos]=~thisBeastie[yPos]-1});
-    if(minY>~thisBeastie[yPos], {~thisBeastie[yPos]=~thisBeastie[yPos]+1});
-};
+ vent.scd  base.scd  line.scd  + ne.scd  main.scd  ine1.scd  ine2.scd  Gui.sc  eline.sc  eView.sc  Proto.sc  Param.sc  terns.sc      X
+            var eventlist = self.eventloop.list;
+            if(self.cursor.notNil) {
+                start = self.cursor.startPosition - eventlist.startTime;
+                if(self.cursor.endPosition.notNil) {
+                    end = self.cursor.endPosition - eventlist.endTime;
+                }
+            };
+            ~timeline_pattern.(
+                ~eventlist_aspattern.(
+                    self.eventloop.list
+                ).trace(prefix:"xxxxxxxxxxxxxxxxxxxxx"),
+                start, end
+            );
+            //self.eventloop.list.asPattern.trace(prefix:"xxxxxxxxxxxxxxxxxxxxx")
+        }));
+    },
 
-findPartner={
-    var minX, minY, distance;
-    var nearest;
-    var tree;
-    minX=maxX;  //x-coördinate of partner, closest to the beastie
-    minY=maxY;  //y-coördinate of partner, closest to the beastie
+    makeWindow: { arg self;
+        //var window = Window.new;
+        var layout;
+        '%_d'.format(ss)
+        WindowDef('%_'self.eventType +++)
+        window.onClose_({
+            self.save_timeline_properties;
+        });
+        layout = self.makeLayout;
+        window.layout = layout;
+        window.alwaysOnTop = true;
+        window.front;
+    },
 
-    tree = KDTree(~beasties.collect({ arg x; [x[xPos],x[yPos]] }));
-    nearest = tree.nearest([~thisBeastie[xPos], ~thisBeastie[yPos]]);
-    minX = nearest[0][0];
-    minY = nearest[0][1];
-    //distance=max(maxX, maxY);
-    //for(0, ~beasties.size-1, {arg k;
-    //  if (k!= ~thisIndex,{
-    //      d=max((~beasties[k][xPos]-~thisBeastie[xPos]).abs, (~beasties[k][yPos]-~thisBeastie[yPos]).abs);
-    //      if(d<distance, {
-    //          minX=~beasties[k][xPos];
-    //          minY=~beasties[k][yPos];
-    //          distance=d;
-    //      });
-    //  });
-    //});
-    if(minX<~thisBeastie[xPos], {~thisBeastie[xPos]=~thisBeastie[xPos]-1});
-    if(minX>~thisBeastie[xPos], {~thisBeastie[xPos]=~thisBeastie[xPos]+1});
-    if(minY<~thisBeastie[yPos], {~thisBeastie[yPos]=~thisBeastie[yPos]-1});
-    if(minY>~thisBeastie[yPos], {~thisBeastie[yPos]=~thisBeastie[yPos]+1});
-};
-
-determinePartner={arg l;
-    ~partnerFound=false;
-    for(0, ~beasties.size-1, {arg j;
-        if(((l!=j)&&(~beasties[j][xPos]==~thisBeastie[xPos])&&
-            (~beasties[j][yPos]==~thisBeastie[yPos])), {
-                                                                                                                              344,2-5       68%
+    add_track: { arg self;
+        self.areasize = Point(self.areasize.x, self.areasize.y+1 );
+        self.timeline.refreshEventList;
+        self.timeline.refresh;
+        self.update_track_header;
+"/tmp/sclang-pipe" [Périph.] 1L, 19C [a]                                                                            1114,17-23    48%
