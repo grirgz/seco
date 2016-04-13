@@ -229,6 +229,10 @@
 		};
 		params;
 	},
+
+	edit: { arg self;
+		~class_send_view.new;
+	},
 );
 
 ~class_send_view = (
