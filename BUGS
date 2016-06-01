@@ -1,3 +1,4 @@
+// copied in zim
 - les param de type bus sont pas pris en compte lors du liveplay
 - pad_select_param desactivé apres liveplay
 - au load il y a des doubles selections

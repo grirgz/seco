@@ -149,7 +149,7 @@
 		//[self.event_stream, self.event_stream.next(Event.default)].debug("et alors ?");
 		event = self.event_stream.next(Event.default);
 		event[\latency] = Ref(nil);
-		event[\latency] = 0.00001;
+		//event[\latency] = 0.00001;
 		event[\type] = \note;
 		event[\sustain] = 50;
 		event[\isRest] = false;
@@ -164,6 +164,7 @@
 		"noteoff!!!".debug;
 		if(self.note_array[note+10].notNil) {
 			self.note_array[note+10].release;
+			//self.note_array[note+10].free;
 			self.note_array[note+10] = nil;
 		} {
 			note.debug("what ?")
@@ -176,19 +177,37 @@
 
 ~rec = ~class_note_recorder.new(
 	Pbind(
-		\instrument, \default,
-		\octave, 2,
-		\latency, 0.7,
+		\instrument, \bass,
+		\octave, 3,
+		//\latency, 0.7,
 	)
 	
 );
-//~rec.note_on(50);
 
 )
 
+(
+SynthDef(\bass, { arg out=0, amp=0.1, gate=1, pan=0, freq=200;
+	var sig;
+	sig = SinOsc.ar(freq);
+	sig = sig * EnvGen.ar(Env.adsr(0.01,0.1,0.8,0.01),gate,doneAction:2);
+	sig = (sig * 10).tanh;
+	sig = Pan2.ar(sig, pan, amp);
+	Out.ar(out, sig);
+}).add;
+);
+
+// END
+~rec.note_on(50);
+~rec.note_off(50);
+
 s.latency = 0.20001
+s.latency = 0.00001
+s.sendMsg([15, [1000,10200], \gate, 1.0])
 
 ~rec.note_off(50);
 x = (type: \on, latency:\no ).play;
 x.release
 
+~lp = ~launchpad_scene_pianopad.new(~veco)
+~lp.activate

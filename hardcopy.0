@@ -1,38 +1,38 @@
- vent.scd  base.scd  line.scd  + ne.scd  main.scd  ine1.scd  ine2.scd  Gui.sc  eline.sc  eView.sc  Proto.sc  Param.sc  terns.sc      X
-            var eventlist = self.eventloop.list;
-            if(self.cursor.notNil) {
-                start = self.cursor.startPosition - eventlist.startTime;
-                if(self.cursor.endPosition.notNil) {
-                    end = self.cursor.endPosition - eventlist.endTime;
-                }
-            };
-            ~timeline_pattern.(
-                ~eventlist_aspattern.(
-                    self.eventloop.list
-                ).trace(prefix:"xxxxxxxxxxxxxxxxxxxxx"),
-                start, end
-            );
-            //self.eventloop.list.asPattern.trace(prefix:"xxxxxxxxxxxxxxxxxxxxx")
-        }));
-    },
+ + ~/c/s/s/v/c/118.scd  ~/.l/s/S/d/M/M/M/novation-launchpad.desc.scd                                                                 X
+MKtlDesc("*launchpad")
+MKtl(\lp).rebuild("*launchpad")
+k = MKtl(\lp)
+k.postElements
+k.elAt(\bt).action = { "hello".postln; }
+MKtl.find
 
-    makeWindow: { arg self;
-        //var window = Window.new;
-        var layout;
-        '%_d'.format(ss)
-        WindowDef('%_'self.eventType +++)
-        window.onClose_({
-            self.save_timeline_properties;
-        });
-        layout = self.makeLayout;
-        window.layout = layout;
-        window.alwaysOnTop = true;
-        window.front;
-    },
+(\bla:rah)
 
-    add_track: { arg self;
-        self.areasize = Point(self.areasize.x, self.areasize.y+1 );
-        self.timeline.refreshEventList;
-        self.timeline.refresh;
-        self.update_track_header;
-"/tmp/sclang-pipe" [Périph.] 1L, 19C [a]                                                                            1114,17-23    48%
+(isPlaying:true).isPlaying
+(isPlaying:false).isPlaying
+Event
+^false
+0 ^ 0
+^"jj"
+^-1
+33
+
+(bla: { ^1 }).bla
+(
+c = 0;
+~a = (bla: { "hello a".postln; ^1 });
+~b = (bla: { c=c+1; "hello b".postln; nil });
+~ra = ~a.bla;
+~rb = ~b.bla;
+~rb = ~b.bla;
+"bla";
+)
+c
+~a.bla
+~c
+"kk"
+
+
+
+Ndef(\lfo1, { SinOsc.kr(1).range(50,100)  });
+"/tmp/sclang-pipe" [Périph.] 1L, 32C ajouté(s)                                                                      2,19         Haut
