@@ -1,38 +1,43 @@
- + ~/c/s/s/v/c/118.scd  ~/.l/s/S/d/M/M/M/novation-launchpad.desc.scd                                                                 X
-MKtlDesc("*launchpad")
-MKtl(\lp).rebuild("*launchpad")
-k = MKtl(\lp)
-k.postElements
-k.elAt(\bt).action = { "hello".postln; }
-MKtl.find
+ NERD_tree_3  + fb.scd  NERD_tree_4  s/s/v/e/r/rix1.scd  dist.scd  draft.scd  _delay_network.scd  andDelayNetwork.sc                                             X
+            FreqShift.ar(si, 100.0.rand * [1, 1+0.01.rand] * [1,-1].choose * \shift.kr) + si / 1.2;
+        },
+        \shift2, { arg si;
+            FreqShift.ar(si, 100.0.rand * [1, 1+0.01.rand] * [1,-1].choose * \shift2.kr) + si / 1.2;
+        },
+        \dist, { arg si;
+            (si * 10.rand * \distamp.kr).tanh / 2;
+        },
+        \end, { arg si;
+            si;
+        }
+    ]));
 
-(\bla:rah)
-
-(isPlaying:true).isPlaying
-(isPlaying:false).isPlaying
-Event
-^false
-0 ^ 0
-^"jj"
-^-1
-33
-
-(bla: { ^1 }).bla
-(
-c = 0;
-~a = (bla: { "hello a".postln; ^1 });
-~b = (bla: { c=c+1; "hello b".postln; nil });
-~ra = ~a.bla;
-~rb = ~b.bla;
-~rb = ~b.bla;
-"bla";
 )
-c
-~a.bla
-~c
-"kk"
+
+    RandDelayNetwork(\multifb).make(\fx1, "5--", BusDef(\fx1, \audio));
+    Ndef(\fx1).play
+    Ndef(\fx1).edit
+    Ndef(\fx1).source.draw
+
+    (
+    Ndef(\fx1).play;
+    Pdef(\main,
+        Ppar([
+            Pdef(\kick),
+            Pdef(\snare),
+            Pdef(\hat),
+        ].collect({ arg x; Pbind(\out, BusDef(\fx1,\audio,2)) <> x }))
+    ).play;
+    )
 
 
+// Two delay lines with cross talk. This would be quite awkward to do with Fb.
 
-Ndef(\lfo1, { SinOsc.kr(1).range(50,100)  });
-"/tmp/sclang-pipe" [Périph.] 1L, 32C ajouté(s)                                                                      2,19         Haut
+(
+
+{
+
+    var in = WhiteNoise.ar*Line.kr(1,0,0.1);
+
+
+"/tmp/sclang-pipe" [Périph.] 1L, 24C ajouté(s)                                                                                                  66,23-26      68%
