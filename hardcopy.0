@@ -1,43 +1,43 @@
- NERD_tree_3  + fb.scd  NERD_tree_4  s/s/v/e/r/rix1.scd  dist.scd  draft.scd  _delay_network.scd  andDelayNetwork.sc                                             X
-            FreqShift.ar(si, 100.0.rand * [1, 1+0.01.rand] * [1,-1].choose * \shift.kr) + si / 1.2;
-        },
-        \shift2, { arg si;
-            FreqShift.ar(si, 100.0.rand * [1, 1+0.01.rand] * [1,-1].choose * \shift2.kr) + si / 1.2;
-        },
-        \dist, { arg si;
-            (si * 10.rand * \distamp.kr).tanh / 2;
-        },
-        \end, { arg si;
-            si;
-        }
-    ]));
-
+ sco1.scd  + sco2.scd  bla7.scd  2 recordgui.scd  main.scd  2 /s/v/NERD_tree_2  2 /p/P/NERD_tree_3  /s/s/v/r/e/lib.scd                                           X
+TrackDef(\grid2).source = [
+    [
+        KitTimeline(\hh1),
+        KitTimeline(\hhloop1),
+    ],
+    [
+        ProtoDef(\rdn)
+    ],
+    [
+        ProtoDef(\basicrecorder)
+    ],
+];
 )
-
-    RandDelayNetwork(\multifb).make(\fx1, "5--", BusDef(\fx1, \audio));
-    Ndef(\fx1).play
-    Ndef(\fx1).edit
-    Ndef(\fx1).source.draw
-
-    (
-    Ndef(\fx1).play;
-    Pdef(\main,
-        Ppar([
-            Pdef(\kick),
-            Pdef(\snare),
-            Pdef(\hat),
-        ].collect({ arg x; Pbind(\out, BusDef(\fx1,\audio,2)) <> x }))
-    ).play;
-    )
-
-
-// Two delay lines with cross talk. This would be quite awkward to do with Fb.
+TrackDef(\grid2).edit
 
 (
+PatKitDef(\hhloop1).source = 8.collect({ arg idx;
+    var pos = idx/2/~t + 0.04;
+    StepEvent.newFrom((
+        //adsr: Env([ 0, 1, 1, 0 ], [ 0.001, 0, 0.01 ], [ -4, -4, -4 ], 2),
+        instrument: 'playersec', bufnum: BufDef('/home/ggz/Musique/sc/reckit/fix3/loop1.flac'), pos:pos))
+});
+)
 
-{
 
-    var in = WhiteNoise.ar*Line.kr(1,0,0.1);
-
-
-"/tmp/sclang-pipe" [Périph.] 1L, 24C ajouté(s)                                                                                                  66,23-26      68%
+(
+Ndef(\hi, { arg freq=200, pan=0, amp=0.1;
+    var sig;
+    var env;
+    var gate = TDuty.kr(8/~t, 0, Dseq([
+        1,
+    ],inf));
+    env = EnvGen.kr(\env.kr(Env([0,0,1,0.1,0],[0,0.01,0.4,0.2].normalizeSum)), gate, timeScale:7.8);
+    sig = SinOsc.ar(freq * ( 1 + ( SinOsc.ar(123 * [1,2,3] * env) * 2 * env )));
+    sig = CuspN.ar(env) * sig;
+    sig = sig * 44;
+    sig = sig.tanh/2;
+    sig = sig * env;
+    sig = Pan2.ar(sig, pan, amp).flop;
+}).play;
+);
+"/tmp/sclang-pipe" [Périph.] 1L, 3C ajouté(s)                                                                                                   46,18-21      Bas
