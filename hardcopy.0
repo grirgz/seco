@@ -1,43 +1,43 @@
- sco1.scd  + sco2.scd  bla7.scd  2 recordgui.scd  main.scd  2 /s/v/NERD_tree_2  2 /p/P/NERD_tree_3  /s/s/v/r/e/lib.scd                                           X
-TrackDef(\grid2).source = [
-    [
-        KitTimeline(\hh1),
-        KitTimeline(\hhloop1),
-    ],
-    [
-        ProtoDef(\rdn)
-    ],
-    [
-        ProtoDef(\basicrecorder)
-    ],
-];
+ atterns.scd  tterns2.scd  kitlib.scd  main.scd  scapes.scd  scapes2.scd  flow2.scd  + draft.scd  flow3.scd  kitwork.scd  playrec.scd  rkspace.scd               X
+                \adsr, Pseq([
+                    Pseq([
+                        [ Env.adsr(0.001,0.1,0.8,0.001) ],
+                        [ Env.adsr(0.001,0.1,0.8,0.11) ],
+                        [ Env.adsr(0.001,0.1,0.8,0.001) ],
+                        [ Env.adsr(0.001,0.1,0.8,0.001) ],
+                    ],inf).stutter(2),
+                ],1),
+                \legato, Pseq([0.3,0.5, 0.3, 0.5, 0.3, Prand([0.06,0.2],1)],inf).stutter(2) * Pseq([1/2,1/2,1/2,1],inf).stutter(8),
+                \amp, 0.4,
+                \out, BusDef(\fbfx, \audio),
+            ),
+        )};
+        var kit1 = kitfun.value;
+
+        Pseq([
+            Ppar([
+                Pbind(
+                    \isRest, Pseq([
+                        1,0,0,0, 0,0,0,0,
+                    ],inf).coin.not.collect({ arg p; p.debug("p")  }),
+                ) <> kit1.bass1,
+                kit1.kick1,
+                kit1.kick2,
+                kit1.snare1,
+                kit1.snare2,
+                //kit1.skank2,
+                //kit1.hat1,
+                kit1.bassguitar1,
+
+
+                //kit1.chord1,
+            ]),
+        ]);
+
+    })
+).play;
+Pdef(\fxpat).play;
 )
-TrackDef(\grid2).edit
 
 (
-PatKitDef(\hhloop1).source = 8.collect({ arg idx;
-    var pos = idx/2/~t + 0.04;
-    StepEvent.newFrom((
-        //adsr: Env([ 0, 1, 1, 0 ], [ 0.001, 0, 0.01 ], [ -4, -4, -4 ], 2),
-        instrument: 'playersec', bufnum: BufDef('/home/ggz/Musique/sc/reckit/fix3/loop1.flac'), pos:pos))
-});
-)
-
-
-(
-Ndef(\hi, { arg freq=200, pan=0, amp=0.1;
-    var sig;
-    var env;
-    var gate = TDuty.kr(8/~t, 0, Dseq([
-        1,
-    ],inf));
-    env = EnvGen.kr(\env.kr(Env([0,0,1,0.1,0],[0,0.01,0.4,0.2].normalizeSum)), gate, timeScale:7.8);
-    sig = SinOsc.ar(freq * ( 1 + ( SinOsc.ar(123 * [1,2,3] * env) * 2 * env )));
-    sig = CuspN.ar(env) * sig;
-    sig = sig * 44;
-    sig = sig.tanh/2;
-    sig = sig * env;
-    sig = Pan2.ar(sig, pan, amp).flop;
-}).play;
-);
-"/tmp/sclang-pipe" [Périph.] 1L, 3C ajouté(s)                                                                                                   46,18-21      Bas
+"/tmp/sclang-pipe" [Périph.] 1L, 2C ajouté(s)                                                                                                   224,35-50     79%
