@@ -9,7 +9,6 @@
 		self.get_player = {player};
 		self.display = display;
 		self.custom_tracks = {tracks};
-		//self.custom_tracks.debug("bordel");
 		//self.display = ~class_track_display.new;
 
 	
@@ -20,7 +19,6 @@
 		var res = List.new;
 		debug("class_custom_tracks_controller.get_tracks");
 		res = self.custom_tracks.collect { arg track;
-			track.uname.debug("bordel");
 			~make_recordline_track_controller.(track, self.display);
 		};
 		self.tracks = res;
@@ -333,7 +331,6 @@
 	var node = ~node;
 	if(node.notNil) {
 		var comp = node.compositor;
-		"bordel".debug;
 		comp.declare_mods(mods);
 	};
 };

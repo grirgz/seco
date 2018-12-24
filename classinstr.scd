@@ -2087,13 +2087,10 @@
 			//osc = osc.sum;
 			phase = osc * i.range + (i.bufpos * BufFrames.ir(bufnum)) + i.finepos;
 
-			debug("ca suffi bordel");
 			bufsig = BufRd.ar(2, bufnum, phase, 1);
-			bufsig.debug("ca suffi bordel1");
 			sig = bufsig.collect { arg chan;
 				chan.sum;
 			};
-			sig.debug("ca suffi bordel2");
 			sig;
 		}
 	},
@@ -2162,18 +2159,15 @@
 			var bufsig;
 			var osc, phase;
 			
-			debug("ca suffi bordel");
 			//bufsig = PlayBuf.ar(2, bufnum, i.rate * BufRateScale.kr(bufnum), 1, i.bufpos * BufFrames.kr(bufnum), i.loop);
 			bufsig = PlayBuf.ar(2, bufnum, i.bufrate * BufRateScale.kr(bufnum), 1, i.bufpos * BufFrames.kr(bufnum), i.bufloop);
 			//bufsig = PlayBuf.ar(2, bufnum, 1 * BufRateScale.kr(bufnum), 1, 0 * BufFrames.kr(bufnum), 0);
 			//bufsig = SinOsc.ar(200);
-			bufsig.debug("ca suffi bordel1");
 			//sig = bufsig.collect { arg chan;
 			//	chan.sum;
 			//};
 			sig = bufsig;
 			sig = self.bypass(i.enabled, sig, DC.ar(0));
-			sig.debug("ca suffi bordel2");
 			sig;
 		}
 	},
@@ -2474,7 +2468,6 @@
 				oscs: self.enabled_ctrl[key],
 			)
 		};
-		//modkinds.debug("ouais c'est le bordel");
 		intmod = ~class_internal_modulator_gui.new(self.param[\intmod_pitch], modkinds);
 		self.layout = intmod.layout;
 		self.layout;
@@ -2499,7 +2492,7 @@
 					},
 					\wt_pos, {
 						in
-						// TODO: casse les couilles
+						// TODO:
 					},
 					{
 						in

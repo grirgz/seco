@@ -141,7 +141,7 @@
 
 	start_responding: { arg self;
 		self.event_stream = self.inpat.asStream;
-		self.event_stream.debug("bordel");
+		self.event_stream;
 	},
 
 	note_on: { arg self, note, velocity=1;

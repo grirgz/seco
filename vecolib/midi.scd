@@ -460,22 +460,16 @@
 			//var defname = "cc_%_%".format(self.channel, self.ccnum).asSymbol;
 			var curval;
 			["cc_but", val,b,c,d].postln;
-			val.debug("bordelval-1");
 			if(self.target.notNil) {
 				val = val/127;
-				val.debug("bordelval0");
 				if(val == 1) {
-					val.debug("bordelval1");
 					self.target.value; // target is a user function because of button mode
 				} {
-					val.debug("bordelval");
 					if(val == 0) {
-						val.debug("bordelval2");
 						self.target_key.value; // target_key is a user function because of button mode
 					}
 				};
 			}; 
-			val.debug("bordelval3");
 		},
 
 		handle_midi_note_button_message: { arg self, val, b,c,d;

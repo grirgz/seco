@@ -728,7 +728,7 @@
 
 			off_stop_playing = { arg x;
 				var node = self.controller.get_node_by_index(x);
-				[self.controller.clip_offset, Point(x, opos.y), self.is_abspos_visible(Point(x, opos.y))].debug("bordelYO");
+				//[self.controller.clip_offset, Point(x, opos.y), self.is_abspos_visible(Point(x, opos.y))].debug("YO");
 				if(self.is_abspos_visible(Point(x, opos.y))) {
 					node.stop_node(true, {
 						self.render_column(x - self.controller.clip_offset.x);
